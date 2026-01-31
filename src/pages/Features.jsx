@@ -2,10 +2,10 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowRight, 
-  Sparkles, 
-  CheckCircle, 
+import {
+  ArrowRight,
+  Sparkles,
+  CheckCircle,
   FolderKanban,
   Calendar,
   Brain,
@@ -50,7 +50,7 @@ export default function FeaturesPage() {
         "File attachments and documentation",
         "Subtask breakdown and checklists"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Calendar,
@@ -65,7 +65,7 @@ export default function FeaturesPage() {
         "Retrospective tools",
         "Backlog prioritization"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Brain,
@@ -80,7 +80,7 @@ export default function FeaturesPage() {
         "Smart suggestions for resource allocation",
         "Project health scoring"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Clock,
@@ -95,7 +95,7 @@ export default function FeaturesPage() {
         "Location tracking (configurable)",
         "Weekly/daily submission workflows"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: FileCheck,
@@ -110,7 +110,7 @@ export default function FeaturesPage() {
         "Approval history and audit trail",
         "Configurable approval policies"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: LifeBuoy,
@@ -125,7 +125,7 @@ export default function FeaturesPage() {
         "Internal notes and comments",
         "Email notifications and updates"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Eye,
@@ -140,7 +140,7 @@ export default function FeaturesPage() {
         "Document sharing and viewing",
         "No admin burden for clients"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Shield,
@@ -155,7 +155,7 @@ export default function FeaturesPage() {
         "User and workspace oversight",
         "Platform analytics and insights"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     },
     {
       icon: Zap,
@@ -170,7 +170,7 @@ export default function FeaturesPage() {
         "Flexible billing models",
         "No-code industry switching"
       ],
-      screenshot: "/api/placeholder/800/500"
+      screenshot: "https://placehold.co/800x500"
     }
   ];
 
@@ -246,7 +246,7 @@ export default function FeaturesPage() {
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto space-y-32">
           {features.map((feature, idx) => (
-            <motion.div 
+            <motion.div
               key={idx}
               className={`grid lg:grid-cols-2 gap-12 items-center ${idx % 2 === 1 ? 'lg:grid-flow-dense' : ''}`}
               {...fadeInUp}
@@ -277,11 +277,11 @@ export default function FeaturesPage() {
                   </Button>
                 </Link>
               </div>
-              
+
               <div className={`relative ${idx % 2 === 1 ? 'lg:col-start-1 lg:row-start-1' : ''}`}>
                 <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-2xl" />
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-2xl bg-white">
-                  <img 
+                  <img
                     src={feature.screenshot}
                     alt={feature.title}
                     className="w-full"

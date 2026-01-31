@@ -2,8 +2,8 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Sparkles, 
+import {
+  Sparkles,
   ArrowRight,
   Target,
   Heart,
@@ -111,7 +111,7 @@ export default function AboutUs() {
               </span>
             </h1>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-              We're on a mission to help teams deliver better projects faster—with AI-powered insights, 
+              We're on a mission to help teams deliver better projects faster—with AI-powered insights,
               deep timesheet integration, and client-ready transparency.
             </p>
           </motion.div>
@@ -130,29 +130,29 @@ export default function AboutUs() {
                 Our Mission
               </h2>
               <p className="text-lg text-slate-600 mb-4">
-                Traditional project management tools are either too simple or overwhelmingly complex. 
+                Traditional project management tools are either too simple or overwhelmingly complex.
                 We built Groona to bridge that gap.
               </p>
               <p className="text-lg text-slate-600 mb-4">
-                We believe in empowering teams with the right data at the right time—without drowning 
-                them in features they'll never use. Every decision we make is guided by one question: 
+                We believe in empowering teams with the right data at the right time—without drowning
+                them in features they'll never use. Every decision we make is guided by one question:
                 <span className="font-semibold text-slate-900"> "Does this help teams deliver better work?"</span>
               </p>
               <p className="text-lg text-slate-600">
-                From software developers to marketing agencies, we're building for teams that value 
+                From software developers to marketing agencies, we're building for teams that value
                 clarity, efficiency, and results.
               </p>
             </motion.div>
-            <motion.div 
+            <motion.div
               {...fadeInUp}
               transition={{ delay: 0.2 }}
               className="relative"
             >
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur-3xl" />
               <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-2xl">
-                <img 
-                  src="/api/placeholder/600/400" 
-                  alt="Team collaboration" 
+                <img
+                  src="https://placehold.co/600x400"
+                  alt="Team collaboration"
                   className="w-full"
                 />
               </div>
@@ -238,22 +238,22 @@ export default function AboutUs() {
             </h2>
             <div className="text-lg text-slate-600 space-y-4 text-left">
               <p>
-                Groona was born from frustration. Our founders spent years managing software development 
-                teams and client projects, constantly switching between task boards, time trackers, and 
+                Groona was born from frustration. Our founders spent years managing software development
+                teams and client projects, constantly switching between task boards, time trackers, and
                 spreadsheets just to answer simple questions like "How much time did we spend on this feature?"
               </p>
               <p>
-                We realized the problem wasn't a lack of tools—it was too many disconnected tools. Projects 
-                lived in one app, time tracking in another, and client reporting required manual exports and 
+                We realized the problem wasn't a lack of tools—it was too many disconnected tools. Projects
+                lived in one app, time tracking in another, and client reporting required manual exports and
                 reconciliation.
               </p>
               <p>
-                So we built Groona: a single platform where tasks, sprints, timesheets, and client dashboards 
-                work together seamlessly. Add AI-powered insights into the mix, and you get a system that 
+                So we built Groona: a single platform where tasks, sprints, timesheets, and client dashboards
+                work together seamlessly. Add AI-powered insights into the mix, and you get a system that
                 doesn't just track work—it helps you plan and deliver better.
               </p>
               <p className="font-semibold text-slate-900">
-                Today, we're proud to serve teams across software development, marketing, and consulting—helping 
+                Today, we're proud to serve teams across software development, marketing, and consulting—helping
                 them deliver projects on time, within budget, and with full transparency.
               </p>
             </div>

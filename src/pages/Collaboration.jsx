@@ -214,19 +214,19 @@ export default function CollaborationPage() {
         featureArea="collaboration"
         userRole={userRole}
       />
-      <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-7xl mx-auto w-full flex flex-col h-full overflow-x-hidden relative min-h-0" style={{ maxWidth: '100%' }}>
-          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setView('list'); }} className="flex flex-col h-full min-h-0">
+      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+        <div className="max-w-10xl mx-auto w-full flex flex-col relative h-full">
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setView('list'); }} className="flex flex-col h-full">
             {/* Sticky Header Section */}
-            <div className="sticky top-0 z-40 bg-white border-b border-slate-200/60 shadow-sm shrink-0">
+            <div className="sticky top-0 z-30 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0">
               <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                   <div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-900 mb-2">
                       Collaboration Hub
                     </h1>
-                    <p className="text-slate-600">
+                    <p className="text-slate-600 text-lg">
                       Create documents, share files, and chat with your team in real-time
                     </p>
                   </div>
@@ -246,8 +246,8 @@ export default function CollaborationPage() {
                   </TabsList>
 
                   {activeTab === 'documents' && (
-                    <div className="flex items-center gap-3 ml-auto">
-                      <div className="relative w-[200px]">
+                    <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto md:ml-auto">
+                      <div className="relative w-full sm:w-[200px]">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Search documents..."
@@ -258,7 +258,7 @@ export default function CollaborationPage() {
                       </div>
 
                       <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="w-[140px] h-9">
+                        <SelectTrigger className="w-full sm:w-[140px] h-9">
                           <SelectValue placeholder="Categories" />
                         </SelectTrigger>
                         <SelectContent>
@@ -275,7 +275,7 @@ export default function CollaborationPage() {
                       {canCreateDocs && (
                         <Button
                           onClick={() => { setSelectedDocument(null); setView('create'); }}
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-9"
+                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-9 w-full sm:w-auto"
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           Create Document
@@ -288,8 +288,8 @@ export default function CollaborationPage() {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="px-3 pb-24 md:pb-32 pt-3">
                 {/* Documents Tab */}
                 <TabsContent value="documents" className="mt-0">
                   {view === 'list' && (
@@ -340,4 +340,3 @@ export default function CollaborationPage() {
     </OnboardingProvider>
   );
 }
-

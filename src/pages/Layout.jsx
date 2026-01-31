@@ -162,7 +162,20 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [currentTenant, user, navigate, location.pathname, isPublicRoute]);
 
-
+  React.useEffect(() => {
+    if (currentTenant && user && !user.is_super_admin) {
+      const isTrial = currentTenant.subscription_status === 'trialing' || currentTenant.subscription_plan?.includes('trial');
+      if (isTrial && currentTenant.trial_ends_at) {
+        const trialEnd = new Date(currentTenant.trial_ends_at);
+        const now = new Date();
+        if (now > trialEnd) {
+          if (!location.pathname.includes("SubscriptionExpired")) {
+            navigate(createPageUrl("SubscriptionExpired"));
+          }
+        }
+      }
+    }
+  }, [currentTenant, user, navigate, location.pathname]);
 
   // --- PERMISSIONS (Must be called at top level) ---
   const canViewProjects = useHasPermission('can_view_all_projects');
@@ -260,18 +273,9 @@ function LayoutContent({ children, currentPageName }) {
       } catch (error) { console.error(error); }
     };
 
-    const handlePageShow = (event) => {
-      if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
-        console.log('[Layout] Page restored from BFCache, reloading user data...');
-        initializeUser();
-      }
-    };
-
-    window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('profile-updated', handleProfileUpdate);
     return () => {
       mounted = false;
-      window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('profile-updated', handleProfileUpdate);
     };
   }, [isPublicRoute]);
@@ -810,6 +814,16 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
   const isInAdminSection = location?.pathname?.toLowerCase().includes('admin');
   const { open, isMobile } = useSidebar();
 
+  // Pages that should handle their own scrolling (app-like layout)
+  const isFixedLayoutPage = React.useMemo(() => {
+    const path = location.pathname.toLowerCase();
+    return path.includes('resourceplanning') ||
+      path.includes('sprintboard') ||
+      path.includes('adminbidashboard') ||
+      path.includes('collaboration') ||
+      path.includes('timesheets');
+  }, [location.pathname]);
+
   // Define NavigationItemWrapper - it will only be rendered inside SidebarProvider
   // So useSidebar hook is safe to use
   const NavigationItemWrapper = ({ item, isActive, className }) => {
@@ -1091,99 +1105,6 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
           </SidebarContent>
 
           <SidebarFooter className="border-t border-slate-200/60 p-4 space-y-2">
-
-            {/* Subscription Progress Bar - For Tenants (Viewing as Tenant or Actual Tenant) */}
-            {((isViewingAsTenant && viewingTenant?.status === 'trial') || (!isInPlatformMode && !isViewingAsTenant && currentTenant?.status === 'trial')) && (
-              <div className="mb-4 px-2 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm">
-                {(() => {
-                  const tenant = isViewingAsTenant ? viewingTenant : currentTenant;
-                  if (!tenant?.trial_ends_at) return null;
-
-                  const trialEnd = new Date(tenant.trial_ends_at);
-                  const now = new Date();
-
-                  // Find start date: subscription_start_date > created_at > (trialEnd - 14 days)
-                  let startDate = new Date(tenant.created_at);
-                  if (tenant.subscription_start_date) {
-                    startDate = new Date(tenant.subscription_start_date);
-                  } else if (isNaN(startDate.getTime())) {
-                    // Fallback if created_at is missing or invalid
-                    startDate = new Date(trialEnd);
-                    startDate.setDate(startDate.getDate() - 14); // Default 14 days
-                  }
-
-                  // Calculate total duration in ms
-                  const totalDuration = trialEnd - startDate;
-                  // Calculate elapsed time
-                  const elapsed = now - startDate;
-
-                  // Calculate days left for display
-                  const diffTime = trialEnd - now;
-                  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                  // Percentage of time elapsed (0 to 100)
-                  let progress = 0;
-                  if (totalDuration > 0) {
-                    progress = (elapsed / totalDuration) * 100;
-                  }
-
-                  // Clamp
-                  progress = Math.min(100, Math.max(0, progress));
-
-                  // Color Logic based on Days Left (Urgency)
-                  let progressColor = "bg-emerald-500";
-                  let textColor = "text-emerald-700";
-                  let barBg = "bg-emerald-100";
-
-                  if (daysLeft <= 3) {
-                    progressColor = "bg-rose-500";
-                    textColor = "text-rose-700";
-                    barBg = "bg-rose-100";
-                  } else if (daysLeft <= 7) {
-                    progressColor = "bg-amber-500";
-                    textColor = "text-amber-700";
-                    barBg = "bg-amber-100";
-                  }
-
-                  if (daysLeft <= 0) return (
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-rose-600">Trial Expired</span>
-                    </div>
-                  );
-
-                  const planName = tenant.subscription_plan
-                    ? tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)
-                    : 'Premium';
-
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs font-semibold">
-                        <span className="text-slate-700 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-indigo-500" />
-                          {planName} Trial
-                        </span>
-                        <span className={textColor}>{daysLeft} days left</span>
-                      </div>
-                      <div className={`h-2 w-full ${barBg} rounded-full overflow-hidden`}>
-                        <div
-                          className={`h-full ${progressColor} transition-all duration-1000 ease-out rounded-full`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-[10px] text-indigo-600 hover:text-indigo-700 w-full justify-center"
-                        onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
-                      >
-                        Upgrade Plan &rarr;
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-
             {/* Support Button - Sticky above profile */}
             <SidebarMenuButton
               asChild
@@ -1266,47 +1187,53 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
           </SidebarFooter>
         </Sidebar>
 
-        <main className="flex-1 flex flex-col" style={{ marginLeft: (!isMobile && open) ? '280px' : '0px', transition: 'margin-left 0.3s ease-in-out', width: '100%', maxWidth: '100%' }}>
+        <main className="flex-1 flex flex-col" style={{ marginLeft: (!isMobile && open) ? '230px' : '0px', transition: 'margin-left 0.3s ease-in-out', width: '100%', maxWidth: '100%' }}>
           <header className="sticky top-0 z-50 bg-white px-4 md:px-6 flex items-center shadow-sm h-16" style={{ height: 'var(--header-height, 64px)' }}>
             <div className="flex items-center justify-between gap-2 md:gap-4 w-full">
               <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                 <SidebarTrigger className="hover:bg-slate-100 p-2 rounded-lg transition-colors flex-shrink-0" />
                 <Popover open={searchOpen} onOpenChange={setSearchOpen}>
                   <PopoverTrigger asChild>
+                    {/* Mobile: Search Icon Only - Toggles full search input in a separate overlay or expands */}
                     <div className="flex-1 max-w-md relative min-w-0">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
-                      <Input
-                        placeholder="Search projects, tasks, users..."
-                        value={searchQuery}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setSearchQuery(value);
-                          // Always open popover when typing
-                          setSearchOpen(true);
-                        }}
-                        onFocus={() => {
-                          // Open popover on focus
-                          setSearchOpen(true);
-                        }}
-                        onClick={() => {
-                          // Open popover on click
-                          setSearchOpen(true);
-                        }}
-                        className="pl-10 pr-10 bg-white border border-slate-200 rounded-lg cursor-text"
-                      />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSearchQuery("");
-                            setSearchOpen(false);
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 z-10"
+                      <div className="md:hidden">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 text-slate-500 hover:bg-slate-100"
+                          onClick={() => setSearchOpen(true)}
                         >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="hidden md:block relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+                        <Input
+                          placeholder="Search..."
+                          value={searchQuery}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSearchQuery(value);
+                            setSearchOpen(true);
+                          }}
+                          onFocus={() => setSearchOpen(true)}
+                          onClick={() => setSearchOpen(true)}
+                          className="pl-10 pr-10 bg-white border border-slate-200 rounded-lg cursor-text"
+                        />
+                        {searchQuery && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery("");
+                              setSearchOpen(false);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 z-10"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] max-h-[500px] p-0 z-50" align="start" side="bottom" sideOffset={5} onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => {
@@ -1315,6 +1242,21 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                       e.preventDefault();
                     }
                   }}>
+                    {/* Mobile Search Input - Only visible on small screens where main input is hidden */}
+                    <div className="p-2 border-b border-slate-100 md:hidden sticky top-0 bg-white z-10">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                        <Input
+                          placeholder="Search projects, tasks, users..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 bg-slate-50 border-slate-200 focus-visible:ring-1"
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        />
+                      </div>
+                    </div>
                     <Command shouldFilter={false}>
                       <CommandList className="max-h-[500px] overflow-y-auto">
                         {!searchQuery.trim() ? (
@@ -1526,13 +1468,15 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                     variant="outline"
                     size="sm"
                     onClick={() => navigate(createPageUrl("GroonaAssistant"))}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg shadow-blue-500/25"
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg shadow-blue-500/25 px-2 md:px-3"
                   >
                     <Sparkles className="h-4 w-4" />
-                    <span className="hidden sm:inline">Groona AI</span>
-                    <span className="sm:hidden">AI</span>
+                    <span className="hidden md:inline">Groona AI</span>
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setShowReportBug(true)} className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Report Bug</Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowReportBug(true)} className="flex items-center gap-2 px-2 md:px-3">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="hidden md:inline">Report Bug</span>
+                  </Button>
                   <NotificationCenter currentUser={user} />
                 </div>
               )}
@@ -1541,7 +1485,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
 
           </header>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden relative" style={{ maxWidth: '100vw', width: '100%' }}>
+          <div className={`flex-1 overflow-x-hidden relative ${isFixedLayoutPage ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ maxWidth: '100vw', width: '100%' }}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
@@ -1560,7 +1504,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                   maxWidth: '100%',
                   position: 'relative'
                 }}
-                className="min-h-full w-full"
+                className={`${isFixedLayoutPage ? 'h-full' : 'min-h-full'} w-full`}
               >
                 {children}
               </motion.div>
@@ -1579,4 +1523,3 @@ export default function Layout({ children, currentPageName }) {
     </UserProvider>
   );
 }
-

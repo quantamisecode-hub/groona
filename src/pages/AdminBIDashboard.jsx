@@ -224,29 +224,29 @@ export default function AdminBIDashboard() {
 
   return (
     <PermissionGuard permissionKey="can_view_reports">
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative min-h-full">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
+        <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
 
           {/* Main Content Rendered Naturally */}
-          <div className="w-full relative" style={{ maxWidth: '100vw' }}>
-            <div className="max-w-[1800px] mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
+          <div className="w-full relative h-full flex flex-col" style={{ maxWidth: '100vw' }}>
+            <div className="max-w-[1800px] mx-auto w-full flex flex-col relative h-full" style={{ maxWidth: '100%' }}>
               {/* Header Section (Scrollable) */}
               {showSummary && (
-                <div className="bg-white border-b border-slate-200/60">
+                <div className="bg-white border-b border-slate-200/60 flex-shrink-0 z-30">
                   <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
                     {/* Header */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
+                    <div className="flex flex-row justify-between items-start gap-4 mb-4">
                       <div>
-                        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                          <BarChart3 className="h-8 w-8 text-blue-600" />
-                          Productivity Dashboard
+                        <h1 className="text-2xl md:text-4xl font-bold text-slate-900 mb-2 flex items-center gap-3">
+                          <BarChart3 className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
+                          <span>Productivity Dashboard</span>
                         </h1>
-                        <p className="text-slate-600">
+                        <p className="text-sm md:text-base text-slate-600">
                           Unified productivity hub for projects, resources, and AI insights
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         <Button
                           variant="outline"
                           size="sm"
@@ -255,7 +255,7 @@ export default function AdminBIDashboard() {
                           className="flex items-center gap-2"
                         >
                           <RefreshCw className={`h-4 w-4 ${(projectsLoading || tasksLoading || usersLoading || timesheetsLoading || activitiesLoading) ? 'animate-spin' : ''}`} />
-                          Refresh All
+                          <span className="hidden sm:inline">Refresh All</span>
                         </Button>
                       </div>
                     </div>
@@ -263,9 +263,9 @@ export default function AdminBIDashboard() {
                     {/* Quick Stats Cards */}
                     {!isLoading && (
                       <div
-                        className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                        className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar snap-x snap-mandatory"
                       >
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all flex-shrink-0 w-[280px] md:w-auto">
+                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div>
@@ -282,7 +282,7 @@ export default function AdminBIDashboard() {
                           </CardContent>
                         </Card>
 
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all flex-shrink-0 w-[280px] md:w-auto">
+                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div>
@@ -299,7 +299,7 @@ export default function AdminBIDashboard() {
                           </CardContent>
                         </Card>
 
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all flex-shrink-0 w-[280px] md:w-auto">
+                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div>
@@ -316,7 +316,7 @@ export default function AdminBIDashboard() {
                           </CardContent>
                         </Card>
 
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all flex-shrink-0 w-[280px] md:w-auto">
+                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
                               <div>
@@ -340,37 +340,37 @@ export default function AdminBIDashboard() {
                 </div>
               )}
 
-              {/* Sticky Tabs Section */}
+              {/* Sticky Tabs Section - Moved outside to be sibling if needed, or kept here but made sticky */}
               <div
                 ref={tabsRef}
-                className="sticky z-20 bg-white/95 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all duration-300"
+                className="sticky z-20 bg-white/95 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all duration-300 flex-shrink-0"
                 style={{ top: 0 }}
               >
                 <div className="px-4 md:px-6 lg:px-8 py-2">
-                  <TabsList className="bg-transparent border-none p-0 flex-wrap h-auto gap-1">
-                    <TabsTrigger value="overview" className="gap-2" onClick={() => setShowSummary(false)}>
+                  <TabsList className="bg-transparent border-none p-0 flex justify-start overflow-x-auto h-auto gap-1 hide-scrollbar snap-x">
+                    <TabsTrigger value="overview" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                       <TrendingUp className="h-4 w-4" />
                       System Overview
                     </TabsTrigger>
-                    <TabsTrigger value="projects" className="gap-2" onClick={() => setShowSummary(false)}>
+                    <TabsTrigger value="projects" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                       <Target className="h-4 w-4" />
                       Project Analytics
                     </TabsTrigger>
-                    <TabsTrigger value="resources" className="gap-2" onClick={() => setShowSummary(false)}>
+                    <TabsTrigger value="resources" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                       <Users className="h-4 w-4" />
                       Resource Management
                     </TabsTrigger>
-                    <TabsTrigger value="insights" className="gap-2" onClick={() => setShowSummary(false)}>
+                    <TabsTrigger value="insights" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                       <BrainCircuit className="h-4 w-4" />
                       AI & Insights
                     </TabsTrigger>
-                    <TabsTrigger value="reports" className="gap-2" onClick={() => setShowSummary(false)}>
+                    <TabsTrigger value="reports" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                       <FileText className="h-4 w-4" />
                       Custom Reports
                     </TabsTrigger>
                     {/* Show Profitability tab only for owners */}
                     {currentUser && currentUser.custom_role === 'owner' && (
-                      <TabsTrigger value="profitability" className="gap-2" onClick={() => setShowSummary(false)}>
+                      <TabsTrigger value="profitability" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
                         <DollarSign className="h-4 w-4" />
                         Profitability
                       </TabsTrigger>
@@ -380,8 +380,8 @@ export default function AdminBIDashboard() {
               </div>
 
               {/* Main Content */}
-              <div className="w-full">
-                <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+              <div className="w-full flex-1 overflow-y-auto min-h-0">
+                <div className="px-3 pb-24 md:pb-32 pt-3">
                   {/* Loading State - Only shows on initial hard load when we have no cached data */}
                   {isLoading ? (
                     <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
@@ -463,7 +463,7 @@ export default function AdminBIDashboard() {
                                 {/* Timeline Prediction Card - Above GanttChart */}
                                 <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
                                   <h3 className="text-lg font-semibold mb-4">Timeline Prediction</h3>
-                                  <div className="max-w-md">
+                                  <div className="max-w-xs">
                                     <Select
                                       value={selectedProjectId || 'none'}
                                       onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
@@ -503,17 +503,21 @@ export default function AdminBIDashboard() {
                               <div className="space-y-6">
                                 <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
                                   <h3 className="text-lg font-semibold mb-4">Project Risk Analysis</h3>
-                                  <div className="max-w-md">
-                                    <select
-                                      value={selectedProjectId || ''}
-                                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                                      className="w-full p-2 rounded-lg border border-slate-200"
+                                  <div className="max-w-xs">
+                                    <Select
+                                      value={selectedProjectId || 'none'}
+                                      onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
                                     >
-                                      <option value="">Select a project to analyze risks...</option>
-                                      {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                      ))}
-                                    </select>
+                                      <SelectTrigger className="w-full bg-white border-slate-200">
+                                        <SelectValue placeholder="Select a project to analyze risks..." />
+                                      </SelectTrigger>
+                                      <SelectContent position="popper" className="z-50 max-h-[300px]">
+                                        <SelectItem value="none">Select a project to analyze risks...</SelectItem>
+                                        {projects.map(p => (
+                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   {selectedProject && (
                                     <div className="mt-6">
@@ -531,17 +535,21 @@ export default function AdminBIDashboard() {
                               <div className="space-y-6">
                                 <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
                                   <h3 className="text-lg font-semibold mb-4">Generate Project Report</h3>
-                                  <div className="max-w-md">
-                                    <select
-                                      value={selectedProjectId || ''}
-                                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                                      className="w-full p-2 rounded-lg border border-slate-200"
+                                  <div className="max-w-xs">
+                                    <Select
+                                      value={selectedProjectId || 'none'}
+                                      onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
                                     >
-                                      <option value="">Select a project...</option>
-                                      {projects.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                      ))}
-                                    </select>
+                                      <SelectTrigger className="w-full bg-white border-slate-200">
+                                        <SelectValue placeholder="Select a project..." />
+                                      </SelectTrigger>
+                                      <SelectContent position="popper" className="z-50 max-h-[300px]">
+                                        <SelectItem value="none">Select a project...</SelectItem>
+                                        {projects.map(p => (
+                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </div>
                                   {selectedProject && (
                                     <div className="mt-6">
@@ -685,4 +693,3 @@ export default function AdminBIDashboard() {
     </PermissionGuard>
   );
 }
-

@@ -7,7 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { Users, AlertTriangle, CheckCircle2, TrendingUp, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/components/shared/UserContext";
-import { startOfWeek, endOfWeek, isBefore, isWithinInterval, parseISO } from "date-fns";
 
 export default function ResourceAllocation({ showSummaryOnly = false, showResourceListOnly = false }) {
   // Use global user context instead of local state to prevent loading spinner on every visit
@@ -39,98 +38,110 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
     refetchInterval: 5000, // Poll every 5 seconds for real-time updates
   });
 
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['all-sprints', effectiveTenantId],
+    queryFn: async () => {
+      const list = await groonabackend.entities.Sprint.list();
+      return effectiveTenantId ? list.filter(s => s.tenant_id === effectiveTenantId) : [];
+    },
+    enabled: !!effectiveTenantId,
+    refetchInterval: 5000,
+  });
 
-
-
+  const { data: stories = [] } = useQuery({
+    queryKey: ['all-stories', effectiveTenantId],
+    queryFn: async () => {
+      const list = await groonabackend.entities.Story.list();
+      return effectiveTenantId ? list.filter(s => s.tenant_id === effectiveTenantId) : [];
+    },
+    enabled: !!effectiveTenantId,
+    refetchInterval: 5000,
+  });
 
   const resourceData = useMemo(() => {
-    if (!users.length) return [];
+    if (!users.length || !sprints.length) return [];
 
-    // Define current week window: Monday to Saturday
     const now = new Date();
-    const currentWeekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-    const currentWeekEnd = endOfWeek(now, { weekStartsOn: 1 }); // Sunday (adjust if strictly Sat needed, but endOfWeek usually fine)
-    // Adjust to Saturday end if strictly required:
-    const satEnd = new Date(currentWeekEnd);
-    satEnd.setDate(satEnd.getDate() - 1);
-    satEnd.setHours(23, 59, 59, 999);
+    now.setHours(0, 0, 0, 0);
 
-    const weekStart = currentWeekStart;
-    const weekEnd = satEnd;
+    // Find current and future sprints (not past sprints)
+    // A sprint is "current/future" if:
+    // - It has no end_date (ongoing/planned)
+    // - Or its end_date is today or in the future
+    const relevantSprints = sprints
+      .filter(sprint => {
+        if (!sprint.start_date) return false;
+        const sprintStart = new Date(sprint.start_date);
+        sprintStart.setHours(0, 0, 0, 0);
+
+        // Include sprints that start today or in the future
+        // OR sprints that are currently active (started before today, end after today)
+        if (sprint.end_date) {
+          const sprintEnd = new Date(sprint.end_date);
+          sprintEnd.setHours(23, 59, 59, 999);
+          return sprintEnd >= now; // Sprint ends today or later
+        }
+
+        // If no end_date, include if it starts today or later
+        return sprintStart >= now;
+      })
+      .sort((a, b) => {
+        const dateA = a.start_date ? new Date(a.start_date) : new Date(0);
+        const dateB = b.start_date ? new Date(b.start_date) : new Date(0);
+        return dateA - dateB;
+      })
+      .slice(0, 2); // Take only first 2 sprints (current + next)
+
+    // If no sprints found, create a 2-week window from today
+    let windowStart = now;
+    let windowEnd = new Date(now);
+    windowEnd.setDate(now.getDate() + 14); // 2 weeks = 2 sprints
+
+    if (relevantSprints.length > 0) {
+      // Use the earliest sprint start date
+      windowStart = relevantSprints[0].start_date ? new Date(relevantSprints[0].start_date) : now;
+      windowStart.setHours(0, 0, 0, 0);
+
+      // Use the latest sprint end date (or calculate if missing)
+      const lastSprint = relevantSprints[relevantSprints.length - 1];
+      if (lastSprint.end_date) {
+        windowEnd = new Date(lastSprint.end_date);
+        windowEnd.setHours(23, 59, 59, 999);
+      } else if (relevantSprints.length === 2 && relevantSprints[1].start_date) {
+        // If we have 2 sprints, calculate end date (assuming 1 week per sprint)
+        windowEnd = new Date(relevantSprints[1].start_date);
+        windowEnd.setDate(windowEnd.getDate() + 6); // Add 6 days for end of second sprint
+        windowEnd.setHours(23, 59, 59, 999);
+      } else {
+        windowEnd = new Date(windowStart);
+        windowEnd.setDate(windowStart.getDate() + 13); // 2 weeks
+        windowEnd.setHours(23, 59, 59, 999);
+      }
+    }
+
+    const relevantSprintIds = new Set(relevantSprints.map(s => s.id));
 
     return users.map(user => {
       const userEmail = (user.email || '').toLowerCase();
 
-      // Filter tasks assigned to this user
-      const userTasks = tasks.filter(t => {
-        const assigned = t.assigned_to || [];
+      // Get all stories assigned to this user
+      const assignedStories = stories.filter(s => {
+        const assigned = s.assigned_to || [];
         if (Array.isArray(assigned)) {
           return assigned.some(email => (email || '').toLowerCase() === userEmail);
         }
         return (assigned || '').toLowerCase() === userEmail;
       });
 
-      // 1. Overdue Tasks: Pending and Due Date < this week's start
-      const overdueTasks = userTasks.filter(t => {
-        if (!t.due_date) return false;
-        const dueDate = new Date(t.due_date);
-        const isPending = !['completed', 'done', 'closed', 'resolved'].includes((t.status || '').toLowerCase());
-
-        // Check if strictly before this week started
-        return isPending && isBefore(dueDate, weekStart);
-      });
-
-      // 2. Current Week Tasks: Due Date within Mon-Sat of this week
-      const currentWeekTasks = userTasks.filter(t => {
-        if (!t.due_date) return false;
-        const dueDate = new Date(t.due_date);
-
-        return isWithinInterval(dueDate, { start: weekStart, end: weekEnd });
-      });
-
-      // 3. Active Work: Tasks that are actively being worked on (In Progress/Review), regardless of date
-      const activeWorkTasks = userTasks.filter(t =>
-        ['in_progress', 'review'].includes((t.status || '').toLowerCase())
-      );
-
-      // Combine relevant tasks for workload calculation (Unique tasks)
-      // "Overdue pending tasks" + "Tasks for this week" + "Active Work"
-      const uniqueTaskIds = new Set();
-      const relevantTasks = [];
-
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      [...overdueTasks, ...currentWeekTasks, ...activeWorkTasks].forEach(t => {
-        if (!uniqueTaskIds.has(t.id)) {
-          // EXCLUDE tasks that are Overdue (Due Date < Today)
-          // As per requirement: "if it is exceeded from the present date then dont calculate it"
-          if (t.due_date) {
-            const dueDate = new Date(t.due_date);
-            // We compare against startOfToday to ensure tasks due TODAY are included, but tasks due YESTERDAY are excluded.
-            if (isBefore(dueDate, startOfToday)) {
-              return;
-            }
-          }
-
-          uniqueTaskIds.add(t.id);
-          relevantTasks.push(t);
-        }
-      });
-
-      // Calculate Hours
-      const userLoadHours = relevantTasks.reduce((sum, task) => {
-        // Use estimated_hours if available, else fallback to story_points * 2, else 0
-        let hours = Number(task.estimated_hours) || 0;
-        if (!hours && task.story_points) {
-          hours = Number(task.story_points) * 2;
-        }
-        return sum + hours;
+      // Calculate User Load (hours) = SUM(hours of stories assigned to user)
+      // Convert story points to hours: 1 story point = 2 hours
+      const userLoadHours = assignedStories.reduce((sum, story) => {
+        const points = Number(story.story_points) || 0;
+        return sum + (points * 2);
       }, 0);
 
-      // Capacity: Mon-Sat = 6 days * 8 hours = 48 hours
-      const FIXED_CAPACITY_HOURS = 48;
-
+      // Utilization % = (User Load ÷ 40) × 100
+      const FIXED_CAPACITY_HOURS = 40;
       const rawWorkloadPercentage = (userLoadHours / FIXED_CAPACITY_HOURS) * 100;
       const workloadPercentage = Math.min(rawWorkloadPercentage, 100);
 
@@ -139,25 +150,30 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
       else if (rawWorkloadPercentage > 80) workloadLevel = 'high';
       else if (rawWorkloadPercentage < 20) workloadLevel = 'underutilized';
 
-      // Active Tasks Count (Global)
-      const activeTasks = userTasks.filter(t =>
-        ['todo', 'in_progress', 'review'].includes((t.status || '').toLowerCase())
+      // Get tasks for display purposes (active tasks count, etc.)
+      const assignedTasks = tasks.filter(t =>
+        (Array.isArray(t.assigned_to) && t.assigned_to.includes(user.email)) ||
+        t.assigned_to === user.email
       );
-      const completedTasks = userTasks.filter(t => (t.status || '').toLowerCase() === 'completed');
+      const activeTasks = assignedTasks.filter(t => ['todo', 'in_progress', 'review'].includes(t.status));
+      const completedTasks = assignedTasks.filter(t => t.status === 'completed');
 
-      // Count unique projects
-      const projectIds = new Set(userTasks.map(t => t.project_id).filter(Boolean));
+      // Count unique projects from stories
+      const projectIds = new Set(assignedStories.map(s => s.project_id).filter(Boolean));
       const projectCount = projectIds.size;
 
-      // Count unique sprints from tasks
-      const sprintIds = new Set(userTasks.map(t => t.sprint_id).filter(Boolean));
+      // Count unique sprints from stories
+      const sprintIds = new Set(assignedStories.map(s => {
+        const sprintId = s.sprint_id?.id || s.sprint_id?._id || s.sprint_id;
+        return sprintId;
+      }).filter(Boolean));
       const sprintCount = sprintIds.size;
 
       return {
         user,
         activeTasks: activeTasks.length,
         completedTasks: completedTasks.length,
-        totalEstimatedHours: userLoadHours,
+        totalEstimatedHours: userLoadHours, // Using story hours as total estimated hours
         projectCount,
         sprintCount,
         workloadPercentage,
@@ -165,7 +181,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
         rawWorkloadPercentage
       };
     });
-  }, [users, tasks]);
+  }, [users, stories, tasks, sprints]);
 
   const overloadedUsers = resourceData.filter(r => r.workloadLevel === 'overloaded');
   const underutilizedUsers = resourceData.filter(r => r.workloadLevel === 'underutilized');
@@ -195,8 +211,9 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
       {!showResourceListOnly && (
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="flex md:grid md:grid-cols-4 gap-4 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[280px] md:w-auto">
+          {/* Summary Cards */}
+          <div className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar snap-x snap-mandatory">
+            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-blue-100">
@@ -204,13 +221,13 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Total Resources</p>
-                    <p className="text-2xl font-bold text-slate-900">{users.length}</p>
+                    <p className="text-xl font-bold text-slate-900">{users.length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[280px] md:w-auto">
+            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-red-100">
@@ -218,13 +235,13 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Overloaded</p>
-                    <p className="text-2xl font-bold text-red-600">{overloadedUsers.length}</p>
+                    <p className="text-xl font-bold text-red-600">{overloadedUsers.length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[280px] md:w-auto">
+            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-green-100">
@@ -232,13 +249,13 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Underutilized</p>
-                    <p className="text-2xl font-bold text-blue-600">{underutilizedUsers.length}</p>
+                    <p className="text-xl font-bold text-blue-600">{underutilizedUsers.length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[280px] md:w-auto">
+            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-purple-100">
@@ -246,7 +263,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                   </div>
                   <div>
                     <p className="text-sm text-slate-600">Avg Workload</p>
-                    <p className="text-2xl font-bold text-slate-900">{avgWorkload.toFixed(0)}%</p>
+                    <p className="text-xl font-bold text-slate-900">{avgWorkload.toFixed(0)}%</p>
                   </div>
                 </div>
               </CardContent>
@@ -277,22 +294,22 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                       key={resource.user.email}
                       className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-shadow"
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarImage src={resource.user.profile_image_url} />
                             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
                               {getInitials(resource.user.full_name)}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <p className="font-semibold text-slate-900">{resource.user.full_name || 'Unknown User'}</p>
-                            <p className="text-sm text-slate-600">{resource.user.email}</p>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">{resource.user.full_name || 'Unknown User'}</p>
+                            <p className="text-sm text-slate-600 truncate">{resource.user.email}</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="hidden sm:inline-flex">
+                        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                          <Badge variant="outline" className="whitespace-nowrap">
                             {resource.activeTasks} Active Tasks
                           </Badge>
                           <Badge
@@ -303,7 +320,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                                 : resource.workloadLevel === 'underutilized'
                                   ? 'bg-blue-100 text-blue-700 border-blue-200'
                                   : 'bg-green-100 text-green-700 border-green-200'
-                              } border capitalize`}
+                              } border capitalize whitespace-nowrap`}
                           >
                             {resource.workloadLevel.replace('_', ' ')}
                           </Badge>
@@ -313,7 +330,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                       <div className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-600">
-                            Workload Capacity ({resource.totalEstimatedHours.toFixed(1)}h / 48h)
+                            Workload Capacity ({resource.totalEstimatedHours.toFixed(1)}h / 40h)
                           </span>
                           <span className="font-semibold text-slate-900">
                             {resource.rawWorkloadPercentage.toFixed(0)}%
@@ -326,7 +343,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                         />
                       </div>
 
-                      <div className="grid grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
                         <div>
                           <p className="text-xs text-slate-600">Active Tasks</p>
                           <p className="text-lg font-bold text-slate-900">{resource.activeTasks}</p>
@@ -355,4 +372,3 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
     </>
   );
 }
-

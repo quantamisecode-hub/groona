@@ -1,0 +1,48 @@
+const cron = require('node-cron');
+const { spawn } = require('child_process');
+const path = require('path');
+
+/**
+ * Groona Cron Scheduler
+ * Handles background tasks like subscription checks, reminders, etc.
+ */
+
+const SCRIPTS = [
+    {
+        name: 'Subscription Status Check',
+        path: path.join(__dirname, 'scripts', 'check_subscription_status.js'),
+        // Schedule:
+        // Dev: Every 5 minutes ('*/5 * * * *')
+        // Prod: Every 8 hours ('0 */8 * * *')
+        schedule: process.env.NODE_ENV === 'production' ? '0 */8 * * *' : '*/1 * * * *'
+    }
+];
+
+const initCronJobs = () => {
+    console.log('[Cron] Initializing Cron Jobs...');
+
+    SCRIPTS.forEach(script => {
+        if (!script.schedule) return;
+
+        cron.schedule(script.schedule, () => {
+            console.log(`[Cron] Starting job: ${script.name} at ${new Date().toISOString()}`);
+
+            const child = spawn('node', [script.path], {
+                stdio: 'inherit', // Pipe output to parent process
+                env: process.env // Pass environment variables
+            });
+
+            child.on('close', (code) => {
+                console.log(`[Cron] Job finished: ${script.name} (Exit Code: ${code})`);
+            });
+
+            child.on('error', (err) => {
+                console.error(`[Cron] Job failed to start: ${script.name}`, err);
+            });
+        });
+
+        console.log(`[Cron] Scheduled: ${script.name} (${script.schedule})`);
+    });
+};
+
+module.exports = initCronJobs;
