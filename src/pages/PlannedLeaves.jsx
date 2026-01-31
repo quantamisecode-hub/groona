@@ -201,7 +201,7 @@ export default function PlannedLeavesPage() {
 
             {/* Sticky Tabs Section */}
             <div className="px-4 md:px-6 lg:px-8 pb-0">
-              <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 w-full justify-start overflow-x-auto h-auto p-1 gap-1 hide-scrollbar snap-x">
+              <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 justify-start overflow-x-auto h-auto p-1 gap-1 hide-scrollbar snap-x">
                 <TabsTrigger value="overview" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                   <Calendar className="h-4 w-4" /> Overview
                 </TabsTrigger>

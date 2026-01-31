@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Crown, Filter, X, Briefcase, Eye, TrendingUp, Building2 } from "lucide-react";
+import { Users, Crown, Filter, X, Briefcase, Eye, TrendingUp, Building2, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import PresenceIndicator from "../components/shared/PresenceIndicator";
 import { OnboardingProvider } from "../components/onboarding/OnboardingProvider";
@@ -30,7 +30,7 @@ export default function Team() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       const allUsers = await groonabackend.entities.User.list();
-      
+
       let filteredUsers = [];
       if (effectiveTenantId) {
         filteredUsers = allUsers.filter(u => u.tenant_id === effectiveTenantId);
@@ -58,7 +58,7 @@ export default function Team() {
       // Merge UserProfile data with User data, prioritizing UserProfile
       const usersWithProfiles = filteredUsers.map((user) => {
         const profile = profileMap.get(user.id) || profileMap.get(user._id);
-        
+
         return {
           ...user,
           job_title: profile?.job_title || user.job_title || '',
@@ -118,15 +118,15 @@ export default function Team() {
 
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="team">
-      <FeatureOnboarding 
-        currentUser={currentUser} 
+      <FeatureOnboarding
+        currentUser={currentUser}
         featureArea="team"
         userRole={userRole}
       />
-      <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-x-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-7xl mx-auto w-full flex flex-col h-full overflow-x-hidden relative" style={{ maxWidth: '100%' }}>
-          {/* Sticky Header Section */}
-          <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm">
+      <div className="h-[calc(100vh-64px)] flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
+        <div className="max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden relative" style={{ maxWidth: '100%' }}>
+          {/* Fixed Header Section */}
+          <div className="flex-none z-20 bg-white border-b border-slate-200/60 shadow-sm">
             <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
@@ -139,13 +139,13 @@ export default function Team() {
                 {/* Search and Filter aligned to the right */}
                 <div className="flex items-center gap-3 w-full md:w-auto">
                   <div className="relative flex-1 md:flex-initial md:w-[300px]">
-                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
                     <Input
                       placeholder="Search by name, email, role, or department..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10 bg-white/80 backdrop-blur-xl h-9"
                     />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   </div>
 
                   {hasActiveFilters && (
@@ -198,133 +198,132 @@ export default function Team() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredUsers.map((member) => (
-              <Card key={member.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-lg transition-all">
-                <CardContent className="p-5">
-                  <div className="flex items-start gap-4">
-                    {/* Avatar on Left Side */}
-                    <div className="relative flex-shrink-0">
-                      <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-md">
-                        <AvatarImage src={member.profile_image_url || member.profile_picture_url} alt={member.full_name} />
-                        <AvatarFallback className="text-base font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                          {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="absolute -bottom-1 -right-1">
-                        <PresenceIndicator status={member.presence_status || 'offline'} size="sm" />
-                      </div>
-                    </div>
+                  {filteredUsers.map((member) => (
+                    <Card key={member.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-lg transition-all">
+                      <CardContent className="p-5">
+                        <div className="flex items-start gap-4">
+                          {/* Avatar on Left Side */}
+                          <div className="relative flex-shrink-0">
+                            <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-md">
+                              <AvatarImage src={member.profile_image_url || member.profile_picture_url} alt={member.full_name} />
+                              <AvatarFallback className="text-base font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1">
+                              <PresenceIndicator status={member.presence_status || 'offline'} size="sm" />
+                            </div>
+                          </div>
 
-                    {/* Information on Right Side */}
-                    <div className="flex-1 min-w-0">
-                      {/* Name and Role Badges */}
-                      <div className="flex items-start gap-2 mb-2 flex-wrap">
-                        <h3 className="font-semibold text-slate-900 text-base leading-tight">{member.full_name || 'No Name'}</h3>
-                        
-                        {/* Role Badges */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {/* Owner: Show both Admin and Owner badges */}
-                          {member.custom_role === 'owner' && (
-                            <>
-                              <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
-                                <Crown className="h-3 w-3 mr-1" />
-                                Admin
-                              </Badge>
-                              <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs px-1.5 py-0">
-                                <Crown className="h-3 w-3 mr-1" />
-                                Owner
-                              </Badge>
-                            </>
-                          )}
-                          
-                          {/* Project Manager: Only show Project Manager badge, NOT Admin */}
-                          {member.custom_role === 'project_manager' && (
-                            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-xs px-1.5 py-0">
-                              <Briefcase className="h-3 w-3 mr-1" />
-                              Project Manager
-                            </Badge>
-                          )}
-                          
-                          {/* Admin: Only show if NOT owner and NOT project_manager */}
-                          {member.role === 'admin' && member.custom_role !== 'owner' && member.custom_role !== 'project_manager' && (
-                            <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
-                              <Crown className="h-3 w-3 mr-1" />
-                              Admin
-                            </Badge>
-                          )}
-                          
-                          {/* Sales */}
-                          {(member.role === 'sales' || member.custom_role === 'sales') && (
-                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0">
-                              <TrendingUp className="h-3 w-3 mr-1" />
-                              Sales
-                            </Badge>
-                          )}
+                          {/* Information on Right Side */}
+                          <div className="flex-1 min-w-0">
+                            {/* Name and Role Badges */}
+                            <div className="flex items-start gap-2 mb-2 flex-wrap">
+                              <h3 className="font-semibold text-slate-900 text-base leading-tight">{member.full_name || 'No Name'}</h3>
 
-                          {/* Team Member: Show for regular members */}
-                          {((member.role === 'member' || member.role === 'user' || member.role === 'viewer' || member.custom_role === 'member') &&
-                           !['owner', 'sales', 'project_manager', 'admin', 'client'].includes(member.custom_role) &&
-                           member.role !== 'admin' &&
-                           member.custom_role !== 'project_manager') && (
-                            <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-xs px-1.5 py-0">
-                              <Users className="h-3 w-3 mr-1" />
-                              Member
-                            </Badge>
-                          )}
+                              {/* Role Badges */}
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Owner: Show both Admin and Owner badges */}
+                                {member.custom_role === 'owner' && (
+                                  <>
+                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
+                                      <Crown className="h-3 w-3 mr-1" />
+                                      Admin
+                                    </Badge>
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs px-1.5 py-0">
+                                      <Crown className="h-3 w-3 mr-1" />
+                                      Owner
+                                    </Badge>
+                                  </>
+                                )}
+
+                                {/* Project Manager: Only show Project Manager badge, NOT Admin */}
+                                {member.custom_role === 'project_manager' && (
+                                  <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-xs px-1.5 py-0">
+                                    <Briefcase className="h-3 w-3 mr-1" />
+                                    Project Manager
+                                  </Badge>
+                                )}
+
+                                {/* Admin: Only show if NOT owner and NOT project_manager */}
+                                {member.role === 'admin' && member.custom_role !== 'owner' && member.custom_role !== 'project_manager' && (
+                                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Admin
+                                  </Badge>
+                                )}
+
+                                {/* Sales */}
+                                {(member.role === 'sales' || member.custom_role === 'sales') && (
+                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0">
+                                    <TrendingUp className="h-3 w-3 mr-1" />
+                                    Sales
+                                  </Badge>
+                                )}
+
+                                {/* Team Member: Show for regular members */}
+                                {((member.role === 'member' || member.role === 'user' || member.role === 'viewer' || member.custom_role === 'member') &&
+                                  !['owner', 'sales', 'project_manager', 'admin', 'client'].includes(member.custom_role) &&
+                                  member.role !== 'admin' &&
+                                  member.custom_role !== 'project_manager') && (
+                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-xs px-1.5 py-0">
+                                      <Users className="h-3 w-3 mr-1" />
+                                      Member
+                                    </Badge>
+                                  )}
+                              </div>
+                            </div>
+
+                            {/* Email */}
+                            <p className="text-sm text-slate-600 mb-3 truncate">{member.email}</p>
+
+                            {/* Job Title */}
+                            {member.job_title && (
+                              <div className="mb-2">
+                                <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                                  <Briefcase className="h-3.5 w-3.5 text-slate-500" />
+                                  {member.job_title}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Department */}
+                            {member.department && (
+                              <div className="mb-2">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                                  <Building2 className="h-3 w-3 text-slate-500" />
+                                  {member.department}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Bio */}
+                            {member.bio && (
+                              <p className="text-xs text-slate-500 mt-3 line-clamp-2 leading-relaxed">
+                                {member.bio}
+                              </p>
+                            )}
+
+                            {/* Presence Status */}
+                            {member.presence_status && (
+                              <div className="mt-3">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs px-2 py-0.5 ${member.presence_status === 'online' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    member.presence_status === 'busy' ? 'bg-red-50 text-red-700 border-red-200' :
+                                      member.presence_status === 'away' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                                        'bg-slate-50 text-slate-700 border-slate-200'
+                                    }`}
+                                >
+                                  {member.presence_status.charAt(0).toUpperCase() + member.presence_status.slice(1)}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Email */}
-                      <p className="text-sm text-slate-600 mb-3 truncate">{member.email}</p>
-                      
-                      {/* Job Title */}
-                      {member.job_title && (
-                        <div className="mb-2">
-                          <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-                            <Briefcase className="h-3.5 w-3.5 text-slate-500" />
-                            {member.job_title}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Department */}
-                      {member.department && (
-                        <div className="mb-2">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                            <Building2 className="h-3 w-3 text-slate-500" />
-                            {member.department}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Bio */}
-                      {member.bio && (
-                        <p className="text-xs text-slate-500 mt-3 line-clamp-2 leading-relaxed">
-                          {member.bio}
-                        </p>
-                      )}
-
-                      {/* Presence Status */}
-                      {member.presence_status && (
-                        <div className="mt-3">
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs px-2 py-0.5 ${
-                              member.presence_status === 'online' ? 'bg-green-50 text-green-700 border-green-200' :
-                              member.presence_status === 'busy' ? 'bg-red-50 text-red-700 border-red-200' :
-                              member.presence_status === 'away' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                              'bg-slate-50 text-slate-700 border-slate-200'
-                            }`}
-                          >
-                            {member.presence_status.charAt(0).toUpperCase() + member.presence_status.slice(1)}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </div>
@@ -334,4 +333,3 @@ export default function Team() {
     </OnboardingProvider>
   );
 }
-

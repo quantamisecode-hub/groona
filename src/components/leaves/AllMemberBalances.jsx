@@ -18,7 +18,7 @@ export default function AllMemberBalances({ tenantId }) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [year, setYear] = useState(new Date().getFullYear().toString());
-  
+
   // State for Edit/Delete actions
   const [editingBalance, setEditingBalance] = useState(null);
   const [deletingBalance, setDeletingBalance] = useState(null);
@@ -27,7 +27,7 @@ export default function AllMemberBalances({ tenantId }) {
   // 1. Fetch All Balances
   const { data: balances = [], isLoading } = useQuery({
     queryKey: ['all-leave-balances', tenantId, year],
-    queryFn: () => groonabackend.entities.LeaveBalance.filter({ 
+    queryFn: () => groonabackend.entities.LeaveBalance.filter({
       tenant_id: tenantId,
       year: parseInt(year)
     }),
@@ -46,7 +46,7 @@ export default function AllMemberBalances({ tenantId }) {
   const updateBalanceMutation = useMutation({
     mutationFn: async () => {
       if (!editingBalance) return;
-      
+
       const newAllocated = parseFloat(editAllocatedDays);
       if (isNaN(newAllocated)) throw new Error("Invalid allocation value");
 
@@ -102,7 +102,7 @@ export default function AllMemberBalances({ tenantId }) {
   };
 
   // Filter & Sort
-  const filteredBalances = balances.filter(b => 
+  const filteredBalances = balances.filter(b =>
     b.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     b.leave_type_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     getUserName(b.user_id, "").toLowerCase().includes(searchTerm.toLowerCase())
@@ -125,7 +125,7 @@ export default function AllMemberBalances({ tenantId }) {
                 Manage individual allocations for {year}. Changes here affect availability immediately.
               </p>
             </div>
-            
+
             <div className="flex gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -136,7 +136,7 @@ export default function AllMemberBalances({ tenantId }) {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              
+
               <Select value={year} onValueChange={setYear}>
                 <SelectTrigger className="w-[100px]">
                   <SelectValue placeholder="Year" />
@@ -150,7 +150,7 @@ export default function AllMemberBalances({ tenantId }) {
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent>
           <div className="rounded-md border">
             <Table>
@@ -181,12 +181,12 @@ export default function AllMemberBalances({ tenantId }) {
                 ) : (
                   filteredBalances.map((balance) => {
                     const name = getUserName(balance.user_id, balance.user_email);
-                    
+
                     // Calculate Utilization
                     const totalAvailable = balance.allocated + (balance.carried_over || 0);
-                    const utilization = totalAvailable > 0 
-                        ? Math.round(((balance.used || 0) / totalAvailable) * 100) 
-                        : 0;
+                    const utilization = totalAvailable > 0
+                      ? Math.round(((balance.used || 0) / totalAvailable) * 100)
+                      : 0;
 
                     return (
                       <TableRow key={balance.id} className="group hover:bg-slate-50/50">
@@ -204,16 +204,22 @@ export default function AllMemberBalances({ tenantId }) {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="bg-white font-normal text-slate-700">
+                          <Badge
+                            variant="outline"
+                            className={`font-normal ${balance.leave_type_name === 'Compensatory Off'
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-white text-slate-700'
+                              }`}
+                          >
                             {balance.leave_type_name}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex flex-col items-center">
-                              <span className="font-medium">{balance.allocated}</span>
-                              {balance.carried_over > 0 && (
-                                  <span className="text-[10px] text-green-600">+{balance.carried_over} C/F</span>
-                              )}
+                            <span className="font-medium">{balance.allocated}</span>
+                            {balance.carried_over > 0 && (
+                              <span className="text-[10px] text-green-600">+{balance.carried_over} C/F</span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-center text-slate-600">
@@ -227,41 +233,41 @@ export default function AllMemberBalances({ tenantId }) {
                             {balance.remaining}
                           </span>
                         </TableCell>
-                        
+
                         {/* Status Bar Column */}
                         <TableCell className="text-center">
-                             <div className="flex items-center justify-center gap-2">
-                                <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div 
-                                        className={`h-full ${utilization > 80 ? 'bg-red-500' : 'bg-blue-500'}`} 
-                                        style={{ width: `${Math.min(utilization, 100)}%` }}
-                                    />
-                                </div>
-                                <span className="text-xs text-slate-500 w-8 text-right">{utilization}%</span>
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${utilization > 80 ? 'bg-red-500' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(utilization, 100)}%` }}
+                              />
                             </div>
+                            <span className="text-xs text-slate-500 w-8 text-right">{utilization}%</span>
+                          </div>
                         </TableCell>
 
                         {/* Actions Column */}
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                onClick={() => openEditDialog(balance)}
-                                title="Edit Allocation"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => setDeletingBalance(balance)}
-                                title="Delete Balance"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => openEditDialog(balance)}
+                              title="Edit Allocation"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => setDeletingBalance(balance)}
+                              title="Delete Balance"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -293,33 +299,33 @@ export default function AllMemberBalances({ tenantId }) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                   <Label>Used (ReadOnly)</Label>
-                   <Input value={editingBalance.used || 0} disabled className="bg-slate-50" />
+                  <Label>Used (ReadOnly)</Label>
+                  <Input value={editingBalance.used || 0} disabled className="bg-slate-50" />
                 </div>
                 <div className="space-y-2">
-                   <Label>Allocated Days</Label>
-                   <Input 
-                      type="number" 
-                      step="0.5" 
-                      value={editAllocatedDays}
-                      onChange={(e) => setEditAllocatedDays(e.target.value)}
-                   />
+                  <Label>Allocated Days</Label>
+                  <Input
+                    type="number"
+                    step="0.5"
+                    value={editAllocatedDays}
+                    onChange={(e) => setEditAllocatedDays(e.target.value)}
+                  />
                 </div>
               </div>
 
               {parseFloat(editAllocatedDays) < (editingBalance.used || 0) && (
-                 <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
-                    <AlertTriangle className="h-3 w-3" />
-                    Warning: Allocation is less than days already used.
-                 </div>
+                <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                  <AlertTriangle className="h-3 w-3" />
+                  Warning: Allocation is less than days already used.
+                </div>
               )}
             </div>
           )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingBalance(null)}>Cancel</Button>
-            <Button 
-              onClick={() => updateBalanceMutation.mutate()} 
+            <Button
+              onClick={() => updateBalanceMutation.mutate()}
               disabled={updateBalanceMutation.isPending}
               className="bg-blue-600"
             >
@@ -336,13 +342,13 @@ export default function AllMemberBalances({ tenantId }) {
             <AlertDialogTitle>Delete Leave Balance?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete the <b>{deletingBalance?.leave_type_name}</b> allocation for <b>{deletingBalance ? getUserName(deletingBalance.user_id, deletingBalance.user_email) : ''}</b>?
-              <br/><br/>
+              <br /><br />
               <span className="text-red-600">Warning: The user will no longer be able to apply for this leave type. History of used leaves will remain in reports but the balance record will be gone.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => deleteBalanceMutation.mutate()}
               className="bg-red-600 hover:bg-red-700"
             >
@@ -354,4 +360,3 @@ export default function AllMemberBalances({ tenantId }) {
     </>
   );
 }
-

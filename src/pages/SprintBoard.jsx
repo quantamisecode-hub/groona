@@ -897,9 +897,9 @@ export default function SprintBoard() {
     return (
       <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CardTitle className="flex items-center gap-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                 <IconComponent className="h-5 w-5 text-blue-600" />
                 {title}
               </CardTitle>
@@ -917,7 +917,8 @@ export default function SprintBoard() {
             {!isViewer && (
               <Button
                 onClick={() => setShowCreateTaskDialog(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25"
+                size="sm"
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25 w-full md:w-auto"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create New
@@ -926,8 +927,8 @@ export default function SprintBoard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto pb-2">
+            <table className="w-full min-w-[1000px]">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Title</th>
@@ -1529,11 +1530,11 @@ export default function SprintBoard() {
         featureArea="sprint_board"
         userRole={userRole}
       />
-      <div className="flex flex-col" ref={printRef}>
-        <div className="max-w-[1600px] mx-auto w-full flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Sticky Header Section */}
-            <div className="sticky top-0 z-30 bg-slate-50 px-4 md:px-6 lg:px-8">
+      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden" ref={printRef}>
+        <div className="max-w-[1600px] mx-auto w-full flex flex-col h-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+            {/* Fixed Header Section */}
+            <div className="flex-none z-30 bg-slate-50 px-4 md:px-6 lg:px-8 mb-10">
               <Card className="bg-white border-slate-200/60 shadow-lg mt-4" data-onboarding="sprint-selection">
                 <CardHeader className="pb-3">
                   <div className="flex flex-col gap-3">
@@ -1541,43 +1542,45 @@ export default function SprintBoard() {
                       <CardTitle className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">
                         {isMarketingCompany ? "Campaign Board" : "Sprint Board"}
                       </CardTitle>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => setShowSelectionSection(!showSelectionSection)}
-                          className="flex items-center gap-2 hover:opacity-70 transition-opacity"
-                        >
-                          {showSelectionSection ? (
-                            <ChevronDown className="h-4 w-4 text-slate-600" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-600 rotate-[-90deg]" />
-                          )}
-                        </button>
-                        <p className="text-slate-600 text-sm">
-                          {isMarketingCompany ? "Manage campaigns and track progress" : "Manage sprints and track progress"}
-                        </p>
-                        {selectedProject && (
-                          <>
-                            <span className="text-slate-400">•</span>
-                            <span className="text-sm text-slate-700">
-                              <span className="font-medium">Selected {isMarketingCompany ? 'Campaign' : 'Project'}:</span> {selectedProject.name}
-                            </span>
-                            {selectedSprint && !isMarketingCompany && (
-                              <>
-                                <span className="text-slate-400">•</span>
-                                <span className="text-sm text-slate-700">
-                                  <span className="font-medium">Sprint:</span> {selectedSprint.name}
-                                </span>
-                              </>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <button
+                            onClick={() => setShowSelectionSection(!showSelectionSection)}
+                            className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+                          >
+                            {showSelectionSection ? (
+                              <ChevronDown className="h-4 w-4 text-slate-600" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-slate-600 rotate-[-90deg]" />
                             )}
-                          </>
+                          </button>
+                          <p className="text-slate-600 text-sm">
+                            {isMarketingCompany ? "Manage campaigns and track progress" : "Manage sprints and track progress"}
+                          </p>
+                        </div>
+
+                        {selectedProject && (
+                          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3 text-sm text-slate-700">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 hidden md:inline">•</span>
+                              <span className="font-medium">Selected {isMarketingCompany ? 'Campaign' : 'Project'}:</span> {selectedProject.name}
+                            </div>
+                            {selectedSprint && !isMarketingCompany && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 hidden md:inline">•</span>
+                                <span className="font-medium">Sprint:</span> {selectedSprint.name}
+                              </div>
+                            )}
+                          </div>
                         )}
-                        <div className="flex gap-2 ml-auto">
+
+                        <div className="flex gap-2 mt-2 md:mt-0 md:ml-auto w-full md:w-auto">
                           {selectedProjectId && (
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={handleManualRefresh}
-                              className="flex items-center gap-2 h-9"
+                              className="flex items-center gap-2 h-9 flex-1 md:flex-none justify-center"
                             >
                               <RefreshCw className={`h-4 w-4 ${tasksLoading ? 'animate-spin' : ''}`} />
                               Refresh
@@ -1588,7 +1591,7 @@ export default function SprintBoard() {
                               onClick={handleExportSprintReport}
                               variant="outline"
                               size="sm"
-                              className="flex items-center gap-2 h-9"
+                              className="flex items-center gap-2 h-9 flex-1 md:flex-none justify-center"
                             >
                               <Download className="h-4 w-4" />
                               Export PDF
@@ -1669,22 +1672,22 @@ export default function SprintBoard() {
               {/* Injected TabsList to join header */}
               {selectedProjectId && selectedSprintId && selectedSprint && !isMarketingCompany && (
                 <div className="mt-2 pb-4">
-                  <TabsList className="bg-white border-slate-200/60 shadow-sm">
-                    <TabsTrigger value="board">Sprint Board</TabsTrigger>
-                    <TabsTrigger value="sprint-backlog">Sprint Backlog</TabsTrigger>
-                    <TabsTrigger value="backlog">Backlog</TabsTrigger>
-                    <TabsTrigger value="epics">Epics</TabsTrigger>
+                  <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1 gap-1 bg-white border-slate-200/60 shadow-sm hide-scrollbar">
+                    <TabsTrigger value="board" className="flex-shrink-0">Sprint Board</TabsTrigger>
+                    <TabsTrigger value="sprint-backlog" className="flex-shrink-0">Sprint Backlog</TabsTrigger>
+                    <TabsTrigger value="backlog" className="flex-shrink-0">Backlog</TabsTrigger>
+                    <TabsTrigger value="epics" className="flex-shrink-0">Epics</TabsTrigger>
                     {/* RESTRICTED: Capacity and Metrics */}
-                    {canViewMetrics && <TabsTrigger value="capacity">Capacity</TabsTrigger>}
-                    <TabsTrigger value="burndown">Burndown</TabsTrigger>
-                    {canViewMetrics && <TabsTrigger value="metrics">Metrics</TabsTrigger>}
+                    {canViewMetrics && <TabsTrigger value="capacity" className="flex-shrink-0">Capacity</TabsTrigger>}
+                    <TabsTrigger value="burndown" className="flex-shrink-0">Burndown</TabsTrigger>
+                    {canViewMetrics && <TabsTrigger value="metrics" className="flex-shrink-0">Metrics</TabsTrigger>}
                   </TabsList>
                 </div>
               )}
             </div>
 
             {/* Scrollable Content Section */}
-            <div className="flex-1 px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8">
               <div className="space-y-6">
                 {!selectedProjectId && (
                   <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
@@ -2222,4 +2225,3 @@ export default function SprintBoard() {
     </OnboardingProvider>
   );
 }
-

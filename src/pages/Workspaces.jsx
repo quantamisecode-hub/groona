@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Folder, Plus, Shield, AlertCircle, Info, RefreshCw } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 import WorkspaceCard from "../components/workspaces/WorkspaceCard";
 import CreateWorkspaceDialog from "../components/workspaces/CreateWorkspaceDialog";
@@ -323,9 +323,9 @@ export default function Workspaces() {
                 )}
               </div>
 
-              <Alert className="border-blue-200 bg-blue-50">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-sm">
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-900 w-fit">
+                <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <p className="text-sm">
                   <strong>About Workspaces:</strong> Organize projects by team, department, or client.
                   Each workspace can have its own members with specific roles.
                   {workspaceLimit && !isPageLoading && (
@@ -334,8 +334,8 @@ export default function Workspaces() {
                       ({currentCount}/{workspaceLimit} used).
                     </span>
                   )}
-                </AlertDescription>
-              </Alert>
+                </p>
+              </div>
             </div>
           </div>
 

@@ -1,18 +1,18 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  Users, 
-  Settings, 
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  Users,
+  Settings,
   Gift,
   ChevronDown,
   ChevronUp,
   Info
 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 
 export default function LeaveGuide() {
   const [expandedSection, setExpandedSection] = useState('overview');
@@ -26,7 +26,7 @@ export default function LeaveGuide() {
       content: (
         <div className="space-y-3">
           <p className="text-slate-700">
-            The Leave Management System helps you plan and track time off efficiently. 
+            The Leave Management System helps you plan and track time off efficiently.
             Here's how it works:
           </p>
           <div className="grid gap-3 md:grid-cols-2">
@@ -89,12 +89,12 @@ export default function LeaveGuide() {
         <div className="space-y-3">
           <p className="text-slate-700">Your leave balance shows three key numbers:</p>
           <div className="space-y-2">
-            <div className="p-3 bg-slate-50 rounded-lg">
+            <div className="p-3 bg-blue-50 rounded-lg">
               <div className="flex justify-between items-center mb-1">
-                <span className="font-semibold text-slate-900">Allocated</span>
-                <span className="text-lg font-bold text-slate-700">12</span>
+                <span className="font-semibold text-blue-900">Allocated</span>
+                <span className="text-lg font-bold text-blue-600">12</span>
               </div>
-              <p className="text-sm text-slate-600">Total days you get per year (configured by admin)</p>
+              <p className="text-sm text-blue-700">Total days you get per year (configured by admin)</p>
             </div>
             <div className="p-3 bg-red-50 rounded-lg">
               <div className="flex justify-between items-center mb-1">
@@ -128,14 +128,14 @@ export default function LeaveGuide() {
       color: 'indigo',
       content: (
         <div className="space-y-4">
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-900">
+            <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
+            <p className="text-sm font-medium">
               All leave requests require approval from your manager or admin before being confirmed
-            </AlertDescription>
-          </Alert>
+            </p>
+          </div>
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
                 <Clock className="h-5 w-5 text-yellow-600" />
               </div>
@@ -144,7 +144,7 @@ export default function LeaveGuide() {
                 <p className="text-sm text-slate-600">Your request is pending review. Days are temporarily reserved.</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                 <CheckCircle className="h-5 w-5 text-green-600" />
               </div>
@@ -153,7 +153,7 @@ export default function LeaveGuide() {
                 <p className="text-sm text-slate-600">Your leave is confirmed. Days are deducted from your balance.</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
                 <CheckCircle className="h-5 w-5 text-red-600" />
               </div>
@@ -174,7 +174,7 @@ export default function LeaveGuide() {
       content: (
         <div className="space-y-3">
           <p className="text-slate-700">
-            Compensatory Off (Comp Off) is extra leave credited to you for working on holidays, 
+            Compensatory Off (Comp Off) is extra leave credited to you for working on holidays,
             weekends, or overtime.
           </p>
           <div className="p-4 bg-pink-50 rounded-lg border border-pink-200">
@@ -219,7 +219,7 @@ export default function LeaveGuide() {
         {sections.map((section) => {
           const Icon = section.icon;
           const isExpanded = expandedSection === section.id;
-          
+
           return (
             <div key={section.id} className="border rounded-lg overflow-hidden">
               <button
@@ -239,7 +239,7 @@ export default function LeaveGuide() {
                 )}
               </button>
               {isExpanded && (
-                <div className="p-4 pt-0 border-t bg-slate-50">
+                <div className="p-4 pt-4 border-t bg-slate-50">
                   {section.content}
                 </div>
               )}
