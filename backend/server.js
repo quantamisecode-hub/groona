@@ -37,7 +37,10 @@ const allowedOrigins = corsOrigins
     "https://www.quantemisecode.com",
     "https://www.quantumisecode.com",
     // Backend API domain (if needed for frontend)
-    "https://api.quantumisecode.com"
+    "https://api.quantumisecode.com",
+    // Vercel Deployment
+    "https://groona.vercel.app",
+    "https://www.groona.vercel.app"
   ].filter(Boolean);
 
 // Log allowed origins for debugging
