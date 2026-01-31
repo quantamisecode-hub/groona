@@ -183,6 +183,9 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     });
 
     const totalMinutes = dayTimesheets.reduce((acc, ts) => acc + (ts.total_minutes || 0), 0);
+    const reworkMinutes = dayTimesheets.reduce((acc, ts) => {
+      return acc + (ts.work_type === 'rework' ? (ts.total_minutes || 0) : 0);
+    }, 0);
 
     // Determine day-level status: if any entry is NOT draft/rejected, it's 'submitted'
     const hasOfficialEntry = dayTimesheets.some(ts =>
@@ -213,6 +216,7 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
         end_time: latestTs?.end_time || endOfDay,
         location: latestTs?.location || {},
         total_time_submitted_in_day: totalMinutes,
+        rework_time_in_day: reworkMinutes,
         created_at: new Date()
       };
 
@@ -225,6 +229,225 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     }
   } catch (err) {
     console.error("[Sync] Error syncUserTimesheetDay:", err);
+  }
+}
+
+async function syncSprintVelocity(sprintId, tenantId) {
+  try {
+    const SprintModel = Models.Sprint;
+    const StoryModel = Models.Story;
+    const TaskModel = Models.Task;
+    const VelocityModel = Models.SprintVelocity;
+    const NotificationModel = Models.Notification;
+    const ProjectUserRoleModel = Models.ProjectUserRole;
+    const UserModel = Models.User;
+
+    if (!SprintModel || !StoryModel || !TaskModel || !VelocityModel) return;
+
+    const sprint = await SprintModel.findById(sprintId);
+    if (!sprint) return;
+
+    // 1. Get all stories for this sprint
+    const sprintStories = await StoryModel.find({ sprint_id: sprintId, tenant_id: tenantId });
+
+    // 2. Committed Points (set when sprint locked)
+    const totalStoryPointsInSprint = sprintStories.reduce((sum, s) => sum + (Number(s.story_points) || 0), 0);
+    const committedPoints = (sprint.committed_points !== undefined && sprint.committed_points !== null)
+      ? Number(sprint.committed_points)
+      : totalStoryPointsInSprint;
+
+    // 3. Completed Points (Partial Completion Logic)
+    const sprintStoryIds = sprintStories.map(s => s._id.toString());
+    const allRelevantTasks = await TaskModel.find({
+      $or: [
+        { sprint_id: sprintId },
+        { story_id: { $in: sprintStoryIds } }
+      ],
+      tenant_id: tenantId
+    });
+
+    let completedPoints = 0;
+    let completedStoriesCount = 0;
+
+    for (const story of sprintStories) {
+      const storyId = story._id.toString();
+      const storyStatus = (story.status || '').toLowerCase();
+      const storyPoints = Number(story.story_points) || 0;
+
+      if (storyStatus === 'done' || storyStatus === 'completed') {
+        completedPoints += storyPoints;
+        completedStoriesCount++;
+        continue;
+      }
+
+      const storyTasks = allRelevantTasks.filter(t => t.story_id?.toString() === storyId);
+      if (storyTasks.length > 0) {
+        const completedTasksCount = storyTasks.filter(t => t.status === 'completed').length;
+        const taskCompletionRatio = completedTasksCount / storyTasks.length;
+        completedPoints += (storyPoints * taskCompletionRatio);
+
+        if (taskCompletionRatio === 1) completedStoriesCount++;
+      }
+    }
+
+    const totalTasks = allRelevantTasks.length;
+    const completedTasks = allRelevantTasks.filter(t => t.status === 'completed').length;
+    const accuracy = committedPoints > 0 ? (completedPoints / committedPoints) * 100 : 0;
+
+    // Upsert into SprintVelocity
+    const updateData = {
+      tenant_id: tenantId,
+      project_id: sprint.project_id,
+      sprint_id: sprintId,
+      sprint_name: sprint.name,
+      committed_points: committedPoints,
+      completed_points: parseFloat(completedPoints.toFixed(2)),
+      total_stories: sprintStories.length,
+      completed_stories: completedStoriesCount,
+      total_tasks: totalTasks,
+      completed_tasks: completedTasks,
+      accuracy: parseFloat(accuracy.toFixed(2)),
+      last_synced_at: new Date()
+    };
+
+    await VelocityModel.findOneAndUpdate(
+      { sprint_id: sprintId },
+      { $set: updateData },
+      { upsert: true }
+    );
+
+    console.log(`[VelocitySync] Updated velocity for sprint: ${sprint.name} (${sprintId}). Accuracy: ${accuracy.toFixed(2)}%`);
+
+    // 🚨 ALERT: Check if accuracy < 85% and send notifications
+    if (accuracy < 85 && committedPoints > 0 && NotificationModel && ProjectUserRoleModel && UserModel) {
+      try {
+        // Check if alert already sent for this sprint
+        const existingAlert = await NotificationModel.findOne({
+          entity_id: sprintId,
+          type: 'PM_VELOCITY_DROP'
+        });
+
+        if (!existingAlert) {
+          // Find Project Managers
+          const pmRoles = await ProjectUserRoleModel.find({
+            project_id: sprint.project_id,
+            role: 'project_manager'
+          });
+
+          let recipients = [];
+          if (pmRoles.length > 0) {
+            const pmIds = pmRoles.map(r => r.user_id);
+            recipients = await UserModel.find({ _id: { $in: pmIds } });
+          } else {
+            // Fallback: Admin
+            const adminRoles = await ProjectUserRoleModel.find({
+              project_id: sprint.project_id,
+              role: 'admin'
+            });
+            const adminIds = adminRoles.map(r => r.user_id);
+            recipients = await UserModel.find({ _id: { $in: adminIds } });
+          }
+
+          if (recipients.length > 0) {
+            const emailService = require('../services/emailService');
+
+            for (const recipient of recipients) {
+              // Create in-app notification
+              await NotificationModel.create({
+                tenant_id: tenantId,
+                recipient_email: recipient.email,
+                user_id: recipient._id,
+                type: 'PM_VELOCITY_DROP',
+                category: 'alert',
+                title: '⚠️ Sprint Velocity Alert',
+                message: `Sprint "${sprint.name}" velocity has dropped below 85% (${accuracy.toFixed(1)}%). Committed: ${committedPoints} pts, Completed: ${completedPoints.toFixed(2)} pts. Review capacity and blockers.`,
+                entity_type: 'sprint',
+                entity_id: sprintId,
+                project_id: sprint.project_id,
+                sender_name: 'System',
+                read: false,
+                created_date: new Date()
+              });
+
+              // Send email notification
+              try {
+                await emailService.sendEmail({
+                  to: recipient.email,
+                  subject: `⚠️ Velocity Alert: ${sprint.name}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+                      <h2 style="color: #d97706; border-bottom: 3px solid #d97706; padding-bottom: 10px;">
+                        ⚠️ Sprint Velocity Alert
+                      </h2>
+                      
+                      <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                        <strong style="color: #92400e;">ALERT:</strong> Sprint velocity has dropped below the 85% threshold
+                      </div>
+
+                      <h3 style="color: #374151; margin-top: 30px;">Sprint Details</h3>
+                      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Sprint Name</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${sprint.name}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Committed Points</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${committedPoints} pts</td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Completed Points</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${completedPoints.toFixed(2)} pts</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Accuracy</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; color: #dc2626; font-weight: bold; font-size: 18px;">
+                            ${accuracy.toFixed(1)}%
+                          </td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Tasks Progress</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${completedTasks}/${totalTasks} completed</td>
+                        </tr>
+                      </table>
+
+                      <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                        <h4 style="margin-top: 0; color: #1e40af;">📋 Recommended Actions</h4>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                          <li>Review sprint retrospective to identify blockers</li>
+                          <li>Check team capacity and availability</li>
+                          <li>Identify impediments affecting velocity</li>
+                          <li>Consider scope adjustment if needed</li>
+                        </ul>
+                      </div>
+
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${sprint.project_id}/sprint/${sprintId}" 
+                           style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                          View Sprint Details
+                        </a>
+                      </div>
+
+                      <p style="color: #6b7280; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                        This is an automated alert from Groona Sprint Velocity Tracking System.
+                      </p>
+                    </div>
+                  `
+                });
+                console.log(`[VelocityAlert] ✅ Email sent to ${recipient.email}`);
+              } catch (emailErr) {
+                console.error(`[VelocityAlert] ❌ Failed to send email to ${recipient.email}:`, emailErr);
+              }
+            }
+
+            console.log(`[VelocityAlert] 🚨 Sent velocity alerts for sprint: ${sprint.name}. Accuracy: ${accuracy.toFixed(1)}% (< 85%)`);
+          }
+        }
+      } catch (alertErr) {
+        console.error('[VelocityAlert] Error sending velocity alert:', alertErr);
+      }
+    }
+  } catch (err) {
+    console.error("[VelocitySync] Error syncing sprint velocity:", err);
   }
 }
 
@@ -763,6 +986,29 @@ router.post('/entities/:entity/create', async (req, res) => {
           }
         } catch (err) {
           console.error("[LateSubmission] Error:", err);
+        }
+      });
+    }
+
+    // --- SPRINT VELOCITY SYNC (Create) ---
+    if (['Task', 'Story', 'Sprint'].includes(entityName)) {
+      setImmediate(async () => {
+        try {
+          let sprintId = null;
+          if (entityName === 'Sprint') {
+            sprintId = savedItem._id;
+          } else if (savedItem.sprint_id) {
+            sprintId = savedItem.sprint_id;
+          } else if (entityName === 'Task' && savedItem.story_id) {
+            const story = await Models.Story.findById(savedItem.story_id);
+            if (story && story.sprint_id) sprintId = story.sprint_id;
+          }
+
+          if (sprintId) {
+            await syncSprintVelocity(sprintId, savedItem.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in create trigger:", err);
         }
       });
     }
@@ -1309,6 +1555,39 @@ router.post('/entities/:entity/update', async (req, res) => {
     // Send response immediately after update
     res.json(updatedDoc);
 
+    // --- SPRINT VELOCITY SYNC (Update) ---
+    if (['Task', 'Story', 'Sprint'].includes(entityName)) {
+      setImmediate(async () => {
+        try {
+          const sprintIdsToSync = new Set();
+
+          // Current sprint
+          if (entityName === 'Sprint') {
+            sprintIdsToSync.add(updatedDoc._id.toString());
+          } else if (updatedDoc.sprint_id) {
+            sprintIdsToSync.add(updatedDoc.sprint_id.toString());
+          } else if (entityName === 'Task' && updatedDoc.story_id) {
+            const story = await Models.Story.findById(updatedDoc.story_id);
+            if (story && story.sprint_id) sprintIdsToSync.add(story.sprint_id.toString());
+          }
+
+          // Previous sprint (if changed)
+          if (oldDoc.sprint_id && oldDoc.sprint_id.toString() !== (updatedDoc.sprint_id ? updatedDoc.sprint_id.toString() : '')) {
+            sprintIdsToSync.add(oldDoc.sprint_id.toString());
+          } else if (entityName === 'Task' && oldDoc.story_id && oldDoc.story_id.toString() !== (updatedDoc.story_id ? updatedDoc.story_id.toString() : '')) {
+            const oldStory = await Models.Story.findById(oldDoc.story_id);
+            if (oldStory && oldStory.sprint_id) sprintIdsToSync.add(oldStory.sprint_id.toString());
+          }
+
+          for (const sId of sprintIdsToSync) {
+            await syncSprintVelocity(sId, updatedDoc.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in update trigger:", err);
+        }
+      });
+    }
+
     // --- ACTIVITY LOGGING ---
     setImmediate(async () => {
       try {
@@ -1744,13 +2023,38 @@ router.post('/entities/:entity/delete', async (req, res) => {
     // 3. Delete the entity itself
     await Model.findByIdAndDelete(id);
 
-    // 4. TIMESHEET LOGGING: Dynamic Sync
+    // --- TIMESHEET LOGGING: Dynamic Sync ---
     if (entity === 'Timesheet' && docToDelete) {
       try {
         await syncUserTimesheetDay(docToDelete.user_email, docToDelete.date, docToDelete.tenant_id);
       } catch (err) {
         console.error("[Sync] Error in delete sync:", err);
       }
+    }
+
+    // --- SPRINT VELOCITY SYNC (Delete) ---
+    if (['Task', 'Story', 'Sprint'].includes(entity) && docToDelete) {
+      setImmediate(async () => {
+        try {
+          let sprintId = null;
+          if (entity === 'Sprint') {
+            await Models.SprintVelocity.findOneAndDelete({ sprint_id: docToDelete._id });
+            console.log(`[VelocitySync] Deleted velocity record for sprint: ${docToDelete.name}`);
+            return;
+          } else if (docToDelete.sprint_id) {
+            sprintId = docToDelete.sprint_id;
+          } else if (entity === 'Task' && docToDelete.story_id) {
+            const story = await Models.Story.findById(docToDelete.story_id);
+            if (story && story.sprint_id) sprintId = story.sprint_id;
+          }
+
+          if (sprintId) {
+            await syncSprintVelocity(sprintId, docToDelete.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in delete trigger:", err);
+        }
+      });
     }
 
     res.json({ success: true });

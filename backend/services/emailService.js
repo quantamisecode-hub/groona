@@ -52,13 +52,7 @@ function getSmtpTransporter() {
  * Get sender information from MAIL_FROM env variable
  */
 function getSenderInfo() {
-  // FORCE OVERRIDE for Resend Free/Test Mode:
-  // Using 'onboarding@resend.dev' allows sending to the verified owner email
-  // without verifying the custom domain 'quantumisecode.com'.
-  return 'Groona <onboarding@resend.dev>';
-
-  // Original Logic (Uncomment when domain is verified):
-  // return process.env.MAIL_FROM || 'Groona <no-reply@quantumisecode.com>';
+  return process.env.MAIL_FROM || 'Groona <no-reply@quantumisecode.com>';
 }
 
 /**
@@ -124,13 +118,28 @@ async function sendEmail({ to, templateType, data, subject, html: directHtml }) 
         subject: emailSubject,
         html: emailHtml
       });
+
+      // Enhanced logging for debugging
+      console.log('[Email Service] Resend API Full Response:', JSON.stringify(result, null, 2));
       console.log('[Email Service] Email sent via Resend:', {
         to: recipients,
-        messageId: result.data?.id
+        messageId: result.data?.id || result.id,
+        status: result.error ? 'FAILED' : 'SUCCESS'
       });
-      return { success: true, messageId: result.data?.id, provider: 'resend' };
+
+      if (result.error) {
+        throw new Error(`Resend API Error: ${JSON.stringify(result.error)}`);
+      }
+
+      return {
+        success: true,
+        messageId: result.data?.id || result.id,
+        provider: 'resend',
+        fullResponse: result
+      };
     } catch (resendError) {
       console.error('[Email Service] Resend Failed:', resendError.message);
+      console.error('[Email Service] Resend Error Details:', resendError);
       // Fall through to Mock
     }
   }

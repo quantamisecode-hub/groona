@@ -114,6 +114,8 @@ app.use('/api/subtasks', require('./routes/subtaskOperations'));
 app.use('/api/ai-assistant', require('./routes/aiAssistantService'));
 app.use('/api/groona-assistant', require('./routes/groonaAssistant'));
 app.use('/api/leave-management', require('./routes/leaveManagement'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/sprint-velocity', require('./routes/sprintVelocity'));
 
 // Socket.IO Logic
 io.on('connection', (socket) => {

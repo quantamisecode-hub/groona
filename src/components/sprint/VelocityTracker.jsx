@@ -220,26 +220,26 @@ export default function VelocityTracker({ sprints, allStories = [], allTasks = [
         </Card>
 
         <Card className={`bg-gradient-to-br ${trend === 'increasing' ? 'from-green-50 to-emerald-100 border-green-200' :
-            trend === 'decreasing' ? 'from-red-50 to-red-100 border-red-200' :
-              'from-slate-50 to-slate-100 border-slate-200'
+          trend === 'decreasing' ? 'from-red-50 to-red-100 border-red-200' :
+            'from-slate-50 to-slate-100 border-slate-200'
           }`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className={`text-sm font-medium ${trend === 'increasing' ? 'text-green-700' :
-                    trend === 'decreasing' ? 'text-red-700' :
-                      'text-slate-700'
+                  trend === 'decreasing' ? 'text-red-700' :
+                    'text-slate-700'
                   }`}>Velocity Trend</p>
                 <p className={`text-2xl font-bold ${trend === 'increasing' ? 'text-green-900' :
-                    trend === 'decreasing' ? 'text-red-900' :
-                      'text-slate-900'
+                  trend === 'decreasing' ? 'text-red-900' :
+                    'text-slate-900'
                   }`}>
                   {trend === 'increasing' ? '↗ Up' : trend === 'decreasing' ? '↘ Down' : '→ Stable'}
                 </p>
               </div>
               <TrendingUp className={`h-10 w-10 ${trend === 'increasing' ? 'text-green-600' :
-                  trend === 'decreasing' ? 'text-red-600' :
-                    'text-slate-600'
+                trend === 'decreasing' ? 'text-red-600' :
+                  'text-slate-600'
                 }`} />
             </div>
           </CardContent>
@@ -332,9 +332,9 @@ export default function VelocityTracker({ sprints, allStories = [], allTasks = [
                         </td>
                         <td className="py-3 px-2 text-right">
                           <span className={`text-sm font-medium ${accuracy >= 90 ? 'text-green-600' :
-                              accuracy >= 70 ? 'text-blue-600' :
-                                accuracy >= 50 ? 'text-amber-600' :
-                                  'text-red-600'
+                            accuracy >= 70 ? 'text-blue-600' :
+                              accuracy >= 50 ? 'text-amber-600' :
+                                'text-red-600'
                             }`}>
                             {accuracy}%
                           </span>

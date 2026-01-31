@@ -156,14 +156,13 @@ export default function NotificationCenter({ currentUser }) {
         if (shouldShow) alerts.push(n);
       }
       // 1. Critical Alarms -> ALARMS (Red)
-      else if (n.category === 'alarm' || n.category === 'critical' || n.type?.includes('critical') || n.type?.includes('failure') || n.type?.includes('security')) {
+      else if (n.category === 'alarm' || n.category === 'critical' || n.type.includes('critical') || n.type.includes('failure') || n.type.includes('security')) {
         if (shouldShow) alarms.push(n);
       }
       // 2. Warnings/Advisories -> ALERTS (Yellow)
-      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.type?.includes('warning') || n.type?.includes('alert') || n.type?.includes('non_billable')) {
+      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable')) {
         if (shouldShow) alerts.push(n);
       }
-
       // 3. Fallback -> GENERAL
       else {
         general.push(n);
@@ -404,7 +403,7 @@ export default function NotificationCenter({ currentUser }) {
                           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
                           <div>
                             <h5 className="text-sm font-bold text-amber-800 mb-1">Warning</h5>
-                            <p className="text-sm text-amber-900">{(alert.message || '').replace(/\*\*/g, '')}</p>
+                            <p className="text-sm text-amber-900">{alert.message.replace(/\*\*/g, '')}</p>
                             <div className="flex gap-2 mt-2">
                               <Button
                                 onClick={() => handleReview(alert)}
@@ -464,7 +463,7 @@ export default function NotificationCenter({ currentUser }) {
                               <h5 className="text-sm font-bold text-red-800 mb-1">CRITICAL ALARM</h5>
                               <span className="text-[10px] font-mono bg-red-200 text-red-900 px-1.5 py-0.5 rounded">{alarm.escalationTime || 'Auto-Escalating'}</span>
                             </div>
-                            <p className="text-sm text-red-900 font-medium">{(alarm.message || '').replace(/\*\*/g, '')}</p>
+                            <p className="text-sm text-red-900 font-medium">{alarm.message.replace(/\*\*/g, '')}</p>
                             <div className="flex gap-2 mt-3">
                               <Button
                                 onClick={() => handleTakeAction(alarm)}

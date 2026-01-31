@@ -33,7 +33,8 @@ const SCRIPTS = [
     'timesheet_reminder_alerts.js',
     'alert_low_logged_hours.js',
     'alert_availability_update.js',
-
+    'check_low_velocity_alerts.js',
+    'pm_consistent_velocity_drop.js'
 ];
 
 const runScript = (scriptName) => {
