@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Groona_ai_PM_Frontend" 
 # Groonabackend App
 
@@ -19,3 +20,7 @@ npm run build
 ```
 
 For more information and support, please contact Base44 support at app@base44.com.
+=======
+# groona
+Groona 
+>>>>>>> 0878a210f6a7215e61e0153ab72cab8f8b203380
