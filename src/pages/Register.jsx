@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { createPageUrl } from "@/utils";
 import { Sprout, Loader2, Eye, EyeOff, CheckCircle2, Mail } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 
 export default function Register() {
@@ -68,7 +68,7 @@ export default function Register() {
     setSendingOTP(true);
     setEmailError(false);
     try {
-      await base44.auth.sendEmailVerificationOTP(formData.email);
+      await groonabackend.auth.sendEmailVerificationOTP(formData.email);
       toast.success('Verification code sent to your email');
       setShowOTPFields(true);
       setResendCooldown(60); // 60 second cooldown
@@ -91,7 +91,7 @@ export default function Register() {
     setResendingOTP(true);
     setEmailError(false);
     try {
-      await base44.auth.sendEmailVerificationOTP(formData.email);
+      await groonabackend.auth.sendEmailVerificationOTP(formData.email);
       toast.success('New verification code sent to your email');
       setResendCooldown(60); // 60 second cooldown
       setOtp(['', '', '', '', '', '']);
@@ -148,7 +148,7 @@ export default function Register() {
 
     setVerifyingOTP(true);
     try {
-      const response = await base44.auth.verifyEmailOTP(formData.email, otpString);
+      const response = await groonabackend.auth.verifyEmailOTP(formData.email, otpString);
       if (response.success && response.verificationToken) {
         setEmailVerified(true);
         setVerificationToken(response.verificationToken);
@@ -192,7 +192,7 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const response = await base44.auth.register({
+      const response = await groonabackend.auth.register({
         email: formData.email,
         password: formData.password,
         full_name: `${formData.firstName} ${formData.lastName}`.trim(),
@@ -450,3 +450,4 @@ export default function Register() {
     </div>
   );
 }
+

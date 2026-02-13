@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ export default function SupportDashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all");
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
@@ -29,7 +29,7 @@ export default function SupportDashboard() {
     queryKey: ['support-tickets', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Ticket.filter({ tenant_id: effectiveTenantId }, '-created_date');
+      return groonabackend.entities.Ticket.filter({ tenant_id: effectiveTenantId }, '-created_date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
@@ -238,3 +238,4 @@ export default function SupportDashboard() {
     </div>
   );
 }
+

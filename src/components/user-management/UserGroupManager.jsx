@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,9 +22,9 @@ export default function UserGroupManager({ currentUser, effectiveTenantId }) {
     queryKey: ['user-groups', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) {
-        return base44.entities.UserGroup.list();
+        return groonabackend.entities.UserGroup.list();
       }
-      return base44.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
     },
   });
 
@@ -32,9 +32,9 @@ export default function UserGroupManager({ currentUser, effectiveTenantId }) {
     queryKey: ['group-memberships', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) {
-        return base44.entities.UserGroupMembership.list();
+        return groonabackend.entities.UserGroupMembership.list();
       }
-      return base44.entities.UserGroupMembership.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.UserGroupMembership.filter({ tenant_id: effectiveTenantId });
     },
   });
 
@@ -42,14 +42,14 @@ export default function UserGroupManager({ currentUser, effectiveTenantId }) {
     mutationFn: async (groupId) => {
       // Delete all memberships first
       const groupMemberships = memberships.filter(m => m.group_id === groupId);
-      await Promise.all(groupMemberships.map(m => base44.entities.UserGroupMembership.delete(m.id)));
+      await Promise.all(groupMemberships.map(m => groonabackend.entities.UserGroupMembership.delete(m.id)));
 
       // Delete the group
-      await base44.entities.UserGroup.delete(groupId);
+      await groonabackend.entities.UserGroup.delete(groupId);
 
       // Log audit entry
       try {
-        await base44.entities.AuditLog.create({
+        await groonabackend.entities.AuditLog.create({
           tenant_id: effectiveTenantId,
           action: 'delete',
           entity_type: 'group',
@@ -219,3 +219,4 @@ export default function UserGroupManager({ currentUser, effectiveTenantId }) {
     </div>
   );
 }
+

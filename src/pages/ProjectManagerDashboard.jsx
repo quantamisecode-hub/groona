@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,7 @@ export default function ProjectManagerDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
@@ -34,7 +34,7 @@ export default function ProjectManagerDashboard() {
   // Fetch projects where user is assigned as Project Manager
   const { data: projectRoles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['project-manager-roles', currentUser?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       tenant_id: effectiveTenantId,
       user_id: currentUser.id,
       role: 'project_manager'
@@ -44,7 +44,7 @@ export default function ProjectManagerDashboard() {
 
   const { data: allProjects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', effectiveTenantId],
-    queryFn: () => base44.entities.Project.filter({ tenant_id: effectiveTenantId }),
+    queryFn: () => groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }),
     enabled: !!effectiveTenantId,
   });
 
@@ -59,7 +59,7 @@ export default function ProjectManagerDashboard() {
     queryFn: async () => {
       if (managedProjects.length === 0) return [];
       const taskPromises = managedProjects.map(p => 
-        base44.entities.Task.filter({ project_id: p.id })
+        groonabackend.entities.Task.filter({ project_id: p.id })
       );
       const results = await Promise.all(taskPromises);
       return results.flat();
@@ -73,7 +73,7 @@ export default function ProjectManagerDashboard() {
     queryFn: async () => {
       if (managedProjects.length === 0) return [];
       const expensePromises = managedProjects.map(p => 
-        base44.entities.ProjectExpense.filter({ project_id: p.id })
+        groonabackend.entities.ProjectExpense.filter({ project_id: p.id })
       );
       const results = await Promise.all(expensePromises);
       return results.flat();
@@ -312,3 +312,4 @@ export default function ProjectManagerDashboard() {
     </div>
   );
 }
+

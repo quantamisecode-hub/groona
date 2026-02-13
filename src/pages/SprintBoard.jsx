@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ export default function SprintBoard() {
 
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles', currentUser?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: currentUser.id,
       role: 'project_manager'
     }),
@@ -109,7 +109,7 @@ export default function SprintBoard() {
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
     staleTime: 5 * 60 * 1000,
@@ -125,7 +125,7 @@ export default function SprintBoard() {
     queryKey: ['sprints', selectedProjectId],
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      return base44.entities.Sprint.filter({ project_id: selectedProjectId }, '-start_date');
+      return groonabackend.entities.Sprint.filter({ project_id: selectedProjectId }, '-start_date');
     },
     enabled: !!selectedProjectId,
     staleTime: 2 * 60 * 1000,
@@ -135,7 +135,7 @@ export default function SprintBoard() {
     queryKey: ['tasks', selectedProjectId],
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      return base44.entities.Task.filter({ project_id: selectedProjectId }, '-updated_date');
+      return groonabackend.entities.Task.filter({ project_id: selectedProjectId }, '-updated_date');
     },
     enabled: !!selectedProjectId,
     staleTime: 30 * 1000,
@@ -145,7 +145,7 @@ export default function SprintBoard() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -156,7 +156,7 @@ export default function SprintBoard() {
     queryKey: ['stories', selectedProjectId],
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      return base44.entities.Story.filter({ project_id: selectedProjectId });
+      return groonabackend.entities.Story.filter({ project_id: selectedProjectId });
     },
     enabled: !!selectedProjectId,
     staleTime: 30 * 1000,
@@ -167,7 +167,7 @@ export default function SprintBoard() {
     queryKey: ['epics', selectedProjectId],
     queryFn: async () => {
       if (!selectedProjectId) return [];
-      return base44.entities.Epic.filter({ project_id: selectedProjectId });
+      return groonabackend.entities.Epic.filter({ project_id: selectedProjectId });
     },
     enabled: !!selectedProjectId,
     staleTime: 30 * 1000,
@@ -194,14 +194,14 @@ export default function SprintBoard() {
         status: sprintData.status || 'planned',
       };
 
-      const newSprint = await base44.entities.Sprint.create(sprintPayload);
+      const newSprint = await groonabackend.entities.Sprint.create(sprintPayload);
 
       // Assign selected stories to the sprint
       if (selectedStoryIds.length > 0 && newSprint.id) {
         try {
           await Promise.all(
             selectedStoryIds.map(storyId =>
-              base44.entities.Story.update(storyId, { sprint_id: newSprint.id || newSprint._id })
+              groonabackend.entities.Story.update(storyId, { sprint_id: newSprint.id || newSprint._id })
             )
           );
         } catch (error) {
@@ -211,7 +211,7 @@ export default function SprintBoard() {
         }
       }
 
-      await base44.entities.Activity.create({
+      await groonabackend.entities.Activity.create({
         tenant_id: effectiveTenantId,
         action: 'created',
         entity_type: 'sprint',
@@ -245,13 +245,13 @@ export default function SprintBoard() {
   const updateSprintMutation = useMutation({
     mutationFn: async ({ id, data: { sprintData, selectedStoryIds = [] } }) => {
       // Update the sprint
-      const updatedSprint = await base44.entities.Sprint.update(id, sprintData);
+      const updatedSprint = await groonabackend.entities.Sprint.update(id, sprintData);
 
       // Handle story assignment for updates
       if (selectedStoryIds !== undefined) {
         try {
           // Get all stories in the project
-          const allStories = await base44.entities.Story.filter({ project_id: selectedProjectId });
+          const allStories = await groonabackend.entities.Story.filter({ project_id: selectedProjectId });
 
           // Remove sprint_id from stories that are no longer selected
           const storiesToRemove = allStories.filter(
@@ -262,7 +262,7 @@ export default function SprintBoard() {
           );
           await Promise.all(
             storiesToRemove.map(story =>
-              base44.entities.Story.update(story.id || story._id, { sprint_id: null })
+              groonabackend.entities.Story.update(story.id || story._id, { sprint_id: null })
             )
           );
 
@@ -275,7 +275,7 @@ export default function SprintBoard() {
           );
           await Promise.all(
             storiesToAdd.map(storyId =>
-              base44.entities.Story.update(storyId, { sprint_id: id })
+              groonabackend.entities.Story.update(storyId, { sprint_id: id })
             )
           );
         } catch (error) {
@@ -301,7 +301,7 @@ export default function SprintBoard() {
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      return await base44.entities.Task.update(id, data);
+      return await groonabackend.entities.Task.update(id, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', selectedProjectId] });
@@ -314,7 +314,7 @@ export default function SprintBoard() {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id) => {
-      return await base44.entities.Task.delete(id);
+      return await groonabackend.entities.Task.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', selectedProjectId] });
@@ -327,7 +327,7 @@ export default function SprintBoard() {
 
   const updateStoryMutation = useMutation({
     mutationFn: async ({ id, data, silent = false }) => {
-      const result = await base44.entities.Story.update(id, data);
+      const result = await groonabackend.entities.Story.update(id, data);
       return { result, silent };
     },
     onSuccess: (response) => {
@@ -343,7 +343,7 @@ export default function SprintBoard() {
 
   const deleteStoryMutation = useMutation({
     mutationFn: async (id) => {
-      return await base44.entities.Story.delete(id);
+      return await groonabackend.entities.Story.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories', selectedProjectId] });
@@ -356,7 +356,7 @@ export default function SprintBoard() {
 
   const deleteEpicMutation = useMutation({
     mutationFn: async (id) => {
-      return await base44.entities.Epic.delete(id);
+      return await groonabackend.entities.Epic.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epics', selectedProjectId] });
@@ -2222,3 +2222,4 @@ export default function SprintBoard() {
     </OnboardingProvider>
   );
 }
+

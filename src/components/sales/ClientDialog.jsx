@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,11 +40,11 @@ export default function ClientDialog({ open, onOpenChange, client = null, onSucc
 
     const mutation = useMutation({
         mutationFn: async (data) => {
-            const user = await base44.auth.me();
+            const user = await groonabackend.auth.me();
             if (client) {
-                return base44.entities.Client.update(client.id, { ...data });
+                return groonabackend.entities.Client.update(client.id, { ...data });
             } else {
-                return base44.entities.Client.create({ ...data, tenant_id: user.tenant_id });
+                return groonabackend.entities.Client.create({ ...data, tenant_id: user.tenant_id });
             }
         },
         onSuccess: (data) => {
@@ -123,3 +123,4 @@ export default function ClientDialog({ open, onOpenChange, client = null, onSucc
         </Dialog>
     );
 }
+

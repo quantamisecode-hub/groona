@@ -10,7 +10,7 @@ import { Loader2, Mail, ArrowLeft, CheckCircle2, Sprout } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 
-import { API_BASE } from "@/api/base44Client";
+import { API_BASE } from "@/api/groonabackend";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();

@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * PresenceManager - Tracks user presence and activity
@@ -19,7 +19,7 @@ export default function PresenceManager({ user }) {
     if (!user) return;
 
     try {
-      await base44.auth.updateMe({
+      await groonabackend.auth.updateMe({
         presence_status: status,
         last_seen: new Date().toISOString(),
       });
@@ -119,3 +119,4 @@ export default function PresenceManager({ user }) {
   // This component doesn't render anything
   return null;
 }
+

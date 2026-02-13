@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -45,7 +45,7 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
   // Fetch all expenses to integrate Non-Labor Costs
   const { data: allExpenses = [] } = useQuery({
     queryKey: ['all-project-expenses'],
-    queryFn: () => base44.entities.ProjectExpense.list(),
+    queryFn: () => groonabackend.entities.ProjectExpense.list(),
   });
 
   // Fetch exchange rates when currencies change
@@ -854,3 +854,4 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
     </div>
   );
 }
+

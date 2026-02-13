@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ export default function CodeReview() {
   const canUseCodeReview = useHasPermission('can_use_ai_code_review');
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const analyzeCode = async (code, source = "snippet") => {
@@ -101,7 +101,7 @@ Provide actionable recommendations for improvement with priority levels (High/Me
 
 Be specific, constructive, and provide code examples where helpful. If the code is generally good, say so!`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         add_context_from_internet: false,
       });
@@ -145,7 +145,7 @@ Be specific, constructive, and provide code examples where helpful. If the code 
     toast.info('Uploading file...');
 
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       setFileUrl(file_url);
       
       // Read file content
@@ -238,7 +238,7 @@ Provide prioritized recommendations for improvement.
 
 Note: Please fetch the repository information from the internet to provide accurate analysis.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         add_context_from_internet: true,
       });
@@ -579,3 +579,4 @@ Note: Please fetch the repository information from the internet to provide accur
     </div>
   );
 }
+

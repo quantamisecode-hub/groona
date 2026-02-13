@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -26,7 +26,7 @@ export default function CreateTaskDialog({ open, onClose, onSubmit, loading }) {
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.custom_role !== 'client');
     },
     enabled: open,
@@ -141,3 +141,4 @@ export default function CreateTaskDialog({ open, onClose, onSubmit, loading }) {
     </Dialog>
   );
 }
+

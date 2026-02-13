@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, UserPlus, Copy, Check, Eye, EyeOff } from "lucide-react";
@@ -29,7 +29,7 @@ export default function InviteClientDialog({ open, onClose, onSuccess, tenantId,
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects', tenantId],
-    queryFn: () => base44.entities.Project.filter({ tenant_id: tenantId }),
+    queryFn: () => groonabackend.entities.Project.filter({ tenant_id: tenantId }),
     enabled: open && !!tenantId,
   });
 
@@ -210,3 +210,4 @@ export default function InviteClientDialog({ open, onClose, onSuccess, tenantId,
     </Dialog>
   );
 }
+

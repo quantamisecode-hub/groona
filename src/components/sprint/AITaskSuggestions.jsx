@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default function AITaskSuggestions({ sprint, projectId, existingTasks, us
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Determine effective tenant ID
@@ -30,7 +30,7 @@ export default function AITaskSuggestions({ sprint, projectId, existingTasks, us
   
   useEffect(() => {
     if (projectId && effectiveTenantId) {
-      base44.entities.Project.filter({ id: projectId, tenant_id: effectiveTenantId })
+      groonabackend.entities.Project.filter({ id: projectId, tenant_id: effectiveTenantId })
         .then(projects => {
           if (projects[0]) {
             console.log('[AITaskSuggestions] Project loaded:', projects[0]);
@@ -60,12 +60,12 @@ export default function AITaskSuggestions({ sprint, projectId, existingTasks, us
 
       console.log('[AITaskSuggestions] Complete task data:', completeTaskData);
 
-      const newTask = await base44.entities.Task.create(completeTaskData);
+      const newTask = await groonabackend.entities.Task.create(completeTaskData);
       console.log('[AITaskSuggestions] Task created successfully:', newTask);
 
       // Log activity
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'created',
           entity_type: 'task',
@@ -117,7 +117,7 @@ Consider:
 
 Provide tasks in a structured format. Each task should be specific and actionable.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -157,7 +157,7 @@ Provide tasks in a structured format. Each task should be specific and actionabl
 
       // Update sprint goal if changed
       if (sprintGoal !== sprint.goal) {
-        await base44.entities.Sprint.update(sprint.id, { goal: sprintGoal });
+        await groonabackend.entities.Sprint.update(sprint.id, { goal: sprintGoal });
         queryClient.invalidateQueries({ queryKey: ['sprints'] });
       }
 
@@ -380,3 +380,4 @@ Provide tasks in a structured format. Each task should be specific and actionabl
     </Card>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default function FixTenantOwnership() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = createPageUrl("Dashboard");
       }
@@ -30,12 +30,12 @@ export default function FixTenantOwnership() {
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list('-created_date'),
+    queryFn: () => groonabackend.entities.Tenant.list('-created_date'),
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   // Find Quantamise Code tenant
@@ -47,7 +47,7 @@ export default function FixTenantOwnership() {
   const fixOwnershipMutation = useMutation({
     mutationFn: async ({ tenantId, ownerEmail, ownerName }) => {
       // Step 1: Check if user with new email exists
-      const existingUsers = await base44.entities.User.filter({ email: ownerEmail });
+      const existingUsers = await groonabackend.entities.User.filter({ email: ownerEmail });
       
       let tenantAdminUser;
       if (existingUsers.length > 0) {
@@ -59,7 +59,7 @@ export default function FixTenantOwnership() {
           throw new Error('Cannot use Super Admin as tenant owner. Please use a different email.');
         }
         
-        tenantAdminUser = await base44.entities.User.update(existingUser.id, {
+        tenantAdminUser = await groonabackend.entities.User.update(existingUser.id, {
           tenant_id: tenantId,
           role: 'admin',
           full_name: ownerName || existingUser.full_name,
@@ -67,7 +67,7 @@ export default function FixTenantOwnership() {
         });
       } else {
         // Create new admin user for this tenant
-        tenantAdminUser = await base44.entities.User.create({
+        tenantAdminUser = await groonabackend.entities.User.create({
           email: ownerEmail,
           full_name: ownerName || ownerEmail.split('@')[0],
           role: 'admin',
@@ -78,7 +78,7 @@ export default function FixTenantOwnership() {
       }
       
       // Step 2: Update tenant with correct owner info
-      await base44.entities.Tenant.update(tenantId, {
+      await groonabackend.entities.Tenant.update(tenantId, {
         owner_email: ownerEmail,
         owner_name: ownerName,
         owner_user_id: tenantAdminUser.id,
@@ -93,7 +93,7 @@ export default function FixTenantOwnership() {
       if (superAdminInTenant && superAdminInTenant.id !== tenantAdminUser.id) {
         try {
           // Update super admin user to remove tenant association
-          await base44.entities.User.update(superAdminInTenant.id, {
+          await groonabackend.entities.User.update(superAdminInTenant.id, {
             tenant_id: null, // Remove tenant association from super admin
           });
         } catch (error) {
@@ -332,3 +332,4 @@ export default function FixTenantOwnership() {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export default function DiagnosticWorkspaces() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = "/";
       }
@@ -24,18 +24,18 @@ export default function DiagnosticWorkspaces() {
 
   const { data: allWorkspaces = [], isLoading: workspacesLoading } = useQuery({
     queryKey: ['diagnostic-workspaces'],
-    queryFn: () => base44.entities.Workspace.list(),
+    queryFn: () => groonabackend.entities.Workspace.list(),
     enabled: !!currentUser,
   });
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
   });
 
   const fixWorkspaceMutation = useMutation({
     mutationFn: async ({ workspaceId, tenantId }) => {
-      return base44.entities.Workspace.update(workspaceId, { tenant_id: tenantId });
+      return groonabackend.entities.Workspace.update(workspaceId, { tenant_id: tenantId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['diagnostic-workspaces'] });
@@ -284,3 +284,4 @@ export default function DiagnosticWorkspaces() {
     </div>
   );
 }
+

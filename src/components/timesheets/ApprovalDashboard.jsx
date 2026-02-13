@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +50,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       if (!effectiveTenantId) return [];
 
       // Fetch ALL timesheets and filter in memory
-      const allTimesheets = await base44.entities.Timesheet.filter({
+      const allTimesheets = await groonabackend.entities.Timesheet.filter({
         tenant_id: effectiveTenantId
       }, '-submitted_at');
 
@@ -100,7 +100,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       // Fetch stories for all relevant projects
       const results = [];
       for (const pid of projectIds) {
-        const pStories = await base44.entities.Story.filter({ project_id: pid });
+        const pStories = await groonabackend.entities.Story.filter({ project_id: pid });
         results.push(...pStories);
       }
       return results;
@@ -114,7 +114,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       if (projectIds.length === 0) return [];
       const results = [];
       for (const pid of projectIds) {
-        const pEpics = await base44.entities.Epic.filter({ project_id: pid });
+        const pEpics = await groonabackend.entities.Epic.filter({ project_id: pid });
         results.push(...pEpics);
       }
       return results;
@@ -130,7 +130,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       // If not found in pending list, fetch it directly
       if (!timesheet) {
         try {
-          const fetched = await base44.entities.Timesheet.filter({ id: timesheetId });
+          const fetched = await groonabackend.entities.Timesheet.filter({ id: timesheetId });
           timesheet = fetched[0];
         } catch (error) {
           console.error('[ApprovalDashboard] Failed to fetch timesheet:', error);
@@ -172,7 +172,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       }
 
       // Update timesheet status
-      await base44.entities.Timesheet.update(timesheetId, {
+      await groonabackend.entities.Timesheet.update(timesheetId, {
         status: nextStatus,
         approved_by: currentUser.full_name,
         approved_at: new Date().toISOString(),
@@ -181,13 +181,13 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       });
 
       // Fetch the LATEST timesheet data to ensure email reflects any admin edits (hours/minutes)
-      const [freshTimesheet] = await base44.entities.Timesheet.filter({ id: timesheetId });
+      const [freshTimesheet] = await groonabackend.entities.Timesheet.filter({ id: timesheetId });
 
       // Fallback to local if fetch fails (unlikely)
       const finalTimesheet = freshTimesheet || timesheet;
 
       try {
-        await base44.entities.TimesheetApproval.create({
+        await groonabackend.entities.TimesheetApproval.create({
           tenant_id: effectiveTenantId,
           timesheet_id: timesheetId,
           approver_email: currentUser.email,
@@ -204,7 +204,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       // Backend sync for Project Billing
       if (status === 'approved' && finalTimesheet?.is_billable) {
         try {
-          await base44.functions.invoke('updateProjectBillable', { timesheet_id: timesheetId });
+          await groonabackend.functions.invoke('updateProjectBillable', { timesheet_id: timesheetId });
         } catch (error) {
           console.error('[ApprovalDashboard] Failed to update project billable:', error);
         }
@@ -213,7 +213,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       // Send notifications (in-app and email) - separate try-catch for each
       // In-app notification
       try {
-        await base44.entities.Notification.create({
+        await groonabackend.entities.Notification.create({
           tenant_id: effectiveTenantId,
           recipient_email: finalTimesheet.user_email,
           type: 'timesheet_status', // Use generic status type for clock icon
@@ -227,13 +227,13 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
         // 2. Notify Owners/Admins if status moved to 'pending_admin'
         if (nextStatus === 'pending_admin') {
           // Fetch all potential approvers (Owners and Admins)
-          const allUsers = await base44.entities.User.list();
+          const allUsers = await groonabackend.entities.User.list();
           const approvers = allUsers.filter(u =>
             u.tenant_id === effectiveTenantId && u.custom_role === 'owner'
           );
 
           await Promise.all(approvers.map(approver =>
-            base44.entities.Notification.create({
+            groonabackend.entities.Notification.create({
               tenant_id: effectiveTenantId,
               recipient_email: approver.email,
               type: 'timesheet_approval_needed',
@@ -270,7 +270,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
         // Fire and forget - send email asynchronously
         setTimeout(async () => {
           try {
-            await base44.email.sendTemplate({
+            await groonabackend.email.sendTemplate({
               to: timesheet.user_email,
               templateType,
               data: {
@@ -282,14 +282,14 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
 
             // === NEW: Notify PM(s) about final decision ===
             const finalProjectId = finalTimesheet.project_id?.id || finalTimesheet.project_id?._id || finalTimesheet.project_id;
-            const pmRoles = await base44.entities.ProjectUserRole.filter({
+            const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
               project_id: finalProjectId,
               role: 'project_manager'
             });
             const pmEmails = [...new Set(pmRoles.map(r => r.user_email))].filter(e => e !== currentUser.email && e !== finalTimesheet.user_email);
 
             await Promise.all(pmEmails.map(email =>
-              base44.entities.Notification.create({
+              groonabackend.entities.Notification.create({
                 tenant_id: effectiveTenantId,
                 recipient_email: email,
                 type: 'timesheet_status',
@@ -671,7 +671,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
 
                     if (hasChanged) {
                       try {
-                        await base44.entities.Timesheet.update(selectedEntry.id, {
+                        await groonabackend.entities.Timesheet.update(selectedEntry.id, {
                           hours: parseInt(editHours),
                           minutes: parseInt(editMinutes),
                           total_minutes: totalMinutes,
@@ -718,3 +718,4 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
     </div>
   );
 }
+

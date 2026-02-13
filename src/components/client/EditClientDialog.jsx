@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import axios from "axios";
 import { toast } from "sonner";
 import { Loader2, KeyRound, Copy, Layout } from "lucide-react";
@@ -45,11 +45,11 @@ export default function EditClientDialog({ client, open, onClose, onSuccess, org
             const userId = client.client_user_id || client.id || client.user_id;
 
             // 1. Fetch all tenant projects
-            const allProjects = await base44.entities.Project.filter({ tenant_id: effectiveTenantId });
+            const allProjects = await groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId });
             setAvailableProjects(allProjects);
 
             // 2. Fetch current assignments for this client
-            const assignments = await base44.entities.ProjectClient.filter({ client_user_id: userId });
+            const assignments = await groonabackend.entities.ProjectClient.filter({ client_user_id: userId });
             const currentIds = new Set(assignments.map(a => a.project_id));
             setSelectedProjectIds(currentIds);
 
@@ -287,3 +287,4 @@ export default function EditClientDialog({ client, open, onClose, onSuccess, org
         </Dialog>
     );
 }
+

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -102,7 +102,7 @@ export default function VerifyOTPPage() {
     setError('');
 
     try {
-      const response = await base44.functions.invoke('verifyOTP', {
+      const response = await groonabackend.functions.invoke('verifyOTP', {
         email,
         otp: otpCode
       });
@@ -142,7 +142,7 @@ export default function VerifyOTPPage() {
 
     try {
       // Pass the template here as well
-      await base44.functions.invoke('sendOTP', { 
+      await groonabackend.functions.invoke('sendOTP', { 
         email,
         emailTemplate: getOtpEmailTemplate('{{OTP}}') 
       });
@@ -273,3 +273,4 @@ export default function VerifyOTPPage() {
     </div>
   );
 }
+

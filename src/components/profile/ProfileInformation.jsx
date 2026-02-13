@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -184,7 +184,7 @@ export default function ProfileInformation({ user, onUpdate, isUpdating }) {
     setIsUploading(true);
     try {
       // Upload file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       
       // Update profile immediately
       await onUpdate({ profile_image_url: file_url });
@@ -534,3 +534,4 @@ export default function ProfileInformation({ user, onUpdate, isUpdating }) {
     </Card>
   );
 }
+

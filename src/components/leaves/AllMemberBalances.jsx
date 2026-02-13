@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,7 @@ export default function AllMemberBalances({ tenantId }) {
   // 1. Fetch All Balances
   const { data: balances = [], isLoading } = useQuery({
     queryKey: ['all-leave-balances', tenantId, year],
-    queryFn: () => base44.entities.LeaveBalance.filter({ 
+    queryFn: () => groonabackend.entities.LeaveBalance.filter({ 
       tenant_id: tenantId,
       year: parseInt(year)
     }),
@@ -37,7 +37,7 @@ export default function AllMemberBalances({ tenantId }) {
   // 2. Fetch Users
   const { data: users = [] } = useQuery({
     queryKey: ['users-list', tenantId],
-    queryFn: () => base44.entities.User.filter({ tenant_id: tenantId }),
+    queryFn: () => groonabackend.entities.User.filter({ tenant_id: tenantId }),
     enabled: !!tenantId
   });
 
@@ -53,7 +53,7 @@ export default function AllMemberBalances({ tenantId }) {
       // Recalculate Remaining
       const newRemaining = newAllocated + (editingBalance.carried_over || 0) - (editingBalance.used || 0) - (editingBalance.pending || 0);
 
-      return await base44.entities.LeaveBalance.update(editingBalance.id, {
+      return await groonabackend.entities.LeaveBalance.update(editingBalance.id, {
         allocated: newAllocated,
         remaining: newRemaining
       });
@@ -72,7 +72,7 @@ export default function AllMemberBalances({ tenantId }) {
   const deleteBalanceMutation = useMutation({
     mutationFn: async () => {
       if (!deletingBalance) return;
-      return await base44.entities.LeaveBalance.delete(deletingBalance.id);
+      return await groonabackend.entities.LeaveBalance.delete(deletingBalance.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-leave-balances'] });
@@ -354,3 +354,4 @@ export default function AllMemberBalances({ tenantId }) {
     </>
   );
 }
+

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, onSuccess }) {
@@ -27,7 +27,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
       // Update all selected timesheets to submitted
       await Promise.all(
         timesheetIds.map(id =>
-          base44.entities.Timesheet.update(id, {
+          groonabackend.entities.Timesheet.update(id, {
             status: 'submitted',
             submitted_at: now
           })
@@ -35,7 +35,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
       );
 
       // Get user for notifications
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       const effectiveTenantId = user.is_super_admin && user.active_tenant_id
         ? user.active_tenant_id
         : user.tenant_id;
@@ -45,18 +45,18 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
 
       for (const projectId of projects) {
         // Get project managers
-        const pmRoles = await base44.entities.ProjectUserRole.filter({
+        const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
           project_id: projectId,
           role: 'project_manager'
         });
 
         // Get project details
-        const projects = await base44.entities.Project.filter({ id: projectId });
+        const projects = await groonabackend.entities.Project.filter({ id: projectId });
         const project = projects[0];
 
         // Notify each PM
         for (const pmRole of pmRoles) {
-          await base44.entities.Notification.create({
+          await groonabackend.entities.Notification.create({
             tenant_id: effectiveTenantId,
             recipient_email: pmRole.user_email,
             type: 'timesheet_approval_needed',
@@ -70,13 +70,13 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
       }
 
       // Notify admins
-      const admins = await base44.entities.User.filter({
+      const admins = await groonabackend.entities.User.filter({
         tenant_id: effectiveTenantId,
         role: 'admin'
       });
 
       for (const admin of admins) {
-        await base44.entities.Notification.create({
+        await groonabackend.entities.Notification.create({
           tenant_id: effectiveTenantId,
           recipient_email: admin.email,
           type: 'timesheet_approval_needed',
@@ -94,7 +94,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
         const submittedTimesheets = draftEntries.filter(e => timesheetIds.includes(e.id));
         const firstTimesheet = submittedTimesheets[0];
 
-        await base44.email.sendTemplate({
+        await groonabackend.email.sendTemplate({
           to: user.email,
           templateType: 'timesheet_submitted',
           data: {
@@ -278,3 +278,4 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
     </Dialog>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,17 +11,17 @@ export default function RecentTasks({ tasks, loading }) {
   const [currentUser, setCurrentUser] = useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const updateTaskMutation = useMutation({
     mutationFn: async ({ taskId, data }) => {
-      const updated = await base44.entities.Task.update(taskId, data);
+      const updated = await groonabackend.entities.Task.update(taskId, data);
       
       // Create activity
       if (currentUser) {
         try {
-          await base44.entities.Activity.create({
+          await groonabackend.entities.Activity.create({
             action: data.status === 'completed' ? 'completed' : 'updated',
             entity_type: 'task',
             entity_id: taskId,
@@ -50,7 +50,7 @@ export default function RecentTasks({ tasks, loading }) {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId) => {
-      await base44.entities.Task.delete(taskId);
+      await groonabackend.entities.Task.delete(taskId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -99,3 +99,4 @@ export default function RecentTasks({ tasks, loading }) {
     </Card>
   );
 }
+

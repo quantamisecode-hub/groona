@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +13,8 @@ import {
   Bell, CheckCircle2, XCircle, AlertCircle, Info, Trash2, UserPlus, MessageSquare, Megaphone, Clock, Search, AlertTriangle, Siren, ShieldAlert, Loader2, Flame,
   AlignLeft,
   Sparkles,
-  BatteryLow
+  BatteryLow,
+  CalendarDays
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -28,7 +29,7 @@ export default function NotificationCenter({ currentUser }) {
     queryKey: ['task-notifications', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return [];
-      return base44.entities.Notification.filter(
+      return groonabackend.entities.Notification.filter(
         { recipient_email: currentUser.email },
         '-created_date',
         50
@@ -39,13 +40,13 @@ export default function NotificationCenter({ currentUser }) {
   });
 
   const markAsReadMutation = useMutation({
-    mutationFn: async (id) => base44.entities.Notification.update(id, { read: true }),
+    mutationFn: async (id) => groonabackend.entities.Notification.update(id, { read: true }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task-notifications'] }),
   });
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
-      const promises = taskNotifications.map(n => base44.entities.Notification.delete(n.id));
+      const promises = taskNotifications.map(n => groonabackend.entities.Notification.delete(n.id));
       await Promise.all(promises);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task-notifications'] }),
@@ -54,7 +55,7 @@ export default function NotificationCenter({ currentUser }) {
 
   // Update notification status (for alerts/alarms)
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }) => base44.entities.Notification.update(id, { status, read: true }),
+    mutationFn: async ({ id, status }) => groonabackend.entities.Notification.update(id, { status, read: true }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['task-notifications'] }),
   });
 
@@ -210,7 +211,8 @@ export default function NotificationCenter({ currentUser }) {
 
         const getIcon = (type) => {
           switch (type) {
-            case 'task_assigned': return <UserPlus className="h-5 w-5 text-purple-600" />;
+            case 'task_assigned':
+            case 'subtask_assignment': return <UserPlus className="h-5 w-5 text-purple-600" />;
             case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
             case 'comment_added':
             case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
@@ -223,6 +225,10 @@ export default function NotificationCenter({ currentUser }) {
             case 'multiple_overdue_alarm': return <Siren className="h-5 w-5 text-red-600 animate-pulse" />;
             case 'multiple_overdue_escalation': return <ShieldAlert className="h-5 w-5 text-red-700" />;
             case 'low_workload_alert': return <BatteryLow className="h-5 w-5 text-amber-600" />;
+            case 'leave_application': return <CalendarDays className="h-5 w-5 text-blue-500" />;
+            case 'leave_approval': return <CalendarDays className="h-5 w-5 text-green-600" />;
+            case 'leave_rejection': return <CalendarDays className="h-5 w-5 text-red-500" />;
+            case 'leave_cancellation': return <CalendarDays className="h-5 w-5 text-gray-500" />;
             default: return <Bell className="h-5 w-5 text-slate-600" />;
           }
         };
@@ -261,8 +267,19 @@ export default function NotificationCenter({ currentUser }) {
         navigate(targetUrl);
         setOpen(false);
       }
-      // Priority B: Fallback for Legacy Notifications (Missing project_id)
+      // Priority B: Fallback for Legacy Notifications
       else {
+        // Handle Leave Notifications
+        if (notification.entity_type === 'leave' || notification.type.includes('leave')) {
+          if (notification.type === 'leave_application') {
+            navigate('/PlannedLeaves?tab=approvals');
+          } else {
+            navigate('/PlannedLeaves?tab=my-leaves');
+          }
+          setOpen(false);
+          return;
+        }
+
         if (notification.entity_type === 'timesheet' || notification.type.includes('timesheet') || notification.type === 'user_streak_escalation' || notification.type === 'task_delay_alarm') {
           if (notification.type === 'timesheet_approval_needed') {
             navigate('/Timesheets?tab=approvals');
@@ -278,7 +295,7 @@ export default function NotificationCenter({ currentUser }) {
         if (notification.entity_type === 'task') {
           // Fetch task to get project ID
           try {
-            const tasks = await base44.entities.Task.filter({ id: notification.entity_id });
+            const tasks = await groonabackend.entities.Task.filter({ id: notification.entity_id });
             if (tasks && tasks[0]) {
               const task = tasks[0];
               // Include commentId if available (even if it's notification.id as fallback, though legacy won't match)
@@ -524,4 +541,6 @@ export default function NotificationCenter({ currentUser }) {
     </Sheet >
   );
 }
+
+
 

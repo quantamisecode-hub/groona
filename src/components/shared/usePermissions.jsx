@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { base44 } from '@/api/base44Client';
+import { groonabackend } from '@/api/groonabackend';
 import { useQuery } from '@tanstack/react-query';
 import { useUser } from './UserContext';
 
@@ -17,7 +17,7 @@ const permissionMap = {
   },
   tasks: {
     create: 'can_create_task',
-    read: 'can_view_all_projects', 
+    read: 'can_view_all_projects',
     update: 'can_edit_task',
     delete: 'can_delete_task',
     assign: 'can_assign_task',
@@ -94,8 +94,8 @@ const permissionToFeatureMap = {
   'can_view_insights': 'advanced_analytics',
   'can_view_reports': 'advanced_analytics',
   'can_export_reports': 'advanced_analytics',
-  'can_use_collaboration': 'ai_assistant', 
-  'can_view_team': 'team_management', 
+  'can_use_collaboration': 'ai_assistant',
+  'can_view_team': 'team_management',
   'can_manage_team': 'team_management',
   'can_view_automation': 'automation',
   'can_manage_automation': 'automation',
@@ -109,27 +109,27 @@ export function useHasPermission(permissionKey, context = null) {
 
   const { data: groups = [] } = useQuery({
     queryKey: ['user-groups'],
-    queryFn: () => base44.entities.UserGroup.list(),
+    queryFn: () => groonabackend.entities.UserGroup.list(),
     enabled: !!currentUser,
-    staleTime: 5 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: memberships = [] } = useQuery({
     queryKey: ['group-memberships', currentUser?.email],
-    queryFn: () => base44.entities.UserGroupMembership.filter({ 
-      user_email: currentUser?.email 
+    queryFn: () => groonabackend.entities.UserGroupMembership.filter({
+      user_email: currentUser?.email
     }),
     enabled: !!currentUser,
-    staleTime: 5 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
   });
 
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles', currentUser?.email],
-    queryFn: () => base44.entities.ProjectUserRole.filter({ 
-      user_email: currentUser?.email 
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
+      user_email: currentUser?.email
     }),
     enabled: !!currentUser,
-    staleTime: 5 * 60 * 1000, 
+    staleTime: 5 * 60 * 1000,
   });
 
   // --- NEW: Fetch Explicit User Permissions from DB ---
@@ -138,12 +138,12 @@ export function useHasPermission(permissionKey, context = null) {
     queryFn: async () => {
       if (!currentUser?.id) return null;
       // Fetch specifically from the UserPermission model we just created
-      const records = await base44.entities.UserPermission.filter({ user_id: currentUser.id });
+      const records = await groonabackend.entities.UserPermission.filter({ user_id: currentUser.id });
       return records?.[0] || null;
     },
     enabled: !!currentUser?.id,
     // Keep it fresh so sidebar updates immediately after changes
-    staleTime: 10 * 1000, 
+    staleTime: 10 * 1000,
   });
 
   if (!currentUser) return false;
@@ -159,7 +159,7 @@ export function useHasPermission(permissionKey, context = null) {
   if (tenant && permissionToFeatureMap[permissionKey]) {
     const featureKey = permissionToFeatureMap[permissionKey];
     const isFeatureEnabled = tenant.features_enabled?.[featureKey];
-    
+
     // If explicitly false, block it. 
     // (If undefined, we allow it to pass through to check user permissions)
     if (isFeatureEnabled === false) return false;
@@ -170,10 +170,10 @@ export function useHasPermission(permissionKey, context = null) {
   // If a value exists (true or false), it OVERRIDES everything below (Groups, Roles, Defaults).
   if (userPermissionRecord && userPermissionRecord.permissions) {
     const explicitValue = userPermissionRecord.permissions[permissionKey];
-    
+
     // If explicitly set to true in DB -> SHOW IT
     if (explicitValue === true) return true;
-    
+
     // If explicitly set to false in DB -> HIDE IT
     if (explicitValue === false) return false;
   }
@@ -185,8 +185,8 @@ export function useHasPermission(permissionKey, context = null) {
     // Project managers cannot: invite users/clients, edit/delete users, manage permissions, create/edit/delete workspaces, manage workspace members
     const restrictedPermissions = [
       'can_invite_user',
-      'can_edit_user', 
-      'can_delete_user', 
+      'can_edit_user',
+      'can_delete_user',
       'can_manage_permissions',
       'can_create_workspace',
       'can_edit_workspace',
@@ -225,13 +225,13 @@ export function useHasPermission(permissionKey, context = null) {
 
   // 7. Project Manager Context
   if (context?.project) {
-    const pmRole = projectRoles.find(r => 
-      r.project_id === context.project.id && 
+    const pmRole = projectRoles.find(r =>
+      r.project_id === context.project.id &&
       r.role === 'project_manager'
     );
-    
+
     if (pmRole && pmRole.permissions) {
-      if (permissionKey === 'can_view_templates') return true; 
+      if (permissionKey === 'can_view_templates') return true;
     }
   }
 
@@ -239,18 +239,18 @@ export function useHasPermission(permissionKey, context = null) {
   // If nothing above granted access, we fall back to these defaults.
   const defaultPermissions = {
     // Allowed by default
-    can_create_task: true,           
-    can_view_all_projects: true,     
+    can_create_task: true,
+    can_view_all_projects: true,
     can_create_timesheet: true,
-    can_view_workspace: true, 
+    can_view_workspace: true,
     can_create_ticket: true,
     can_view_own_tickets: true,
 
     // BLOCKED by default (Requires Explicit Permission)
-    can_view_team: false,             
-    can_use_ai_assistant: false,      
-    can_view_automation: false,       
-    can_view_templates: false,        
+    can_view_team: false,
+    can_use_ai_assistant: false,
+    can_view_automation: false,
+    can_view_templates: false,
     can_manage_templates: false,
     can_view_project_financials: false,
     can_manage_project_financials: false,
@@ -266,7 +266,7 @@ export function usePermissions(resource, action) {
 
 export function useAllPermissions() {
   const { user: currentUser } = useUser();
-  return {}; 
+  return {};
 }
 
 export function getAllPermissionDefinitions() {
@@ -275,51 +275,51 @@ export function getAllPermissionDefinitions() {
     { key: 'can_edit_project', label: 'Edit Projects', category: 'Projects' },
     { key: 'can_delete_project', label: 'Delete Projects', category: 'Projects' },
     { key: 'can_view_all_projects', label: 'View All Projects', category: 'Projects' },
-    
+
     { key: 'can_view_templates', label: 'View Templates', category: 'Projects' },
     { key: 'can_manage_templates', label: 'Manage Templates', category: 'Projects' },
-    
+
     { key: 'can_create_workspace', label: 'Create Workspaces', category: 'Workspaces' },
     { key: 'can_view_workspace', label: 'View Workspaces', category: 'Workspaces' },
     { key: 'can_edit_workspace', label: 'Edit Workspaces', category: 'Workspaces' },
     { key: 'can_delete_workspace', label: 'Delete Workspaces', category: 'Workspaces' },
     { key: 'can_manage_workspace_members', label: 'Manage Workspace Members', category: 'Workspaces' },
-    
+
     { key: 'can_create_task', label: 'Create Tasks', category: 'Tasks' },
     { key: 'can_edit_task', label: 'Edit Tasks', category: 'Tasks' },
     { key: 'can_delete_task', label: 'Delete Tasks', category: 'Tasks' },
     { key: 'can_assign_task', label: 'Assign Tasks', category: 'Tasks' },
-    
+
     { key: 'can_create_timesheet', label: 'Log Time', category: 'Timesheets' },
     { key: 'can_edit_timesheet', label: 'Edit Timesheets', category: 'Timesheets' },
     { key: 'can_delete_timesheet', label: 'Delete Timesheets', category: 'Timesheets' },
     { key: 'can_approve_timesheet', label: 'Approve Timesheets', category: 'Timesheets' },
-    
+
     { key: 'can_view_team', label: 'View Team & Resources', category: 'Team' },
     { key: 'can_manage_team', label: 'Manage Team', category: 'Team' },
-    
+
     { key: 'can_invite_user', label: 'Invite Users', category: 'User Management' },
     { key: 'can_edit_user', label: 'Edit Users', category: 'User Management' },
     { key: 'can_delete_user', label: 'Delete Users', category: 'User Management' },
     { key: 'can_manage_groups', label: 'Manage User Groups', category: 'User Management' },
-    
+
     { key: 'can_view_reports', label: 'View Reports', category: 'Reports & Analytics' },
     { key: 'can_export_reports', label: 'Export Reports', category: 'Reports & Analytics' },
     { key: 'can_view_insights', label: 'View AI Insights', category: 'Reports & Analytics' },
-    
+
     { key: 'can_view_automation', label: 'View Automation', category: 'Automation' },
     { key: 'can_manage_automation', label: 'Manage Automation', category: 'Automation' },
-    
+
     { key: 'can_use_ai_assistant', label: 'Use AI Assistant', category: 'AI Features' },
     { key: 'can_use_collaboration', label: 'Use Collaboration Features', category: 'Collaboration' },
-    
+
     { key: 'can_create_ticket', label: 'Create Support Tickets', category: 'Support' },
     { key: 'can_view_tickets', label: 'View All Tickets', category: 'Support' },
     { key: 'can_view_own_tickets', label: 'View Own Tickets', category: 'Support' },
     { key: 'can_update_ticket', label: 'Update Tickets', category: 'Support' },
     { key: 'can_assign_ticket', label: 'Assign Tickets', category: 'Support' },
     { key: 'can_delete_ticket', label: 'Delete Tickets', category: 'Support' },
-    
+
     { key: 'can_view_project_financials', label: 'View Project Financials', category: 'Financials' },
     { key: 'can_manage_project_financials', label: 'Manage Project Financials', category: 'Financials' },
     { key: 'can_set_project_budget', label: 'Set Project Budget', category: 'Budget' },

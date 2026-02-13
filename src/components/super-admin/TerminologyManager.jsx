@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,13 +42,13 @@ export default function TerminologyManager() {
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-term'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => groonabackend.auth.me(),
   });
 
   const { data: termConfig } = useQuery({
     queryKey: ['terminology-config'],
     queryFn: async () => {
-      const configs = await base44.entities.SystemConfig.filter({ 
+      const configs = await groonabackend.entities.SystemConfig.filter({ 
         config_type: 'TERMINOLOGY' 
       });
       if (configs.length > 0) {
@@ -64,12 +64,12 @@ export default function TerminologyManager() {
       // 1. Save to SystemConfig for defaults
       let systemConfig;
       if (termConfig) {
-        systemConfig = await base44.entities.SystemConfig.update(termConfig.id, {
+        systemConfig = await groonabackend.entities.SystemConfig.update(termConfig.id, {
           config_value: newTerms,
           version: (termConfig.version || 1) + 1
         });
       } else {
-        systemConfig = await base44.entities.SystemConfig.create({
+        systemConfig = await groonabackend.entities.SystemConfig.create({
           config_key: 'default_terminology',
           config_type: 'TERMINOLOGY',
           config_value: newTerms,
@@ -79,7 +79,7 @@ export default function TerminologyManager() {
       }
 
       // 2. Update all existing tenants' terminology_map based on their company_type
-      const tenants = await base44.entities.Tenant.list();
+      const tenants = await groonabackend.entities.Tenant.list();
       
       for (const tenant of tenants) {
         const companyType = tenant.company_type || 'SOFTWARE';
@@ -91,7 +91,7 @@ export default function TerminologyManager() {
             terminology_map: terminologyForType
           };
           
-          await base44.entities.Tenant.update(tenant.id, {
+          await groonabackend.entities.Tenant.update(tenant.id, {
             tenant_config: updatedConfig
           });
         }
@@ -100,7 +100,7 @@ export default function TerminologyManager() {
       return systemConfig;
     },
     onSuccess: async () => {
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'TERMINOLOGY_UPDATE',
@@ -172,3 +172,4 @@ export default function TerminologyManager() {
     </Card>
   );
 }
+

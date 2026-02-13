@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -45,12 +45,12 @@ export default function CreateProposalDialog({ open, onOpenChange, clients = [] 
 
     const { data: user } = useQuery({
         queryKey: ['me'],
-        queryFn: () => base44.auth.me(),
+        queryFn: () => groonabackend.auth.me(),
     });
 
     const { data: dbTemplates = [] } = useQuery({
         queryKey: ['templates'],
-        queryFn: () => base44.entities.ProposalTemplate.list(),
+        queryFn: () => groonabackend.entities.ProposalTemplate.list(),
     });
 
     const allTemplates = [...SYSTEM_TEMPLATES, ...dbTemplates.map(t => ({
@@ -66,7 +66,7 @@ export default function CreateProposalDialog({ open, onOpenChange, clients = [] 
             // 1. Create Proposal
             if (!user?.tenant_id) throw new Error("User tenant ID not found");
             
-            const proposal = await base44.entities.Proposal.create({
+            const proposal = await groonabackend.entities.Proposal.create({
                 title,
                 client_id: clientId,
                 tenant_id: user.tenant_id,
@@ -78,7 +78,7 @@ export default function CreateProposalDialog({ open, onOpenChange, clients = [] 
             // 2. Create Sections from Template
             if (template && template.sections) {
                 const sectionPromises = template.sections.map((section, index) => 
-                    base44.entities.ProposalSection.create({
+                    groonabackend.entities.ProposalSection.create({
                         proposal_id: proposal.id,
                         tenant_id: proposal.tenant_id, // Backend handles this usually, but good to be explicit if needed
                         title: section.title,
@@ -175,3 +175,4 @@ export default function CreateProposalDialog({ open, onOpenChange, clients = [] 
         </Dialog>
     );
 }
+

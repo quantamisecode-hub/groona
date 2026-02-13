@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ export default function Team() {
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       
       let filteredUsers = [];
       if (effectiveTenantId) {
@@ -42,7 +42,7 @@ export default function Team() {
       // Fetch all UserProfile data at once for better performance
       let allProfiles = [];
       try {
-        allProfiles = await base44.entities.UserProfile.list();
+        allProfiles = await groonabackend.entities.UserProfile.list();
       } catch (error) {
         console.error('[Team] Error fetching user profiles:', error);
       }
@@ -334,3 +334,4 @@ export default function Team() {
     </OnboardingProvider>
   );
 }
+

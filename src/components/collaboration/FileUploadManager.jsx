@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ export default function FileUploadManager({ projectId = null, files = [], onFile
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // CRITICAL: Get effective tenant ID (handles Super Admin viewing tenants)
@@ -46,7 +46,7 @@ export default function FileUploadManager({ projectId = null, files = [], onFile
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!effectiveTenantId,
   });
@@ -54,13 +54,13 @@ export default function FileUploadManager({ projectId = null, files = [], onFile
   const uploadFileMutation = useMutation({
     mutationFn: async ({ file, description, category, projectId }) => {
       // Upload file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
 
       // Check if uploader is admin
       const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
 
       // Create file record - ensure tenant_id is set
-      const fileRecord = await base44.entities.ProjectFile.create({
+      const fileRecord = await groonabackend.entities.ProjectFile.create({
         tenant_id: effectiveTenantId,
         project_id: projectId,
         file_name: file.name,
@@ -111,7 +111,7 @@ export default function FileUploadManager({ projectId = null, files = [], onFile
   });
 
   const deleteFileMutation = useMutation({
-    mutationFn: (fileId) => base44.entities.ProjectFile.delete(fileId),
+    mutationFn: (fileId) => groonabackend.entities.ProjectFile.delete(fileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-files', effectiveTenantId] });
       toast.success("File deleted");
@@ -388,3 +388,4 @@ export default function FileUploadManager({ projectId = null, files = [], onFile
     </div>
   );
 }
+

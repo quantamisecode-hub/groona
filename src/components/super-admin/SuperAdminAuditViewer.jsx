@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,7 @@ export default function SuperAdminAuditViewer() {
   const { data: auditLogs = [] } = useQuery({
     queryKey: ['super-admin-audit-logs'],
     queryFn: async () => {
-      const logs = await base44.entities.SuperAdminAuditLog.list('-created_date', 50);
+      const logs = await groonabackend.entities.SuperAdminAuditLog.list('-created_date', 50);
       return logs;
     },
   });
@@ -110,3 +110,4 @@ export default function SuperAdminAuditViewer() {
     </Card>
   );
 }
+

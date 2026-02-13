@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Building2, AlertCircle } from "lucide-react";
@@ -14,14 +14,14 @@ export default function TenantIndicator() {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: tenant } = useQuery({
     queryKey: ['current-tenant', currentUser?.tenant_id],
     queryFn: async () => {
       if (!currentUser?.tenant_id) return null;
-      const tenants = await base44.entities.Tenant.filter({ id: currentUser.tenant_id });
+      const tenants = await groonabackend.entities.Tenant.filter({ id: currentUser.tenant_id });
       return tenants[0] || null;
     },
     enabled: !!currentUser?.tenant_id && !currentUser?.is_super_admin,
@@ -68,3 +68,4 @@ export default function TenantIndicator() {
     </TooltipProvider>
   );
 }
+

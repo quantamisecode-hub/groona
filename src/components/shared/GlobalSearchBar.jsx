@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Input } from "@/components/ui/input";
@@ -79,7 +79,7 @@ export default function GlobalSearchBar({ currentUser }) {
         const searchQuery = query.toLowerCase();
 
         // Search projects
-        const allProjects = await base44.entities.Project.filter({ tenant_id: effectiveTenantId });
+        const allProjects = await groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId });
         const matchedProjects = allProjects
           .filter(p => 
             p.name?.toLowerCase().includes(searchQuery) || 
@@ -88,7 +88,7 @@ export default function GlobalSearchBar({ currentUser }) {
           .slice(0, 5);
 
         // Search tasks
-        const allTasks = await base44.entities.Task.filter({ tenant_id: effectiveTenantId });
+        const allTasks = await groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId });
         const matchedTasks = allTasks
           .filter(t => 
             t.title?.toLowerCase().includes(searchQuery) || 
@@ -97,7 +97,7 @@ export default function GlobalSearchBar({ currentUser }) {
           .slice(0, 5);
 
         // Search users
-        const allUsers = await base44.entities.User.list();
+        const allUsers = await groonabackend.entities.User.list();
         const matchedUsers = allUsers
           .filter(u => 
             u.tenant_id === effectiveTenantId &&
@@ -109,7 +109,7 @@ export default function GlobalSearchBar({ currentUser }) {
 
         // Search documents
         try {
-          const allDocuments = await base44.entities.Document.filter({ tenant_id: effectiveTenantId });
+          const allDocuments = await groonabackend.entities.Document.filter({ tenant_id: effectiveTenantId });
           const matchedDocuments = allDocuments
             .filter(d => 
               d.title?.toLowerCase().includes(searchQuery) || 
@@ -325,3 +325,4 @@ export default function GlobalSearchBar({ currentUser }) {
     </div>
   );
 }
+

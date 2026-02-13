@@ -1,4 +1,4 @@
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 
 /**
  * AI Task Service - Frontend
@@ -65,3 +65,4 @@ export async function createTaskFromAI(taskData, tenantId, userId, userEmail) {
     throw error;
   }
 }
+

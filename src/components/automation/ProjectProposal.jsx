@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,7 +61,7 @@ Generate a detailed project proposal with the following sections:
 
 Format the proposal professionally with clear sections and bullet points. Be specific and actionable.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false,
       });
@@ -187,3 +187,4 @@ Example:
     </div>
   );
 }
+

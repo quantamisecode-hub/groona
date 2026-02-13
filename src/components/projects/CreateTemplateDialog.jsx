@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ export default function CreateTemplateDialog({ open, onClose, template = null })
   });
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -81,9 +81,9 @@ export default function CreateTemplateDialog({ open, onClose, template = null })
       };
 
       if (template) {
-        return base44.entities.ProjectTemplate.update(template.id, payload);
+        return groonabackend.entities.ProjectTemplate.update(template.id, payload);
       } else {
-        return base44.entities.ProjectTemplate.create(payload);
+        return groonabackend.entities.ProjectTemplate.create(payload);
       }
     },
     onSuccess: () => {
@@ -355,3 +355,4 @@ export default function CreateTemplateDialog({ open, onClose, template = null })
     </Dialog>
   );
 }
+

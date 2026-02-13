@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +42,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       
       Context: Software development task.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -110,7 +110,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       
       Return JSON with priority, reasoning, and confidence (0-100).`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -170,7 +170,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       
       Output JSON with 'story_points' (number) and 'reasoning'. If unsure, default to 1.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -232,7 +232,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       
       Output JSON with 'tags' array.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -295,7 +295,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       - 'dependency_ids': array of exact ID strings from the list.
       - 'reasoning': short explanation.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -521,3 +521,4 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
     </div>
   );
 }
+

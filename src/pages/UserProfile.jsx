@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ export default function UserProfile() {
   const { data: currentUser, refetch: refetchUser } = useQuery({
     queryKey: ['current-user-profile'],
     queryFn: async () => {
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       return user;
     },
     staleTime: 0, // Always fetch fresh data
@@ -78,7 +78,7 @@ export default function UserProfile() {
       if (!currentUser) return null;
       
       console.log('[UserProfile] Fetching profile for user:', currentUser.id);
-      const profiles = await base44.entities.UserProfile.filter({ user_id: currentUser.id });
+      const profiles = await groonabackend.entities.UserProfile.filter({ user_id: currentUser.id });
       
       if (profiles.length > 0) {
         console.log('[UserProfile] Profile found:', profiles[0]);
@@ -87,7 +87,7 @@ export default function UserProfile() {
       
       // Create profile if it doesn't exist
       console.log('[UserProfile] No profile found, creating new one');
-      const newProfile = await base44.entities.UserProfile.create({
+      const newProfile = await groonabackend.entities.UserProfile.create({
         user_id: currentUser.id,
         user_email: currentUser.email,
         tenant_id: currentUser.tenant_id,
@@ -113,7 +113,7 @@ export default function UserProfile() {
     queryKey: ['user-tenant', currentUser?.tenant_id],
     queryFn: async () => {
       if (!currentUser?.tenant_id) return null;
-      const tenants = await base44.entities.Tenant.filter({ id: currentUser.tenant_id });
+      const tenants = await groonabackend.entities.Tenant.filter({ id: currentUser.tenant_id });
       return tenants[0] || null;
     },
     enabled: !!currentUser && !currentUser.is_super_admin,
@@ -155,17 +155,17 @@ export default function UserProfile() {
     try {
       console.log('[UserProfile] Uploading photo...');
       
-      // Upload file to Base44
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      // Upload file to groonabackend
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       console.log('[UserProfile] Photo uploaded:', file_url);
 
       // Update User entity via auth API
-      await base44.auth.updateMe({ profile_image_url: file_url });
+      await groonabackend.auth.updateMe({ profile_image_url: file_url });
       console.log('[UserProfile] User profile_image_url updated');
 
       // Update UserProfile entity
       if (userProfile?.id) {
-        await base44.entities.UserProfile.update(userProfile.id, {
+        await groonabackend.entities.UserProfile.update(userProfile.id, {
           profile_image_url: file_url
         });
         console.log('[UserProfile] UserProfile profile_image_url updated');
@@ -194,7 +194,7 @@ export default function UserProfile() {
       
       // CRITICAL FIX: Update User entity's full_name directly
       console.log('[UserProfile] Step 1: Updating User.full_name via auth API...');
-      await base44.auth.updateMe({ full_name: data.full_name });
+      await groonabackend.auth.updateMe({ full_name: data.full_name });
       console.log('[UserProfile] User.full_name updated');
 
       // Wait for backend sync
@@ -202,7 +202,7 @@ export default function UserProfile() {
 
       // Step 2: Update UserProfile entity
       console.log('[UserProfile] Step 2: Updating UserProfile entity...');
-      const updatedProfile = await base44.entities.UserProfile.update(userProfile.id, {
+      const updatedProfile = await groonabackend.entities.UserProfile.update(userProfile.id, {
         full_name: data.full_name,
         phone: data.phone,
         address: data.address,
@@ -667,3 +667,4 @@ export default function UserProfile() {
     </div>
   );
 }
+

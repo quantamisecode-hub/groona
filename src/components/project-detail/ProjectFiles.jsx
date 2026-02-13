@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function ProjectFiles({ projectId }) {
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: files = [], isLoading } = useQuery({
@@ -38,7 +38,7 @@ export default function ProjectFiles({ projectId }) {
     queryFn: async () => {
       // Fetch files linked to this project. 
       // Ensure we select generic fields if model is ambiguous
-      return await base44.entities.ProjectFile.filter({ 
+      return await groonabackend.entities.ProjectFile.filter({ 
         project_id: projectId 
       }, '-created_date');
     },
@@ -51,7 +51,7 @@ export default function ProjectFiles({ projectId }) {
       setUploading(true);
       try {
         // 1. Upload the physical file
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
         
         if (!file_url) throw new Error("Upload failed, no URL returned");
 
@@ -65,7 +65,7 @@ export default function ProjectFiles({ projectId }) {
 
         // 2. Create the Database Record
         // FIX: Using 'name' and 'tenant_id' to ensure strict schema compliance
-        const fileRecord = await base44.entities.ProjectFile.create({
+        const fileRecord = await groonabackend.entities.ProjectFile.create({
           tenant_id: currentUser.tenant_id,  // REQUIRED for multi-tenancy
           project_id: projectId,             // REQUIRED link
           name: file.name,                   // Standard naming
@@ -101,7 +101,7 @@ export default function ProjectFiles({ projectId }) {
   });
 
   const deleteFileMutation = useMutation({
-    mutationFn: (fileId) => base44.entities.ProjectFile.delete(fileId),
+    mutationFn: (fileId) => groonabackend.entities.ProjectFile.delete(fileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-files', projectId] });
       toast.success('File deleted');
@@ -270,3 +270,4 @@ export default function ProjectFiles({ projectId }) {
     </Card>
   );
 }
+

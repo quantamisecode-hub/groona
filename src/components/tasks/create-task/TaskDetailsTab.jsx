@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,7 +79,7 @@ export default function TaskDetailsTab({
     queryKey: ['epics', taskData.project_id],
     queryFn: async () => {
       if (!taskData.project_id) return [];
-      return await base44.entities.Epic.filter({ project_id: taskData.project_id });
+      return await groonabackend.entities.Epic.filter({ project_id: taskData.project_id });
     },
     enabled: !!taskData.project_id,
   });
@@ -89,7 +89,7 @@ export default function TaskDetailsTab({
     queryKey: ['impediments', taskData.project_id],
     queryFn: async () => {
       if (!taskData.project_id) return [];
-      return await base44.entities.Impediment.filter({ project_id: taskData.project_id });
+      return await groonabackend.entities.Impediment.filter({ project_id: taskData.project_id });
     },
     enabled: !!taskData.project_id,
   });
@@ -135,7 +135,7 @@ export default function TaskDetailsTab({
 
     try {
       const uploadPromises = files.map(async (file) => {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
         return {
           name: file.name,
           url: file_url,
@@ -219,7 +219,7 @@ export default function TaskDetailsTab({
       
       Context: Software development environment.`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -1024,3 +1024,4 @@ export default function TaskDetailsTab({
     </div >
   );
 }
+

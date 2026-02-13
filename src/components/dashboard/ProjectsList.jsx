@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 const statusColors = {
   planning: "bg-slate-100 text-slate-700 border-slate-200",
@@ -21,7 +21,7 @@ const statusColors = {
 export default function ProjectsList({ projects, loading }) {
   const { data: workspaces = [] } = useQuery({
     queryKey: ['workspaces'],
-    queryFn: () => base44.entities.Workspace.list(),
+    queryFn: () => groonabackend.entities.Workspace.list(),
   });
 
   // Fetch all stories for all projects
@@ -34,7 +34,7 @@ export default function ProjectsList({ projects, loading }) {
 
       // Fetch stories for all projects
       const storyPromises = projectIds.map(projectId =>
-        base44.entities.Story.filter({ project_id: projectId })
+        groonabackend.entities.Story.filter({ project_id: projectId })
       );
       const storyArrays = await Promise.all(storyPromises);
       return storyArrays.flat();
@@ -156,3 +156,4 @@ export default function ProjectsList({ projects, loading }) {
     </Card>
   );
 }
+

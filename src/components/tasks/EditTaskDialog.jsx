@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -40,7 +40,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u =>
         u.tenant_id === effectiveTenantId &&
         !u.is_super_admin &&
@@ -54,7 +54,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['project-tasks', task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return [];
-      const tasks = await base44.entities.Task.filter({ project_id: task.project_id });
+      const tasks = await groonabackend.entities.Task.filter({ project_id: task.project_id });
       return tasks.filter(t => t.id !== task.id);
     },
     enabled: !!task?.project_id,
@@ -64,7 +64,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['sprints', task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return [];
-      return base44.entities.Sprint.filter({ project_id: task.project_id }, '-start_date');
+      return groonabackend.entities.Sprint.filter({ project_id: task.project_id }, '-start_date');
     },
     enabled: !!task?.project_id,
   });
@@ -73,7 +73,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['stories', task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return [];
-      return base44.entities.Story.filter({ project_id: task.project_id });
+      return groonabackend.entities.Story.filter({ project_id: task.project_id });
     },
     enabled: !!task?.project_id,
   });
@@ -82,7 +82,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['epics', task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return [];
-      return base44.entities.Epic.filter({ project_id: task.project_id });
+      return groonabackend.entities.Epic.filter({ project_id: task.project_id });
     },
     enabled: !!task?.project_id,
   });
@@ -92,7 +92,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['rework-alarms', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return await base44.entities.Notification.filter({
+      return await groonabackend.entities.Notification.filter({
         tenant_id: effectiveTenantId,
         type: 'high_rework_alarm',
         status: 'OPEN'
@@ -191,12 +191,12 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
         cleanedData.subtasks = [];
       }
 
-      const updated = await base44.entities.Task.update(task.id, cleanedData);
+      const updated = await groonabackend.entities.Task.update(task.id, cleanedData);
 
       // LOG ACTIVITY & NOTIFICATIONS
       if (currentUser && effectiveTenantId) {
         try {
-          await base44.entities.Activity.create({
+          await groonabackend.entities.Activity.create({
             tenant_id: effectiveTenantId,
             action: 'updated',
             entity_type: 'task',
@@ -238,7 +238,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
           await Promise.all(addedAssignees.map(async (assigneeEmail) => {
             if (assigneeEmail !== currentUser.email) {
               try {
-                await base44.entities.Notification.create({
+                await groonabackend.entities.Notification.create({
                   tenant_id: effectiveTenantId,
                   recipient_email: assigneeEmail,
                   type: 'task_assigned',
@@ -260,7 +260,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
           await Promise.all(removedAssignees.map(async (assigneeEmail) => {
             if (assigneeEmail !== currentUser.email) {
               try {
-                await base44.entities.Notification.create({
+                await groonabackend.entities.Notification.create({
                   tenant_id: effectiveTenantId,
                   recipient_email: assigneeEmail,
                   type: 'task_unassigned',
@@ -282,7 +282,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
           await Promise.all(newAssignees.map(async (assigneeEmail) => {
             if (assigneeEmail !== currentUser.email) {
               try {
-                await base44.entities.Notification.create({
+                await groonabackend.entities.Notification.create({
                   tenant_id: effectiveTenantId,
                   recipient_email: assigneeEmail,
                   type: 'task_updated',
@@ -367,7 +367,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
 
     setUploadingFile(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       const newAttachment = {
         name: file.name,
         url: file_url,
@@ -437,7 +437,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
       Output strictly in JSON format with the following field:
       - description: The task overview in HTML format (use <p>, <ul>, <li>, <strong> tags).`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -495,7 +495,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     queryKey: ['task-overdue-alarm', task?.id],
     queryFn: async () => {
       if (!task?.id) return null;
-      const alarms = await base44.entities.Notification.filter({
+      const alarms = await groonabackend.entities.Notification.filter({
         type: 'task_delay_alarm',
         entity_id: task.id,
         status: 'OPEN'
@@ -513,7 +513,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
       if (!effectiveTenantId || !currentUser) return;
 
       // Create Impediment
-      await base44.entities.Impediment.create({
+      await groonabackend.entities.Impediment.create({
         tenant_id: effectiveTenantId,
         task_id: task.id,
         project_id: task.project_id,
@@ -547,7 +547,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
         onClose();
       }
     }}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-xl border-slate-200/60 shadow-2xl p-0 gap-0">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-white backdrop-blur-xl border-slate-200/60 shadow-2xl p-0 gap-0">
 
         {/* OVERDUE ALERT BANNER */}
         {overdueAlarm && (
@@ -1249,3 +1249,4 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     </Dialog>
   );
 }
+

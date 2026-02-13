@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default function GenerateDraftDialog({ open, onOpenChange, onDraftGenerat
 
     const generateMutation = useMutation({
         mutationFn: async () => {
-            const response = await base44.functions.invoke('generateProposalDraft', {
+            const response = await groonabackend.functions.invoke('generateProposalDraft', {
                 clientName: clientName || "Generic Client",
                 clientIndustry: industry || "General",
                 projectDescription: description || proposalTitle,
@@ -94,3 +94,4 @@ export default function GenerateDraftDialog({ open, onOpenChange, onDraftGenerat
         </Dialog>
     );
 }
+

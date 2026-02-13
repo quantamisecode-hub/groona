@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, Building2, User, CreditCard, Settings, FileText, Shield } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -19,7 +19,7 @@ export default function CreateTenantDialog({ open, onClose, onSubmit, loading })
   // Fetch subscription plans from database
   const { data: subscriptionPlans = [] } = useQuery({
     queryKey: ['subscription-plans'],
-    queryFn: () => base44.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
+    queryFn: () => groonabackend.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
     enabled: open,
   });
 
@@ -1094,3 +1094,4 @@ export default function CreateTenantDialog({ open, onClose, onSubmit, loading })
     </Dialog>
   );
 }
+

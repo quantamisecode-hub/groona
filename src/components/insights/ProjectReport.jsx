@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { generateProjectReportPDF } from "./PDFReportGenerator";
@@ -39,7 +39,7 @@ export default function ProjectReport({ project, tasks, activities }) {
   // Fetch user profiles to map emails to names and titles
   const { data: userProfiles = [] } = useQuery({
     queryKey: ['user-profiles'],
-    queryFn: () => base44.entities.UserProfile.list(),
+    queryFn: () => groonabackend.entities.UserProfile.list(),
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
@@ -102,7 +102,7 @@ export default function ProjectReport({ project, tasks, activities }) {
     queryFn: async () => {
       if (!effectiveTenantId || !project.id) return [];
       try {
-        return await base44.entities.ProjectReport.filter({
+        return await groonabackend.entities.ProjectReport.filter({
           tenant_id: effectiveTenantId,
           project_id: project.id
         }, '-created_date');
@@ -118,7 +118,7 @@ export default function ProjectReport({ project, tasks, activities }) {
   // Delete report mutation
   const deleteReportMutation = useMutation({
     mutationFn: async (reportId) => {
-      await base44.entities.ProjectReport.delete(reportId);
+      await groonabackend.entities.ProjectReport.delete(reportId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-reports'] });
@@ -242,7 +242,7 @@ Provide a VERY CONCISE executive report (max 300 words, fit on ONE PAGE) with:
 
 CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points only. No long paragraphs. Be direct and concise.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false,
       });
@@ -280,7 +280,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
             was_truncated: wasTruncated
           });
 
-          const savedReport = await base44.entities.ProjectReport.create({
+          const savedReport = await groonabackend.entities.ProjectReport.create({
             tenant_id: effectiveTenantId,
             project_id: project.id,
             project_name: project.name,
@@ -323,7 +323,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                 content_length: smallerContent.length
               });
               
-              const savedReport = await base44.entities.ProjectReport.create({
+              const savedReport = await groonabackend.entities.ProjectReport.create({
                 tenant_id: effectiveTenantId,
                 project_id: project.id,
                 project_name: project.name,
@@ -390,10 +390,10 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
       if (!pdfBlob) throw new Error("Failed to generate PDF");
 
       const file = new File([pdfBlob], `${project.name.replace(/\s+/g, '-')}-report.pdf`, { type: 'application/pdf' });
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
 
-      const user = await base44.auth.me();
-      await base44.integrations.Core.SendEmail({
+      const user = await groonabackend.auth.me();
+      await groonabackend.integrations.Core.SendEmail({
         to: user.email,
         subject: `Project Report: ${project.name}`,
         body: `
@@ -1055,3 +1055,4 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     </Card>
   );
 }
+

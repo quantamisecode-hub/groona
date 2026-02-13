@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { FileBarChart, Star, Trash2, Play, Calendar } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ export default function SavedReports({ reports, onLoadReport }) {
   const [deleteId, setDeleteId] = React.useState(null);
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.ReportConfig.delete(id),
+    mutationFn: (id) => groonabackend.entities.ReportConfig.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-reports'] });
       toast.success('Report deleted');
@@ -35,7 +35,7 @@ export default function SavedReports({ reports, onLoadReport }) {
   });
 
   const toggleFavoriteMutation = useMutation({
-    mutationFn: ({ id, is_favorite }) => base44.entities.ReportConfig.update(id, { is_favorite }),
+    mutationFn: ({ id, is_favorite }) => groonabackend.entities.ReportConfig.update(id, { is_favorite }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-reports'] });
     },
@@ -214,3 +214,4 @@ export default function SavedReports({ reports, onLoadReport }) {
     </div>
   );
 }
+

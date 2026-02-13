@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Card, 
@@ -65,13 +65,13 @@ export default function MilestonesList({ projectId }) {
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Fetch milestones
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ['milestones', projectId],
-    queryFn: () => base44.entities.Milestone.filter({ project_id: projectId }, 'due_date'),
+    queryFn: () => groonabackend.entities.Milestone.filter({ project_id: projectId }, 'due_date'),
     enabled: !!projectId,
   });
 
@@ -82,7 +82,7 @@ export default function MilestonesList({ projectId }) {
         ? currentUser.active_tenant_id 
         : currentUser?.tenant_id;
       
-      return base44.entities.Milestone.create({
+      return groonabackend.entities.Milestone.create({
         ...data,
         tenant_id: effectiveTenantId,
         project_id: projectId,
@@ -99,7 +99,7 @@ export default function MilestonesList({ projectId }) {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Milestone.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.Milestone.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['milestones', projectId] });
       setShowDialog(false);
@@ -111,7 +111,7 @@ export default function MilestonesList({ projectId }) {
 
   // Delete mutation
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.Milestone.delete(id),
+    mutationFn: (id) => groonabackend.entities.Milestone.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['milestones', projectId] });
       toast.success("Milestone deleted successfully");
@@ -489,3 +489,4 @@ function MilestoneDialog({ open, onOpenChange, milestone, onSubmit, loading }) {
     </Dialog>
   );
 }
+

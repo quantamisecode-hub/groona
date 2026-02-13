@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,13 +18,13 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   // Fetch messages
   const { data: messages = [] } = useQuery({
     queryKey: ['chat-messages', roomId],
-    queryFn: () => base44.entities.ChatMessage.filter({ chat_room: roomId }, '-created_date', 100),
+    queryFn: () => groonabackend.entities.ChatMessage.filter({ chat_room: roomId }, '-created_date', 100),
     refetchInterval: 3000, // Refresh every 3 seconds
   });
 
@@ -33,7 +33,7 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
     queryKey: ['presence', roomId],
     queryFn: async () => {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-      const users = await base44.entities.UserPresence.filter({
+      const users = await groonabackend.entities.UserPresence.filter({
         last_seen: { $gte: fiveMinutesAgo },
         current_chat_room: roomId,
       });
@@ -46,7 +46,7 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
   // Send message mutation
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData) => {
-      return await base44.entities.ChatMessage.create(messageData);
+      return await groonabackend.entities.ChatMessage.create(messageData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chat-messages', roomId] });
@@ -61,7 +61,7 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
     if (!currentUser) return;
 
     try {
-      const existingPresence = await base44.entities.UserPresence.filter({
+      const existingPresence = await groonabackend.entities.UserPresence.filter({
         user_email: currentUser.email,
       });
 
@@ -76,9 +76,9 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
       };
 
       if (existingPresence.length > 0) {
-        await base44.entities.UserPresence.update(existingPresence[0].id, presenceData);
+        await groonabackend.entities.UserPresence.update(existingPresence[0].id, presenceData);
       } else {
-        await base44.entities.UserPresence.create(presenceData);
+        await groonabackend.entities.UserPresence.create(presenceData);
       }
     } catch (error) {
       console.error("Presence update failed:", error);
@@ -250,3 +250,4 @@ export default function ChatRoom({ roomId = "general", roomTitle = "General Chat
     </Card>
   );
 }
+

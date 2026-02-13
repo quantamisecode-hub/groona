@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useHasPermission } from "@/components/shared/usePermissions";
 import PermissionGuard from "@/components/shared/PermissionGuard";
@@ -23,13 +23,13 @@ export default function ProjectFinancials() {
     queryKey: ['projects-financials', effectiveTenantId],
     queryFn: async () => {
         if (!effectiveTenantId) return [];
-        return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+        return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!effectiveTenantId,
   });
 
   const updateProjectMutation = useMutation({
-    mutationFn: (projectData) => base44.entities.Project.update(projectData.id, projectData),
+    mutationFn: (projectData) => groonabackend.entities.Project.update(projectData.id, projectData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects-financials'] });
       toast.success("Project financials updated successfully");
@@ -156,3 +156,4 @@ export default function ProjectFinancials() {
     </PermissionGuard>
   );
 }
+

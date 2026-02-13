@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export default function SuperAdminWorkspaces() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = "/";
       }
@@ -64,17 +64,17 @@ export default function SuperAdminWorkspaces() {
       if (effectiveTenantId) {
         // Super Admin viewing as specific tenant - filter by that tenant
         console.log('[SuperAdminWorkspaces] Filtering workspaces by tenant:', effectiveTenantId);
-        return base44.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date');
+        return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date');
       }
       // Super Admin in global view - show all workspaces
-      return base44.entities.Workspace.list('-created_date');
+      return groonabackend.entities.Workspace.list('-created_date');
     },
     enabled: !!currentUser,
   });
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
   });
 
   const { data: projects = [] } = useQuery({
@@ -82,16 +82,16 @@ export default function SuperAdminWorkspaces() {
     queryFn: async () => {
       if (effectiveTenantId) {
         // Filter projects by tenant when viewing as tenant
-        const allProjects = await base44.entities.Project.list();
+        const allProjects = await groonabackend.entities.Project.list();
         return allProjects.filter(p => p.tenant_id === effectiveTenantId);
       }
-      return base44.entities.Project.list();
+      return groonabackend.entities.Project.list();
     },
     enabled: !!currentUser,
   });
 
   const deleteWorkspaceMutation = useMutation({
-    mutationFn: (id) => base44.entities.Workspace.delete(id),
+    mutationFn: (id) => groonabackend.entities.Workspace.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-workspaces'] });
       toast.success('Workspace deleted successfully');
@@ -427,3 +427,4 @@ export default function SuperAdminWorkspaces() {
     </div>
   );
 }
+

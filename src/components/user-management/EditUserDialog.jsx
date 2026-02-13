@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -36,9 +36,9 @@ export default function EditUserDialog({ open, onClose, user, currentUser, effec
     queryKey: ['tenants-for-edit'],
     queryFn: async () => {
       if (currentUser?.is_super_admin) {
-        return base44.entities.Tenant.list();
+        return groonabackend.entities.Tenant.list();
       } else if (effectiveTenantId) {
-        const tenantList = await base44.entities.Tenant.filter({ id: effectiveTenantId });
+        const tenantList = await groonabackend.entities.Tenant.filter({ id: effectiveTenantId });
         return tenantList;
       }
       return [];
@@ -49,7 +49,7 @@ export default function EditUserDialog({ open, onClose, user, currentUser, effec
   const { data: userProfile, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile-edit', user.id],
     queryFn: async () => {
-      const profiles = await base44.entities.UserProfile.filter({ user_id: user.id });
+      const profiles = await groonabackend.entities.UserProfile.filter({ user_id: user.id });
       return profiles[0] || null;
     },
     enabled: open && !!user,
@@ -78,7 +78,7 @@ export default function EditUserDialog({ open, onClose, user, currentUser, effec
       if (!profileData.full_name?.trim()) throw new Error('Full name is required');
       
       // STEP 1: Update User entity (CRITICAL: Saves job_title to main DB)
-      const updatedUser = await base44.entities.User.update(user.id, {
+      const updatedUser = await groonabackend.entities.User.update(user.id, {
         full_name: profileData.full_name.trim(),
         tenant_id: selectedTenantId,
         job_title: profileData.job_title?.trim(),
@@ -110,9 +110,9 @@ export default function EditUserDialog({ open, onClose, user, currentUser, effec
       };
 
       if (userProfile?.id) {
-        updatedProfile = await base44.entities.UserProfile.update(userProfile.id, commonProfileData);
+        updatedProfile = await groonabackend.entities.UserProfile.update(userProfile.id, commonProfileData);
       } else {
-        updatedProfile = await base44.entities.UserProfile.create({
+        updatedProfile = await groonabackend.entities.UserProfile.create({
           ...commonProfileData,
           user_id: user.id,
           user_email: user.email,
@@ -251,3 +251,4 @@ export default function EditUserDialog({ open, onClose, user, currentUser, effec
     </Dialog>
   );
 }
+

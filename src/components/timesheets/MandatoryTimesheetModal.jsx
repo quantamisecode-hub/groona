@@ -9,7 +9,7 @@ import {
 import { AlertCircle, Clock, ShieldAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import TimesheetEntryForm from "./TimesheetEntryForm";
@@ -26,7 +26,7 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
         queryKey: ['mandatory-timesheet-check', currentUser?.email],
         queryFn: async () => {
             if (!currentUser?.email) return [];
-            return base44.entities.Notification.filter({
+            return groonabackend.entities.Notification.filter({
                 recipient_email: currentUser.email
             });
         },
@@ -140,7 +140,7 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                                         // Update Lockout Alarms to APPEALED
                                                         for (const alert of timesheetAlerts) {
                                                             if (alert.type === 'timesheet_lockout_alarm') {
-                                                                await base44.entities.Notification.update(alert._id || alert.id, {
+                                                                await groonabackend.entities.Notification.update(alert._id || alert.id, {
                                                                     status: 'APPEALED',
                                                                     appeal_reason: appealReason,
                                                                     appealed_at: now
@@ -233,13 +233,13 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                     onSubmit={async (data) => {
                                         setIsSubmitting(true);
                                         try {
-                                            await base44.entities.Timesheet.create(data);
+                                            await groonabackend.entities.Timesheet.create(data);
 
                                             // Also resolve the notifications locally for immediate UI response
                                             for (const alert of timesheetAlerts) {
                                                 const id = alert._id || alert.id;
                                                 if (id) {
-                                                    await base44.entities.Notification.update(id, { status: 'RESOLVED', read: true });
+                                                    await groonabackend.entities.Notification.update(id, { status: 'RESOLVED', read: true });
                                                 }
                                             }
 
@@ -292,7 +292,7 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                                 for (const alert of timesheetAlerts) {
                                                     const id = alert._id || alert.id;
                                                     if (id) {
-                                                        await base44.entities.Notification.update(id, {
+                                                        await groonabackend.entities.Notification.update(id, {
                                                             status: 'APPEALED',
                                                             appeal_reason: appealReason,
                                                             appealed_at: now
@@ -321,3 +321,5 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
         </Dialog>
     );
 }
+
+

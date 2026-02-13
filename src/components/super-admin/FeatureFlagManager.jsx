@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,21 +26,21 @@ export default function FeatureFlagManager() {
   const { data: featureFlags = [] } = useQuery({
     queryKey: ['feature-flags'],
     queryFn: async () => {
-      return await base44.entities.SystemConfig.filter({ config_type: 'FEATURE_FLAG' });
+      return await groonabackend.entities.SystemConfig.filter({ config_type: 'FEATURE_FLAG' });
     },
   });
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-ff'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => groonabackend.auth.me(),
   });
 
   const createFlagMutation = useMutation({
     mutationFn: async (flagData) => {
-      return await base44.entities.SystemConfig.create(flagData);
+      return await groonabackend.entities.SystemConfig.create(flagData);
     },
     onSuccess: async () => {
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'FEATURE_FLAG_CHANGE',
@@ -58,10 +58,10 @@ export default function FeatureFlagManager() {
 
   const toggleFlagMutation = useMutation({
     mutationFn: async ({ flag, newValue }) => {
-      return await base44.entities.SystemConfig.update(flag.id, { is_active: newValue });
+      return await groonabackend.entities.SystemConfig.update(flag.id, { is_active: newValue });
     },
     onSuccess: async (_, { flag, newValue }) => {
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'FEATURE_FLAG_CHANGE',
@@ -215,3 +215,4 @@ export default function FeatureFlagManager() {
     </>
   );
 }
+

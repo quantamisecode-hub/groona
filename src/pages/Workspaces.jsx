@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ export default function Workspaces() {
     queryKey: ['workspaces', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Workspace.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser && !!effectiveTenantId,
     // Cache Settings for Instant Load
@@ -96,7 +96,7 @@ export default function Workspaces() {
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser && !!effectiveTenantId,
     staleTime: 60 * 1000,
@@ -120,7 +120,7 @@ export default function Workspaces() {
 
   const createWorkspaceMutation = useMutation({
     mutationFn: async (data) => {
-      const workspace = await base44.entities.Workspace.create({
+      const workspace = await groonabackend.entities.Workspace.create({
         ...data,
         tenant_id: effectiveTenantId,
         owner_email: currentUser.email,
@@ -172,7 +172,7 @@ export default function Workspaces() {
 
   const updateWorkspaceMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      const updated = await base44.entities.Workspace.update(id, data);
+      const updated = await groonabackend.entities.Workspace.update(id, data);
       await createAuditLog({
         action: 'update',
         entity_type: 'workspace',
@@ -211,11 +211,11 @@ export default function Workspaces() {
   const deleteWorkspaceMutation = useMutation({
     mutationFn: async ({ workspace, type }) => {
       if (type === 'archive') {
-        await base44.entities.Workspace.update(workspace.id, { status: 'archived' });
+        await groonabackend.entities.Workspace.update(workspace.id, { status: 'archived' });
       } else if (type === 'restore') {
-        await base44.entities.Workspace.update(workspace.id, { status: 'active' });
+        await groonabackend.entities.Workspace.update(workspace.id, { status: 'active' });
       } else {
-        await base44.entities.Workspace.delete(workspace.id);
+        await groonabackend.entities.Workspace.delete(workspace.id);
       }
 
       const actionType = type === 'restore' ? 'restore' : (type === 'archive' ? 'archive' : 'delete');
@@ -501,3 +501,4 @@ export default function Workspaces() {
     </OnboardingProvider>
   );
 }
+

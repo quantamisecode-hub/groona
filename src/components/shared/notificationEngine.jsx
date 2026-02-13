@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * Notification Engine
@@ -66,7 +66,7 @@ class NotificationEngine {
       const ensureProjectIdFromTask = async (taskId) => {
         if (!projectId && taskId) {
           try {
-            const task = await base44.entities.Task.findById(taskId);
+            const task = await groonabackend.entities.Task.findById(taskId);
             if (task) projectId = task.project_id;
           } catch (e) { console.error("Error fetching task for context", e); }
         }
@@ -84,10 +84,10 @@ class NotificationEngine {
         case 'TASK_COMPLETED':
           await ensureProjectIdFromTask(event.entity_id);
           if (projectId) {
-            const project = await base44.entities.Project.findById(projectId);
+            const project = await groonabackend.entities.Project.findById(projectId);
             if (project) {
               if (project.owner) recipients.push({ email: project.owner });
-              const pmRoles = await base44.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
+              const pmRoles = await groonabackend.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
               recipients.push(...pmRoles.map(r => ({ email: r.user_email })));
             }
           }
@@ -95,10 +95,10 @@ class NotificationEngine {
 
         case 'TIMESHEET_SUBMITTED':
           if (projectId) {
-            const pmRoles = await base44.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
+            const pmRoles = await groonabackend.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
             recipients.push(...pmRoles.map(r => ({ email: r.user_email })));
           }
-          const admins = await base44.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
+          const admins = await groonabackend.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
           recipients.push(...admins.map(a => ({ email: a.email })));
           break;
 
@@ -108,7 +108,7 @@ class NotificationEngine {
           break;
 
         case 'TICKET_CREATED':
-          const supportAdmins = await base44.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
+          const supportAdmins = await groonabackend.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
           recipients.push(...supportAdmins.map(a => ({ email: a.email })));
           break;
 
@@ -116,7 +116,7 @@ class NotificationEngine {
         case 'TICKET_SLA_BREACHED':
           if (event.metadata?.assigned_to) recipients.push({ email: event.metadata.assigned_to });
           if (event.event_type === 'TICKET_SLA_BREACHED') {
-            const allAdmins = await base44.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
+            const allAdmins = await groonabackend.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
             recipients.push(...allAdmins.map(a => ({ email: a.email })));
           }
           break;
@@ -131,41 +131,41 @@ class NotificationEngine {
 
         case 'COMMENT_ADDED':
           if (event.entity_type === 'task') {
-            const task = await base44.entities.Task.findById(event.entity_id);
+            const task = await groonabackend.entities.Task.findById(event.entity_id);
             if (task) {
                 projectId = task.project_id;
                 if (task.assigned_to) recipients.push(...task.assigned_to.map(email => ({ email })));
             }
           } else if (event.entity_type === 'project') {
             projectId = event.entity_id;
-            const project = await base44.entities.Project.findById(event.entity_id);
+            const project = await groonabackend.entities.Project.findById(event.entity_id);
             if (project?.team_members) recipients.push(...project.team_members.map(m => ({ email: m.email })));
           }
           break;
 
         case 'CLIENT_COMMENT_ADDED':
           if (projectId) {
-            const pmRoles = await base44.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
+            const pmRoles = await groonabackend.entities.ProjectUserRole.filter({ project_id: projectId, role: 'project_manager' });
             recipients.push(...pmRoles.map(r => ({ email: r.user_email })));
           }
           break;
 
         case 'PROJECT_UPDATED':
           projectId = event.entity_id;
-          const proj = await base44.entities.Project.findById(event.entity_id);
+          const proj = await groonabackend.entities.Project.findById(event.entity_id);
           if (proj?.team_members) recipients.push(...proj.team_members.map(m => ({ email: m.email })));
           break;
 
         case 'MILESTONE_COMPLETED':
           if (projectId) {
-            const project = await base44.entities.Project.findById(projectId);
+            const project = await groonabackend.entities.Project.findById(projectId);
             if (project?.team_members) recipients.push(...project.team_members.map(m => ({ email: m.email })));
           }
           break;
 
         case 'APPROVAL_REQUESTED':
         case 'LEAVE_CANCELLED':
-          const authAdmins = await base44.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
+          const authAdmins = await groonabackend.entities.User.filter({ tenant_id: event.tenant_id, role: 'admin' });
           recipients.push(...authAdmins.map(a => ({ email: a.email })));
           break;
       }
@@ -185,7 +185,7 @@ class NotificationEngine {
   async getPreferences(recipients, tenantId) {
     try {
       const emails = recipients.map(r => r.email);
-      const preferences = await base44.entities.NotificationPreference.filter({
+      const preferences = await groonabackend.entities.NotificationPreference.filter({
         tenant_id: tenantId,
         user_email: { $in: emails }
       });
@@ -223,7 +223,7 @@ class NotificationEngine {
    */
   async createInAppNotification(event, recipient, projectId) {
     const notificationData = this.buildNotificationData(event, recipient, projectId);
-    return await base44.entities.Notification.create({ ...notificationData, read: false });
+    return await groonabackend.entities.Notification.create({ ...notificationData, read: false });
   }
 
   /**
@@ -232,14 +232,14 @@ class NotificationEngine {
   async createEmailNotification(event, recipient, prefs, projectId) {
     try {
       const emailData = this.buildEmailData(event, recipient, projectId);
-      await base44.entities.EmailNotificationLog.create({
+      await groonabackend.entities.EmailNotificationLog.create({
         tenant_id: event.tenant_id,
         event_id: event.id,
         recipient_email: recipient.email,
         subject: emailData.subject,
         status: 'pending'
       });
-      await base44.integrations.Core.SendEmail({
+      await groonabackend.integrations.Core.SendEmail({
         to: recipient.email,
         subject: emailData.subject,
         body: emailData.body,
@@ -312,3 +312,4 @@ class NotificationEngine {
 }
 
 export const notificationEngine = new NotificationEngine();
+

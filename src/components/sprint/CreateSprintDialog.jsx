@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -72,7 +72,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     queryKey: ['epics', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Epic.filter({ project_id: projectId });
+      return await groonabackend.entities.Epic.filter({ project_id: projectId });
     },
     enabled: !!projectId && open,
   });
@@ -81,7 +81,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     queryKey: ['stories', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Story.filter({ project_id: projectId });
+      return await groonabackend.entities.Story.filter({ project_id: projectId });
     },
     enabled: !!projectId && open,
   });
@@ -91,7 +91,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     queryKey: ['stories', 'sprint', initialValues?.id],
     queryFn: async () => {
       if (!initialValues?.id || !projectId) return [];
-      const allStories = await base44.entities.Story.filter({ project_id: projectId });
+      const allStories = await groonabackend.entities.Story.filter({ project_id: projectId });
       // Filter stories that belong to this sprint (handle both id and _id formats)
       return allStories.filter(s => {
         const storySprintId = s.sprint_id?.id || s.sprint_id?._id || s.sprint_id;
@@ -215,7 +215,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
       let context = "";
       try {
         if (projectId) {
-          const retros = await base44.entities.Retrospective.filter(
+          const retros = await groonabackend.entities.Retrospective.filter(
             { project_id: projectId },
             '-meeting_date',
             3
@@ -234,8 +234,8 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
         ? `Refine this sprint goal to be concise, professional, and actionable (SMART goal format preferred). Input: "${currentGoal}".\n\n${context}`
         : `Suggest a concise and actionable sprint goal for a sprint named "${sprintName}".\n\n${context}`;
 
-      // --- FIX: Use base44.functions.invoke instead of integrations.Core.InvokeLLM ---
-      const response = await base44.functions.invoke('generateSprintGoal', { prompt });
+      // --- FIX: Use groonabackend.functions.invoke instead of integrations.Core.InvokeLLM ---
+      const response = await groonabackend.functions.invoke('generateSprintGoal', { prompt });
 
       // Handle both direct object or string response
       const result = typeof response === 'string' ? JSON.parse(response) : response;
@@ -680,3 +680,4 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     </Dialog>
   );
 }
+

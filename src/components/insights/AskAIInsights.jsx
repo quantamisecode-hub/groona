@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,7 +39,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
   // Fetch users to map emails to names
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users-insights'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
@@ -71,7 +71,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
     queryFn: async () => {
       if (!effectiveTenantId) return [];
       try {
-        return await base44.entities.AIInsightsReport.filter({
+        return await groonabackend.entities.AIInsightsReport.filter({
           tenant_id: effectiveTenantId
         }, '-created_date');
       } catch (error) {
@@ -86,7 +86,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
   // Delete report mutation
   const deleteReportMutation = useMutation({
     mutationFn: async (reportId) => {
-      await base44.entities.AIInsightsReport.delete(reportId);
+      await groonabackend.entities.AIInsightsReport.delete(reportId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-insights-reports'] });
@@ -541,7 +541,7 @@ Provide a VERY CONCISE answer (max 200 words):
 
 Keep it extremely brief and focused.`;
 
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false,
       });
@@ -581,7 +581,7 @@ Keep it extremely brief and focused.`;
             was_truncated: wasTruncated
           });
 
-          const savedReport = await base44.entities.AIInsightsReport.create({
+          const savedReport = await groonabackend.entities.AIInsightsReport.create({
             tenant_id: effectiveTenantId,
             question: queryQuestion,
             report_content: reportContentToSave,
@@ -622,7 +622,7 @@ Keep it extremely brief and focused.`;
                 content_length: smallerContent.length
               });
               
-              const savedReport = await base44.entities.AIInsightsReport.create({
+              const savedReport = await groonabackend.entities.AIInsightsReport.create({
                 tenant_id: effectiveTenantId,
                 question: queryQuestion,
                 report_content: smallerContent,
@@ -878,3 +878,4 @@ Keep it extremely brief and focused.`;
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -35,7 +35,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   });
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_super_admin;
   const today = new Date();
-  
+
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
@@ -47,10 +47,10 @@ export default function TeamCalendar({ currentUser, tenantId }) {
     queryKey: ['team-members', tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const allUsers = await base44.entities.User.list();
-      return allUsers.filter(u => 
-        u.tenant_id === tenantId && 
-        !u.is_super_admin && 
+      const allUsers = await groonabackend.entities.User.list();
+      return allUsers.filter(u =>
+        u.tenant_id === tenantId &&
+        !u.is_super_admin &&
         u.custom_role !== 'client'
       );
     },
@@ -61,7 +61,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   // Fetch all approved leaves for this month - with real-time updates
   const { data: allLeaves = [], refetch: refetchLeaves } = useQuery({
     queryKey: ['team-leaves-calendar', tenantId, monthStart.toISOString()],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       tenant_id: tenantId,
       status: 'approved'
     }),
@@ -72,7 +72,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   // Fetch holidays
   const { data: holidays = [], refetch: refetchHolidays } = useQuery({
     queryKey: ['holidays', tenantId],
-    queryFn: () => base44.entities.Holiday.filter({
+    queryFn: () => groonabackend.entities.Holiday.filter({
       tenant_id: tenantId
     }),
     enabled: !!tenantId,
@@ -87,7 +87,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
 
     window.addEventListener('leave-approved', handleLeaveUpdate);
     window.addEventListener('leave-updated', handleLeaveUpdate);
-    
+
     return () => {
       window.removeEventListener('leave-approved', handleLeaveUpdate);
       window.removeEventListener('leave-updated', handleLeaveUpdate);
@@ -97,28 +97,28 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   // Filter leaves for this month and by selected member
   const monthLeaves = useMemo(() => {
     if (!allLeaves || allLeaves.length === 0) return [];
-    
+
     let filtered = allLeaves;
-    
+
     // Filter by selected member if one is selected
     if (filteredMemberEmail) {
       filtered = filtered.filter(leave => leave.user_email === filteredMemberEmail);
     }
-    
+
     return filtered.filter(leave => {
       if (!leave.start_date || !leave.end_date) return false;
-      
+
       try {
         const leaveStart = parseISO(leave.start_date);
         const leaveEnd = parseISO(leave.end_date);
-        
+
         // Check if leave overlaps with this month
         const overlaps = (
           isWithinInterval(leaveStart, { start: monthStart, end: monthEnd }) ||
           isWithinInterval(leaveEnd, { start: monthStart, end: monthEnd }) ||
           (leaveStart <= monthStart && leaveEnd >= monthEnd)
         );
-        
+
         return overlaps;
       } catch (error) {
         console.error('Error parsing leave dates:', leave, error);
@@ -131,7 +131,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   const realTimeHolidays = useMemo(() => {
     const holidayDates = [];
     const currentYear = currentMonth.getFullYear();
-    
+
     // Add all Sundays
     calendarDays.forEach(day => {
       if (getDay(day) === 0) { // Sunday
@@ -186,18 +186,18 @@ export default function TeamCalendar({ currentUser, tenantId }) {
 
     monthLeaves.forEach(leave => {
       if (!leave.start_date || !leave.end_date) return;
-      
+
       try {
         const leaveStart = parseISO(leave.start_date);
         const leaveEnd = parseISO(leave.end_date);
-        
+
         // Reset time to start of day for accurate comparison
         const leaveStartDate = new Date(leaveStart.getFullYear(), leaveStart.getMonth(), leaveStart.getDate());
         const leaveEndDate = new Date(leaveEnd.getFullYear(), leaveEnd.getMonth(), leaveEnd.getDate());
-        
+
         calendarDays.forEach(day => {
           const dayDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-          
+
           // Check if day falls within leave range (inclusive)
           if (dayDate >= leaveStartDate && dayDate <= leaveEndDate) {
             const dayKey = format(day, 'yyyy-MM-dd');
@@ -219,28 +219,28 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   // Calculate capacity reduction per user for the month
   const userCapacityReduction = useMemo(() => {
     const reduction = {};
-    
+
     teamMembers.forEach(member => {
       const memberLeaves = monthLeaves.filter(l => l.user_email === member.email);
       let totalDays = 0;
-      
+
       memberLeaves.forEach(leave => {
         if (!leave.start_date || !leave.end_date) return;
-        
+
         try {
           const leaveStart = parseISO(leave.start_date);
           const leaveEnd = parseISO(leave.end_date);
-          
+
           // Reset time to start of day for accurate comparison
           const leaveStartDate = new Date(leaveStart.getFullYear(), leaveStart.getMonth(), leaveStart.getDate());
           const leaveEndDate = new Date(leaveEnd.getFullYear(), leaveEnd.getMonth(), leaveEnd.getDate());
-          
+
           calendarDays.forEach(day => {
             // Only count days in current month
             if (!isSameMonth(day, currentMonth)) return;
-            
+
             const dayDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-            
+
             // Check if day falls within leave range (inclusive)
             if (dayDate >= leaveStartDate && dayDate <= leaveEndDate) {
               // Only count weekdays (Monday-Friday)
@@ -258,17 +258,17 @@ export default function TeamCalendar({ currentUser, tenantId }) {
           console.error('Error calculating capacity for leave:', leave, error);
         }
       });
-      
+
       // Calculate working days in the month (excluding weekends)
       const workingDays = calendarDays.filter(day => {
         const dayOfWeek = day.getDay();
         return dayOfWeek >= 1 && dayOfWeek <= 5 && isSameMonth(day, currentMonth);
       }).length;
-      
+
       const hoursReduction = totalDays * 8;
       const originalCapacity = workingDays * 8;
       const adjustedCapacity = Math.max(0, originalCapacity - hoursReduction);
-      
+
       reduction[member.email] = {
         days: totalDays,
         hours: hoursReduction,
@@ -276,7 +276,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
         adjustedCapacity: adjustedCapacity
       };
     });
-    
+
     return reduction;
   }, [teamMembers, monthLeaves, calendarDays, currentMonth]);
 
@@ -433,9 +433,9 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                 </SelectContent>
               </Select>
               {isAdmin && (
-                <Button 
-                  variant="default" 
-                  size="sm" 
+                <Button
+                  variant="default"
+                  size="sm"
                   onClick={() => setShowAddHoliday(true)}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
@@ -443,9 +443,9 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                   Add Holiday
                 </Button>
               )}
-              <Button 
-                variant="outline" 
-                size="icon" 
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={async () => {
                   await Promise.all([
                     refetchLeaves(),
@@ -473,8 +473,8 @@ export default function TeamCalendar({ currentUser, tenantId }) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto px-2">
-            <div className="min-w-[1000px] py-1">
+          <div className="overflow-x-auto px-2 pb-2">
+            <div className="min-w-[600px] w-full py-1">
               {/* Day Headers */}
               <div className="grid grid-cols-7 gap-2 mb-2">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
@@ -501,7 +501,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                           setSelectedMember(null);
                           // Get all leaves for members on this date (from allLeaves, not just monthLeaves)
                           const memberEmails = [...new Set(dayLeaves.map(l => l.user_email))];
-                          const allMemberLeaves = allLeaves.filter(l => 
+                          const allMemberLeaves = allLeaves.filter(l =>
                             memberEmails.includes(l.user_email)
                           );
                           setSelectedDateLeaves(allMemberLeaves);
@@ -600,7 +600,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {selectedMember 
+              {selectedMember
                 ? `${selectedMember.full_name || selectedMember.name}'s Leave Details`
                 : `Team Members on Leave - ${selectedDate && format(selectedDate, 'MMMM d, yyyy')}`
               }
@@ -669,12 +669,12 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* All Leaves for this member */}
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-slate-500 uppercase mb-2">All Approved Leaves:</p>
                         {sortedLeaves.map((leave) => (
-                          <div 
+                          <div
                             key={leave.id || leave._id}
                             className={cn(
                               "p-3 rounded-lg border-2",
@@ -686,11 +686,11 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                             <div className="flex items-center justify-between gap-4">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Badge 
-                                    variant="outline" 
+                                  <Badge
+                                    variant="outline"
                                     className={cn(
                                       "text-xs",
-                                      leave.duration === 'half_day' 
+                                      leave.duration === 'half_day'
                                         ? "bg-amber-100 border-amber-300 text-amber-700"
                                         : "bg-red-100 border-red-300 text-red-700"
                                     )}
@@ -819,7 +819,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                     return;
                   }
                   try {
-                    await base44.entities.Holiday.create({
+                    await groonabackend.entities.Holiday.create({
                       tenant_id: tenantId,
                       name: holidayForm.name,
                       date: format(holidayForm.date, 'yyyy-MM-dd'),
@@ -848,3 +848,5 @@ export default function TeamCalendar({ currentUser, tenantId }) {
     </div>
   );
 }
+
+

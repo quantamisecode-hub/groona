@@ -867,25 +867,34 @@ router.delete('/sessions-others', auth, async (req, res) => {
 // @route   POST api/auth/logout
 router.post('/logout', auth, async (req, res) => {
   try {
-    const UserLog = require('../models/SchemaDefinitions').UserLog;
+    const sessionId = req.user?.session_id;
+    console.log(`[Logout] Attempting logout for session: ${sessionId}`);
 
     // 1. Find the active UserLog for this session and set logout_time
-    if (UserLog && req.user.session_id) {
-      await UserLog.findOneAndUpdate(
-        { session_id: req.user.session_id },
-        { logout_time: getISTDate() }
-      );
-    }
+    if (sessionId) {
+      try {
+        const UserLogModel = mongoose.model('UserLog');
+        await UserLogModel.findOneAndUpdate(
+          { session_id: sessionId },
+          { logout_time: getISTDate() }
+        );
+      } catch (logErr) {
+        console.warn('[Logout] Could not update UserLog:', logErr.message);
+      }
 
-    // 2. Remove the session
-    if (req.user.session_id) {
-      await UserSession.findByIdAndDelete(req.user.session_id);
+      // 2. Remove the session
+      try {
+        const UserSessionModel = mongoose.model('UserSession');
+        await UserSessionModel.findByIdAndDelete(sessionId);
+      } catch (sessErr) {
+        console.warn('[Logout] Could not delete UserSession:', sessErr.message);
+      }
     }
 
     res.json({ success: true, msg: 'Logged out successfully' });
   } catch (err) {
     console.error('Logout Error:', err);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Server Error during logout', error: err.message });
   }
 });
 

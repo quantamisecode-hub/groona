@@ -45,7 +45,7 @@ All templates use the same base design but with dynamic content:
 
 **Team Member Removal from Projects**
 
-Since projects are managed via the base44 API (generic CRUD), you need to integrate the team member removal helper where projects are updated. 
+Since projects are managed via the groonabackend API (generic CRUD), you need to integrate the team member removal helper where projects are updated. 
 
 **How to integrate:**
 

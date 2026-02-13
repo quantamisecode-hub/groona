@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ export default function UpdateUserRole() {
   const [updateSuccess, setUpdateSuccess] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       setCurrentUser(user);
       // Removed this toast as the access denied screen is more appropriate.
       // if (!user.is_super_admin) {
@@ -41,7 +41,7 @@ export default function UpdateUserRole() {
     setUpdateSuccess(false);
 
     try {
-      const userData = await base44.auth.me();
+      const userData = await groonabackend.auth.me();
       
       // Since we can't directly query other users, we'll update the current user if email matches
       if (userData.email === searchEmail.trim()) {
@@ -75,13 +75,13 @@ export default function UpdateUserRole() {
         is_super_admin: selectedRole === "super_admin"
       };
 
-      await base44.auth.updateMe(updateData);
+      await groonabackend.auth.updateMe(updateData);
       
       toast.success("User role updated successfully!");
       setUpdateSuccess(true);
       
       // Refresh user data
-      const updatedUser = await base44.auth.me();
+      const updatedUser = await groonabackend.auth.me();
       setTargetUser(updatedUser);
       
       // Reload page after 2 seconds to reflect changes
@@ -371,3 +371,4 @@ export default function UpdateUserRole() {
     </div>
   );
 }
+

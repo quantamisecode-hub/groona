@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -62,7 +62,7 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
-      const projects = await base44.entities.Project.list();
+      const projects = await groonabackend.entities.Project.list();
       return projects.find(p => (p.id === projectId) || (p._id === projectId));
     },
     enabled: !!projectId && open,
@@ -84,7 +84,7 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
       
       Output only the description text (no JSON, no markdown formatting, just plain descriptive text).`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -135,11 +135,11 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
       };
 
       if (isEditMode) {
-        await base44.entities.Epic.update(epic.id || epic._id, epicData);
+        await groonabackend.entities.Epic.update(epic.id || epic._id, epicData);
         toast.success('Epic updated successfully!');
       } else {
         epicData.progress = 0;
-        const newEpic = await base44.entities.Epic.create(epicData);
+        const newEpic = await groonabackend.entities.Epic.create(epicData);
         toast.success('Epic created successfully!');
 
         // Reset form only in create mode
@@ -351,3 +351,4 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
     </Dialog>
   );
 }
+

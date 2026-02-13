@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,17 +38,17 @@ export default function SystemNotificationManager() {
   const queryClient = useQueryClient();
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser);
+    groonabackend.auth.me().then(setCurrentUser);
   }, []);
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['all-system-notifications'],
-    queryFn: () => base44.entities.SystemNotification.list('-created_date'),
+    queryFn: () => groonabackend.entities.SystemNotification.list('-created_date'),
     enabled: !!currentUser?.is_super_admin,
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.SystemNotification.create(data),
+    mutationFn: (data) => groonabackend.entities.SystemNotification.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-system-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['system-notifications'] });
@@ -61,7 +61,7 @@ export default function SystemNotificationManager() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.SystemNotification.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.SystemNotification.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-system-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['system-notifications'] });
@@ -74,7 +74,7 @@ export default function SystemNotificationManager() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => base44.entities.SystemNotification.delete(id),
+    mutationFn: (id) => groonabackend.entities.SystemNotification.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-system-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['system-notifications'] });
@@ -237,3 +237,4 @@ export default function SystemNotificationManager() {
     </div>
   );
 }
+

@@ -19,7 +19,7 @@ import {
   MessageSquare,
   CheckCircle2
 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -42,7 +42,7 @@ export default function TicketDetailDialog({ open, onClose, ticket, onUpdate, cu
 
   const loadComments = async () => {
     try {
-      const fetchedComments = await base44.entities.TicketComment.filter(
+      const fetchedComments = await groonabackend.entities.TicketComment.filter(
         { ticket_id: ticket.id },
         '-created_date'
       );
@@ -57,7 +57,7 @@ export default function TicketDetailDialog({ open, onClose, ticket, onUpdate, cu
 
     setSubmitting(true);
     try {
-      await base44.entities.TicketComment.create({
+      await groonabackend.entities.TicketComment.create({
         tenant_id: ticket.tenant_id,
         ticket_id: ticket.id,
         author_email: currentUser.email,
@@ -67,7 +67,7 @@ export default function TicketDetailDialog({ open, onClose, ticket, onUpdate, cu
         is_internal: isInternal,
       });
 
-      await base44.entities.Ticket.update(ticket.id, {
+      await groonabackend.entities.Ticket.update(ticket.id, {
         last_activity_at: new Date().toISOString(),
         first_response_at: ticket.first_response_at || new Date().toISOString(),
       });
@@ -99,14 +99,14 @@ export default function TicketDetailDialog({ open, onClose, ticket, onUpdate, cu
       }
       
       if (field === 'assigned_to_email' && value) {
-        const users = await base44.entities.User.list();
+        const users = await groonabackend.entities.User.list();
         const assignedUser = users.find(u => u.email === value);
         if (assignedUser) {
           updates.assigned_to_name = assignedUser.full_name;
         }
       }
 
-      await base44.entities.Ticket.update(ticket.id, updates);
+      await groonabackend.entities.Ticket.update(ticket.id, updates);
       
       setLocalTicket({ ...localTicket, ...updates });
       if (onUpdate) onUpdate();
@@ -364,3 +364,4 @@ export default function TicketDetailDialog({ open, onClose, ticket, onUpdate, cu
     </Dialog>
   );
 }
+

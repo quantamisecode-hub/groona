@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,6 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Clock,
   CheckCircle,
@@ -25,7 +35,8 @@ import {
   X,
   Briefcase,
   ShieldAlert,
-  MoreVertical
+  MoreVertical,
+  Send
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -52,7 +63,7 @@ export default function TimesheetsPage() {
     queryKey: ['check-restriction', currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) return false;
-      const alerts = await base44.entities.Notification.filter({
+      const alerts = await groonabackend.entities.Notification.filter({
         recipient_email: currentUser.email,
         type: 'timesheet_missing_alert',
         status: 'OPEN'
@@ -80,6 +91,7 @@ export default function TimesheetsPage() {
 
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showReworkActionDialog, setShowReworkActionDialog] = useState(false);
+  const [showGoalReachedDialog, setShowGoalReachedDialog] = useState(false);
   const [selectedReworkEntry, setSelectedReworkEntry] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -96,7 +108,7 @@ export default function TimesheetsPage() {
     queryFn: async () => {
       if (!currentUser?.id) return { isPM: false, projectIds: [] };
 
-      const pmRoles = await base44.entities.ProjectUserRole.filter({
+      const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
         user_id: currentUser.id,
         role: 'project_manager'
       });
@@ -116,7 +128,7 @@ export default function TimesheetsPage() {
     queryKey: ['my-timesheets', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return [];
-      return base44.entities.Timesheet.filter(
+      return groonabackend.entities.Timesheet.filter(
         { user_email: currentUser.email },
         '-date'
       );
@@ -131,7 +143,7 @@ export default function TimesheetsPage() {
     queryKey: ['all-timesheets', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Timesheet.filter(
+      return groonabackend.entities.Timesheet.filter(
         { tenant_id: effectiveTenantId },
         '-date'
       );
@@ -146,7 +158,7 @@ export default function TimesheetsPage() {
     queryKey: ['users-for-reports', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId && !u.is_super_admin && u.custom_role !== 'client');
     },
     enabled: !!currentUser && !!effectiveTenantId, // Enabled for all to support Peer Review selection
@@ -157,7 +169,7 @@ export default function TimesheetsPage() {
   const { data: allManagedProjectIds = new Set() } = useQuery({
     queryKey: ['all-managed-projects', effectiveTenantId],
     queryFn: async () => {
-      const allPmAssignments = await base44.entities.ProjectUserRole.filter({
+      const allPmAssignments = await groonabackend.entities.ProjectUserRole.filter({
         role: 'project_manager'
       });
       return new Set(allPmAssignments.map(p => p.project_id));
@@ -179,9 +191,9 @@ export default function TimesheetsPage() {
           last_modified_by_name: currentUser.full_name,
           last_modified_at: new Date().toISOString()
         };
-        return base44.entities.Timesheet.update(editingEntry.id, auditData);
+        return groonabackend.entities.Timesheet.update(editingEntry.id, auditData);
       }
-      return base44.entities.Timesheet.create(data);
+      return groonabackend.entities.Timesheet.create(data);
     },
     onSuccess: async (newEntry) => {
       // === NOTIFICATION LOGIC ===
@@ -191,7 +203,7 @@ export default function TimesheetsPage() {
       if (isSubmission && wasDraft) {
         try {
           // 1. Notify the Submitter (User)
-          await base44.entities.Notification.create({
+          await groonabackend.entities.Notification.create({
             tenant_id: effectiveTenantId,
             recipient_email: currentUser.email,
             type: 'timesheet_submission',
@@ -205,7 +217,7 @@ export default function TimesheetsPage() {
 
           // 2. Notify Project Manager(s) if Pending PM
           if (newEntry.status === 'pending_pm') {
-            const pmRoles = await base44.entities.ProjectUserRole.filter({
+            const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
               project_id: newEntry.project_id?.id || newEntry.project_id?._id || newEntry.project_id,
               role: 'project_manager'
             });
@@ -215,7 +227,7 @@ export default function TimesheetsPage() {
             await Promise.all(pmEmails.map(email => {
               if (email === currentUser.email) return Promise.resolve();
 
-              return base44.entities.Notification.create({
+              return groonabackend.entities.Notification.create({
                 tenant_id: effectiveTenantId,
                 recipient_email: email,
                 type: 'timesheet_approval_needed',
@@ -230,7 +242,7 @@ export default function TimesheetsPage() {
           }
           // 3. Notify Admin/Owner if Pending Admin (e.g. PM submitted it)
           else if (newEntry.status === 'pending_admin') {
-            const allUsers = await base44.entities.User.list();
+            const allUsers = await groonabackend.entities.User.list();
             const approvers = allUsers.filter(u =>
               u.tenant_id === effectiveTenantId && u.custom_role === 'owner'
             );
@@ -238,7 +250,7 @@ export default function TimesheetsPage() {
             await Promise.all(approvers.map(approver => {
               if (approver.email === currentUser.email) return Promise.resolve(); // Don't notify self
 
-              return base44.entities.Notification.create({
+              return groonabackend.entities.Notification.create({
                 tenant_id: effectiveTenantId,
                 recipient_email: approver.email,
                 type: 'timesheet_approval_needed',
@@ -282,7 +294,7 @@ export default function TimesheetsPage() {
       queryClient.invalidateQueries({ queryKey: ['task-notifications'] }); // Update notifications immediately
 
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: editingEntry ? 'updated' : 'created',
           entity_type: 'task',
@@ -304,14 +316,14 @@ export default function TimesheetsPage() {
         // Fire and forget - send email asynchronously after timesheet is created
         setTimeout(async () => {
           try {
-            await base44.email.sendTemplate({
+            await groonabackend.email.sendTemplate({
               to: currentUser.email,
               templateType: 'timesheet_submitted',
               data: {
                 memberName: currentUser.full_name,
                 memberEmail: currentUser.email,
                 taskTitle: newEntry.task_title || 'N/A',
-                date: newEntry.date || new Date().toISOString().split('T')[0],
+                date: newEntry.date || new Date().toLocaleDateString('en-CA'),
                 hours: newEntry.hours || 0,
                 minutes: newEntry.minutes || 0,
                 projectName: newEntry.project_name,
@@ -328,6 +340,14 @@ export default function TimesheetsPage() {
       toast.success(editingEntry ? 'Timesheet updated!' : 'Time logged successfully!');
       setShowForm(false);
       setEditingEntry(null);
+
+      // Trigger goal dialog if target met after this save
+      setTimeout(() => {
+        const updatedTotal = todayDraftMinutes + (newEntry?.total_minutes || 0);
+        if (updatedTotal >= (workingHoursPerDay * 60)) {
+          setShowGoalReachedDialog(true);
+        }
+      }, 500);
     },
     onError: (error) => {
       console.error('[Timesheets] Save error:', error);
@@ -335,8 +355,34 @@ export default function TimesheetsPage() {
     },
   });
 
+  const bulkSubmitMutation = useMutation({
+    mutationFn: async (timesheetIds) => {
+      const now = new Date().toISOString();
+      await Promise.all(
+        timesheetIds.map(async (id) => {
+          const status = currentUser?.custom_role === 'owner' ? 'approved' :
+            (currentUser?.custom_role === 'project_manager' ? 'pending_admin' : 'pending_pm');
+
+          await groonabackend.entities.Timesheet.update(id, {
+            status,
+            submitted_at: now
+          });
+        })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
+      queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+      toast.success("Timesheets submitted for approval!");
+    },
+    onError: (error) => {
+      console.error('[Timesheets] Bulk submit error:', error);
+      toast.error('Failed to submit timesheets');
+    }
+  });
+
   const deleteTimesheetMutation = useMutation({
-    mutationFn: (id) => base44.entities.Timesheet.delete(id),
+    mutationFn: (id) => groonabackend.entities.Timesheet.delete(id),
     onSuccess: (_, deletedId) => {
       // Optimistic delete
       const cacheKey = (isAdmin || isPM)
@@ -376,7 +422,7 @@ export default function TimesheetsPage() {
   const { data: allPMEmails = [] } = useQuery({
     queryKey: ['all-pm-emails'],
     queryFn: async () => {
-      const users = await base44.entities.User.filter({ custom_role: 'project_manager' });
+      const users = await groonabackend.entities.User.filter({ custom_role: 'project_manager' });
       return users.map(u => u.email);
     },
     enabled: isPM, // Only need this if we are a PM
@@ -427,11 +473,11 @@ export default function TimesheetsPage() {
       if (!currentUser?.email) return null;
 
       const [normalAlarms, highAlarms] = await Promise.all([
-        base44.entities.Notification.filter({
+        groonabackend.entities.Notification.filter({
           recipient_email: currentUser.email,
           type: 'rework_alarm'
         }),
-        base44.entities.Notification.filter({
+        groonabackend.entities.Notification.filter({
           recipient_email: currentUser.email,
           type: 'high_rework_alarm'
         })
@@ -451,7 +497,7 @@ export default function TimesheetsPage() {
   const { data: peerReviewRequests = [], refetch: refetchPeerReviews } = useQuery({
     queryKey: ['peer-review-requests', currentUser?.email],
     queryFn: async () => {
-      const reqs = await base44.entities.PeerReviewRequest.filter({
+      const reqs = await groonabackend.entities.PeerReviewRequest.filter({
         reviewer_email: currentUser.email,
         status: 'PENDING'
       });
@@ -464,7 +510,7 @@ export default function TimesheetsPage() {
   // Handle Mark Review as Done
   const completeReviewMutation = useMutation({
     mutationFn: async (requestId) => {
-      await base44.entities.PeerReviewRequest.update(requestId, {
+      await groonabackend.entities.PeerReviewRequest.update(requestId, {
         status: 'COMPLETED',
         completed_at: new Date().toISOString()
       });
@@ -480,7 +526,7 @@ export default function TimesheetsPage() {
   const { data: appealedAlarmsCount = 0 } = useQuery({
     queryKey: ['appealed-alarms-count'],
     queryFn: async () => {
-      const appealed = await base44.entities.Notification.filter({ status: 'APPEALED' });
+      const appealed = await groonabackend.entities.Notification.filter({ status: 'APPEALED' });
       return appealed.length;
     },
     enabled: isAdmin || isPM,
@@ -489,6 +535,19 @@ export default function TimesheetsPage() {
 
   const myDraftEntries = myTimesheets.filter(t => t.status === 'draft');
   const myDraftCount = myDraftEntries.length;
+
+  // Robust Daily Target Logic
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const todayDraftEntries = myDraftEntries.filter(t => t.date && t.date.substring(0, 10) === todayStr);
+  const todayDraftMinutes = todayDraftEntries.reduce((sum, t) => {
+    const mins = parseInt(t.total_minutes) || 0;
+    return sum + mins;
+  }, 0);
+
+  const workingHoursPerDay = Number(currentUser?.working_hours_per_day) || 8;
+  const isTargetMet = todayDraftMinutes >= (workingHoursPerDay * 60);
 
   const uniqueProjects = useMemo(() => {
     const projects = new Map();
@@ -594,7 +653,14 @@ export default function TimesheetsPage() {
                   {/* Log Time Button - Always enabled, restriction handled in Timer tab */}
                   <div className="relative group">
                     <Button
-                      onClick={() => setShowForm(true)}
+                      onClick={() => {
+                        if (isTargetMet) {
+                          setShowGoalReachedDialog(true);
+                        } else {
+                          setShowForm(true);
+                          setEditingEntry(null);
+                        }
+                      }}
                       className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -732,6 +798,15 @@ export default function TimesheetsPage() {
                       <TabsTrigger value="my-timesheets" className="gap-2 flex-1 xl:flex-none">
                         {isAdmin || isPM ? <Briefcase className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
                         {isAdmin || isPM ? "All Timesheets" : "My Timesheets"}
+                      </TabsTrigger>
+                      <TabsTrigger value="drafts" className="gap-2 flex-1 xl:flex-none relative">
+                        <FileText className="h-4 w-4" />
+                        Drafts
+                        {myDraftCount > 0 && (
+                          <Badge className="ml-1 bg-slate-500 text-white px-1.5 h-5 min-w-[1.25rem]">
+                            {myDraftCount}
+                          </Badge>
+                        )}
                       </TabsTrigger>
                       {currentUser?.custom_role === 'viewer' && (
                         <>
@@ -912,7 +987,7 @@ export default function TimesheetsPage() {
                       </div>
                     ) : (
                       <TimesheetList
-                        timesheets={filteredTimesheets}
+                        timesheets={filteredTimesheets.filter(t => t.status !== 'draft')}
                         currentUser={currentUser} // Pass currentUser for timezone logic
                         onEdit={handleEdit}
                         onDelete={handleDelete}
@@ -923,6 +998,59 @@ export default function TimesheetsPage() {
                         groupByDate={true}
                       />
                     )}
+                  </TabsContent>
+
+                  <TabsContent value="drafts" className="space-y-6 mt-4">
+                    {isTargetMet && (
+                      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 overflow-hidden shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-green-200">
+                                <CheckCircle className="h-6 w-6" />
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-bold text-green-900 leading-tight">Great work for today!</h3>
+                                <p className="text-green-700 text-sm mt-1">
+                                  You've logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m. Ready to finalize your daily timesheet?
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-3 w-full md:w-auto">
+                              <Button
+                                onClick={() => bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id))}
+                                disabled={bulkSubmitMutation.isPending || todayDraftEntries.length === 0}
+                                className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-100"
+                              >
+                                {bulkSubmitMutation.isPending ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Send className="h-4 w-4 mr-2" />
+                                )}
+                                Submit All for Today
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="flex-1 md:flex-none border-green-200 text-green-700 hover:bg-green-100"
+                                onClick={() => toast.info("No problem! You can keep adding entries.")}
+                              >
+                                Keep Drafting
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <TimesheetList
+                      timesheets={myDraftEntries}
+                      currentUser={currentUser}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      users={users}
+                      showActions={true}
+                      groupByDate={true}
+                    />
                   </TabsContent>
 
                   {currentUser?.custom_role === 'viewer' && (
@@ -1160,6 +1288,53 @@ export default function TimesheetsPage() {
         }}
       />
 
+      {/* Goal Reached AlertDialog */}
+      <AlertDialog open={showGoalReachedDialog} onOpenChange={setShowGoalReachedDialog}>
+        <AlertDialogContent className="bg-white/95 backdrop-blur-xl border-slate-200">
+          <AlertDialogHeader className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute -right-2 -top-2 h-8 w-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 z-50"
+              onClick={() => setShowGoalReachedDialog(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl font-bold text-slate-900">
+              Daily Goal Reached!
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-slate-600">
+              Great work! You have logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m for today.
+              Would you like to finalize and submit your timesheets now, or continue adding more entries?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <AlertDialogCancel
+              onClick={() => {
+                setShowForm(true);
+                setEditingEntry(null);
+                toast.info("Logging additional entry...");
+              }}
+              className="mt-0 sm:mt-0 flex-1 border-slate-200 text-slate-600 hover:bg-slate-50"
+            >
+              Add More
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id));
+                setShowGoalReachedDialog(false);
+              }}
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md"
+            >
+              Submit All for Today
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Rework Action Dialog */}
       {(reworkAlarm || selectedReworkEntry) && (
         <ReworkActionDialog
@@ -1186,3 +1361,4 @@ export default function TimesheetsPage() {
     </div>
   );
 }
+

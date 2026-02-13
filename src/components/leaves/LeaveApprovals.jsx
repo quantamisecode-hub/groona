@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,10 +22,10 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
   // For project managers: show all tenant team members' leaves (excluding other project managers and themselves)
   // For owners/admins: show all pending leaves
   let pendingLeaves = leaves.filter(l => l.status === 'submitted');
-  
+
   // Additional filter for project managers: ensure they cannot see other project managers' leaves
   if (isProjectManager && currentUser?.custom_role !== 'owner') {
-    pendingLeaves = pendingLeaves.filter(leave => 
+    pendingLeaves = pendingLeaves.filter(leave =>
       leave.user_email !== currentUser?.email && // Exclude project manager's own leaves
       !otherProjectManagerEmails.includes(leave.user_email) // Exclude other project managers' leaves
     );
@@ -54,10 +54,10 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
     mutationFn: async ({ leave, action, comment }) => {
       const newStatus = action === 'approve' ? 'approved' : 'rejected';
       const currentYear = new Date().getFullYear();
-      
+
       // 1. Update leave status
       // Store comment in rejection_reason for both approve and reject so it appears in email
-      await base44.entities.Leave.update(leave.id, {
+      await groonabackend.entities.Leave.update(leave.id, {
         status: newStatus,
         approved_by: currentUser.email,
         approved_at: new Date().toISOString(),
@@ -65,7 +65,7 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
       });
 
       // 2. Create approval record
-      await base44.entities.LeaveApproval.create({
+      await groonabackend.entities.LeaveApproval.create({
         tenant_id: tenantId,
         leave_id: leave.id,
         approver_email: currentUser.email,
@@ -78,11 +78,11 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
 
       // 3. === COMP OFF CONSUMPTION LOGIC ===
       if (action === 'approve') {
-        const leaveTypes = await base44.entities.LeaveType.filter({ id: leave.leave_type_id });
+        const leaveTypes = await groonabackend.entities.LeaveType.filter({ id: leave.leave_type_id });
         const leaveType = leaveTypes[0];
 
         if (leaveType && (leaveType.is_comp_off === true || leaveType.is_comp_off === "true")) {
-          const credits = await base44.entities.CompOffCredit.filter({
+          const credits = await groonabackend.entities.CompOffCredit.filter({
             tenant_id: tenantId,
             user_id: leave.user_id,
             is_expired: false
@@ -90,20 +90,20 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
 
           // FIFO Sort
           const sortedCredits = credits.sort((a, b) => new Date(a.expires_at) - new Date(b.expires_at));
-          
+
           let daysToDeduct = Number(leave.total_days);
 
           for (const credit of sortedCredits) {
             if (daysToDeduct <= 0) break;
-            
+
             const available = Number(credit.remaining_days);
-            
+
             if (available > 0) {
               const deduction = Math.min(available, daysToDeduct);
               const newUsed = (Number(credit.used_days) || 0) + deduction;
               const newRemaining = available - deduction;
 
-              await base44.entities.CompOffCredit.update(credit.id, {
+              await groonabackend.entities.CompOffCredit.update(credit.id, {
                 used_days: newUsed,
                 remaining_days: newRemaining
               });
@@ -114,7 +114,7 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
       }
 
       // 4. Update Aggregate Leave Balance
-      const balances = await base44.entities.LeaveBalance.filter({
+      const balances = await groonabackend.entities.LeaveBalance.filter({
         tenant_id: tenantId,
         user_id: leave.user_id,
         leave_type_id: leave.leave_type_id,
@@ -129,12 +129,12 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
         const currentRemaining = Number(balance.remaining) || 0;
 
         if (action === 'approve') {
-          await base44.entities.LeaveBalance.update(balance.id, {
+          await groonabackend.entities.LeaveBalance.update(balance.id, {
             used: currentUsed + days,
             pending: Math.max(0, currentPending - days)
           });
         } else {
-          await base44.entities.LeaveBalance.update(balance.id, {
+          await groonabackend.entities.LeaveBalance.update(balance.id, {
             pending: Math.max(0, currentPending - days),
             remaining: currentRemaining + days
           });
@@ -143,6 +143,9 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
 
       // 5. Send email and in-app notification asynchronously after approval/rejection
       // This ensures approval/rejection is not affected by notification failures
+
+      // Note: In-app notification is now handled by the backend trigger on Update
+
       const statusText = action === 'approve' ? 'Approved' : 'Rejected';
       const templateType = action === 'approve' ? 'leave_approved' : 'leave_cancelled';
       const emailData = {
@@ -158,32 +161,18 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
         reason: action === 'reject' ? (comment || 'No reason provided') : undefined,
         description: comment || (action === 'approve' ? 'Your leave has been approved.' : undefined)
       };
-      const notificationData = {
-        tenant_id: tenantId,
-        recipient_email: leave.user_email,
-        type: 'leave_status',
-        title: `Leave Request ${statusText}`,
-        message: `Your leave request for ${leave.leave_type_name} has been ${statusText.toLowerCase()}${comment ? `: ${comment}` : ''}`,
-        entity_type: 'leave',
-        entity_id: leave.id,
-        sender_name: currentUser.full_name
-      };
-      
-      // Fire and forget - send notifications asynchronously
+
+      // Fire and forget - send email asynchronously
       setTimeout(async () => {
         try {
           // Email notification using template
-          await base44.email.sendTemplate({
+          await groonabackend.email.sendTemplate({
             to: leave.user_email,
             templateType,
             data: emailData
           });
-
-          // In-app notification
-          await base44.entities.Notification.create(notificationData);
         } catch (notifError) {
-          console.error('[LeaveApprovals] Failed to send notification:', notifError);
-          // Notification failure does not affect approval/rejection
+          console.error('[LeaveApprovals] Failed to send email:', notifError);
         }
       }, 0);
     },
@@ -192,18 +181,18 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
       queryClient.invalidateQueries({ queryKey: ['all-leaves'] });
       queryClient.invalidateQueries({ queryKey: ['team-leaves-calendar'] }); // Invalidate TeamCalendar (matches pattern)
       queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
-      queryClient.invalidateQueries({ queryKey: ['comp-off-credits'] }); 
+      queryClient.invalidateQueries({ queryKey: ['comp-off-credits'] });
       queryClient.invalidateQueries({ queryKey: ['all-leave-balances'] });
       queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
       queryClient.invalidateQueries({ queryKey: ['my-pending-leaves'] });
       queryClient.invalidateQueries({ queryKey: ['team-members'] });
-      
+
       // Dispatch event for immediate real-time update
       if (variables.action === 'approve') {
         window.dispatchEvent(new CustomEvent('leave-approved', { detail: { leave: variables.leave } }));
       }
       window.dispatchEvent(new CustomEvent('leave-updated', { detail: { leave: variables.leave } }));
-      
+
       toast.success(`Leave ${variables.action === 'approve' ? 'approved' : 'rejected'} successfully`);
       handleCloseDialog();
     },
@@ -373,3 +362,4 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
     </div>
   );
 }
+

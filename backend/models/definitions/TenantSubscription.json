@@ -1,0 +1,88 @@
+{
+    "name": "TenantSubscription",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "Reference to the Tenant"
+        },
+        "subscription_plan_id": {
+            "type": "string",
+            "description": "Reference to the SubscriptionPlan"
+        },
+        "plan_name": {
+            "type": "string",
+            "description": "Name of the subscription plan"
+        },
+        "subscription_type": {
+            "type": "string",
+            "enum": [
+                "trial",
+                "monthly",
+                "annual",
+                "custom"
+            ],
+            "default": "trial",
+            "description": "Subscription billing type"
+        },
+        "max_users": {
+            "type": "number",
+            "description": "Maximum users allowed"
+        },
+        "max_projects": {
+            "type": "number",
+            "description": "Maximum projects allowed"
+        },
+        "max_workspaces": {
+            "type": "number",
+            "description": "Maximum workspaces allowed"
+        },
+        "max_storage_gb": {
+            "type": "number",
+            "description": "Maximum storage allowed (GB)"
+        },
+        "payment_status": {
+            "type": "string",
+            "enum": [
+                "active",
+                "past_due",
+                "cancelled",
+                "trialing",
+                "paused"
+            ],
+            "default": "trialing",
+            "description": "Payment status of the subscription"
+        },
+        "start_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Subscription start date"
+        },
+        "end_date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Subscription end date (for fixed terms)"
+        },
+        "trial_ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Trial expiration date"
+        },
+        "payment_method_id": {
+            "type": "string",
+            "description": "Reference to payment method"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "payment_status"
+    ]
+}

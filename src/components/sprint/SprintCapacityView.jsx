@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -40,9 +40,9 @@ export default function SprintCapacityView({ sprint, tasks, projectId, onUpdateS
     queryFn: async () => {
       if (!projectId) return null;
       // Try both id and _id to ensure we get the project
-      let projects = await base44.entities.Project.filter({ id: projectId });
+      let projects = await groonabackend.entities.Project.filter({ id: projectId });
       if (!projects || projects.length === 0) {
-        projects = await base44.entities.Project.filter({ _id: projectId });
+        projects = await groonabackend.entities.Project.filter({ _id: projectId });
       }
       const foundProject = projects[0] || null;
       
@@ -63,7 +63,7 @@ export default function SprintCapacityView({ sprint, tasks, projectId, onUpdateS
   // Fetch all users to enrich member data with names and profile images
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -97,7 +97,7 @@ export default function SprintCapacityView({ sprint, tasks, projectId, onUpdateS
     queryKey: ['leaves', sprint.id, sprint.start_date, sprint.end_date],
     queryFn: async () => {
       if (!sprint.start_date || !sprint.end_date) return [];
-      const allLeaves = await base44.entities.Leave.filter({ status: 'approved' });
+      const allLeaves = await groonabackend.entities.Leave.filter({ status: 'approved' });
       
       const sprintStart = parseISO(sprint.start_date);
       const sprintEnd = parseISO(sprint.end_date);
@@ -537,3 +537,4 @@ export default function SprintCapacityView({ sprint, tasks, projectId, onUpdateS
     </div>
   );
 }
+

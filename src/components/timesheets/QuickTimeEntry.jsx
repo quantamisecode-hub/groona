@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
   const [formData, setFormData] = useState({
@@ -36,13 +36,13 @@ export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
 
     setIsSubmitting(true);
     try {
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       const totalMinutes = (formData.hours * 60) + formData.minutes;
 
       // Get location if enabled
       let locationData = null;
       try {
-        const settings = await base44.entities.TenantTimesheetSettings.filter({
+        const settings = await groonabackend.entities.TenantTimesheetSettings.filter({
           tenant_id: user.tenant_id
         });
 
@@ -62,7 +62,7 @@ export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
         console.log('[QuickTimeEntry] Location capture failed:', error);
       }
 
-      await base44.entities.Timesheet.create({
+      await groonabackend.entities.Timesheet.create({
         tenant_id: user.tenant_id,
         user_email: user.email,
         user_name: user.full_name,
@@ -223,3 +223,4 @@ export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
     </Dialog>
   );
 }
+

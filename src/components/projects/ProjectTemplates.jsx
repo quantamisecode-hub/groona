@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,11 @@ export default function ProjectTemplates({ onSelectTemplate, showCreateButton = 
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['project-templates'],
-    queryFn: () => base44.entities.ProjectTemplate.list('-usage_count'),
+    queryFn: () => groonabackend.entities.ProjectTemplate.list('-usage_count'),
   });
 
   const deleteTemplateMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProjectTemplate.delete(id),
+    mutationFn: (id) => groonabackend.entities.ProjectTemplate.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-templates'] });
       toast.success('Template deleted successfully');
@@ -71,7 +71,7 @@ export default function ProjectTemplates({ onSelectTemplate, showCreateButton = 
       delete newTemplate.id;
       delete newTemplate.created_date;
       delete newTemplate.updated_date;
-      return base44.entities.ProjectTemplate.create(newTemplate);
+      return groonabackend.entities.ProjectTemplate.create(newTemplate);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-templates'] });
@@ -217,3 +217,4 @@ export default function ProjectTemplates({ onSelectTemplate, showCreateButton = 
     </>
   );
 }
+

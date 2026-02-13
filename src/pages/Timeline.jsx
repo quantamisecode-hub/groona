@@ -1,17 +1,17 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import GanttTimeline from "../components/projects/GanttTimeline";
 
 export default function Timeline() {
   const { data: tasks = [] } = useQuery({
     queryKey: ['all-tasks'],
-    queryFn: () => base44.entities.Task.list(),
+    queryFn: () => groonabackend.entities.Task.list(),
   });
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   return (
@@ -25,3 +25,4 @@ export default function Timeline() {
     </div>
   );
 }
+

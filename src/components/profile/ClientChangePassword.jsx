@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { Loader2, Lock } from "lucide-react";
 
@@ -33,13 +33,13 @@ export default function ClientChangePassword() {
     setLoading(true);
     try {
       // Use the dedicated changePassword method which calls the real backend route
-      await base44.auth.changePassword(passwords.current, passwords.new);
+      await groonabackend.auth.changePassword(passwords.current, passwords.new);
       
       toast.success("Password updated successfully");
       setPasswords({ current: "", new: "", confirm: "" });
       
       // Optional: Logout to force re-login
-      // base44.auth.logout();
+      // groonabackend.auth.logout();
     } catch (error) {
       // Handle error safely
       const msg = error.response?.data?.msg || error.message || "Failed to update password";
@@ -101,3 +101,4 @@ export default function ClientChangePassword() {
     </Card>
   );
 }
+

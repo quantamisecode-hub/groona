@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,12 +20,12 @@ export default function NotificationBell() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => { });
+    groonabackend.auth.me().then(setUser).catch(() => { });
   }, []);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications', user?.email],
-    queryFn: () => base44.entities.Notification.filter(
+    queryFn: () => groonabackend.entities.Notification.filter(
       { recipient_email: user.email },
       '-created_date',
       20
@@ -35,7 +35,7 @@ export default function NotificationBell() {
   });
 
   const markAsReadMutation = useMutation({
-    mutationFn: (id) => base44.entities.Notification.update(id, { read: true }),
+    mutationFn: (id) => groonabackend.entities.Notification.update(id, { read: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -45,7 +45,7 @@ export default function NotificationBell() {
     mutationFn: async () => {
       const unreadNotifications = notifications.filter(n => !n.read);
       await Promise.all(unreadNotifications.map(n =>
-        base44.entities.Notification.update(n.id, { read: true })
+        groonabackend.entities.Notification.update(n.id, { read: true })
       ));
     },
     onSuccess: () => {
@@ -54,7 +54,7 @@ export default function NotificationBell() {
   });
 
   const deleteNotificationMutation = useMutation({
-    mutationFn: (id) => base44.entities.Notification.delete(id),
+    mutationFn: (id) => groonabackend.entities.Notification.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
@@ -165,3 +165,4 @@ export default function NotificationBell() {
     </DropdownMenu>
   );
 }
+

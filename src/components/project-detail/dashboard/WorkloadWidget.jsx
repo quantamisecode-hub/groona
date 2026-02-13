@@ -2,14 +2,14 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Loader2 } from "lucide-react";
 
 export default function WorkloadWidget({ tasks, project }) {
   // Fetch all users to resolve emails to Full Names
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['all-users-workload'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 10 * 60 * 1000, 
   });
 
@@ -98,3 +98,4 @@ export default function WorkloadWidget({ tasks, project }) {
     </Card>
   );
 }
+

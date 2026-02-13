@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Upload, X, Loader2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { useUser } from "../shared/UserContext";
 import { useQuery } from "@tanstack/react-query";
@@ -47,7 +47,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
     queryKey: ['clients', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return await base44.entities.Client.filter({ tenant_id: effectiveTenantId });
+      return await groonabackend.entities.Client.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!effectiveTenantId,
   });
@@ -56,7 +56,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
     queryKey: ['client-users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId && u.custom_role === 'client');
     },
     enabled: !!effectiveTenantId,
@@ -133,7 +133,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
 
     setUploadingLogo(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       setFormData({ ...formData, logo_url: file_url });
       toast.success('Logo uploaded successfully');
     } catch (error) {
@@ -604,3 +604,4 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
     </Dialog >
   );
 }
+

@@ -40,7 +40,7 @@ import EditTaskDialog from "../tasks/EditTaskDialog";
 import TaskDetailDialog from "../tasks/TaskDetailDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 const priorityColors = {
   low: "bg-blue-100 text-blue-600 border-blue-200",
@@ -83,7 +83,7 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
   // Fetch users to show avatars
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -91,7 +91,7 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
     queryKey: ['dependency-tasks', task?.id, task?.dependencies],
     queryFn: async () => {
       if (!task?.dependencies || task.dependencies.length === 0) return [];
-      const allProjectTasks = await base44.entities.Task.filter({
+      const allProjectTasks = await groonabackend.entities.Task.filter({
         project_id: task.project_id
       });
       return allProjectTasks.filter(t => task.dependencies.includes(t.id));
@@ -418,3 +418,4 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
     </>
   );
 }
+

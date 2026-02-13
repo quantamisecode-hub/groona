@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export default function TenantBrandingHeader({ currentUser }) {
     queryFn: async () => {
       if (!currentUser?.tenant_id) return null;
       // FIX: Changed 'id' to '_id' to correctly match the MongoDB database field
-      const tenants = await base44.entities.Tenant.filter({ _id: currentUser.tenant_id });
+      const tenants = await groonabackend.entities.Tenant.filter({ _id: currentUser.tenant_id });
 
       console.log('[TenantBrandingHeader] Loaded tenant:', tenants[0]);
 
@@ -154,3 +154,4 @@ export default function TenantBrandingHeader({ currentUser }) {
     </>
   );
 }
+

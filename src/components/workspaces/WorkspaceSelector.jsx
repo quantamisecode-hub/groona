@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Folder, Loader2 } from "lucide-react";
@@ -21,10 +21,10 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
     queryFn: async () => {
       if (!effectiveTenantId) {
         console.log('[WorkspaceSelector] No effective tenant ID - Super Admin in global view');
-        return base44.entities.Workspace.list();
+        return groonabackend.entities.Workspace.list();
       }
       console.log('[WorkspaceSelector] Filtering workspaces by tenant:', effectiveTenantId);
-      return base44.entities.Workspace.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!effectiveTenantId,
   });
@@ -107,3 +107,4 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
     </Select>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export default function AdminTimesheetDashboard({
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!effectiveTenantId,
@@ -68,7 +68,7 @@ export default function AdminTimesheetDashboard({
     queryKey: ['admin-leave-activities', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Activity.filter({
+      return groonabackend.entities.Activity.filter({
         tenant_id: effectiveTenantId,
         entity_type: 'leave'
       }, '-created_date', 50);
@@ -84,7 +84,7 @@ export default function AdminTimesheetDashboard({
       let timesheet = entry;
       if (!timesheet || !timesheet.user_email) {
         try {
-          const fetched = await base44.entities.Timesheet.filter({ id: entry.id });
+          const fetched = await groonabackend.entities.Timesheet.filter({ id: entry.id });
           timesheet = fetched[0];
         } catch (error) {
           console.error('[AdminTimesheetDashboard] Failed to fetch timesheet:', error);
@@ -96,7 +96,7 @@ export default function AdminTimesheetDashboard({
       }
 
       // Update timesheet
-      await base44.entities.Timesheet.update(entry.id, {
+      await groonabackend.entities.Timesheet.update(entry.id, {
         status: 'approved',
         approved_by: currentUser.full_name,
         approved_at: new Date().toISOString(),
@@ -105,7 +105,7 @@ export default function AdminTimesheetDashboard({
 
       // Create approval record
       try {
-        await base44.entities.TimesheetApproval.create({
+        await groonabackend.entities.TimesheetApproval.create({
           tenant_id: effectiveTenantId,
           timesheet_id: entry.id,
           approver_email: currentUser.email,
@@ -122,7 +122,7 @@ export default function AdminTimesheetDashboard({
       // Backend sync for Project Billing
       if (timesheet?.is_billable) {
         try {
-          await base44.functions.invoke('updateProjectBillable', { timesheet_id: entry.id });
+          await groonabackend.functions.invoke('updateProjectBillable', { timesheet_id: entry.id });
         } catch (error) {
           console.error('[AdminTimesheetDashboard] Failed to update project billable:', error);
         }
@@ -155,24 +155,24 @@ export default function AdminTimesheetDashboard({
       setTimeout(async () => {
         try {
           // In-app notification
-          await base44.entities.Notification.create(notificationData);
+          await groonabackend.entities.Notification.create(notificationData);
 
           // Email notification using template
-          await base44.email.sendTemplate({
+          await groonabackend.email.sendTemplate({
             to: timesheet.user_email,
             templateType: 'timesheet_approved',
             data: emailData
           });
 
           // === NEW: Notify PM(s) about final decision ===
-          const pmRoles = await base44.entities.ProjectUserRole.filter({
+          const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
             project_id: timesheet.project_id?.id || timesheet.project_id?._id || timesheet.project_id,
             role: 'project_manager'
           });
           const pmEmails = [...new Set(pmRoles.map(r => r.user_email))].filter(e => e !== currentUser.email && e !== timesheet.user_email);
 
           await Promise.all(pmEmails.map(email =>
-            base44.entities.Notification.create({
+            groonabackend.entities.Notification.create({
               tenant_id: effectiveTenantId,
               recipient_email: email,
               type: 'timesheet_status',
@@ -214,7 +214,7 @@ export default function AdminTimesheetDashboard({
       let timesheet = entry;
       if (!timesheet || !timesheet.user_email) {
         try {
-          const fetched = await base44.entities.Timesheet.filter({ id: entry.id });
+          const fetched = await groonabackend.entities.Timesheet.filter({ id: entry.id });
           timesheet = fetched[0];
         } catch (error) {
           console.error('[AdminTimesheetDashboard] Failed to fetch timesheet:', error);
@@ -226,7 +226,7 @@ export default function AdminTimesheetDashboard({
       }
 
       // Update timesheet
-      await base44.entities.Timesheet.update(entry.id, {
+      await groonabackend.entities.Timesheet.update(entry.id, {
         status: 'rejected',
         approved_by: currentUser.full_name,
         approved_at: new Date().toISOString(),
@@ -235,7 +235,7 @@ export default function AdminTimesheetDashboard({
 
       // Create approval record
       try {
-        await base44.entities.TimesheetApproval.create({
+        await groonabackend.entities.TimesheetApproval.create({
           tenant_id: effectiveTenantId,
           timesheet_id: entry.id,
           approver_email: currentUser.email,
@@ -277,24 +277,24 @@ export default function AdminTimesheetDashboard({
       setTimeout(async () => {
         try {
           // In-app notification
-          await base44.entities.Notification.create(rejectNotificationData);
+          await groonabackend.entities.Notification.create(rejectNotificationData);
 
           // Email notification using template
-          await base44.email.sendTemplate({
+          await groonabackend.email.sendTemplate({
             to: timesheet.user_email,
             templateType: 'timesheet_rejected',
             data: rejectEmailData
           });
 
           // === NEW: Notify PM(s) about final decision ===
-          const pmRoles = await base44.entities.ProjectUserRole.filter({
+          const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
             project_id: timesheet.project_id?.id || timesheet.project_id?._id || timesheet.project_id,
             role: 'project_manager'
           });
           const pmEmails = [...new Set(pmRoles.map(r => r.user_email))].filter(e => e !== currentUser.email && e !== timesheet.user_email);
 
           await Promise.all(pmEmails.map(email =>
-            base44.entities.Notification.create({
+            groonabackend.entities.Notification.create({
               tenant_id: effectiveTenantId,
               recipient_email: email,
               type: 'timesheet_status',
@@ -340,9 +340,9 @@ export default function AdminTimesheetDashboard({
           last_modified_by_name: currentUser.full_name,
           last_modified_at: new Date().toISOString()
         };
-        return base44.entities.Timesheet.update(editingEntry.id, auditData);
+        return groonabackend.entities.Timesheet.update(editingEntry.id, auditData);
       }
-      return base44.entities.Timesheet.create(data);
+      return groonabackend.entities.Timesheet.create(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
@@ -625,3 +625,4 @@ export default function AdminTimesheetDashboard({
     </div >
   );
 }
+

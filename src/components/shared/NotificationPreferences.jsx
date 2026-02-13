@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -27,7 +27,7 @@ export default function NotificationPreferences({ currentUser }) {
 
   const loadPreferences = async () => {
     try {
-      const userData = await base44.auth.me();
+      const userData = await groonabackend.auth.me();
       if (userData.notification_preferences) {
         setPreferences({ ...preferences, ...userData.notification_preferences });
       }
@@ -40,7 +40,7 @@ export default function NotificationPreferences({ currentUser }) {
 
   const savePreferencesMutation = useMutation({
     mutationFn: async (newPreferences) => {
-      await base44.auth.updateMe({
+      await groonabackend.auth.updateMe({
         notification_preferences: newPreferences
       });
     },
@@ -203,3 +203,4 @@ export default function NotificationPreferences({ currentUser }) {
     </Card>
   );
 }
+

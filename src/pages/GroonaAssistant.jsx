@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,7 @@ import { createPageUrl } from "@/utils";
 import { useHasPermission } from "../components/shared/usePermissions";
 import { createProjectFromAI, parseProjectCreationResponse } from "../services/aiProjectService";
 import { createTaskFromAI } from "../services/aiTaskService";
-import { API_BASE } from "../api/base44Client";
+import { API_BASE } from "../api/groonabackend";
 
 const API_URL = `${API_BASE}/api`;
 
@@ -197,7 +197,7 @@ export default function GroonaAssistant() {
     // Set permission checked immediately to show page structure
     setPermissionChecked(true);
     
-    base44.auth.me()
+    groonabackend.auth.me()
       .then(user => {
         setCurrentUser(user);
         // Restore last active conversation from localStorage
@@ -228,7 +228,7 @@ export default function GroonaAssistant() {
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }) || [];
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
     placeholderData: (previousData) => previousData,
@@ -238,7 +238,7 @@ export default function GroonaAssistant() {
     queryKey: ['tasks', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 20) || [];
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 20) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
     placeholderData: (previousData) => previousData,
@@ -248,7 +248,7 @@ export default function GroonaAssistant() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -271,7 +271,7 @@ export default function GroonaAssistant() {
     queryKey: ['groona-conversations'],
     queryFn: async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         const tenantQuery = user.tenant_id ? `&tenant_id=${user.tenant_id}` : '';
         const res = await fetch(`${API_URL}/groona-assistant/conversations?user_id=${user.id}${tenantQuery}`, getFetchOptions());
         const convos = await res.json();
@@ -612,7 +612,7 @@ export default function GroonaAssistant() {
           if (!effectiveTenantId || !actionData.project_name) return false;
           
           // Check if project with same name exists
-          const existingProjects = await base44.entities.Project.filter({
+          const existingProjects = await groonabackend.entities.Project.filter({
             tenant_id: effectiveTenantId,
             name: actionData.project_name
           });
@@ -792,7 +792,7 @@ export default function GroonaAssistant() {
           // Get project ID if project name is provided
           let projectId = null;
           if (actionData.project_name) {
-            const projects = await base44.entities.Project.filter({
+            const projects = await groonabackend.entities.Project.filter({
               tenant_id: effectiveTenantId,
               name: actionData.project_name
             });
@@ -810,7 +810,7 @@ export default function GroonaAssistant() {
             taskFilter.project_id = projectId;
           }
           
-          const existingTasks = await base44.entities.Task.filter(taskFilter);
+          const existingTasks = await groonabackend.entities.Task.filter(taskFilter);
           
           if (existingTasks && existingTasks.length > 0) {
             const existingTask = existingTasks[0];
@@ -930,7 +930,7 @@ export default function GroonaAssistant() {
   const createConversationMutation = useMutation({
     mutationFn: async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         const response = await fetch(`${API_URL}/groona-assistant/conversations`, getFetchOptions('POST', {
           user_id: user.id,
           tenant_id: user.tenant_id,
@@ -1016,7 +1016,7 @@ export default function GroonaAssistant() {
       // Check if we have an active conversation ID first
       if (conversationId && !conversation) {
         // Try to find the conversation from the list
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         const tenantQuery = user.tenant_id ? `&tenant_id=${user.tenant_id}` : '';
         const convosRes = await fetch(`${API_URL}/groona-assistant/conversations?user_id=${user.id}${tenantQuery}`, getFetchOptions());
         const convos = await convosRes.json();
@@ -1025,7 +1025,7 @@ export default function GroonaAssistant() {
       
       // Only create a new conversation if we don't have one
       if (!conversationId && (!conversation || !(conversation.id || conversation._id))) {
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         const response = await fetch(`${API_URL}/groona-assistant/conversations`, getFetchOptions('POST', {
           user_id: user.id,
           tenant_id: user.tenant_id,
@@ -1050,7 +1050,7 @@ export default function GroonaAssistant() {
         conversationId = conversation.id || conversation._id || conversationId;
       }
 
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       const response = await fetch(`${API_URL}/groona-assistant/chat`, getFetchOptions('POST', {
         conversation_id: conversationId,
         content: message,
@@ -1549,12 +1549,12 @@ export default function GroonaAssistant() {
                       } else {
                         // If no project ID, fetch the task to get its project_id
                         try {
-                          const tasks = await base44.entities.Task.filter({ _id: message.createdTaskId });
+                          const tasks = await groonabackend.entities.Task.filter({ _id: message.createdTaskId });
                           const task = tasks && tasks.length > 0 ? tasks[0] : null;
                           
                           if (!task) {
                             // Try with id field instead of _id
-                            const tasksById = await base44.entities.Task.filter({ id: message.createdTaskId });
+                            const tasksById = await groonabackend.entities.Task.filter({ id: message.createdTaskId });
                             const taskById = tasksById && tasksById.length > 0 ? tasksById[0] : null;
                             
                             if (taskById && taskById.project_id) {
@@ -1675,3 +1675,4 @@ export default function GroonaAssistant() {
     </div>
   );
 }
+

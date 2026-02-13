@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -62,7 +62,7 @@ Please provide a comprehensive analysis with:
 
 Format as JSON with sections: performance_trends, engagement_insights, project_health, productivity_metrics, risk_factors, growth_opportunities, efficiency_recommendations, predictive_insights`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         response_json_schema: {
           type: "object",
@@ -408,3 +408,4 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
     </div>
   );
 }
+

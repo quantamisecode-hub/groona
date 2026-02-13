@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, FolderKanban, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function EpicsList({ projectId, sprints = [] }) {
     queryKey: ['epics', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Epic.filter({ project_id: projectId });
+      return await groonabackend.entities.Epic.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -34,7 +34,7 @@ export default function EpicsList({ projectId, sprints = [] }) {
     queryKey: ['stories', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Story.filter({ project_id: projectId });
+      return await groonabackend.entities.Story.filter({ project_id: projectId });
     },
     enabled: !!projectId,
     refetchInterval: 2000, // Poll every 2s to keep progress updated
@@ -44,29 +44,29 @@ export default function EpicsList({ projectId, sprints = [] }) {
   const deleteEpicMutation = useMutation({
     mutationFn: async (epicId) => {
       // 1. Find all stories associated with this epic
-      const epicStories = await base44.entities.Story.filter({ epic_id: epicId });
+      const epicStories = await groonabackend.entities.Story.filter({ epic_id: epicId });
 
       if (epicStories.length > 0) {
         // For each story, delete its associated tasks
         await Promise.all(
           epicStories.map(async (story) => {
             const storyId = story.id || story._id;
-            const storyTasks = await base44.entities.Task.filter({ story_id: storyId });
+            const storyTasks = await groonabackend.entities.Task.filter({ story_id: storyId });
 
             if (storyTasks.length > 0) {
               await Promise.all(
-                storyTasks.map(task => base44.entities.Task.delete(task.id || task._id))
+                storyTasks.map(task => groonabackend.entities.Task.delete(task.id || task._id))
               );
             }
 
             // Delete the story
-            await base44.entities.Story.delete(storyId);
+            await groonabackend.entities.Story.delete(storyId);
           })
         );
       }
 
       // 2. Delete the epic itself
-      await base44.entities.Epic.delete(epicId);
+      await groonabackend.entities.Epic.delete(epicId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['epics', projectId] });
@@ -409,3 +409,4 @@ export default function EpicsList({ projectId, sprints = [] }) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export default function TenantOnboarding() {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         if (user.is_super_admin) {
           navigate(createPageUrl("Dashboard"));
           return;
@@ -64,7 +64,7 @@ export default function TenantOnboarding() {
       try {
         console.log('[TenantOnboarding] Fetching tenant with _id:', currentUser.tenant_id);
         // Use _id instead of id for MongoDB compatibility
-        const tenants = await base44.entities.Tenant.filter({ _id: currentUser.tenant_id });
+        const tenants = await groonabackend.entities.Tenant.filter({ _id: currentUser.tenant_id });
         const foundTenant = tenants[0] || null;
         console.log('[TenantOnboarding] Tenant found:', foundTenant ? foundTenant.name : 'null');
         return foundTenant;
@@ -85,7 +85,7 @@ export default function TenantOnboarding() {
   // Update tenant mutation
   const updateTenantMutation = useMutation({
     mutationFn: async (data) => {
-      return await base44.entities.Tenant.update(tenant.id, data);
+      return await groonabackend.entities.Tenant.update(tenant.id, data);
     },
     onSuccess: (updatedTenant) => {
       // FIX: Immediate cache update to prevent stale data and loading screens
@@ -206,7 +206,7 @@ export default function TenantOnboarding() {
 
         // CRITICAL: Ensure user is set as admin with owner custom_role (organization head)
         try {
-          await base44.auth.updateMe({
+          await groonabackend.auth.updateMe({
             role: 'admin',
             custom_role: 'owner',
             tenant_id: tenant.id || tenant._id
@@ -221,14 +221,14 @@ export default function TenantOnboarding() {
         if (stepData.workspace_name) {
           try {
             // Check if workspace already exists
-            const existingWorkspaces = await base44.entities.Workspace.filter({ 
+            const existingWorkspaces = await groonabackend.entities.Workspace.filter({ 
               tenant_id: tenant.id,
               name: stepData.workspace_name 
             });
 
             if (existingWorkspaces.length === 0) {
               // Create new workspace
-              const newWorkspace = await base44.entities.Workspace.create({
+              const newWorkspace = await groonabackend.entities.Workspace.create({
                 tenant_id: tenant.id,
                 name: stepData.workspace_name,
                 description: `Main workspace for ${stepData.company_name || tenant.name}`,
@@ -265,7 +265,7 @@ export default function TenantOnboarding() {
           try {
             const invitationLink = `${window.location.origin}/accept-invitation?email=${encodeURIComponent(invite.email)}&tenant_id=${tenant.id}&role=${invite.role || 'user'}&custom_role=member&full_name=${encodeURIComponent(invite.email.split('@')[0])}`;
             
-            await base44.integrations.Core.SendEmail({
+            await groonabackend.integrations.Core.SendEmail({
               to: invite.email,
               subject: `You've been invited to join ${tenant.name} on GROONA`,
               body: `
@@ -322,7 +322,7 @@ export default function TenantOnboarding() {
     try {
       // 0. Ensure user role is set correctly before completing (safety check)
       try {
-        await base44.auth.updateMe({
+        await groonabackend.auth.updateMe({
           role: 'admin',
           custom_role: 'owner',
           tenant_id: tenant.id || tenant._id
@@ -593,3 +593,4 @@ export default function TenantOnboarding() {
     </div>
   );
 }
+

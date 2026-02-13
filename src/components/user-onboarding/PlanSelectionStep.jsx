@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Sparkles, Users, FolderKanban, HardDrive, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function PlanSelectionStep({ data, onNext, onBack }) {
@@ -12,7 +12,7 @@ export default function PlanSelectionStep({ data, onNext, onBack }) {
 
   const { data: subscriptionPlans = [], isLoading } = useQuery({
     queryKey: ['subscription-plans-onboarding'],
-    queryFn: () => base44.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
+    queryFn: () => groonabackend.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
   });
 
   const handleSubmit = (e) => {
@@ -136,3 +136,4 @@ export default function PlanSelectionStep({ data, onNext, onBack }) {
     </form>
   );
 }
+

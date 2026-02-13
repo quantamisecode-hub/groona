@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export default function CollaborationPage() {
     queryKey: ['documents', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Document.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Document.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!effectiveTenantId,
     refetchInterval: 5000,
@@ -50,7 +50,7 @@ export default function CollaborationPage() {
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!effectiveTenantId,
     refetchInterval: 5000,
@@ -61,7 +61,7 @@ export default function CollaborationPage() {
     queryKey: ['project-files', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.ProjectFile.filter({ tenant_id: effectiveTenantId }, '-created_date');
+      return groonabackend.entities.ProjectFile.filter({ tenant_id: effectiveTenantId }, '-created_date');
     },
     enabled: !!effectiveTenantId,
     refetchInterval: 5000,
@@ -72,7 +72,7 @@ export default function CollaborationPage() {
     mutationFn: async (data) => {
       console.log('[Collaboration] Creating document with data:', data);
 
-      const doc = await base44.entities.Document.create({
+      const doc = await groonabackend.entities.Document.create({
         ...data,
         tenant_id: effectiveTenantId,
         author_email: currentUser.email,
@@ -85,7 +85,7 @@ export default function CollaborationPage() {
 
       // Create activity
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'created',
           entity_type: 'document',
@@ -117,7 +117,7 @@ export default function CollaborationPage() {
     mutationFn: async ({ id, data }) => {
       console.log('[Collaboration] Updating document:', id, data);
 
-      const doc = await base44.entities.Document.update(id, {
+      const doc = await groonabackend.entities.Document.update(id, {
         ...data,
         last_edited_by: currentUser.email,
         last_edited_at: new Date().toISOString(),
@@ -127,7 +127,7 @@ export default function CollaborationPage() {
 
       // Create activity
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'updated',
           entity_type: 'document',
@@ -157,7 +157,7 @@ export default function CollaborationPage() {
   // Delete document mutation
   const deleteDocumentMutation = useMutation({
     mutationFn: async (id) => {
-      await base44.entities.Document.delete(id);
+      await groonabackend.entities.Document.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents', effectiveTenantId] });
@@ -168,7 +168,7 @@ export default function CollaborationPage() {
   // View document (increment view count)
   const viewDocumentMutation = useMutation({
     mutationFn: async (doc) => {
-      await base44.entities.Document.update(doc.id, {
+      await groonabackend.entities.Document.update(doc.id, {
         views_count: (doc.views_count || 0) + 1,
       });
       return doc;
@@ -340,3 +340,4 @@ export default function CollaborationPage() {
     </OnboardingProvider>
   );
 }
+

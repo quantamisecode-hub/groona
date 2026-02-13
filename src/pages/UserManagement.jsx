@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export default function UserManagement() {
   // Fetch Tenants (Only for Super Admin Platform Mode to show tenant names)
   const { data: tenants = [] } = useQuery({
     queryKey: ['all-tenants'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
     enabled: !!isInPlatformMode,
     staleTime: 5 * 60 * 1000,
   });
@@ -74,9 +74,9 @@ export default function UserManagement() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (currentUser?.is_super_admin && !effectiveTenantId) {
-        return base44.entities.User.list();
+        return groonabackend.entities.User.list();
       }
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!currentUser,
@@ -93,8 +93,8 @@ export default function UserManagement() {
   const { data: groups = [] } = useQuery({
     queryKey: ['user-groups', effectiveTenantId],
     queryFn: async () => {
-      if (!effectiveTenantId) return base44.entities.UserGroup.list();
-      return base44.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
+      if (!effectiveTenantId) return groonabackend.entities.UserGroup.list();
+      return groonabackend.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser,
     refetchInterval: 5000,
@@ -104,8 +104,8 @@ export default function UserManagement() {
   const { data: memberships = [] } = useQuery({
     queryKey: ['group-memberships', effectiveTenantId],
     queryFn: async () => {
-      if (!effectiveTenantId) return base44.entities.UserGroupMembership.list();
-      return base44.entities.UserGroupMembership.filter({ tenant_id: effectiveTenantId });
+      if (!effectiveTenantId) return groonabackend.entities.UserGroupMembership.list();
+      return groonabackend.entities.UserGroupMembership.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser,
     refetchInterval: 5000,
@@ -113,7 +113,7 @@ export default function UserManagement() {
 
   // Update user mutation
   const updateUserMutation = useMutation({
-    mutationFn: ({ userId, data }) => base44.entities.User.update(userId, data),
+    mutationFn: ({ userId, data }) => groonabackend.entities.User.update(userId, data),
     onSuccess: (updatedUser) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('User updated successfully');
@@ -126,7 +126,7 @@ export default function UserManagement() {
 
   // Delete user mutation
   const deleteUserMutation = useMutation({
-    mutationFn: (userId) => base44.entities.User.delete(userId),
+    mutationFn: (userId) => groonabackend.entities.User.delete(userId),
     onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       toast.success('User deleted successfully');
@@ -721,3 +721,4 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
     </div>
   );
 }
+

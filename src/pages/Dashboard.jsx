@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -71,7 +71,7 @@ export default function Dashboard() {
   // NEW: Fetch Project Roles to identify Project Managers
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles', currentUser?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: currentUser.id,
       role: 'project_manager'
     }),
@@ -82,8 +82,8 @@ export default function Dashboard() {
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
-      if (!effectiveTenantId) return base44.entities.Project.list('-updated_date');
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      if (!effectiveTenantId) return groonabackend.entities.Project.list('-updated_date');
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser,
     staleTime: 2 * 60 * 1000,
@@ -92,8 +92,8 @@ export default function Dashboard() {
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks', effectiveTenantId],
     queryFn: async () => {
-      if (!effectiveTenantId) return base44.entities.Task.list('-updated_date');
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      if (!effectiveTenantId) return groonabackend.entities.Task.list('-updated_date');
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser,
     staleTime: 2 * 60 * 1000,
@@ -102,8 +102,8 @@ export default function Dashboard() {
   const { data: activities = [] } = useQuery({
     queryKey: ['recent-activities', effectiveTenantId],
     queryFn: async () => {
-      if (!effectiveTenantId) return base44.entities.Activity.list('-created_date', 50);
-      return base44.entities.Activity.filter({ tenant_id: effectiveTenantId }, '-created_date', 50);
+      if (!effectiveTenantId) return groonabackend.entities.Activity.list('-created_date', 50);
+      return groonabackend.entities.Activity.filter({ tenant_id: effectiveTenantId }, '-created_date', 50);
     },
     enabled: !!currentUser,
     staleTime: 1 * 60 * 1000,
@@ -171,11 +171,11 @@ export default function Dashboard() {
   }, [projects, tasks, selectedWorkspaceId, statusFilter, priorityFilter, assigneeFilter, currentUser, isAdmin, projectRoles]);
 
   const createProjectMutation = useMutation({
-    mutationFn: (data) => base44.entities.Project.create(data),
+    mutationFn: (data) => groonabackend.entities.Project.create(data),
     onSuccess: async (newProject) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'created',
           entity_type: 'project',
@@ -318,3 +318,4 @@ export default function Dashboard() {
     </OnboardingProvider>
   );
 }
+

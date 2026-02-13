@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +38,7 @@ export default function TimesheetEntryForm({
     queryKey: ['user-realtime-status', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return null;
-      const users = await base44.entities.User.filter({ email: currentUser.email });
+      const users = await groonabackend.entities.User.filter({ email: currentUser.email });
       return users[0] || null;
     },
     enabled: !!currentUser?.email,
@@ -75,7 +75,7 @@ export default function TimesheetEntryForm({
   // Check if user is admin or project manager
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles', currentUser?.id, formData.project_id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: currentUser?.id,
       project_id: formData.project_id,
       role: 'project_manager'
@@ -98,7 +98,7 @@ export default function TimesheetEntryForm({
   // Centralized Work Hierarchy Fetch
   const { data: hierarchy = { projects: [], stories: [], tasks: [] }, isLoading: hierarchyLoading } = useQuery({
     queryKey: ['user-work-hierarchy', targetUserEmail, effectiveTenantId],
-    queryFn: () => base44.functions.invoke('getUserWorkHierarchy', {
+    queryFn: () => groonabackend.functions.invoke('getUserWorkHierarchy', {
       userEmail: targetUserEmail,
       userId: currentUser?.id,
       tenantId: effectiveTenantId,
@@ -120,7 +120,7 @@ export default function TimesheetEntryForm({
     queryKey: ['timesheet-duplicates', targetUserEmail],
     queryFn: async () => {
       if (!targetUserEmail) return [];
-      return base44.entities.Timesheet.filter({ user_email: targetUserEmail });
+      return groonabackend.entities.Timesheet.filter({ user_email: targetUserEmail });
     },
     enabled: !!targetUserEmail,
   });
@@ -238,7 +238,7 @@ export default function TimesheetEntryForm({
     queryKey: ['epics', formData.project_id],
     queryFn: async () => {
       if (!formData.project_id) return [];
-      return base44.entities.Epic.filter({ project_id: formData.project_id });
+      return groonabackend.entities.Epic.filter({ project_id: formData.project_id });
     },
     enabled: !!formData.project_id,
   });
@@ -248,7 +248,7 @@ export default function TimesheetEntryForm({
     queryKey: ['sprints', formData.project_id],
     queryFn: async () => {
       if (!formData.project_id) return [];
-      return base44.entities.Sprint.filter({ project_id: formData.project_id });
+      return groonabackend.entities.Sprint.filter({ project_id: formData.project_id });
     },
     enabled: !!formData.project_id,
   });
@@ -381,7 +381,7 @@ export default function TimesheetEntryForm({
 
           {/* Manual Entry Tab */}
           <TabsContent value="manual">
-            <form onSubmit={(e) => { e.preventDefault(); handleSubmit('submitted'); }} className="space-y-4 mt-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSubmit('draft'); }} className="space-y-4 mt-4">
               {/* Date Picker */}
               <div className="space-y-2">
                 <Label>Date *</Label>
@@ -719,20 +719,6 @@ export default function TimesheetEntryForm({
                   </Button>
                 )}
                 <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleSubmit('draft')}
-                  disabled={loading || !formData.project_id || !formData.task_id}
-                  className="flex-1"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Save Draft
-                </Button>
-                <Button
                   type="submit"
                   disabled={loading || !formData.project_id || !formData.task_id}
                   className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600"
@@ -740,9 +726,9 @@ export default function TimesheetEntryForm({
                   {loading ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4 mr-2" />
+                    <Save className="h-4 w-4 mr-2" />
                   )}
-                  Submit
+                  Add to Drafts
                 </Button>
               </div>
             </form>
@@ -763,3 +749,4 @@ export default function TimesheetEntryForm({
     </Card>
   );
 }
+

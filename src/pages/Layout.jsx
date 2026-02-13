@@ -36,7 +36,7 @@ import {
   Crown
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import NotificationProvider from "@/components/shared/NotificationProvider";
 import PresenceManager from "@/components/shared/PresenceManager";
@@ -97,7 +97,7 @@ function LayoutContent({ children, currentPageName }) {
     queryFn: async () => {
       if (!user?.id) return null;
       // Fetch OPEN alerts of type 'timesheet_missing_alert'
-      const alerts = await base44.entities.Notification.filter({
+      const alerts = await groonabackend.entities.Notification.filter({
         recipient_email: user.email,
         type: 'timesheet_missing_alert',
         status: 'OPEN'
@@ -137,7 +137,7 @@ function LayoutContent({ children, currentPageName }) {
     queryKey: ['current-tenant-status', user?.tenant_id],
     queryFn: async () => {
       if (!user?.tenant_id) return null;
-      const tenants = await base44.entities.Tenant.filter({ _id: user.tenant_id });
+      const tenants = await groonabackend.entities.Tenant.filter({ _id: user.tenant_id });
       return tenants[0];
     },
     enabled: !!user?.tenant_id && !user.is_super_admin,
@@ -162,20 +162,7 @@ function LayoutContent({ children, currentPageName }) {
     }
   }, [currentTenant, user, navigate, location.pathname, isPublicRoute]);
 
-  React.useEffect(() => {
-    if (currentTenant && user && !user.is_super_admin) {
-      const isTrial = currentTenant.subscription_status === 'trialing' || currentTenant.subscription_plan?.includes('trial');
-      if (isTrial && currentTenant.trial_ends_at) {
-        const trialEnd = new Date(currentTenant.trial_ends_at);
-        const now = new Date();
-        if (now > trialEnd) {
-          if (!location.pathname.includes("SubscriptionExpired")) {
-            navigate(createPageUrl("SubscriptionExpired"));
-          }
-        }
-      }
-    }
-  }, [currentTenant, user, navigate, location.pathname]);
+
 
   // --- PERMISSIONS (Must be called at top level) ---
   const canViewProjects = useHasPermission('can_view_all_projects');
@@ -198,13 +185,13 @@ function LayoutContent({ children, currentPageName }) {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
-      const userData = await base44.auth.me();
+      const userData = await groonabackend.auth.me();
       console.log('[Layout] Fresh user data loaded:', userData);
       setUser(userData);
 
       if (userData.is_super_admin && userData.active_tenant_id) {
         try {
-          const tenants = await base44.entities.Tenant.filter({ _id: userData.active_tenant_id });
+          const tenants = await groonabackend.entities.Tenant.filter({ _id: userData.active_tenant_id });
           if (tenants[0]) {
             setViewingTenant(tenants[0]);
             console.log('[Layout] Super Admin viewing tenant:', tenants[0].name);
@@ -273,9 +260,18 @@ function LayoutContent({ children, currentPageName }) {
       } catch (error) { console.error(error); }
     };
 
+    const handlePageShow = (event) => {
+      if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+        console.log('[Layout] Page restored from BFCache, reloading user data...');
+        initializeUser();
+      }
+    };
+
+    window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('profile-updated', handleProfileUpdate);
     return () => {
       mounted = false;
+      window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('profile-updated', handleProfileUpdate);
     };
   }, [isPublicRoute]);
@@ -283,7 +279,7 @@ function LayoutContent({ children, currentPageName }) {
   const handleExitTenantView = async () => {
     setExitingView(true);
     try {
-      await base44.auth.updateMe({ active_tenant_id: null });
+      await groonabackend.auth.updateMe({ active_tenant_id: null });
       toast.success('Returned to Super Admin view');
       setTimeout(() => window.location.href = createPageUrl("SuperAdminDashboard"), 500);
     } catch (error) {
@@ -294,7 +290,7 @@ function LayoutContent({ children, currentPageName }) {
 
   const { data: projectManagerRoles = [] } = useQuery({
     queryKey: ['is-project-manager', user?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: user?.id,
       role: 'project_manager'
     }),
@@ -327,10 +323,10 @@ function LayoutContent({ children, currentPageName }) {
     queryFn: async () => {
       if (!user) return [];
       if (user.is_super_admin && !user.active_tenant_id) {
-        return base44.entities.Project.list('-updated_date', 100);
+        return groonabackend.entities.Project.list('-updated_date', 100);
       }
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date', 100);
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date', 100);
     },
     enabled: !!user && !isPublicRoute && (!!effectiveTenantId || (user.is_super_admin && !user.active_tenant_id)),
     staleTime: 2 * 60 * 1000,
@@ -341,10 +337,10 @@ function LayoutContent({ children, currentPageName }) {
     queryFn: async () => {
       if (!user) return [];
       if (user.is_super_admin && !user.active_tenant_id) {
-        return base44.entities.Task.list('-updated_date', 100);
+        return groonabackend.entities.Task.list('-updated_date', 100);
       }
       if (!effectiveTenantId) return [];
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 100);
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 100);
     },
     enabled: !!user && !isPublicRoute && (!!effectiveTenantId || (user.is_super_admin && !user.active_tenant_id)),
     staleTime: 2 * 60 * 1000,
@@ -354,7 +350,7 @@ function LayoutContent({ children, currentPageName }) {
     queryKey: ['search-users', effectiveTenantId],
     queryFn: async () => {
       if (!user) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       if (user.is_super_admin && !user.active_tenant_id) {
         return allUsers.slice(0, 100);
       }
@@ -370,10 +366,10 @@ function LayoutContent({ children, currentPageName }) {
     queryFn: async () => {
       if (!user) return [];
       if (user.is_super_admin && !user.active_tenant_id) {
-        return base44.entities.Workspace.list('-created_date', 50);
+        return groonabackend.entities.Workspace.list('-created_date', 50);
       }
       if (!effectiveTenantId) return [];
-      return base44.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date', 50);
+      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date', 50);
     },
     enabled: !!user && !isPublicRoute && (!!effectiveTenantId || (user.is_super_admin && !user.active_tenant_id)),
     staleTime: 5 * 60 * 1000,
@@ -383,12 +379,12 @@ function LayoutContent({ children, currentPageName }) {
     queryKey: ['search-sprints', effectiveTenantId],
     queryFn: async () => {
       if (!user || !effectiveTenantId) return [];
-      const allSprints = await base44.entities.Sprint.list();
+      const allSprints = await groonabackend.entities.Sprint.list();
       if (user.is_super_admin && !user.active_tenant_id) {
         return allSprints.slice(0, 50);
       }
       // Filter sprints by projects in tenant
-      const tenantProjects = await base44.entities.Project.filter({ tenant_id: effectiveTenantId });
+      const tenantProjects = await groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId });
       const projectIds = new Set(tenantProjects.map(p => p.id));
       return allSprints.filter(s => projectIds.has(s.project_id)).slice(0, 50);
     },
@@ -1095,6 +1091,99 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
           </SidebarContent>
 
           <SidebarFooter className="border-t border-slate-200/60 p-4 space-y-2">
+
+            {/* Subscription Progress Bar - For Tenants (Viewing as Tenant or Actual Tenant) */}
+            {((isViewingAsTenant && viewingTenant?.status === 'trial') || (!isInPlatformMode && !isViewingAsTenant && currentTenant?.status === 'trial')) && (
+              <div className="mb-4 px-2 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm">
+                {(() => {
+                  const tenant = isViewingAsTenant ? viewingTenant : currentTenant;
+                  if (!tenant?.trial_ends_at) return null;
+
+                  const trialEnd = new Date(tenant.trial_ends_at);
+                  const now = new Date();
+
+                  // Find start date: subscription_start_date > created_at > (trialEnd - 14 days)
+                  let startDate = new Date(tenant.created_at);
+                  if (tenant.subscription_start_date) {
+                    startDate = new Date(tenant.subscription_start_date);
+                  } else if (isNaN(startDate.getTime())) {
+                    // Fallback if created_at is missing or invalid
+                    startDate = new Date(trialEnd);
+                    startDate.setDate(startDate.getDate() - 14); // Default 14 days
+                  }
+
+                  // Calculate total duration in ms
+                  const totalDuration = trialEnd - startDate;
+                  // Calculate elapsed time
+                  const elapsed = now - startDate;
+
+                  // Calculate days left for display
+                  const diffTime = trialEnd - now;
+                  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                  // Percentage of time elapsed (0 to 100)
+                  let progress = 0;
+                  if (totalDuration > 0) {
+                    progress = (elapsed / totalDuration) * 100;
+                  }
+
+                  // Clamp
+                  progress = Math.min(100, Math.max(0, progress));
+
+                  // Color Logic based on Days Left (Urgency)
+                  let progressColor = "bg-emerald-500";
+                  let textColor = "text-emerald-700";
+                  let barBg = "bg-emerald-100";
+
+                  if (daysLeft <= 3) {
+                    progressColor = "bg-rose-500";
+                    textColor = "text-rose-700";
+                    barBg = "bg-rose-100";
+                  } else if (daysLeft <= 7) {
+                    progressColor = "bg-amber-500";
+                    textColor = "text-amber-700";
+                    barBg = "bg-amber-100";
+                  }
+
+                  if (daysLeft <= 0) return (
+                    <div className="text-center">
+                      <span className="text-xs font-bold text-rose-600">Trial Expired</span>
+                    </div>
+                  );
+
+                  const planName = tenant.subscription_plan
+                    ? tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)
+                    : 'Premium';
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs font-semibold">
+                        <span className="text-slate-700 flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-indigo-500" />
+                          {planName} Trial
+                        </span>
+                        <span className={textColor}>{daysLeft} days left</span>
+                      </div>
+                      <div className={`h-2 w-full ${barBg} rounded-full overflow-hidden`}>
+                        <div
+                          className={`h-full ${progressColor} transition-all duration-1000 ease-out rounded-full`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-[10px] text-indigo-600 hover:text-indigo-700 w-full justify-center"
+                        onClick={() => navigate(createPageUrl('Pricing'))}
+                      >
+                        Upgrade Plan &rarr;
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             {/* Support Button - Sticky above profile */}
             <SidebarMenuButton
               asChild
@@ -1169,7 +1258,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => base44.auth.logout()} className="text-red-600 focus:text-red-600 cursor-pointer">
+                <DropdownMenuItem onClick={() => groonabackend.auth.logout()} className="text-red-600 focus:text-red-600 cursor-pointer">
                   <LogOut className="h-4 w-4 mr-2" /> Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1490,3 +1579,4 @@ export default function Layout({ children, currentPageName }) {
     </UserProvider>
   );
 }
+

@@ -85,6 +85,59 @@ if (fs.existsSync(modelsPath)) {
 
         const schema = new mongoose.Schema(schemaObj, { strict: false });
 
+        // Middleware to sync Tenant changes to TenantSubscription
+        if (modelName === 'Tenant') {
+          const syncSubscription = async (doc) => {
+            if (!doc) return;
+            try {
+              // Ensure TenantSubscription model is available (it might be loaded later if files processed alphabetically)
+              // But since this is a post hook, it runs at runtime, so all models should be loaded.
+              // However, to be safe, we can use mongoose.connection.db if model not found, like in check_trial_status.
+              // Better: use mongoose.model if possible, catch if missing.
+              let TenantSubscription;
+              try {
+                TenantSubscription = mongoose.model('TenantSubscription');
+              } catch (e) {
+                // If not registered yet, we can't sync via Mongoose model. 
+                // But typically schemas are registered synchronously in this loop.
+                console.warn("[Middleware] TenantSubscription model not found yet. Skipping sync.");
+                return;
+              }
+
+              const updateData = {
+                tenant_id: doc._id || doc.id,
+                status: doc.subscription_status || 'trialing',
+                trial_ends_at: doc.trial_ends_at,
+                subscription_plan_id: doc.subscription_plan_id,
+                plan_name: doc.subscription_plan,
+                subscription_type: doc.subscription_type,
+                start_date: doc.subscription_start_date,
+                end_date: doc.subscription_ends_at,
+                max_users: doc.max_users,
+                max_projects: doc.max_projects,
+                max_workspaces: doc.max_workspaces,
+                max_storage_gb: doc.max_storage_gb,
+                updated_at: new Date()
+              };
+
+              await TenantSubscription.findOneAndUpdate(
+                { tenant_id: doc._id || doc.id },
+                {
+                  $set: updateData,
+                  $setOnInsert: { created_at: new Date() }
+                },
+                { upsert: true, new: true }
+              );
+              console.log(`[Middleware] Synced TenantSubscription for tenant ${doc._id}`);
+            } catch (err) {
+              console.error(`[Middleware] Failed to sync TenantSubscription for tenant ${doc?._id}:`, err);
+            }
+          };
+
+          schema.post('save', syncSubscription);
+          schema.post('findOneAndUpdate', syncSubscription);
+        }
+
         // Middleware for Comments (Preserved from your code)
         if (modelName === 'Comment') {
           schema.post('save', async function (doc) {

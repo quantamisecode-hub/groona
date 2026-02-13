@@ -235,6 +235,7 @@ function PagesContent() {
                 <Route path="/AdminBIDashboard" element={<AdminBIDashboard />} />
                 <Route path="/SupportDashboard" element={<SupportDashboard />} />
                 <Route path="/SubscriptionManagement" element={<SubscriptionManagement />} />
+                <Route path="/subscription-management" element={<SubscriptionManagement />} />
                 <Route path="/SystemNotificationManager" element={<SystemNotificationManager />} />
                 <Route path="/ProjectFinancials" element={<ProjectFinancials />} />
                 <Route path="/ProjectProfitabilityDetail" element={<ProjectProfitabilityDetail />} />

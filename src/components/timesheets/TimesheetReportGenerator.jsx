@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,7 @@ export default function TimesheetReportGenerator({
       if (!effectiveTenantId) return null;
       try {
         // Fix: Use _id for filtering to match database schema
-        const tenants = await base44.entities.Tenant.filter({ _id: effectiveTenantId });
+        const tenants = await groonabackend.entities.Tenant.filter({ _id: effectiveTenantId });
         return tenants[0] || null;
       } catch (error) {
         console.error('Failed to fetch tenant:', error);
@@ -102,7 +102,7 @@ export default function TimesheetReportGenerator({
         if (employeeData) {
           try {
             // Fetch just-in-time
-            const profiles = await base44.entities.UserProfile.filter({ user_id: employeeData.id });
+            const profiles = await groonabackend.entities.UserProfile.filter({ user_id: employeeData.id });
             userProfile = profiles[0] || null;
           } catch (err) {
             console.error("Failed to fetch user profile for report", err);
@@ -503,3 +503,4 @@ export default function TimesheetReportGenerator({
     </Card>
   );
 }
+

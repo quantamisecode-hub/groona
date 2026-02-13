@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -62,7 +62,7 @@ function EmployeeCTCTab({ user, onClose }) {
       if (!ctcData.ctc_per_annum) throw new Error("CTC Per Annum is required");
       if (!ctcData.ctc_effective_from) throw new Error("Effective From Date is required");
 
-      await base44.entities.User.update(user.id, {
+      await groonabackend.entities.User.update(user.id, {
         ctc_per_annum: parseFloat(ctcData.ctc_per_annum),
         working_days_per_month: parseFloat(ctcData.working_days_per_month),
         working_hours_per_day: parseFloat(ctcData.working_hours_per_day),
@@ -269,7 +269,7 @@ export default function UserPermissionsDialog({ open, onClose, user, currentUser
     queryFn: async () => {
       if (!user.id) return null;
       // Fetch specifically from the UserPermission model
-      const records = await base44.entities.UserPermission.filter({ user_id: user.id });
+      const records = await groonabackend.entities.UserPermission.filter({ user_id: user.id });
       return records?.[0] || null;
     },
     enabled: open && !!user.id, // Only fetch when dialog is open
@@ -293,7 +293,7 @@ export default function UserPermissionsDialog({ open, onClose, user, currentUser
         // Direct update to User entity is more reliable and robust
         // Note: 'address' is part of UserProfile, not User entity, so it's not updated here.
         // Use EditUserDialog for full profile updates.
-        const updatedUser = await base44.entities.User.update(user.id, {
+        const updatedUser = await groonabackend.entities.User.update(user.id, {
           full_name: userInfo.full_name,
           email: userInfo.email,
           phone_number: userInfo.phone || null,
@@ -325,13 +325,13 @@ export default function UserPermissionsDialog({ open, onClose, user, currentUser
       // A. Check if we are updating an existing record or creating a new one
       if (permissionRecord && permissionRecord.id) {
         // UPDATE existing record
-        await base44.entities.UserPermission.update(permissionRecord.id, {
+        await groonabackend.entities.UserPermission.update(permissionRecord.id, {
           permissions,
           updated_at: new Date()
         });
       } else {
         // CREATE new record
-        await base44.entities.UserPermission.create({
+        await groonabackend.entities.UserPermission.create({
           user_id: user.id,
           tenant_id: effectiveTenantId,
           permissions,
@@ -341,7 +341,7 @@ export default function UserPermissionsDialog({ open, onClose, user, currentUser
 
       // Optional: Audit Log (Keep your existing audit logic)
       try {
-        await base44.entities.AuditLog.create({
+        await groonabackend.entities.AuditLog.create({
           tenant_id: effectiveTenantId,
           action: 'permission_change',
           entity_type: 'user',
@@ -657,3 +657,4 @@ export default function UserPermissionsDialog({ open, onClose, user, currentUser
     </Dialog>
   );
 }
+

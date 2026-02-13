@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ export default function TestAIChatPage() {
   const [runningTests, setRunningTests] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       setCurrentUser(user);
       setLoading(false);
     }).catch(() => {
@@ -40,7 +40,7 @@ export default function TestAIChatPage() {
       // Test 1: Check if agent exists
       console.log('🧪 TEST 1: Checking if project_assistant agent exists...');
       try {
-        const conversations = await base44.agents.listConversations({
+        const conversations = await groonabackend.agents.listConversations({
           agent_name: 'project_assistant'
         });
         results.agentExists = true;
@@ -53,7 +53,7 @@ export default function TestAIChatPage() {
       // Test 2: Create conversation
       console.log('🧪 TEST 2: Creating test conversation...');
       try {
-        const conversation = await base44.agents.createConversation({
+        const conversation = await groonabackend.agents.createConversation({
           agent_name: 'project_assistant',
           metadata: {
             name: 'QA Test Conversation',
@@ -72,7 +72,7 @@ export default function TestAIChatPage() {
       if (testConversation) {
         console.log('🧪 TEST 3: Sending test message...');
         try {
-          const response = await base44.agents.addMessage(testConversation, {
+          const response = await groonabackend.agents.addMessage(testConversation, {
             role: 'user',
             content: 'Hello, this is a test message. Please respond briefly.'
           });
@@ -86,7 +86,7 @@ export default function TestAIChatPage() {
           // Wait a bit for AI to respond
           await new Promise(resolve => setTimeout(resolve, 3000));
           
-          const updatedConvo = await base44.agents.getConversation(testConversation.id);
+          const updatedConvo = await groonabackend.agents.getConversation(testConversation.id);
           setTestMessages(updatedConvo.messages || []);
           
           if (updatedConvo.messages && updatedConvo.messages.length >= 2) {
@@ -110,7 +110,7 @@ export default function TestAIChatPage() {
         try {
           let subscriptionWorked = false;
           
-          const unsubscribe = base44.agents.subscribeToConversation(testConversation.id, (data) => {
+          const unsubscribe = groonabackend.agents.subscribeToConversation(testConversation.id, (data) => {
             console.log('✅ Subscription callback received:', data.messages?.length, 'messages');
             subscriptionWorked = true;
             setTestMessages(data.messages || []);
@@ -137,7 +137,7 @@ export default function TestAIChatPage() {
       if (testConversation) {
         console.log('🧪 TEST 6: Deleting test conversation...');
         try {
-          await base44.agents.deleteConversation(testConversation.id);
+          await groonabackend.agents.deleteConversation(testConversation.id);
           results.conversationDelete = true;
           console.log('✅ TEST 6 PASSED: Conversation deleted');
           setTestConversation(null);
@@ -407,3 +407,4 @@ export default function TestAIChatPage() {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -119,7 +119,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-projects', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
     ...queryOptions
@@ -129,7 +129,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-tasks', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
     ...queryOptions
@@ -139,7 +139,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-users', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -150,7 +150,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-timesheets', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Timesheet.filter({ tenant_id: effectiveTenantId }, '-date');
+      return groonabackend.entities.Timesheet.filter({ tenant_id: effectiveTenantId }, '-date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
     ...queryOptions
@@ -160,7 +160,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-activities', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Activity.filter({ tenant_id: effectiveTenantId }, '-created_date', 1000);
+      return groonabackend.entities.Activity.filter({ tenant_id: effectiveTenantId }, '-created_date', 1000);
     },
     enabled: !!currentUser && !!effectiveTenantId,
     ...queryOptions
@@ -170,7 +170,7 @@ export default function AdminBIDashboard() {
     queryKey: ['bi-sprints', effectiveTenantId, refreshKey],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allSprints = await base44.entities.Sprint.list();
+      const allSprints = await groonabackend.entities.Sprint.list();
       return allSprints.filter(s => {
         const project = projects.find(p => p.id === s.project_id);
         return project && project.tenant_id === effectiveTenantId;
@@ -185,7 +185,7 @@ export default function AdminBIDashboard() {
     queryKey: ['tenant', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return null;
-      const tenants = await base44.entities.Tenant.filter({ id: effectiveTenantId });
+      const tenants = await groonabackend.entities.Tenant.filter({ id: effectiveTenantId });
       return tenants[0] || null;
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -685,3 +685,4 @@ export default function AdminBIDashboard() {
     </PermissionGuard>
   );
 }
+

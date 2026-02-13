@@ -1,37 +1,38 @@
-import { base44 } from './base44Client';
+import { groonabackend } from './groonabackend';
 
-export const Project = base44.entities.Project;
-export const Task = base44.entities.Task;
-export const Comment = base44.entities.Comment;
-export const Activity = base44.entities.Activity;
-export const Notification = base44.entities.Notification;
-export const Timesheet = base44.entities.Timesheet;
-export const RecurringTask = base44.entities.RecurringTask;
-export const UserGroup = base44.entities.UserGroup;
-export const UserGroupMembership = base44.entities.UserGroupMembership;
-export const Sprint = base44.entities.Sprint;
-export const ProjectTemplate = base44.entities.ProjectTemplate;
-export const ProjectFile = base44.entities.ProjectFile;
-export const Document = base44.entities.Document;
-export const ChatMessage = base44.entities.ChatMessage;
-export const UserPresence = base44.entities.UserPresence;
-export const Tenant = base44.entities.Tenant;
-export const AuditLog = base44.entities.AuditLog;
-export const Workspace = base44.entities.Workspace;
-export const UserProfile = base44.entities.UserProfile;
-export const WorkLocation = base44.entities.WorkLocation;
-export const ClockEntry = base44.entities.ClockEntry;
-export const Ticket = base44.entities.Ticket;
-export const TicketComment = base44.entities.TicketComment;
-export const OTPVerification = base44.entities.OTPVerification;
+export const Project = groonabackend.entities.Project;
+export const Task = groonabackend.entities.Task;
+export const Comment = groonabackend.entities.Comment;
+export const Activity = groonabackend.entities.Activity;
+export const Notification = groonabackend.entities.Notification;
+export const Timesheet = groonabackend.entities.Timesheet;
+export const RecurringTask = groonabackend.entities.RecurringTask;
+export const UserGroup = groonabackend.entities.UserGroup;
+export const UserGroupMembership = groonabackend.entities.UserGroupMembership;
+export const Sprint = groonabackend.entities.Sprint;
+export const ProjectTemplate = groonabackend.entities.ProjectTemplate;
+export const ProjectFile = groonabackend.entities.ProjectFile;
+export const Document = groonabackend.entities.Document;
+export const ChatMessage = groonabackend.entities.ChatMessage;
+export const UserPresence = groonabackend.entities.UserPresence;
+export const Tenant = groonabackend.entities.Tenant;
+export const AuditLog = groonabackend.entities.AuditLog;
+export const Workspace = groonabackend.entities.Workspace;
+export const UserProfile = groonabackend.entities.UserProfile;
+export const WorkLocation = groonabackend.entities.WorkLocation;
+export const ClockEntry = groonabackend.entities.ClockEntry;
+export const Ticket = groonabackend.entities.Ticket;
+export const TicketComment = groonabackend.entities.TicketComment;
+export const OTPVerification = groonabackend.entities.OTPVerification;
 
 // --- ADDED MISSING EXPORTS ---
-export const Leave = base44.entities.Leave;
-export const LeaveType = base44.entities.LeaveType;
-export const LeaveBalance = base44.entities.LeaveBalance;
-export const UserPermission = base44.entities.UserPermission;
-export const CompOffCredit = base44.entities.CompOffCredit;
-export const ReportConfig = base44.entities.ReportConfig;
+export const Leave = groonabackend.entities.Leave;
+export const LeaveType = groonabackend.entities.LeaveType;
+export const LeaveBalance = groonabackend.entities.LeaveBalance;
+export const UserPermission = groonabackend.entities.UserPermission;
+export const CompOffCredit = groonabackend.entities.CompOffCredit;
+export const ReportConfig = groonabackend.entities.ReportConfig;
 
 // Auth SDK export
-export const User = base44.auth;
+export const User = groonabackend.auth;
+

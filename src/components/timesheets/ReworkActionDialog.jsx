@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, UserCheck, ShieldCheck, Lightbulb } from "lucide-react";
-import { base44 } from '@/api/base44Client';
+import { groonabackend } from '@/api/groonabackend';
 import { toast } from 'sonner';
 
 export default function ReworkActionDialog({
@@ -54,7 +54,7 @@ export default function ReworkActionDialog({
         try {
             // 1. Update the Notification Status IF notification exists
             if (notification) {
-                await base44.entities.Notification.update(notification.id, {
+                await groonabackend.entities.Notification.update(notification.id, {
                     status: 'RESOLVED',
                     appeal_reason: JSON.stringify({
                         actions: [
@@ -75,7 +75,7 @@ export default function ReworkActionDialog({
                 const taskTitle = reworkEntry ? reworkEntry.task_title : (notification ? "Rework Task" : "Rework Task"); // Fallback
                 const projectName = reworkEntry ? reworkEntry.project_name : "Project";
 
-                await base44.entities.PeerReviewRequest.create({
+                await groonabackend.entities.PeerReviewRequest.create({
                     tenant_id: currentUser.tenant_id || (notification ? notification.tenant_id : null),
                     requester_email: currentUser.email,
                     requester_name: currentUser.full_name,
@@ -88,7 +88,7 @@ export default function ReworkActionDialog({
                 });
 
                 // ALWAYS send a notification to the reviewer
-                await base44.entities.Notification.create({
+                await groonabackend.entities.Notification.create({
                     tenant_id: currentUser.tenant_id,
                     recipient_email: reviewerEmail,
                     type: 'rework_peer_review',
@@ -233,3 +233,5 @@ export default function ReworkActionDialog({
         </Dialog>
     );
 }
+
+

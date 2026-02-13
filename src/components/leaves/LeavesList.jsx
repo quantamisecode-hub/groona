@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,13 +21,13 @@ export default function LeavesList({ leaves, currentUser, showActions }) {
   const cancelLeaveMutation = useMutation({
     mutationFn: async ({ leave, reason }) => {
       // Update leave status (use rejection_reason field as per model definition)
-      await base44.entities.Leave.update(leave.id, {
+      await groonabackend.entities.Leave.update(leave.id, {
         status: 'cancelled',
         rejection_reason: reason
       });
 
       // Restore balance
-      const balances = await base44.entities.LeaveBalance.filter({
+      const balances = await groonabackend.entities.LeaveBalance.filter({
         tenant_id: leave.tenant_id,
         user_id: leave.user_id,
         leave_type_id: leave.leave_type_id
@@ -37,13 +37,13 @@ export default function LeavesList({ leaves, currentUser, showActions }) {
         const balance = balances[0];
         if (leave.status === 'approved') {
           // Return from used to remaining
-          await base44.entities.LeaveBalance.update(balance.id, {
+          await groonabackend.entities.LeaveBalance.update(balance.id, {
             used: Math.max(0, balance.used - leave.total_days),
             remaining: balance.remaining + leave.total_days
           });
         } else if (leave.status === 'submitted') {
           // Return from pending to remaining
-          await base44.entities.LeaveBalance.update(balance.id, {
+          await groonabackend.entities.LeaveBalance.update(balance.id, {
             pending: Math.max(0, balance.pending - leave.total_days),
             remaining: balance.remaining + leave.total_days
           });
@@ -51,7 +51,7 @@ export default function LeavesList({ leaves, currentUser, showActions }) {
       }
 
       // Create audit log
-      await base44.entities.Activity.create({
+      await groonabackend.entities.Activity.create({
         tenant_id: leave.tenant_id,
         action: 'cancelled',
         entity_type: 'leave',
@@ -261,3 +261,4 @@ export default function LeavesList({ leaves, currentUser, showActions }) {
     </div>
   );
 }
+

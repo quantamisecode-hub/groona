@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPageUrl } from "@/utils";
 import { Sparkles, Loader2, CheckCircle, AlertTriangle, Building2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -55,7 +55,7 @@ export default function AcceptInvitation() {
 
     try {
       // Call API
-      const response = await base44.auth.acceptInvite({
+      const response = await groonabackend.auth.acceptInvite({
         email,
         password: formData.password,
         full_name: formData.fullName,
@@ -199,3 +199,4 @@ export default function AcceptInvitation() {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
@@ -43,7 +43,7 @@ export default function Projects() {
       // If tenant is already available from context, use it to speed up initial render
       if (tenant && tenant.id === effectiveTenantId) return tenant;
 
-      const tenants = await base44.entities.Tenant.filter({ _id: effectiveTenantId });
+      const tenants = await groonabackend.entities.Tenant.filter({ _id: effectiveTenantId });
       return tenants[0];
     },
     enabled: !!effectiveTenantId,
@@ -82,7 +82,7 @@ export default function Projects() {
   // Fetch ProjectUserRole
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles', currentUser?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: currentUser.id,
       role: 'project_manager'
     }),
@@ -100,7 +100,7 @@ export default function Projects() {
     queryKey: ['projects', effectiveTenantId, selectedWorkspaceId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }, '-updated_date');
     },
     enabled: !!currentUser && !!effectiveTenantId,
     placeholderData: (previousData) => previousData,
@@ -121,11 +121,11 @@ export default function Projects() {
         workspace_id: projectData.workspace_id || undefined,
       };
 
-      const newProject = await base44.entities.Project.create(dataToCreate);
+      const newProject = await groonabackend.entities.Project.create(dataToCreate);
 
       if (projectData.template_id && selectedTemplate?.task_templates) {
         const taskPromises = selectedTemplate.task_templates.map(taskTemplate =>
-          base44.entities.Task.create({
+          groonabackend.entities.Task.create({
             tenant_id: effectiveTenantId,
             workspace_id: newProject.workspace_id,
             project_id: newProject.id,
@@ -162,7 +162,7 @@ export default function Projects() {
       }
 
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'created',
           entity_type: 'project',
@@ -202,10 +202,10 @@ export default function Projects() {
 
       for (const entity of entitiesToCleanup) {
         try {
-          const items = await base44.entities[entity.name].filter(entity.filter);
+          const items = await groonabackend.entities[entity.name].filter(entity.filter);
           if (items.length > 0) {
             await Promise.all(
-              items.map(item => base44.entities[entity.name].delete(item.id || item._id))
+              items.map(item => groonabackend.entities[entity.name].delete(item.id || item._id))
             );
           }
         } catch (e) {
@@ -216,13 +216,13 @@ export default function Projects() {
 
       // Also clean up project-level comments
       try {
-        const comments = await base44.entities.Comment.filter({
+        const comments = await groonabackend.entities.Comment.filter({
           entity_type: 'project',
           entity_id: id
         });
         if (comments.length > 0) {
           await Promise.all(
-            comments.map(c => base44.entities.Comment.delete(c.id || c._id))
+            comments.map(c => groonabackend.entities.Comment.delete(c.id || c._id))
           );
         }
       } catch (e) {
@@ -230,7 +230,7 @@ export default function Projects() {
       }
 
       // 2. Finally delete the project itself
-      await base44.entities.Project.delete(id);
+      await groonabackend.entities.Project.delete(id);
       return id;
     },
     onSuccess: async (deletedId) => {
@@ -446,3 +446,4 @@ export default function Projects() {
     </OnboardingProvider>
   );
 }
+

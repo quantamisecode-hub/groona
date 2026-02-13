@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +96,7 @@ export default function EditTenantProfileDialog({ open, onClose, tenant, onSucce
 
     setUploadingLogo(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       handleBrandingChange('logo_url', file_url);
       toast.success('Logo uploaded!');
     } catch (error) {
@@ -118,7 +118,7 @@ export default function EditTenantProfileDialog({ open, onClose, tenant, onSucce
     setSaving(true);
     try {
       // Update tenant
-      await base44.entities.Tenant.update(tenant.id, formData);
+      await groonabackend.entities.Tenant.update(tenant.id, formData);
       
       toast.success('Company profile updated successfully!');
       setHasChanges(false);
@@ -616,3 +616,4 @@ export default function EditTenantProfileDialog({ open, onClose, tenant, onSucce
     </Dialog>
   );
 }
+

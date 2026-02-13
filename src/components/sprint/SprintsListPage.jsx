@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -65,7 +65,7 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     queryKey: ['stories', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return base44.entities.Story.filter({ project_id: projectId });
+      return groonabackend.entities.Story.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -128,7 +128,7 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
       if (!effectiveTenantId) throw new Error("Tenant ID is missing");
 
       // Create the sprint
-      const newSprint = await base44.entities.Sprint.create({
+      const newSprint = await groonabackend.entities.Sprint.create({
         ...sprintData,
         project_id: projectId,
         tenant_id: effectiveTenantId
@@ -139,7 +139,7 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
         try {
           await Promise.all(
             selectedStoryIds.map(storyId =>
-              base44.entities.Story.update(storyId, { sprint_id: newSprint.id || newSprint._id })
+              groonabackend.entities.Story.update(storyId, { sprint_id: newSprint.id || newSprint._id })
             )
           );
         } catch (error) {
@@ -166,13 +166,13 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
   const updateSprintMutation = useMutation({
     mutationFn: async ({ id, data: { sprintData, selectedStoryIds = [] } }) => {
       // Update the sprint
-      const updatedSprint = await base44.entities.Sprint.update(id, sprintData);
+      const updatedSprint = await groonabackend.entities.Sprint.update(id, sprintData);
 
       // Handle story assignment for updates
       if (selectedStoryIds !== undefined) {
         try {
           // Get all stories in the project
-          const allStories = await base44.entities.Story.filter({ project_id: projectId });
+          const allStories = await groonabackend.entities.Story.filter({ project_id: projectId });
 
           // Remove sprint_id from stories that are no longer selected
           const storiesToRemove = allStories.filter(
@@ -180,7 +180,7 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
           );
           await Promise.all(
             storiesToRemove.map(story =>
-              base44.entities.Story.update(story.id || story._id, { sprint_id: null })
+              groonabackend.entities.Story.update(story.id || story._id, { sprint_id: null })
             )
           );
 
@@ -190,7 +190,7 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
           );
           await Promise.all(
             storiesToAdd.map(storyId =>
-              base44.entities.Story.update(storyId, { sprint_id: id })
+              groonabackend.entities.Story.update(storyId, { sprint_id: id })
             )
           );
         } catch (error) {
@@ -217,17 +217,17 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
   const deleteSprintMutation = useMutation({
     mutationFn: async (id) => {
       // 1. Find all tasks associated with this sprint
-      const sprintTasks = await base44.entities.Task.filter({ sprint_id: id });
+      const sprintTasks = await groonabackend.entities.Task.filter({ sprint_id: id });
 
       // 2. Delete all associated tasks
       if (sprintTasks.length > 0) {
         await Promise.all(
-          sprintTasks.map(task => base44.entities.Task.delete(task.id || task._id))
+          sprintTasks.map(task => groonabackend.entities.Task.delete(task.id || task._id))
         );
       }
 
       // 3. Delete the sprint itself
-      await base44.entities.Sprint.delete(id);
+      await groonabackend.entities.Sprint.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints', projectId] });
@@ -424,3 +424,4 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     </div>
   );
 }
+

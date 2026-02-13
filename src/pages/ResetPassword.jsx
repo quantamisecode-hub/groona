@@ -10,7 +10,7 @@ import { Loader2, Lock, CheckCircle2, XCircle, Sprout, Eye, EyeOff } from "lucid
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 
-import { API_BASE } from "@/api/base44Client";
+import { API_BASE } from "@/api/groonabackend";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();

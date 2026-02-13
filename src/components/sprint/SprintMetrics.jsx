@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -49,7 +49,7 @@ export default function SprintMetrics({ sprint, tasks, hideAI = false, currentUs
     try {
       const prompt = `Analyze sprint: ${sprint.name}. Completed: ${completedTasks}/${totalTasks}. Provide insights.`;
       
-      const result = await base44.integrations.Core.InvokeLLM({
+      const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -273,3 +273,4 @@ export default function SprintMetrics({ sprint, tasks, hideAI = false, currentUs
     </div>
   );
 }
+

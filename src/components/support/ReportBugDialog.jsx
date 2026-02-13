@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Upload, X, AlertCircle, CheckCircle2 } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 
 export default function ReportBugDialog({ open, onClose, onSuccess }) {
@@ -25,7 +25,7 @@ export default function ReportBugDialog({ open, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       setCurrentUser(user);
       setFormData(prev => ({
         ...prev,
@@ -42,7 +42,7 @@ export default function ReportBugDialog({ open, onClose, onSuccess }) {
     setUploading(true);
     try {
       const uploadPromises = files.map(file => 
-        base44.integrations.Core.UploadFile({ file })
+        groonabackend.integrations.Core.UploadFile({ file })
       );
       const results = await Promise.all(uploadPromises);
       const fileUrls = results.map(r => r.file_url);
@@ -82,10 +82,10 @@ export default function ReportBugDialog({ open, onClose, onSuccess }) {
         ? currentUser.active_tenant_id 
         : currentUser?.tenant_id;
 
-      const ticketCount = await base44.entities.Ticket.filter({ tenant_id: effectiveTenantId });
+      const ticketCount = await groonabackend.entities.Ticket.filter({ tenant_id: effectiveTenantId });
       const ticketNumber = `TKT-${String(ticketCount.length + 1).padStart(4, '0')}`;
 
-      await base44.entities.Ticket.create({
+      await groonabackend.entities.Ticket.create({
         tenant_id: effectiveTenantId,
         ticket_number: ticketNumber,
         title: formData.title,
@@ -319,3 +319,4 @@ export default function ReportBugDialog({ open, onClose, onSuccess }) {
     </Dialog>
   );
 }
+

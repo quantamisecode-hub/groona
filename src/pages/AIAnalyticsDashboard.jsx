@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default function AIAnalyticsDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = createPageUrl("Dashboard");
       }
@@ -30,27 +30,27 @@ export default function AIAnalyticsDashboard() {
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list('-created_date'),
+    queryFn: () => groonabackend.entities.Tenant.list('-created_date'),
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: allProjects = [] } = useQuery({
     queryKey: ['all-projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   const { data: allTasks = [] } = useQuery({
     queryKey: ['all-tasks'],
-    queryFn: () => base44.entities.Task.list(),
+    queryFn: () => groonabackend.entities.Task.list(),
   });
 
   const { data: allActivities = [] } = useQuery({
     queryKey: ['all-activities'],
-    queryFn: () => base44.entities.Activity.list('-created_date', 500),
+    queryFn: () => groonabackend.entities.Activity.list('-created_date', 500),
   });
 
   // Filter data by selected tenant
@@ -101,7 +101,7 @@ Please provide a comprehensive analysis with:
 
 Format as JSON with sections: performance_trends, engagement_insights, project_health, productivity_metrics, risk_factors, growth_opportunities, efficiency_recommendations, predictive_insights`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         response_json_schema: {
           type: "object",
@@ -439,3 +439,4 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
     </div>
   );
 }
+

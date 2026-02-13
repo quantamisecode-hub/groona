@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ export default function TicketDetail() {
   const { data: ticket, isLoading } = useQuery({
     queryKey: ["ticket", id],
     queryFn: async () => {
-      const tickets = await base44.entities.Ticket.filter({ _id: id });
+      const tickets = await groonabackend.entities.Ticket.filter({ _id: id });
       return tickets[0];
     },
     enabled: !!id
@@ -29,13 +29,13 @@ export default function TicketDetail() {
 
   const { data: comments = [] } = useQuery({
     queryKey: ["ticket-comments", id],
-    queryFn: () => base44.entities.TicketComment.filter({ ticket_id: id }, "created_at"),
+    queryFn: () => groonabackend.entities.TicketComment.filter({ ticket_id: id }, "created_at"),
     enabled: !!id
   });
 
   const commentMutation = useMutation({
     mutationFn: async (text) => {
-      return base44.entities.TicketComment.create({
+      return groonabackend.entities.TicketComment.create({
         ticket_id: id,
         user_id: user.id,
         user_name: user.full_name,
@@ -167,3 +167,4 @@ export default function TicketDetail() {
     </div>
   );
 }
+

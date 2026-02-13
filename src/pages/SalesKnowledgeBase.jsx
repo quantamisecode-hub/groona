@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,16 +11,16 @@ import { toast } from "sonner";
 
 export default function SalesKnowledgeBase() {
   const [search, setSearch] = useState("");
-  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => base44.auth.me() });
+  const { data: user } = useQuery({ queryKey: ['me'], queryFn: () => groonabackend.auth.me() });
 
   const { data: snippets = [] } = useQuery({
     queryKey: ['snippets'],
-    queryFn: () => base44.entities.ProposalSnippet.list(),
+    queryFn: () => groonabackend.entities.ProposalSnippet.list(),
   });
 
   const { data: templates = [] } = useQuery({
     queryKey: ['templates'],
-    queryFn: () => base44.entities.ProposalTemplate.list(),
+    queryFn: () => groonabackend.entities.ProposalTemplate.list(),
   });
 
   const filteredSnippets = snippets.filter(s => s.name.toLowerCase().includes(search.toLowerCase()));
@@ -98,3 +98,4 @@ export default function SalesKnowledgeBase() {
     </div>
   );
 }
+

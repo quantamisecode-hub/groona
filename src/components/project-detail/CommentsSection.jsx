@@ -8,7 +8,7 @@ import { Send, MessageSquare, Trash2, Paperclip, File, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { notificationService } from "../shared/notificationService";
 
@@ -59,7 +59,7 @@ export default function CommentsSection({
     mutationFn: async (payload) => {
       if (!payload.tenant_id) throw new Error("Missing Tenant ID");
       if (!payload.entity_id) throw new Error("Missing Entity ID");
-      return await base44.entities.Comment.create(payload);
+      return await groonabackend.entities.Comment.create(payload);
     },
     onSuccess: async (data, variables) => {
       queryClient.invalidateQueries(['comments', entityId]);
@@ -92,7 +92,7 @@ export default function CommentsSection({
   });
 
   const deleteCommentMutation = useMutation({
-    mutationFn: (commentId) => base44.entities.Comment.delete(commentId),
+    mutationFn: (commentId) => groonabackend.entities.Comment.delete(commentId),
     onSuccess: () => {
       queryClient.invalidateQueries(['comments', entityId]);
       toast.success("Comment deleted");
@@ -107,7 +107,7 @@ export default function CommentsSection({
     toast.info(`Uploading ${files.length} file${files.length > 1 ? 's' : ''}...`);
     try {
       for (const file of files) {
-        const result = await base44.integrations.Core.UploadFile({ file: file });
+        const result = await groonabackend.integrations.Core.UploadFile({ file: file });
         setAttachments(prev => [...prev, { name: file.name, url: result.file_url, type: file.type }]);
       }
       toast.success("Files attached");
@@ -408,3 +408,4 @@ export default function CommentsSection({
     </Card>
   );
 }
+

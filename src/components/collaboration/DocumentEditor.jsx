@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,7 @@ export default function DocumentEditor({ document, onSave, onCancel, projects = 
     setIsGenerating(true);
     try {
       // --- UPDATED PROMPT: Force Semantic HTML Structure ---
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: `Create a comprehensive, professional document based on this request: "${aiPrompt}".
         
         STRICT FORMATTING RULES:
@@ -140,8 +140,8 @@ export default function DocumentEditor({ document, onSave, onCancel, projects = 
 
     setIsExporting(true);
     try {
-      const currentUser = await base44.auth.me();
-      const response = await base44.functions.invoke('generateDocumentPdf', {
+      const currentUser = await groonabackend.auth.me();
+      const response = await groonabackend.functions.invoke('generateDocumentPdf', {
         title: title.trim(),
         content: content,
         author: currentUser?.full_name || "",
@@ -329,3 +329,4 @@ export default function DocumentEditor({ document, onSave, onCancel, projects = 
     </div>
   );
 }
+

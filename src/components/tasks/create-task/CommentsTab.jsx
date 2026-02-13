@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,12 +26,12 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ['comments', taskId],
-    queryFn: () => base44.entities.Comment.filter({ entity_type: 'task', entity_id: taskId }),
+    queryFn: () => groonabackend.entities.Comment.filter({ entity_type: 'task', entity_id: taskId }),
     enabled: !!taskId && !isNewTask,
   });
 
   const createCommentMutation = useMutation({
-    mutationFn: (data) => base44.entities.Comment.create(data),
+    mutationFn: (data) => groonabackend.entities.Comment.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
       setCommentText("");
@@ -59,7 +59,7 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
         reactions[emoji].push(userEmail);
       }
       
-      return base44.entities.Comment.update(commentId, { reactions });
+      return groonabackend.entities.Comment.update(commentId, { reactions });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', taskId] });
@@ -101,7 +101,7 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
     setIsUploading(true);
     try {
       const uploadPromises = files.map(async (file) => {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
         return {
           name: file.name,
           url: file_url,
@@ -179,7 +179,7 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
     // Send notifications for mentions using notificationService
     if (mentions.length > 0) {
       try {
-        const tasks = await base44.entities.Task.filter({ id: taskId });
+        const tasks = await groonabackend.entities.Task.filter({ id: taskId });
         const taskName = tasks[0]?.title || 'task';
         
         // Import notificationService
@@ -204,7 +204,7 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
 
     // Notify parent comment author if replying
     if (replyingTo && replyingTo.author_email !== currentUser.email) {
-      await base44.entities.Notification.create({
+      await groonabackend.entities.Notification.create({
         recipient_email: replyingTo.author_email,
         type: 'comment_added',
         title: 'New reply to your comment',
@@ -227,7 +227,7 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
       const commentTexts = comments.map(c => `${c.author_name}: ${c.content}`).join('\n');
       const prompt = `Summarize the following task comments in a concise, actionable format. Highlight key decisions, action items, and unresolved questions:\n\n${commentTexts}`;
       
-      const summary = await base44.integrations.Core.InvokeLLM({
+      const summary = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false,
       });
@@ -494,3 +494,4 @@ export default function CommentsTab({ taskId, users, currentUser, isNewTask }) {
     </div>
   );
 }
+

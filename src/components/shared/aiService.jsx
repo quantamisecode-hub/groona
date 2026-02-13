@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * AI Service - Centralized abstraction layer for all AI interactions
@@ -34,9 +34,9 @@ class AIService {
       }
 
       // Add message and get response
-      const response = await base44.agents.addMessage(conversation, messageData);
+      const response = await groonabackend.agents.addMessage(conversation, messageData);
       
-      // If streaming callback provided, simulate streaming (Base44 doesn't support true streaming yet)
+      // If streaming callback provided, simulate streaming (groonabackend doesn't support true streaming yet)
       if (onToken && response.content) {
         await this.simulateStreaming(response.content, onToken);
       }
@@ -66,7 +66,7 @@ class AIService {
     try {
       console.log('[AIService] Invoking LLM with prompt:', prompt.substring(0, 100));
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: addContextFromInternet,
         response_json_schema: responseJsonSchema,
@@ -87,7 +87,7 @@ class AIService {
 
   /**
    * Simulate streaming by breaking text into chunks
-   * (Until true streaming is supported by Base44)
+   * (Until true streaming is supported by groonabackend)
    */
   async simulateStreaming(text, onToken) {
     const words = text.split(' ');
@@ -320,3 +320,4 @@ class AIService {
 // Export singleton instance
 export const aiService = new AIService();
 export default aiService;
+

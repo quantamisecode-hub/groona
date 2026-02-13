@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,20 +19,20 @@ export default function TenantConfigManager() {
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['all-tenants-config'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
   });
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-sa'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => groonabackend.auth.me(),
   });
 
   const updateTenantMutation = useMutation({
     mutationFn: async ({ tenantId, updates }) => {
-      return await base44.entities.Tenant.update(tenantId, updates);
+      return await groonabackend.entities.Tenant.update(tenantId, updates);
     },
     onSuccess: async (_, { tenantId, updates, reason }) => {
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'TENANT_CONFIG_UPDATE',
@@ -282,3 +282,4 @@ export default function TenantConfigManager() {
     </>
   );
 }
+

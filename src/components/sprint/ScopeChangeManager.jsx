@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ export default function ScopeChangeManager({ sprint, projectId, tenantId }) {
   const { data: changeRequests = [], isLoading: requestsLoading } = useQuery({
     queryKey: ['scope-change-requests', sprint.id],
     queryFn: async () => {
-      const tasks = await base44.entities.Task.filter({
+      const tasks = await groonabackend.entities.Task.filter({
         sprint_id: sprint.id,
         project_id: projectId
       });
@@ -36,13 +36,13 @@ export default function ScopeChangeManager({ sprint, projectId, tenantId }) {
   // 2. Fetch all tasks in sprint for the "Related Task" dropdown
   const { data: sprintTasks = [] } = useQuery({
     queryKey: ['sprint-tasks-list', sprint.id],
-    queryFn: () => base44.entities.Task.filter({ sprint_id: sprint.id })
+    queryFn: () => groonabackend.entities.Task.filter({ sprint_id: sprint.id })
   });
 
   // 3. Fetch System Audit Logs
   const { data: systemLogs = [] } = useQuery({
     queryKey: ['sprint-audit-logs', sprint.id],
-    queryFn: () => base44.entities.AuditLog.filter({
+    queryFn: () => groonabackend.entities.AuditLog.filter({
       entity_id: sprint.id,
       entity_type: 'Sprint'
     })
@@ -61,7 +61,7 @@ export default function ScopeChangeManager({ sprint, projectId, tenantId }) {
           }
       }
 
-      return await base44.entities.Task.create({
+      return await groonabackend.entities.Task.create({
         tenant_id: tenantId,
         project_id: projectId,
         sprint_id: sprint.id,
@@ -285,3 +285,4 @@ export default function ScopeChangeManager({ sprint, projectId, tenantId }) {
     </div>
   );
 }
+

@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Clock, AlertTriangle, MessageSquare, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 
@@ -16,7 +16,7 @@ export default function DailyStandupView({ sprint, tasks }) {
   
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
   
   const toggleUser = (email) => {
@@ -279,3 +279,4 @@ export default function DailyStandupView({ sprint, tasks }) {
     </div>
   );
 }
+

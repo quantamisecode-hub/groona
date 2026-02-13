@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,14 +30,14 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
   // Fetch Conversation Details
   const { data: conversation } = useQuery({
     queryKey: ['conversation', conversationId],
-    queryFn: () => base44.entities.Conversation.filter({ id: conversationId }).then(res => res[0]),
+    queryFn: () => groonabackend.entities.Conversation.filter({ id: conversationId }).then(res => res[0]),
     enabled: !!conversationId,
   });
 
   // Fetch Messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
     queryKey: ['chat-messages', conversationId],
-    queryFn: () => base44.entities.ChatMessage.filter(
+    queryFn: () => groonabackend.entities.ChatMessage.filter(
       { conversation_id: conversationId }, 
       'created_date', // Oldest first for chat history
       100
@@ -70,7 +70,7 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData) => {
       // Create the message
-      const msg = await base44.entities.ChatMessage.create({
+      const msg = await groonabackend.entities.ChatMessage.create({
         tenant_id: tenantId,
         conversation_id: conversationId,
         sender_email: currentUser.email,
@@ -80,7 +80,7 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
       });
 
       // Update conversation last message
-      await base44.entities.Conversation.update(conversationId, {
+      await groonabackend.entities.Conversation.update(conversationId, {
         last_message: messageData.content || (messageData.file_url ? "Sent an attachment" : "Sent a message"),
         last_message_at: new Date().toISOString(),
         last_sender_email: currentUser.email
@@ -97,7 +97,7 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
 
   const deleteMessageMutation = useMutation({
     mutationFn: async (messageId) => {
-      await base44.entities.ChatMessage.update(messageId, { 
+      await groonabackend.entities.ChatMessage.update(messageId, { 
         is_deleted: true,
         content: "This message was deleted" 
       });
@@ -132,7 +132,7 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
     setUploadingFile(true);
     try {
       // 1. Upload file
-      const { file_url } = await base44.integrations.Core.UploadFile({ file }); // Assuming integration exists, otherwise use other method
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file }); // Assuming integration exists, otherwise use other method
       
       // 2. Send message with file
       await sendMessageMutation.mutateAsync({
@@ -387,3 +387,4 @@ export default function ChatWindow({ conversationId, currentUser, onBack, tenant
     </div>
   );
 }
+

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { createPageUrl } from "@/utils";
 import { Sprout, Github, Mail, Loader2, Eye, EyeOff } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { getOtpEmailTemplate } from "@/utils/emailTemplates";
 
 export default function SignIn() {
@@ -35,7 +35,7 @@ export default function SignIn() {
     setError('');
 
     try {
-      const response = await base44.auth.login(
+      const response = await groonabackend.auth.login(
         email, 
         password, 
         getOtpEmailTemplate('{{OTP}}')
@@ -74,7 +74,7 @@ export default function SignIn() {
     setError('');
 
     try {
-      const response = await base44.auth.login(
+      const response = await groonabackend.auth.login(
         formData.email, 
         formData.password, 
         getOtpEmailTemplate('{{OTP}}')
@@ -244,3 +244,4 @@ export default function SignIn() {
     </div>
   );
 }
+

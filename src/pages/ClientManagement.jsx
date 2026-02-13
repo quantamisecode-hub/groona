@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { base44 } from '@/api/base44Client';
+import { groonabackend } from '@/api/groonabackend';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +37,7 @@ export default function ClientManagement() {
         queryKey: ['clients', effectiveTenantId],
         queryFn: async () => {
             if (!effectiveTenantId) return [];
-            return base44.entities.Client.filter({ tenant_id: effectiveTenantId }, '-created_at');
+            return groonabackend.entities.Client.filter({ tenant_id: effectiveTenantId }, '-created_at');
         },
         enabled: !!effectiveTenantId
     });
@@ -45,7 +45,7 @@ export default function ClientManagement() {
     // Create Client Mutation
     const createClientMutation = useMutation({
         mutationFn: async (data) => {
-            return base44.entities.Client.create({
+            return groonabackend.entities.Client.create({
                 ...data,
                 tenant_id: effectiveTenantId
             });
@@ -64,7 +64,7 @@ export default function ClientManagement() {
     const updateClientMutation = useMutation({
         mutationFn: async (data) => {
             if (!editingClientId) throw new Error("No client to update");
-            return base44.entities.Client.update(editingClientId, data);
+            return groonabackend.entities.Client.update(editingClientId, data);
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['clients', effectiveTenantId]);
@@ -136,7 +136,7 @@ export default function ClientManagement() {
 
         setUploadingLogo(true);
         try {
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+            const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
             setFormData(prev => ({ ...prev, logo_url: file_url }));
             toast.success('Logo uploaded successfully');
         } catch (error) {
@@ -642,3 +642,4 @@ export default function ClientManagement() {
         </div>
     );
 }
+

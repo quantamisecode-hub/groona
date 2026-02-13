@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
 import {
@@ -319,7 +319,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     try {
       if (selectedImpedimentId && selectedImpedimentId !== "new") {
         // Link to existing impediment
-        await base44.entities.Impediment.update(selectedImpedimentId, {
+        await groonabackend.entities.Impediment.update(selectedImpedimentId, {
           task_id: task?.id || task?._id,
         });
         toast.success('Task linked to impediment successfully!');
@@ -346,7 +346,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
           reported_by_name: currentUser?.full_name || currentUser?.email,
         };
 
-        await base44.entities.Impediment.create(impedimentPayload);
+        await groonabackend.entities.Impediment.create(impedimentPayload);
         toast.success('Impediment reported successfully!');
       }
 
@@ -372,9 +372,9 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryKey: ["task-detail", taskId],
     queryFn: async () => {
       if (!taskId) return null;
-      let tasks = await base44.entities.Task.filter({ _id: taskId });
+      let tasks = await groonabackend.entities.Task.filter({ _id: taskId });
       if (!tasks || tasks.length === 0) {
-        tasks = await base44.entities.Task.filter({ id: taskId });
+        tasks = await groonabackend.entities.Task.filter({ id: taskId });
       }
       return tasks[0] || null;
     },
@@ -387,7 +387,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryKey: ['impediments', task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return [];
-      return await base44.entities.Impediment.filter({ project_id: task.project_id });
+      return await groonabackend.entities.Impediment.filter({ project_id: task.project_id });
     },
     enabled: !!task?.project_id && showImpedimentDialog,
   });
@@ -396,9 +396,9 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryKey: ["project", task?.project_id],
     queryFn: async () => {
       if (!task?.project_id) return null;
-      let projects = await base44.entities.Project.filter({ _id: task.project_id });
+      let projects = await groonabackend.entities.Project.filter({ _id: task.project_id });
       if (!projects || projects.length === 0) {
-        projects = await base44.entities.Project.filter({ id: task.project_id });
+        projects = await groonabackend.entities.Project.filter({ id: task.project_id });
       }
       return projects[0] || null;
     },
@@ -407,7 +407,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ["all-users"],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -416,7 +416,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryFn: async () => {
       const tid = currentUser?.active_tenant_id || currentUser?.tenant_id;
       if (!tid) return [];
-      return await base44.entities.Notification.filter({
+      return await groonabackend.entities.Notification.filter({
         tenant_id: tid,
         type: 'high_rework_alarm',
         status: 'OPEN'
@@ -437,7 +437,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
       if (allUsers.length > 0) {
         return allUsers.filter(u => task.assigned_to.includes(u.email));
       }
-      const users = await base44.entities.User.list();
+      const users = await groonabackend.entities.User.list();
       return users.filter(u => task.assigned_to.includes(u.email));
     },
     enabled: !!task?.assigned_to && task.assigned_to.length > 0,
@@ -447,7 +447,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryKey: ["related-tasks", task?.dependencies, task?.project_id],
     queryFn: async () => {
       if (!task?.dependencies || task.dependencies.length === 0) return [];
-      const tasks = await base44.entities.Task.filter({ project_id: task.project_id });
+      const tasks = await groonabackend.entities.Task.filter({ project_id: task.project_id });
       return tasks.filter(t => task.dependencies.includes(t.id) || task.dependencies.includes(t.title));
     },
     enabled: !!task?.dependencies && task.dependencies.length > 0,
@@ -455,7 +455,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
 
   const { data: comments = [], isLoading: commentsLoading } = useQuery({
     queryKey: ['task-comments', taskId],
-    queryFn: () => base44.entities.Comment.filter({
+    queryFn: () => groonabackend.entities.Comment.filter({
       entity_type: 'task',
       entity_id: taskId
     }, '-created_date'),
@@ -531,7 +531,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
       const newSubtasks = [...(task.subtasks || [])];
       newSubtasks.splice(index, 1);
 
-      const updated = await base44.entities.Task.update(task.id, { subtasks: newSubtasks });
+      const updated = await groonabackend.entities.Task.update(task.id, { subtasks: newSubtasks });
       handleTaskUpdateFromEdit(updated);
       toast.success("Subtask deleted");
     } catch (error) {
@@ -1236,3 +1236,4 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     </>
   );
 }
+

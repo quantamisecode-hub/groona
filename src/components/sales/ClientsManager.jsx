@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,13 @@ export default function ClientsManager() {
 
     const { data: user } = useQuery({
         queryKey: ['me'],
-        queryFn: () => base44.auth.me(),
+        queryFn: () => groonabackend.auth.me(),
     });
 
     const { data: clients = [], isLoading } = useQuery({
         queryKey: ['clients'],
         queryFn: async () => {
-            const all = await base44.entities.Client.list('-created_date');
+            const all = await groonabackend.entities.Client.list('-created_date');
             if (user?.tenant_id) {
                 return all.filter(c => c.tenant_id === user.tenant_id);
             }
@@ -35,7 +35,7 @@ export default function ClientsManager() {
     });
 
     const deleteMutation = useMutation({
-        mutationFn: (id) => base44.entities.Client.delete(id),
+        mutationFn: (id) => groonabackend.entities.Client.delete(id),
         onSuccess: () => {
             toast.success("Client deleted");
             queryClient.invalidateQueries(['clients']);
@@ -169,3 +169,4 @@ export default function ClientsManager() {
         </div>
     );
 }
+

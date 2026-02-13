@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -62,7 +62,7 @@ export default function CreateProjectDialog({
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => { });
+    groonabackend.auth.me().then(setCurrentUser).catch(() => { });
   }, []);
 
   const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
@@ -73,7 +73,7 @@ export default function CreateProjectDialog({
     queryKey: ['workspaces', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date');
+      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date');
     },
     enabled: !!currentUser,
   });
@@ -82,7 +82,7 @@ export default function CreateProjectDialog({
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -92,7 +92,7 @@ export default function CreateProjectDialog({
     queryKey: ['clients', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return await base44.entities.Client.filter({ tenant_id: effectiveTenantId });
+      return await groonabackend.entities.Client.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
@@ -101,7 +101,7 @@ export default function CreateProjectDialog({
     queryKey: ['client-users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId && u.custom_role === 'client');
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -225,7 +225,7 @@ export default function CreateProjectDialog({
 
     setUploadingLogo(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       setFormData({ ...formData, logo_url: file_url });
       toast.success('Logo uploaded successfully!');
     } catch (error) {
@@ -1016,3 +1016,4 @@ export default function CreateProjectDialog({
     </Dialog>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ export default function ChatSidebar({ currentUser, selectedConversationId, onSel
       // Note: This is a simplified query. In a real app, you'd likely have a more specific filter or a dedicated endpoint.
       // Since we can't query array contains easily with simple filters in some systems, we might filter client side if dataset is small, 
       // or assume the backend supports it. Here we'll fetch and filter.
-      const allConvos = await base44.entities.Conversation.filter({ tenant_id: tenantId }, '-last_message_at', 50);
+      const allConvos = await groonabackend.entities.Conversation.filter({ tenant_id: tenantId }, '-last_message_at', 50);
       return allConvos.filter(c => c.participants && c.participants.includes(currentUser.email));
     },
     refetchInterval: 5000, // Poll for new conversations/updates
@@ -139,3 +139,4 @@ export default function ChatSidebar({ currentUser, selectedConversationId, onSel
     </div>
   );
 }
+

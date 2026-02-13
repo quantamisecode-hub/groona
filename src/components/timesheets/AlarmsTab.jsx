@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -33,7 +33,7 @@ export default function AlarmsTab({ currentUser, users = [] }) {
     queryKey: ['appealed-alarms'],
     queryFn: async () => {
       // Fetch both appealed and open alarms to provide context for PMs
-      const notifications = await base44.entities.Notification.filter({}, '-created_date');
+      const notifications = await groonabackend.entities.Notification.filter({}, '-created_date');
       return notifications.filter(n =>
         (n.status === 'APPEALED') ||
         (n.status === 'OPEN' && (n.category === 'alarm' || n.type === 'user_streak_escalation')) ||
@@ -47,12 +47,12 @@ export default function AlarmsTab({ currentUser, users = [] }) {
     mutationFn: async ({ id, status, type }) => {
       if (type === 'timesheet_lockout_alarm' && status === 'RESOLVED') {
         // Use specialized backend function to reset ignored count
-        return base44.functions.invoke('resolveLockoutAppeal', {
+        return groonabackend.functions.invoke('resolveLockoutAppeal', {
           notificationId: id,
           resolvedBy: currentUser.email
         });
       }
-      return base44.entities.Notification.update(id, {
+      return groonabackend.entities.Notification.update(id, {
         status: status,
         read: true,
         resolved_at: new Date().toISOString(),
@@ -209,3 +209,4 @@ export default function AlarmsTab({ currentUser, users = [] }) {
     </div>
   );
 }
+

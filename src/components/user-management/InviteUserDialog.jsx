@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -40,18 +40,18 @@ export default function InviteUserDialog({ open, onClose, currentUser, effective
       if (currentUser?.is_super_admin) {
         // Super Admin can see all tenants
         console.log('[Aivora InviteUserDialog] Fetching all tenants for Super Admin');
-        const allTenants = await base44.entities.Tenant.list();
+        const allTenants = await groonabackend.entities.Tenant.list();
         return Array.isArray(allTenants) ? allTenants : [];
       } else if (effectiveTenantId) {
         // Regular admin can only see their tenant
         console.log('[Aivora InviteUserDialog] Fetching single tenant for Admin:', effectiveTenantId);
 
         // Try filtering by _id first (standard database ID)
-        let tenantList = await base44.entities.Tenant.filter({ _id: effectiveTenantId });
+        let tenantList = await groonabackend.entities.Tenant.filter({ _id: effectiveTenantId });
 
         // Fallback: If empty, try filtering by id
         if (!tenantList || tenantList.length === 0) {
-          tenantList = await base44.entities.Tenant.filter({ id: effectiveTenantId });
+          tenantList = await groonabackend.entities.Tenant.filter({ id: effectiveTenantId });
         }
 
         return Array.isArray(tenantList) ? tenantList : [];
@@ -96,8 +96,8 @@ export default function InviteUserDialog({ open, onClose, currentUser, effective
         const displayRole = finalRole === 'admin' ? 'Administrator' : 'User';
         const displayCustomRole = finalCustomRole.charAt(0).toUpperCase() + finalCustomRole.slice(1).replace('_', ' ');
 
-        // Send invitation email using Base44's email integration
-        await base44.integrations.Core.SendEmail({
+        // Send invitation email using groonabackend's email integration
+        await groonabackend.integrations.Core.SendEmail({
           to: email,
           subject: `You've been invited to join GROONA`,
           body: `
@@ -129,7 +129,7 @@ export default function InviteUserDialog({ open, onClose, currentUser, effective
 
         // Log audit entry for the invitation
         try {
-          await base44.entities.AuditLog.create({
+          await groonabackend.entities.AuditLog.create({
             tenant_id: selectedTenantId,
             action: 'invite',
             entity_type: 'user',
@@ -438,3 +438,4 @@ export default function InviteUserDialog({ open, onClose, currentUser, effective
     </Dialog>
   );
 }
+

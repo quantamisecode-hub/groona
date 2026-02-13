@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { groonabackend } from '@/api/groonabackend';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const OnboardingContext = createContext(null);
@@ -19,7 +19,7 @@ export function OnboardingProvider({ children, currentUser, featureArea = 'leave
   const { data: progress, isLoading } = useQuery({
     queryKey: ['onboarding-progress', currentUser?.id, featureArea],
     queryFn: async () => {
-      const results = await base44.entities.UserOnboardingProgress.filter({
+      const results = await groonabackend.entities.UserOnboardingProgress.filter({
         user_id: currentUser.id,
         feature_area: featureArea
       });
@@ -29,7 +29,7 @@ export function OnboardingProvider({ children, currentUser, featureArea = 'leave
       }
       
       // Create initial progress record
-      return base44.entities.UserOnboardingProgress.create({
+      return groonabackend.entities.UserOnboardingProgress.create({
         user_id: currentUser.id,
         user_email: currentUser.email,
         tenant_id: currentUser.tenant_id,
@@ -46,7 +46,7 @@ export function OnboardingProvider({ children, currentUser, featureArea = 'leave
   // Update progress mutation
   const updateProgressMutation = useMutation({
     mutationFn: async (updates) => {
-      return base44.entities.UserOnboardingProgress.update(progress.id, {
+      return groonabackend.entities.UserOnboardingProgress.update(progress.id, {
         ...updates,
         last_interaction_date: new Date().toISOString()
       });
@@ -145,3 +145,4 @@ export function OnboardingProvider({ children, currentUser, featureArea = 'leave
     </OnboardingContext.Provider>
   );
 }
+

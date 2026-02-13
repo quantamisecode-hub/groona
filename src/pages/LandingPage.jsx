@@ -120,7 +120,7 @@ export default function LandingPage() {
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur-3xl" />
             <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-2xl">
               <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6910343c60b8b79479bc50a6/6d5176b54_DashboardOverview.png" 
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/6d5176b54_DashboardOverview.png" 
                 alt="Dashboard Overview" 
                 className="w-full"
               />
@@ -234,7 +234,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="absolute -inset-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 rounded-2xl blur-2xl" />
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-xl">
-                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6910343c60b8b79479bc50a6/cd900b5a8_AI-AssistedProjectPlanningInsights.png" alt="AI Insights" className="w-full" />
+                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/cd900b5a8_AI-AssistedProjectPlanningInsights.png" alt="AI Insights" className="w-full" />
                 </div>
               </div>
             </motion.div>
@@ -247,7 +247,7 @@ export default function LandingPage() {
               <div className="order-2 md:order-1 relative">
                 <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/10 to-green-500/10 rounded-2xl blur-2xl" />
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-xl">
-                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6910343c60b8b79479bc50a6/57fcc6136_TaskSprintTimesheetLinkage.png" alt="Timesheet Integration" className="w-full" />
+                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/57fcc6136_TaskSprintTimesheetLinkage.png" alt="Timesheet Integration" className="w-full" />
                 </div>
               </div>
               <div className="order-1 md:order-2">
@@ -308,7 +308,7 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="absolute -inset-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-2xl blur-2xl" />
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-xl">
-                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/6910343c60b8b79479bc50a6/056d6347d_Built-inApprovalManagement.png" alt="Approval Dashboard" className="w-full" />
+                  <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/056d6347d_Built-inApprovalManagement.png" alt="Approval Dashboard" className="w-full" />
                 </div>
               </div>
             </motion.div>
@@ -766,3 +766,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

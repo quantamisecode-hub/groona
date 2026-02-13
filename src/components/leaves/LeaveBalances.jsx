@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -11,7 +11,7 @@ export default function LeaveBalances({ currentUser, tenantId }) {
   // Fetch leave balances
   const { data: balances = [], isLoading } = useQuery({
     queryKey: ['leave-balances', currentUser?.id, tenantId, currentYear],
-    queryFn: () => base44.entities.LeaveBalance.filter({
+    queryFn: () => groonabackend.entities.LeaveBalance.filter({
       tenant_id: tenantId,
       user_id: currentUser.id,
       year: currentYear
@@ -105,3 +105,4 @@ export default function LeaveBalances({ currentUser, tenantId }) {
     </div>
   );
 }
+

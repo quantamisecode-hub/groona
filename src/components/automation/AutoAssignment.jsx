@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,25 +16,25 @@ export default function AutoAssignment({ currentUser }) {
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['all-tasks'],
-    queryFn: () => base44.entities.Task.list(),
+    queryFn: () => groonabackend.entities.Task.list(),
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Task.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.Task.update(id, data),
   });
 
   const createNotificationMutation = useMutation({
-    mutationFn: (data) => base44.entities.Notification.create(data),
+    mutationFn: (data) => groonabackend.entities.Notification.create(data),
   });
 
   const autoAssignTasks = async () => {
@@ -226,3 +226,4 @@ export default function AutoAssignment({ currentUser }) {
     </div>
   );
 }
+

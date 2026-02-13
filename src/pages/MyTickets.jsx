@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Plus, Ticket, Loader2 } from "lucide-react";
@@ -20,7 +20,7 @@ export default function MyTickets() {
 
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ["my-tickets", user?.email],
-    queryFn: () => base44.entities.Ticket.filter({ reporter_email: user?.email }, "-created_date"),
+    queryFn: () => groonabackend.entities.Ticket.filter({ reporter_email: user?.email }, "-created_date"),
     enabled: !!user?.email
   });
 
@@ -32,7 +32,7 @@ export default function MyTickets() {
       const hours = hoursMap[data.priority] || 24;
       const slaDeadline = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 
-      return base44.entities.Ticket.create({
+      return groonabackend.entities.Ticket.create({
         ...data,
         tenant_id: user.tenant_id,
         reporter_email: user.email,
@@ -138,3 +138,4 @@ export default function MyTickets() {
     </div>
   );
 }
+

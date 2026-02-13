@@ -11,7 +11,7 @@ import { Calendar, Trash2, FolderKanban } from "lucide-react";
 import { format } from "date-fns";
 import { PermissionGuard } from "../shared/PermissionGuard";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 const statusColors = {
   planning: "bg-blue-100 text-blue-700 border-blue-200",
@@ -43,7 +43,7 @@ export default function ProjectCard({ project, onDelete }) {
   // Fetch users to display avatars
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -52,7 +52,7 @@ export default function ProjectCard({ project, onDelete }) {
     queryKey: ['stories', project.id],
     queryFn: async () => {
       if (!project.id) return [];
-      return await base44.entities.Story.filter({ project_id: project.id });
+      return await groonabackend.entities.Story.filter({ project_id: project.id });
     },
     enabled: !!project.id,
     refetchInterval: 5000,
@@ -190,3 +190,4 @@ export default function ProjectCard({ project, onDelete }) {
     </Card>
   );
 }
+

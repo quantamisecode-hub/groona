@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
 import {
@@ -48,9 +48,9 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
     queryKey: ["epic-detail", epicId],
     queryFn: async () => {
       if (!epicId) return null;
-      let epics = await base44.entities.Epic.filter({ _id: epicId });
+      let epics = await groonabackend.entities.Epic.filter({ _id: epicId });
       if (!epics || epics.length === 0) {
-         epics = await base44.entities.Epic.filter({ id: epicId });
+         epics = await groonabackend.entities.Epic.filter({ id: epicId });
       }
       return epics[0] || null;
     },
@@ -63,9 +63,9 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
     queryKey: ["project", epic?.project_id],
     queryFn: async () => {
       if (!epic?.project_id) return null;
-      let projects = await base44.entities.Project.filter({ _id: epic.project_id });
+      let projects = await groonabackend.entities.Project.filter({ _id: epic.project_id });
       if (!projects || projects.length === 0) {
-         projects = await base44.entities.Project.filter({ id: epic.project_id });
+         projects = await groonabackend.entities.Project.filter({ id: epic.project_id });
       }
       return projects[0] || null;
     },
@@ -74,7 +74,7 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ["all-users"],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -85,7 +85,7 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
       if (allUsers.length > 0) {
         return allUsers.find(u => u.email === epic.owner) || null;
       }
-      const users = await base44.entities.User.list();
+      const users = await groonabackend.entities.User.list();
       return users.find(u => u.email === epic.owner) || null;
     },
     enabled: !!epic?.owner,
@@ -95,7 +95,7 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
     queryKey: ["epic-stories", epicId, epic?.project_id, sprintId],
     queryFn: async () => {
       if (!epicId || !epic?.project_id) return [];
-      const stories = await base44.entities.Story.filter({ project_id: epic.project_id });
+      const stories = await groonabackend.entities.Story.filter({ project_id: epic.project_id });
       return stories.filter(s => {
         const storyEpicId = s.epic_id?.id || s.epic_id?._id || s.epic_id;
         if (String(storyEpicId) !== String(epicId)) return false;
@@ -529,3 +529,4 @@ export default function EpicDetailDialog({ open, onClose, epicId, initialEpic, r
     </>
   );
 }
+

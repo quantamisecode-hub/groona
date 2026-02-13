@@ -27,7 +27,7 @@ import {
   Loader2
 } from "lucide-react";
 import { format } from "date-fns";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useEffect } from "react";
 
 export default function AuditLogTable({ logs, loading }) {
@@ -40,7 +40,7 @@ export default function AuditLogTable({ logs, loading }) {
       const names = {};
       
       try {
-        const tenants = await base44.entities.Tenant.list();
+        const tenants = await groonabackend.entities.Tenant.list();
         tenants.forEach(tenant => {
           names[tenant.id] = tenant.name;
         });
@@ -395,3 +395,4 @@ export default function AuditLogTable({ logs, loading }) {
     </>
   );
 }
+

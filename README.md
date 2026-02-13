@@ -1,9 +1,9 @@
-"# Groona_ai_PM_Frontend" 
-# Base44 App
+# Groona_ai_PM_Frontend" 
+# Groonabackend App
 
 
-This app was created automatically by Base44.
-It's a Vite+React app that communicates with the Base44 API.
+This app was created automatically by Groonabackend.
+It's a Vite+React app that communicates with the Groonabackend API.
 
 ## Running the app
 

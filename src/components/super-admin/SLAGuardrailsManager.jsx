@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,14 @@ export default function SLAGuardrailsManager() {
   });
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser);
+    groonabackend.auth.me().then(setCurrentUser);
   }, []);
 
   // Fetch existing SLA guardrails
   const { data: existingGuardrails, isLoading } = useQuery({
     queryKey: ['sla-guardrails'],
     queryFn: async () => {
-      const configs = await base44.entities.SystemConfig.filter({
+      const configs = await groonabackend.entities.SystemConfig.filter({
         config_type: 'GUARDRAILS',
         config_key: 'sla_guardrails'
       });
@@ -52,11 +52,11 @@ export default function SLAGuardrailsManager() {
     mutationFn: async (data) => {
       let result;
       if (existingGuardrails) {
-        result = await base44.entities.SystemConfig.update(existingGuardrails.id, {
+        result = await groonabackend.entities.SystemConfig.update(existingGuardrails.id, {
           config_value: data,
         });
       } else {
-        result = await base44.entities.SystemConfig.create({
+        result = await groonabackend.entities.SystemConfig.create({
           config_key: 'sla_guardrails',
           config_type: 'GUARDRAILS',
           config_value: data,
@@ -66,7 +66,7 @@ export default function SLAGuardrailsManager() {
       }
 
       // Log the action
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'SYSTEM_CONFIG_UPDATE',
@@ -367,3 +367,4 @@ export default function SLAGuardrailsManager() {
     </div>
   );
 }
+

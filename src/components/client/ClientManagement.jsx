@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import axios from "axios";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -46,7 +46,7 @@ export default function ClientManagement({ tenantId }) {
     queryKey: ['organizations', finalTenantId],
     queryFn: async () => {
       if (!finalTenantId) return [];
-      return base44.entities.Client.filter({ tenant_id: finalTenantId });
+      return groonabackend.entities.Client.filter({ tenant_id: finalTenantId });
     },
     enabled: !!finalTenantId
   });
@@ -56,7 +56,7 @@ export default function ClientManagement({ tenantId }) {
     queryKey: ['client-users', finalTenantId],
     queryFn: async () => {
       // Fetch users who are clients for this tenant
-      const allClients = await base44.entities.User.filter({ custom_role: 'client' });
+      const allClients = await groonabackend.entities.User.filter({ custom_role: 'client' });
       return finalTenantId ? allClients.filter(c => c.tenant_id === finalTenantId) : allClients;
     },
     enabled: !!finalTenantId
@@ -338,3 +338,4 @@ export default function ClientManagement({ tenantId }) {
     </div>
   );
 }
+

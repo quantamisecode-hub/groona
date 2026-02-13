@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -16,8 +16,8 @@ export default function AnnualAllocationButton({ currentUser }) {
 
   const allocationMutation = useMutation({
     mutationFn: async ({ targetYear, isDryRun }) => {
-      // FIX: 'response' is already the data payload because base44.functions.invoke returns res.data
-      const response = await base44.functions.invoke('runAnnualLeaveAllocation', {
+      // FIX: 'response' is already the data payload because groonabackend.functions.invoke returns res.data
+      const response = await groonabackend.functions.invoke('runAnnualLeaveAllocation', {
         tenant_id: currentUser.tenant_id,
         year: targetYear,
         dry_run: isDryRun
@@ -153,3 +153,4 @@ export default function AnnualAllocationButton({ currentUser }) {
     </>
   );
 }
+

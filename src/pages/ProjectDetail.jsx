@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -67,7 +67,7 @@ export default function ProjectDetail() {
   const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
-      const projects = await base44.entities.Project.list();
+      const projects = await groonabackend.entities.Project.list();
       // Handle both id and _id formats
       return projects.find(p => (p.id === projectId) || (p._id === projectId));
     },
@@ -78,7 +78,7 @@ export default function ProjectDetail() {
     queryKey: ['workspace', project?.workspace_id],
     queryFn: async () => {
       if (!project?.workspace_id) return null;
-      const workspaces = await base44.entities.Workspace.list();
+      const workspaces = await groonabackend.entities.Workspace.list();
       return workspaces.find(ws => ws.id === project.workspace_id);
     },
     enabled: !!project?.workspace_id,
@@ -88,7 +88,7 @@ export default function ProjectDetail() {
     queryKey: ['client', project?.client],
     queryFn: async () => {
       if (!project?.client) return null;
-      const clients = await base44.entities.Client.list();
+      const clients = await groonabackend.entities.Client.list();
       return clients.find(c => c.id === project.client);
     },
     enabled: !!project?.client,
@@ -99,7 +99,7 @@ export default function ProjectDetail() {
     queryFn: async () => {
       if (!project?.client_user_id) return null;
       // Use list() and find() for reliability, mirroring dialog logic
-      const users = await base44.entities.User.list();
+      const users = await groonabackend.entities.User.list();
       return users.find(u => u.id === project.client_user_id || u._id === project.client_user_id);
     },
     enabled: !!project?.client_user_id,
@@ -111,7 +111,7 @@ export default function ProjectDetail() {
   // 3. staleTime: 0 ensures data is considered "old" immediately so it refetches
   const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks', projectId],
-    queryFn: () => base44.entities.Task.filter({ project_id: projectId }, '-created_date'),
+    queryFn: () => groonabackend.entities.Task.filter({ project_id: projectId }, '-created_date'),
     enabled: !!projectId,
     refetchInterval: 2000,
     refetchOnWindowFocus: true,
@@ -120,14 +120,14 @@ export default function ProjectDetail() {
 
   const { data: activities = [], isLoading: activitiesLoading } = useQuery({
     queryKey: ['activities', projectId],
-    queryFn: () => base44.entities.Activity.filter({ project_id: projectId }, '-created_date', 50),
+    queryFn: () => groonabackend.entities.Activity.filter({ project_id: projectId }, '-created_date', 50),
     enabled: !!projectId,
     refetchInterval: 5000, // Keep activity feed updated every 5s
   });
 
   const { data: comments = [], isLoading: commentsLoading } = useQuery({
     queryKey: ['comments', projectId],
-    queryFn: () => base44.entities.Comment.filter({
+    queryFn: () => groonabackend.entities.Comment.filter({
       entity_type: 'project',
       entity_id: projectId
     }, '-created_date'),
@@ -137,7 +137,7 @@ export default function ProjectDetail() {
   const { data: users = [] } = useQuery({
     queryKey: ['users', currentUser?.tenant_id],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       if (!currentUser) return [];
 
       const tenantId = currentUser.active_tenant_id || currentUser.tenant_id;
@@ -148,20 +148,20 @@ export default function ProjectDetail() {
 
   const { data: sprints = [], isLoading: sprintsLoading } = useQuery({
     queryKey: ['sprints', projectId],
-    queryFn: () => base44.entities.Sprint.filter({ project_id: projectId }, '-start_date'),
+    queryFn: () => groonabackend.entities.Sprint.filter({ project_id: projectId }, '-start_date'),
     enabled: !!projectId && !isMarketingCompany,
   });
 
   const { data: stories = [], isLoading: storiesLoading } = useQuery({
     queryKey: ['stories', projectId],
-    queryFn: () => base44.entities.Story.filter({ project_id: projectId }),
+    queryFn: () => groonabackend.entities.Story.filter({ project_id: projectId }),
     enabled: !!projectId,
     refetchInterval: 5000,
   });
 
   const { data: projectTimesheets = [] } = useQuery({
     queryKey: ['project-timesheets', projectId],
-    queryFn: () => base44.entities.Timesheet.filter({ project_id: projectId }),
+    queryFn: () => groonabackend.entities.Timesheet.filter({ project_id: projectId }),
     enabled: !!projectId,
   });
 
@@ -170,7 +170,7 @@ export default function ProjectDetail() {
     queryKey: ['project-user-role', projectId, currentUser?.id],
     queryFn: async () => {
       if (!projectId || !currentUser?.id) return null;
-      const roles = await base44.entities.ProjectUserRole.filter({
+      const roles = await groonabackend.entities.ProjectUserRole.filter({
         project_id: projectId,
         user_id: currentUser.id,
         role: 'project_manager'
@@ -185,7 +185,7 @@ export default function ProjectDetail() {
   const isViewer = currentUser?.custom_role === 'viewer';
 
   const createSprintMutation = useMutation({
-    mutationFn: (data) => base44.entities.Sprint.create({
+    mutationFn: (data) => groonabackend.entities.Sprint.create({
       ...data,
       tenant_id: currentUser?.tenant_id,
       project_id: projectId,
@@ -201,7 +201,7 @@ export default function ProjectDetail() {
   });
 
   const updateSprintMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.Sprint.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.Sprint.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints', projectId] });
       toast.success('Sprint updated successfully');
@@ -212,7 +212,7 @@ export default function ProjectDetail() {
   });
 
   const deleteSprintMutation = useMutation({
-    mutationFn: (id) => base44.entities.Sprint.delete(id),
+    mutationFn: (id) => groonabackend.entities.Sprint.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sprints', projectId] });
       toast.success('Sprint deleted successfully');
@@ -223,7 +223,7 @@ export default function ProjectDetail() {
   });
 
   const moveTaskToSprintMutation = useMutation({
-    mutationFn: ({ taskId, sprintId }) => base44.entities.Task.update(taskId, { sprint_id: sprintId }),
+    mutationFn: ({ taskId, sprintId }) => groonabackend.entities.Task.update(taskId, { sprint_id: sprintId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
       toast.success('Task moved successfully');
@@ -234,12 +234,12 @@ export default function ProjectDetail() {
   });
 
   const createActivityMutation = useMutation({
-    mutationFn: (activityData) => base44.entities.Activity.create(activityData),
+    mutationFn: (activityData) => groonabackend.entities.Activity.create(activityData),
   });
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data) => {
-      const updated = await base44.entities.Project.update(projectId, data);
+      const updated = await groonabackend.entities.Project.update(projectId, data);
 
       await createActivityMutation.mutateAsync({
         tenant_id: currentUser?.tenant_id,
@@ -270,7 +270,7 @@ export default function ProjectDetail() {
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, data }) => {
       const oldTask = tasks.find(t => t.id === id);
-      const updated = await base44.entities.Task.update(id, data);
+      const updated = await groonabackend.entities.Task.update(id, data);
 
       await createActivityMutation.mutateAsync({
         tenant_id: effectiveTenantId,
@@ -320,7 +320,7 @@ export default function ProjectDetail() {
       const task = tasks.find(t => t.id === id);
       const taskTitle = task?.title || "Unknown Task";
 
-      await base44.entities.Task.delete(id);
+      await groonabackend.entities.Task.delete(id);
 
       try {
         await createActivityMutation.mutateAsync({
@@ -746,3 +746,4 @@ export default function ProjectDetail() {
     </>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ export default function ClockInOutTimer({
     queryKey: ['active-clock-entry', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return null;
-      const entries = await base44.entities.ClockEntry.filter({
+      const entries = await groonabackend.entities.ClockEntry.filter({
         user_email: currentUser.email,
         is_clocked_in: true
       });
@@ -108,7 +108,7 @@ export default function ClockInOutTimer({
   // Centralized Work Hierarchy Fetch
   const { data: hierarchy = { projects: [], stories: [], tasks: [] }, isLoading: hierarchyLoading } = useQuery({
     queryKey: ['user-work-hierarchy', currentUser?.email, effectiveTenantId],
-    queryFn: () => base44.functions.invoke('getUserWorkHierarchy', {
+    queryFn: () => groonabackend.functions.invoke('getUserWorkHierarchy', {
       userEmail: currentUser.email,
       userId: currentUser?.id,
       tenantId: effectiveTenantId,
@@ -130,7 +130,7 @@ export default function ClockInOutTimer({
     queryKey: ['timesheet-duplicates', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return [];
-      return base44.entities.Timesheet.filter({ user_email: currentUser.email });
+      return groonabackend.entities.Timesheet.filter({ user_email: currentUser.email });
     },
     enabled: !!currentUser?.email,
   });
@@ -140,7 +140,7 @@ export default function ClockInOutTimer({
     queryKey: ['timesheet-enforcement-check', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return [];
-      return base44.entities.Notification.filter({
+      return groonabackend.entities.Notification.filter({
         recipient_email: currentUser.email,
         status: 'OPEN'
       });
@@ -225,7 +225,7 @@ export default function ClockInOutTimer({
     queryKey: ['epics', selectedProject],
     queryFn: async () => {
       if (!selectedProject) return [];
-      return base44.entities.Epic.filter({ project_id: selectedProject });
+      return groonabackend.entities.Epic.filter({ project_id: selectedProject });
     },
     enabled: !!selectedProject,
   });
@@ -235,7 +235,7 @@ export default function ClockInOutTimer({
     queryKey: ['sprints', selectedProject],
     queryFn: async () => {
       if (!selectedProject) return [];
-      return base44.entities.Sprint.filter({ project_id: selectedProject });
+      return groonabackend.entities.Sprint.filter({ project_id: selectedProject });
     },
     enabled: !!selectedProject,
   });
@@ -307,7 +307,7 @@ export default function ClockInOutTimer({
       const loc = await captureLocation();
       setLocation(loc);
 
-      const clockEntry = await base44.entities.ClockEntry.create({
+      const clockEntry = await groonabackend.entities.ClockEntry.create({
         tenant_id: effectiveTenantId,
         user_email: currentUser.email,
         user_name: currentUser.full_name,
@@ -345,7 +345,7 @@ export default function ClockInOutTimer({
     mutationFn: async () => {
       if (!activeClockEntry) return;
       const now = new Date().toISOString();
-      await base44.entities.ClockEntry.update(activeClockEntry.id, {
+      await groonabackend.entities.ClockEntry.update(activeClockEntry.id, {
         is_paused: true,
         last_paused_at: now
       });
@@ -372,7 +372,7 @@ export default function ClockInOutTimer({
       const pauseDuration = Math.floor((now.getTime() - lastPausedAt.getTime()) / 1000);
       const newTotalPausedSeconds = (activeClockEntry.total_paused_seconds || 0) + pauseDuration;
 
-      await base44.entities.ClockEntry.update(activeClockEntry.id, {
+      await groonabackend.entities.ClockEntry.update(activeClockEntry.id, {
         is_paused: false,
         last_paused_at: null,
         total_paused_seconds: newTotalPausedSeconds
@@ -420,7 +420,7 @@ export default function ClockInOutTimer({
       console.log('[ClockInOutTimer] Updating clock entry...');
 
       // Update clock entry
-      const updatedClockEntry = await base44.entities.ClockEntry.update(activeClockEntry.id, {
+      const updatedClockEntry = await groonabackend.entities.ClockEntry.update(activeClockEntry.id, {
         clock_out_time: endTime.toISOString(),
         clock_out_location: loc,
         is_clocked_in: false,
@@ -431,22 +431,22 @@ export default function ClockInOutTimer({
       console.log('[ClockInOutTimer] Clock entry updated:', updatedClockEntry);
 
       // Fetch project/sprint/task details
-      const fetchedProjects = await base44.entities.Project.filter({ _id: projectId });
+      const fetchedProjects = await groonabackend.entities.Project.filter({ _id: projectId });
       const projectName = fetchedProjects[0]?.name || '';
 
       let sprintName = null;
       if (sprintId) {
-        const fetchedSprints = await base44.entities.Sprint.filter({ _id: sprintId });
+        const fetchedSprints = await groonabackend.entities.Sprint.filter({ _id: sprintId });
         sprintName = fetchedSprints[0]?.name || null;
       }
 
-      const fetchedTasks = await base44.entities.Task.filter({ _id: taskId });
+      const fetchedTasks = await groonabackend.entities.Task.filter({ _id: taskId });
       const taskTitle = fetchedTasks[0]?.title || '';
 
       console.log('[ClockInOutTimer] Creating timesheet entry...');
 
       // Create timesheet entry
-      const timesheet = await base44.entities.Timesheet.create({
+      const timesheet = await groonabackend.entities.Timesheet.create({
         tenant_id: effectiveTenantId,
         user_email: currentUser.email,
         user_name: currentUser.full_name,
@@ -478,13 +478,13 @@ export default function ClockInOutTimer({
       console.log('[ClockInOutTimer] Timesheet created:', timesheet);
 
       // Link timesheet to clock entry
-      await base44.entities.ClockEntry.update(updatedClockEntry.id, {
+      await groonabackend.entities.ClockEntry.update(updatedClockEntry.id, {
         timesheet_id: timesheet.id,
       });
 
       // Log activity
       try {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: effectiveTenantId,
           action: 'created',
           entity_type: 'task',
@@ -861,3 +861,4 @@ export default function ClockInOutTimer({
     </div>
   );
 }
+

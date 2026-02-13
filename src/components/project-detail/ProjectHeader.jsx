@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,7 +31,7 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
     queryKey: ['stories', project.id],
     queryFn: async () => {
       if (!project.id) return [];
-      return await base44.entities.Story.filter({ project_id: project.id });
+      return await groonabackend.entities.Story.filter({ project_id: project.id });
     },
     enabled: !!project.id,
     refetchInterval: 2000,
@@ -374,3 +374,4 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
     </Card >
   );
 }
+

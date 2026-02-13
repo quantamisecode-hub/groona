@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,12 +17,12 @@ export default function TestAIAccessPage() {
   useEffect(() => {
     async function runTests() {
       try {
-        const user = await base44.auth.me();
+        const user = await groonabackend.auth.me();
         setCurrentUser(user);
 
         // Load tenant
         if (user.tenant_id) {
-          const tenants = await base44.entities.Tenant.filter({ id: user.tenant_id });
+          const tenants = await groonabackend.entities.Tenant.filter({ id: user.tenant_id });
           if (tenants[0]) {
             setTenant(tenants[0]);
           }
@@ -270,3 +270,4 @@ export default function TestAIAccessPage() {
     </div>
   );
 }
+

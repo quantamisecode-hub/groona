@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
   // Fetch users
   const { data: users = [] } = useQuery({
     queryKey: ['users', tenantId],
-    queryFn: () => base44.entities.User.filter({ tenant_id: tenantId }),
+    queryFn: () => groonabackend.entities.User.filter({ tenant_id: tenantId }),
     enabled: !!tenantId,
   });
 
@@ -36,8 +36,8 @@ export default function CompOffManager({ currentUser, tenantId }) {
   const { data: credits = [] } = useQuery({
     queryKey: ['comp-off-credits', tenantId],
     queryFn: async () => {
-       if (!base44.entities.CompOffCredit) return []; 
-       return base44.entities.CompOffCredit.filter({ tenant_id: tenantId }, '-created_date');
+       if (!groonabackend.entities.CompOffCredit) return []; 
+       return groonabackend.entities.CompOffCredit.filter({ tenant_id: tenantId }, '-created_date');
     },
     enabled: !!tenantId,
   });
@@ -50,7 +50,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
 
       // Ensure "Comp Off" Leave Type exists
       let compOffType = null;
-      const existingTypes = await base44.entities.LeaveType.filter({
+      const existingTypes = await groonabackend.entities.LeaveType.filter({
         tenant_id: tenantId,
         is_comp_off: true
       });
@@ -58,7 +58,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
       if (existingTypes.length > 0) {
         compOffType = existingTypes[0];
       } else {
-        compOffType = await base44.entities.LeaveType.create({
+        compOffType = await groonabackend.entities.LeaveType.create({
           tenant_id: tenantId,
           name: "Compensatory Off",
           description: "Leave granted for working on holidays or weekends",
@@ -72,7 +72,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
       }
 
       // Create Credit Record in DB (Init with 0 used)
-      await base44.entities.CompOffCredit.create({
+      await groonabackend.entities.CompOffCredit.create({
         tenant_id: tenantId,
         user_id: user.id,
         user_email: user.email,
@@ -88,7 +88,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
 
       // Update Aggregate Leave Balance
       const currentYear = new Date().getFullYear();
-      const balances = await base44.entities.LeaveBalance.filter({
+      const balances = await groonabackend.entities.LeaveBalance.filter({
         tenant_id: tenantId,
         user_id: user.id,
         leave_type_id: compOffType.id,
@@ -96,12 +96,12 @@ export default function CompOffManager({ currentUser, tenantId }) {
       });
 
       if (balances.length > 0) {
-        await base44.entities.LeaveBalance.update(balances[0].id, {
+        await groonabackend.entities.LeaveBalance.update(balances[0].id, {
           allocated: (Number(balances[0].allocated) || 0) + data.credited_days,
           remaining: (Number(balances[0].remaining) || 0) + data.credited_days
         });
       } else {
-        await base44.entities.LeaveBalance.create({
+        await groonabackend.entities.LeaveBalance.create({
           tenant_id: tenantId,
           user_id: user.id,
           user_email: user.email,
@@ -133,13 +133,13 @@ export default function CompOffManager({ currentUser, tenantId }) {
       toast.info("Syncing credit history with leave balances...");
 
       // 1. Fetch all balances for Comp Off
-      const balances = await base44.entities.LeaveBalance.filter({
+      const balances = await groonabackend.entities.LeaveBalance.filter({
         tenant_id: tenantId,
         leave_type_name: "Compensatory Off" // Assuming name match or fetch by is_comp_off logic if needed
       });
 
       // 2. Fetch all credits
-      const allCredits = await base44.entities.CompOffCredit.filter({ tenant_id: tenantId });
+      const allCredits = await groonabackend.entities.CompOffCredit.filter({ tenant_id: tenantId });
 
       let updatedCount = 0;
 
@@ -169,7 +169,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
 
             // Only update if changed
             if (Number(credit.used_days) !== newUsed) {
-                await base44.entities.CompOffCredit.update(credit.id, {
+                await groonabackend.entities.CompOffCredit.update(credit.id, {
                     used_days: newUsed,
                     remaining_days: newRemaining
                 });
@@ -384,3 +384,4 @@ export default function CompOffManager({ currentUser, tenantId }) {
     </>
   );
 }
+

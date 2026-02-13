@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -45,13 +45,13 @@ export default function ProjectProfitabilityDetail() {
             if (!projectId) return null;
             // Try filter if backend supports it efficiently
             try {
-                const res = await base44.entities.Project.filter({ _id: projectId });
+                const res = await groonabackend.entities.Project.filter({ _id: projectId });
                 if (res && res.length > 0) return res[0];
                 // Fallback to simple list filter if backend filter is limited
-                const all = await base44.entities.Project.list();
+                const all = await groonabackend.entities.Project.list();
                 return all.find(p => p.id === projectId || p._id === projectId);
             } catch (e) {
-                const all = await base44.entities.Project.list();
+                const all = await groonabackend.entities.Project.list();
                 return all.find(p => p.id === projectId || p._id === projectId);
             }
         },
@@ -63,7 +63,7 @@ export default function ProjectProfitabilityDetail() {
         queryKey: ["client", project?.client],
         queryFn: async () => {
             if (!project?.client) return null;
-            const all = await base44.entities.Client.list();
+            const all = await groonabackend.entities.Client.list();
             return all.find(c => c.id === project.client);
         },
         enabled: !!project?.client,
@@ -73,7 +73,7 @@ export default function ProjectProfitabilityDetail() {
         queryKey: ["clientUser", project?.client_user_id],
         queryFn: async () => {
             if (!project?.client_user_id) return null;
-            const all = await base44.entities.User.list();
+            const all = await groonabackend.entities.User.list();
             return all.find(u => u.id === project.client_user_id);
         },
         enabled: !!project?.client_user_id,
@@ -83,7 +83,7 @@ export default function ProjectProfitabilityDetail() {
     const { data: timesheets = [], isLoading: loadingTimesheets } = useQuery({
         queryKey: ["timesheets", projectId],
         queryFn: async () => {
-            const all = await base44.entities.Timesheet.list();
+            const all = await groonabackend.entities.Timesheet.list();
             return all.filter(t => {
                 const tPid = typeof t.project_id === 'object' ? t.project_id.id : t.project_id;
                 return tPid === projectId;
@@ -96,7 +96,7 @@ export default function ProjectProfitabilityDetail() {
     const { data: expenses = [] } = useQuery({
         queryKey: ["project-expenses", projectId],
         queryFn: async () => {
-            const all = await base44.entities.ProjectExpense.list();
+            const all = await groonabackend.entities.ProjectExpense.list();
             return all.filter(e => {
                 const ePid = typeof e.project_id === 'object' ? e.project_id.id : e.project_id;
                 return ePid === projectId;
@@ -108,14 +108,14 @@ export default function ProjectProfitabilityDetail() {
     // Fetch Users to get Hourly Rates
     const { data: users = [] } = useQuery({
         queryKey: ["users"],
-        queryFn: () => base44.entities.User.list(),
+        queryFn: () => groonabackend.entities.User.list(),
     });
 
     // Fetch Tasks & Sprints for granular breakdown
     const { data: tasks = [] } = useQuery({
         queryKey: ["tasks", projectId],
         queryFn: async () => {
-            const all = await base44.entities.Task.list();
+            const all = await groonabackend.entities.Task.list();
             return all.filter(t => {
                 const tPid = typeof t.project_id === 'object' ? t.project_id.id : t.project_id;
                 return tPid === projectId;
@@ -126,7 +126,7 @@ export default function ProjectProfitabilityDetail() {
     const { data: sprints = [] } = useQuery({
         queryKey: ["sprints", projectId],
         queryFn: async () => {
-            const all = await base44.entities.Sprint.list();
+            const all = await groonabackend.entities.Sprint.list();
             return all.filter(s => {
                 const sPid = typeof s.project_id === 'object' ? s.project_id.id : s.project_id;
                 return sPid === projectId;
@@ -1093,3 +1093,4 @@ export default function ProjectProfitabilityDetail() {
         </div>
     );
 }
+

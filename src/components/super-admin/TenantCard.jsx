@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building2, Users, FolderKanban, Eye, Settings, Trash2, Calendar, AlertCircle, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import EditTenantDialog from "./EditTenantDialog";
 import { toast } from "sonner";
@@ -31,7 +31,7 @@ export default function TenantCard({ tenant, onUpdate, onDelete, userCount, proj
   const { data: tenantUsers = [] } = useQuery({
     queryKey: ['tenant-users', tenant.id],
     queryFn: async () => {
-      const users = await base44.entities.User.filter({ tenant_id: tenant.id });
+      const users = await groonabackend.entities.User.filter({ tenant_id: tenant.id });
       return users;
     },
     enabled: showUsers,
@@ -56,7 +56,7 @@ export default function TenantCard({ tenant, onUpdate, onDelete, userCount, proj
     setSwitchingView(true);
     try {
       // Update Super Admin's active_tenant_id to switch context
-      await base44.auth.updateMe({
+      await groonabackend.auth.updateMe({
         active_tenant_id: tenant.id
       });
 
@@ -271,3 +271,4 @@ export default function TenantCard({ tenant, onUpdate, onDelete, userCount, proj
     </>
   );
 }
+

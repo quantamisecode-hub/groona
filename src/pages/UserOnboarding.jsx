@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,7 +40,7 @@ export default function UserOnboarding() {
     setInitError(null);
     try {
       console.log('[UserOnboarding] Starting initialization...');
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       setCurrentUser(user);
 
       // Super Admins bypass onboarding
@@ -57,7 +57,7 @@ export default function UserOnboarding() {
         shouldCreateTenant = true;
       } else {
         // FIXED: Use _id for reliable lookup with Mongoose
-        const tenants = await base44.entities.Tenant.filter({ _id: user.tenant_id });
+        const tenants = await groonabackend.entities.Tenant.filter({ _id: user.tenant_id });
         userTenant = tenants[0];
 
         // If tenant not found OR it's a placeholder, create a new one
@@ -84,7 +84,7 @@ export default function UserOnboarding() {
         const trialEndDate = new Date(now);
         trialEndDate.setDate(now.getDate() + 14);
 
-        const newTenant = await base44.entities.Tenant.create({
+        const newTenant = await groonabackend.entities.Tenant.create({
           name: `${user.full_name}'s Workspace`,
           owner_email: user.email,
           owner_name: user.full_name,
@@ -111,7 +111,7 @@ export default function UserOnboarding() {
         });
 
         // Update user's tenant_id - owner should have admin role and owner custom_role
-        await base44.auth.updateMe({
+        await groonabackend.auth.updateMe({
           tenant_id: newTenant.id,
           role: 'admin',
           custom_role: 'owner'
@@ -131,7 +131,7 @@ export default function UserOnboarding() {
           const trialEndDate = new Date(now);
           trialEndDate.setDate(now.getDate() + 14);
 
-          await base44.entities.Tenant.update(userTenant.id, {
+          await groonabackend.entities.Tenant.update(userTenant.id, {
             subscription_plan: 'starter',
             subscription_type: 'trial',
             subscription_status: 'trialing',
@@ -141,7 +141,7 @@ export default function UserOnboarding() {
           });
 
           // Re-fetch to ensure we have updated data
-          const updatedTenants = await base44.entities.Tenant.filter({ _id: userTenant.id });
+          const updatedTenants = await groonabackend.entities.Tenant.filter({ _id: userTenant.id });
           userTenant = updatedTenants[0];
         }
       }
@@ -158,7 +158,7 @@ export default function UserOnboarding() {
       // Auto-select free plan (starter plan)
       if (!userTenant.subscription_plan_id) {
         try {
-          const subscriptionPlans = await base44.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order');
+          const subscriptionPlans = await groonabackend.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order');
           const freePlan = subscriptionPlans.find(p => 
             p.name.toLowerCase().includes('free') || 
             p.name.toLowerCase().includes('starter') || 
@@ -174,7 +174,7 @@ export default function UserOnboarding() {
             const rawPlanName = freePlan.name?.toLowerCase() || 'starter';
             const validPlanEnum = rawPlanName.split(' ')[0];
             
-            await base44.entities.Tenant.update(userTenant.id, {
+            await groonabackend.entities.Tenant.update(userTenant.id, {
               subscription_plan_id: freePlan.id,
               subscription_plan: validPlanEnum,
               subscription_type: 'trial',
@@ -247,7 +247,7 @@ export default function UserOnboarding() {
     setOnboardingData(updatedData);
 
     try {
-      await base44.entities.Tenant.update(tenant.id, {
+      await groonabackend.entities.Tenant.update(tenant.id, {
         onboarding_step: currentStep,
         onboarding_data: updatedData
       });
@@ -283,13 +283,13 @@ export default function UserOnboarding() {
         };
 
         // Ensure user is set as admin with owner custom_role (organization head)
-        await base44.auth.updateMe({
+        await groonabackend.auth.updateMe({
           role: 'admin',
           custom_role: 'owner',
           tenant_id: tenant.id
         });
 
-        await base44.entities.Tenant.update(tenant.id, {
+        await groonabackend.entities.Tenant.update(tenant.id, {
           name: stepData.workspace_name,
           company_name: stepData.company_name,
           company_type: stepData.company_type,
@@ -304,7 +304,7 @@ export default function UserOnboarding() {
       // Step 2: Work Setup
       if (currentStep === 2) {
         const currentConfig = tenant.tenant_config || {};
-        await base44.entities.Tenant.update(tenant.id, {
+        await groonabackend.entities.Tenant.update(tenant.id, {
           tenant_config: {
             ...currentConfig,
             enable_sprints: stepData.enable_sprints,
@@ -317,13 +317,13 @@ export default function UserOnboarding() {
       // Step 4: Completion
       if (currentStep === 4) {
         // Ensure user is set as admin with owner custom_role after completing onboarding
-        await base44.auth.updateMe({
+        await groonabackend.auth.updateMe({
           role: 'admin',
           custom_role: 'owner',
           tenant_id: tenant.id
         });
 
-        await base44.entities.Tenant.update(tenant.id, {
+        await groonabackend.entities.Tenant.update(tenant.id, {
           onboarding_completed: true,
           status: 'active',
           onboarding_step: 6,
@@ -342,7 +342,7 @@ export default function UserOnboarding() {
 
       setCurrentStep(currentStep + 1);
       
-      const updatedTenants = await base44.entities.Tenant.filter({ _id: tenant.id });
+      const updatedTenants = await groonabackend.entities.Tenant.filter({ _id: tenant.id });
       setTenant(updatedTenants[0]);
       
     } catch (error) {
@@ -364,7 +364,7 @@ export default function UserOnboarding() {
     }
 
     try {
-      await base44.entities.Tenant.update(tenant.id, {
+      await groonabackend.entities.Tenant.update(tenant.id, {
         onboarding_step: currentStep,
         onboarding_data: {
           ...onboardingData,
@@ -502,3 +502,4 @@ export default function UserOnboarding() {
     </div>
   );
 }
+

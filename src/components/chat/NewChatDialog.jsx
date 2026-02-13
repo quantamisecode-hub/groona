@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ export default function NewChatDialog({ open, onOpenChange, currentUser, tenantI
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ['users-for-chat', tenantId],
-    queryFn: () => base44.entities.UserProfile.list(), // Assuming UserProfile exists or use users endpoint if available
+    queryFn: () => groonabackend.entities.UserProfile.list(), // Assuming UserProfile exists or use users endpoint if available
   });
 
   // Filter users
@@ -56,7 +56,7 @@ export default function NewChatDialog({ open, onOpenChange, currentUser, tenantI
         ...selectedUsers.map(u => ({ email: u.user_email, name: u.full_name, avatar_url: u.profile_image_url }))
       ];
 
-      const conversation = await base44.entities.Conversation.create({
+      const conversation = await groonabackend.entities.Conversation.create({
         tenant_id: tenantId,
         type: type,
         name: type === 'group' ? groupName : null,
@@ -178,3 +178,4 @@ export default function NewChatDialog({ open, onOpenChange, currentUser, tenantI
     </Dialog>
   );
 }
+

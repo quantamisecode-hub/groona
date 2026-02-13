@@ -53,7 +53,11 @@
         "low_workload_alert",
         "overwork_alarm",
         "rework_peer_review",
-        "high_rework_alarm"
+        "high_rework_alarm",
+        "leave_application",
+        "leave_approval",
+        "leave_rejection",
+        "leave_cancellation"
       ],
       "description": "Type of notification"
     },

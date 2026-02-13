@@ -8,7 +8,7 @@ const updateLeaveStatus = async (data) => {
     if (!leave) throw new Error("Leave request not found");
 
     const previousStatus = leave.status;
-    
+
     // Prevent double processing
     if (previousStatus === 'approved' || previousStatus === 'rejected') {
         throw new Error("Leave request has already been processed");
@@ -36,14 +36,14 @@ const updateLeaveStatus = async (data) => {
             // Remaining was already deducted during application, so we don't touch it here
             balance.pending = Math.max(0, balance.pending - days);
             balance.used += days;
-        } 
+        }
         else if (status === 'rejected' || status === 'cancelled') {
             // Revert the transaction
             // Remove from Pending, Add back to Remaining
             balance.pending = Math.max(0, balance.pending - days);
             balance.remaining += days;
         }
-        
+
         await balance.save();
     }
 
@@ -52,10 +52,10 @@ const updateLeaveStatus = async (data) => {
         const user = await Models.User.findById(leave.user_id);
         const approver = approver_id ? await Models.User.findById(approver_id) : null;
         const leaveType = await Models.LeaveType.findById(leave.leave_type_id);
-        
+
         const templateType = status === 'approved' ? 'leave_approved' : 'leave_cancelled';
         const approverName = approver?.full_name || approver?.email || 'Administrator';
-        
+
         await emailService.sendEmail({
             to: leave.user_email || user?.email,
             templateType,
@@ -76,6 +76,41 @@ const updateLeaveStatus = async (data) => {
     } catch (error) {
         console.error('Failed to send leave status email:', error);
         // Continue even if email fails
+    }
+
+    // --- LEAVE STATUS NOTIFICATION (IN-APP) ---
+    try {
+        const title = status === 'approved' ? 'Leave Approved' :
+            (status === 'rejected' ? 'Leave Rejected' : 'Leave Cancelled');
+
+        const type = status === 'approved' ? 'leave_approval' :
+            (status === 'rejected' ? 'leave_rejection' : 'leave_cancellation');
+
+        const message = status === 'approved'
+            ? `Your leave application for ${leave.start_date} has been approved.`
+            : `Your leave application for ${leave.start_date} has been ${status}. Reason: ${rejection_reason || 'None'}`;
+
+        const recipientEmail = leave.user_email || user?.email;
+
+        if (recipientEmail) {
+            console.log(`[LeaveStatus] Sending in-app notification to ${recipientEmail} for status ${status}`);
+            await Models.Notification.create({
+                tenant_id: leave.tenant_id,
+                recipient_email: recipientEmail,
+                type: type,
+                title: title,
+                message: message,
+                entity_type: 'leave',
+                entity_id: leave._id,
+                category: status === 'approved' ? 'general' : 'alert',
+                read: false,
+                sender_name: approver_id ? 'Manager' : 'System'
+            });
+        } else {
+            console.error('[LeaveStatus] No recipient email found for notification', { leaveId: leave._id, userId: leave.user_id });
+        }
+    } catch (notifErr) {
+        console.error('Failed to create in-app notification for leave status:', notifErr);
     }
 
     return { success: true, leave, balance };

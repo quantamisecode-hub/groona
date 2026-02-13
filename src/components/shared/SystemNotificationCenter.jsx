@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
@@ -34,7 +34,7 @@ export default function SystemNotificationCenter({ currentUser }) {
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['system-notifications', currentUser?.email],
     queryFn: async () => {
-      const allNotifications = await base44.entities.SystemNotification.filter(
+      const allNotifications = await groonabackend.entities.SystemNotification.filter(
         { is_active: true },
         '-created_date'
       );
@@ -68,7 +68,7 @@ export default function SystemNotificationCenter({ currentUser }) {
       const notification = notifications.find(n => n.id === notificationId);
       if (notification) {
         const dismissedBy = [...(notification.dismissed_by || []), currentUser.email];
-        await base44.entities.SystemNotification.update(notificationId, { dismissed_by: dismissedBy });
+        await groonabackend.entities.SystemNotification.update(notificationId, { dismissed_by: dismissedBy });
       }
     },
     onSuccess: () => {
@@ -80,7 +80,7 @@ export default function SystemNotificationCenter({ currentUser }) {
     mutationFn: async () => {
       const promises = notifications.map(n => {
         const dismissedBy = [...(n.dismissed_by || []), currentUser.email];
-        return base44.entities.SystemNotification.update(n.id, { dismissed_by: dismissedBy });
+        return groonabackend.entities.SystemNotification.update(n.id, { dismissed_by: dismissedBy });
       });
       await Promise.all(promises);
     },
@@ -278,3 +278,4 @@ export default function SystemNotificationCenter({ currentUser }) {
     </Sheet>
   );
 }
+

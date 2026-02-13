@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Shield, FileText, Download, Filter, AlertCircle } from "lucide-react";
@@ -24,13 +24,13 @@ export default function AuditLog() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const { data: auditLogs = [], isLoading, refetch } = useQuery({
     queryKey: ['audit-logs', filters],
     queryFn: async () => {
-      let logs = await base44.entities.AuditLog.list('-created_date', 1000);
+      let logs = await groonabackend.entities.AuditLog.list('-created_date', 1000);
       
       // Apply filters
       if (filters.tenant_id !== 'all') {
@@ -65,12 +65,12 @@ export default function AuditLog() {
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-for-audit'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants-for-audit'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
     enabled: currentUser?.is_super_admin,
   });
 
@@ -263,3 +263,4 @@ export default function AuditLog() {
     </div>
   );
 }
+

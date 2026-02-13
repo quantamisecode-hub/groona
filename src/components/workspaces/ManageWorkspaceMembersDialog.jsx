@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ export default function ManageWorkspaceMembersDialog({ open, onClose, workspace,
 
   const { data: users = [] } = useQuery({
     queryKey: ['users-for-workspace'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     enabled: open,
   });
 
@@ -288,3 +288,4 @@ export default function ManageWorkspaceMembersDialog({ open, onClose, workspace,
     </Dialog>
   );
 }
+

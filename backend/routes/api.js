@@ -553,6 +553,63 @@ router.post('/entities/:entity/create', async (req, res) => {
       });
     }
 
+
+
+    // --- LEAVE NOTIFICATION LOGIC ---
+    if (entityName === 'Leave') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const user = await Models.User.findOne({ email: savedItem.user_email });
+
+          // 1. Notify Applicant (Success Confirmation)
+          await Notification.create({
+            tenant_id: savedItem.tenant_id,
+            recipient_email: savedItem.user_email,
+            type: 'leave_application', // generic generic type or specific if added
+            title: 'Leave Application Submitted',
+            message: `Your leave application for ${savedItem.total_days} day(s) starting ${savedItem.start_date} has been submitted successfully.`,
+            entity_type: 'leave',
+            entity_id: savedItem._id,
+            category: 'general',
+            read: false,
+            sender_name: 'System'
+          });
+
+          // 2. Notify Approvers (Admins/Managers)
+          // Find all admins/owners/managers in the tenant
+          const approvers = await Models.User.find({
+            tenant_id: savedItem.tenant_id,
+            role: { $in: ['admin', 'owner', 'manager'] },
+            status: 'active'
+          });
+
+          const applicantName = savedItem.user_name || user?.full_name || savedItem.user_email;
+
+          for (const approver of approvers) {
+            // Don't notify the applicant if they are an admin applying for leave (optional, but good UX)
+            if (approver.email === savedItem.user_email) continue;
+
+            await Notification.create({
+              tenant_id: savedItem.tenant_id,
+              recipient_email: approver.email,
+              type: 'leave_application',
+              title: 'New Leave Application',
+              message: `${applicantName} has applied for leave (${savedItem.leave_type_name}) from ${savedItem.start_date} to ${savedItem.end_date}.`,
+              entity_type: 'leave',
+              entity_id: savedItem._id,
+              category: 'action_request',
+              read: false,
+              sender_name: applicantName
+            });
+          }
+
+        } catch (err) {
+          console.error("Leave Notification Error:", err);
+        }
+      });
+    }
+
     // Handle email notifications asynchronously after response is sent
     // This ensures task creation is not affected by email failures
     if (entityName === 'Task' && savedItem.assigned_to && savedItem.assigned_to.length > 0) {
@@ -1024,12 +1081,12 @@ router.post('/entities/:entity/update', async (req, res) => {
           // Send emails for status changes:
           // 1. submitted -> approved/rejected/cancelled
           // 2. approved -> cancelled (user cancelling approved leave)
-          const shouldSendEmail = (
+          const shouldNotify = (
             ((newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'cancelled') && oldStatus === 'submitted') ||
             (newStatus === 'cancelled' && oldStatus === 'approved')
           );
 
-          if (shouldSendEmail) {
+          if (shouldNotify) {
             const user = await Models.User.findById(updatedDoc.user_id);
             const approverEmail = data.approved_by || updatedDoc.approved_by || 'Administrator';
             const approver = await Models.User.findOne({ email: approverEmail });
@@ -1052,36 +1109,74 @@ router.post('/entities/:entity/update', async (req, res) => {
                 (newStatus === 'rejected' ? 'No reason provided' : 'No reason provided');
             }
 
+            // --- 1. SEND EMAIL ---
             const templateType = newStatus === 'approved' ? 'leave_approved' : 'leave_cancelled';
+            try {
+              await emailService.sendEmail({
+                to: updatedDoc.user_email || user?.email,
+                templateType,
+                data: {
+                  memberName: updatedDoc.user_name || user?.full_name || updatedDoc.user_email,
+                  memberEmail: updatedDoc.user_email || user?.email,
+                  leaveType: updatedDoc.leave_type_name || leaveType?.name || 'Leave',
+                  startDate: updatedDoc.start_date,
+                  endDate: updatedDoc.end_date,
+                  duration: updatedDoc.duration,
+                  totalDays: updatedDoc.total_days,
+                  approvedBy: newStatus === 'approved' ? approverName : undefined,
+                  cancelledBy: (newStatus === 'cancelled' || newStatus === 'rejected') ? approverName : undefined,
+                  reason: (newStatus === 'cancelled' || newStatus === 'rejected') ? description : undefined,
+                  description: description
+                }
+              });
+            } catch (emailErr) {
+              console.error('Failed to send leave status email:', emailErr);
+            }
 
-            await emailService.sendEmail({
-              to: updatedDoc.user_email || user?.email,
-              templateType,
-              data: {
-                memberName: updatedDoc.user_name || user?.full_name || updatedDoc.user_email,
-                memberEmail: updatedDoc.user_email || user?.email,
-                leaveType: updatedDoc.leave_type_name || leaveType?.name || 'Leave',
-                startDate: updatedDoc.start_date,
-                endDate: updatedDoc.end_date,
-                duration: updatedDoc.duration,
-                totalDays: updatedDoc.total_days,
-                approvedBy: newStatus === 'approved' ? approverName : undefined,
-                cancelledBy: (newStatus === 'cancelled' || newStatus === 'rejected') ? approverName : undefined,
-                reason: (newStatus === 'cancelled' || newStatus === 'rejected') ? description : undefined,
-                description: description
+            // --- 2. SEND IN-APP NOTIFICATION ---
+            try {
+              const title = newStatus === 'approved' ? 'Leave Approved' :
+                (newStatus === 'rejected' ? 'Leave Rejected' : 'Leave Cancelled');
+
+              const type = newStatus === 'approved' ? 'leave_approval' :
+                (newStatus === 'rejected' ? 'leave_rejection' : 'leave_cancellation');
+
+              const message = newStatus === 'approved'
+                ? `Your leave application for ${updatedDoc.start_date} has been approved.`
+                : `Your leave application for ${updatedDoc.start_date} has been ${newStatus}. Reason: ${description}`;
+
+              const recipientEmail = updatedDoc.user_email || user?.email;
+
+              if (recipientEmail) {
+                await Models.Notification.create({
+                  tenant_id: updatedDoc.tenant_id,
+                  recipient_email: recipientEmail,
+                  type: type,
+                  title: title,
+                  message: message,
+                  entity_type: 'leave',
+                  entity_id: updatedDoc._id,
+                  category: 'general',
+                  read: false,
+                  sender_name: approverName || 'System'
+                });
+                console.log(`[LeaveStatus] In-app notification sent to ${recipientEmail}`);
+              } else {
+                console.warn('[LeaveStatus] No recipient email for in-app notification');
               }
-            });
+            } catch (notifErr) {
+              console.error('Failed to create in-app notification for leave status:', notifErr);
+            }
           }
         } catch (error) {
-          console.error('Failed to send leave status email:', error);
-          // Email failure does not affect leave status updates
+          console.error('Failed to process leave status updates:', error);
         }
       });
     }
 
     // Handle email notifications for task assignments asynchronously after response is sent
     // This ensures task assignment updates are not affected by email failures
-    if (entityName === 'Task' && data.assigned_to) {
+    if (entityName === 'Task') {
       // Fire and forget - don't await, run asynchronously
       setImmediate(async () => {
         try {
@@ -1092,55 +1187,149 @@ router.post('/entities/:entity/update', async (req, res) => {
             return;
           }
 
-          const oldAssignees = Array.isArray(oldDoc.assigned_to) ? oldDoc.assigned_to : (oldDoc.assigned_to ? [oldDoc.assigned_to] : []);
-          const newAssignees = Array.isArray(updatedDoc.assigned_to) ? updatedDoc.assigned_to : (updatedDoc.assigned_to ? [updatedDoc.assigned_to] : []);
+          // --- 1. MAIN TASK ASSIGNMENT NOTIFICATIONS ---
+          if (data.assigned_to) {
+            const oldAssignees = Array.isArray(oldDoc.assigned_to) ? oldDoc.assigned_to : (oldDoc.assigned_to ? [oldDoc.assigned_to] : []);
+            const newAssignees = Array.isArray(updatedDoc.assigned_to) ? updatedDoc.assigned_to : (updatedDoc.assigned_to ? [updatedDoc.assigned_to] : []);
 
-          // Find newly assigned members (not in old list)
-          const newlyAssigned = newAssignees.filter(email => !oldAssignees.includes(email));
+            // Find newly assigned members (not in old list)
+            const newlyAssigned = newAssignees.filter(email => !oldAssignees.includes(email));
 
-          if (newlyAssigned.length > 0) {
-            // Get project info
-            let projectName = 'No Project';
-            if (updatedDoc.project_id) {
-              const project = await Models.Project.findById(updatedDoc.project_id);
-              if (project) projectName = project.name;
-            }
+            if (newlyAssigned.length > 0) {
+              // ... existing logic for main task assignment ...
+              // Get project info
+              let projectName = 'No Project';
+              if (updatedDoc.project_id) {
+                const project = await Models.Project.findById(updatedDoc.project_id);
+                if (project) projectName = project.name;
+              }
 
-            // Get assigner info
-            const assignerEmail = req.user?.email || updatedDoc.reporter || 'System';
-            const assigner = await Models.User.findOne({ email: assignerEmail });
-            const assignerName = assigner?.full_name || assignerEmail;
+              // Get assigner info
+              const assignerEmail = req.user?.email || updatedDoc.reporter || 'System';
+              const assigner = await Models.User.findOne({ email: assignerEmail });
+              const assignerName = assigner?.full_name || assignerEmail;
 
-            // Send email to each newly assigned member
-            for (const assigneeEmail of newlyAssigned) {
-              try {
-                const assignee = await Models.User.findOne({ email: assigneeEmail });
-                const assigneeName = assignee?.full_name || assigneeEmail;
+              // Send email to each newly assigned member
+              for (const assigneeEmail of newlyAssigned) {
+                try {
+                  const assignee = await Models.User.findOne({ email: assigneeEmail });
+                  const assigneeName = assignee?.full_name || assigneeEmail;
 
-                await emailService.sendEmail({
-                  to: assigneeEmail,
-                  templateType: 'task_assigned',
-                  data: {
-                    assigneeName,
-                    assigneeEmail,
-                    taskTitle: updatedDoc.title,
-                    taskDescription: updatedDoc.description,
-                    projectName,
-                    assignedBy: assignerName,
-                    dueDate: updatedDoc.due_date,
-                    priority: updatedDoc.priority,
-                    taskUrl: updatedDoc.project_id
-                      ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
-                      : `${frontendUrl}/tasks/${updatedDoc._id}`
-                  }
-                });
-              } catch (error) {
-                console.error(`Failed to send task assignment email to ${assigneeEmail}:`, error);
+                  await emailService.sendEmail({
+                    to: assigneeEmail,
+                    templateType: 'task_assigned',
+                    data: {
+                      assigneeName,
+                      assigneeEmail,
+                      taskTitle: updatedDoc.title,
+                      taskDescription: updatedDoc.description,
+                      projectName,
+                      assignedBy: assignerName,
+                      dueDate: updatedDoc.due_date,
+                      priority: updatedDoc.priority,
+                      taskUrl: updatedDoc.project_id
+                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
+                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                    }
+                  });
+                } catch (error) {
+                  console.error(`Failed to send task assignment email to ${assigneeEmail}:`, error);
+                }
               }
             }
           }
+
+          // --- 2. SUBTASK ASSIGNMENT NOTIFICATIONS ---
+          if (updatedDoc.subtasks && Array.isArray(updatedDoc.subtasks)) {
+            const oldSubtasks = Array.isArray(oldDoc.subtasks) ? oldDoc.subtasks : [];
+            const newSubtasks = updatedDoc.subtasks;
+
+            // Map old subtasks by some unique property if possible, ideally _id but fallback to title/index if needed.
+            // Best effort: match by _id if available.
+            const oldSubtaskMap = {};
+            oldSubtasks.forEach(st => {
+              if (st._id) oldSubtaskMap[st._id.toString()] = st;
+            });
+
+            for (const newSt of newSubtasks) {
+              if (!newSt.assigned_to) continue; // Skip if no assignee
+
+              let isNewAssignment = false;
+
+              if (newSt._id && oldSubtaskMap[newSt._id.toString()]) {
+                // Existing subtask: check if assignee changed
+                const oldSt = oldSubtaskMap[newSt._id.toString()];
+                if (oldSt.assigned_to !== newSt.assigned_to) {
+                  isNewAssignment = true;
+                }
+              } else {
+                // New subtask (or at least one we couldn't map by ID), consider it a new assignment
+                isNewAssignment = true;
+              }
+
+              if (isNewAssignment) {
+                const assigneeEmail = newSt.assigned_to;
+
+                // Get project info (if not already fetched above)
+                let projectName = 'No Project';
+                if (updatedDoc.project_id) {
+                  const project = await Models.Project.findById(updatedDoc.project_id);
+                  if (project) projectName = project.name;
+                }
+
+                // Get assigner info
+                const assignerEmail = req.user?.email || updatedDoc.reporter || 'System';
+                const assigner = await Models.User.findOne({ email: assignerEmail });
+                const assignerName = assigner?.full_name || assignerEmail;
+
+                try {
+                  const assignee = await Models.User.findOne({ email: assigneeEmail });
+                  const assigneeName = assignee?.full_name || assigneeEmail;
+
+                  // A. Send Email (Reusing task_assigned template but making title clear it's a subtask)
+                  await emailService.sendEmail({
+                    to: assigneeEmail,
+                    templateType: 'task_assigned', // Reusing task_assigned template for simplicity
+                    data: {
+                      assigneeName,
+                      assigneeEmail,
+                      taskTitle: `[Subtask] ${newSt.title}`, // Prefix with [Subtask]
+                      taskDescription: `Parent Task: ${updatedDoc.title}`,
+                      projectName,
+                      assignedBy: assignerName,
+                      dueDate: newSt.due_date,
+                      priority: 'Normal',
+                      taskUrl: updatedDoc.project_id
+                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
+                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                    }
+                  });
+
+                  // B. Send In-App Notification
+                  await Models.Notification.create({
+                    tenant_id: updatedDoc.tenant_id,
+                    recipient_email: assigneeEmail,
+                    type: 'subtask_assignment', // New type
+                    title: 'Subtask Assigned',
+                    message: `You have been assigned a subtask: "${newSt.title}" in task "${updatedDoc.title}"`,
+                    entity_type: 'task',
+                    entity_id: updatedDoc._id,
+                    project_id: updatedDoc.project_id, // Add project_id for faster navigation
+                    category: 'general',
+                    read: false,
+                    sender_name: assignerName
+                  });
+                  console.log(`[SubtaskNotification] Sent to ${assigneeEmail}`);
+
+                } catch (subErr) {
+                  console.error(`Failed to send subtask notification to ${assigneeEmail}:`, subErr);
+                }
+              }
+            }
+          }
+
         } catch (error) {
-          console.error('Failed to send task assignment emails:', error);
+          console.error('Failed to send task/subtask assignment emails:', error);
           // Email failure does not affect task assignment updates
         }
       });
@@ -1149,6 +1338,7 @@ router.post('/entities/:entity/update', async (req, res) => {
     res.status(500).send(err.message);
   }
 });
+
 router.post('/entities/:entity/delete', async (req, res) => {
   try {
     const { entity } = req.params;

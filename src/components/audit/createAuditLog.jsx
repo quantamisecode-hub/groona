@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * Helper function to create audit log entries
@@ -67,7 +67,7 @@ export async function createAuditLog({
       auditData.user_agent = window.navigator.userAgent;
     }
 
-    await base44.entities.AuditLog.create(auditData);
+    await groonabackend.entities.AuditLog.create(auditData);
   } catch (error) {
     // Silently fail - we don't want audit logging to break the app
     console.error('[AuditLog] Failed to create audit log:', error);
@@ -106,8 +106,8 @@ export function getSeverityForAction(action, entity_type) {
  * 
  * const updateProjectMutation = useMutation({
  *   mutationFn: async ({ id, data }) => {
- *     const oldProject = await base44.entities.Project.filter({ id });
- *     const updated = await base44.entities.Project.update(id, data);
+ *     const oldProject = await groonabackend.entities.Project.filter({ id });
+ *     const updated = await groonabackend.entities.Project.update(id, data);
  *     
  *     // Create audit log
  *     await createAuditLog({
@@ -128,3 +128,4 @@ export function getSeverityForAction(action, entity_type) {
  *   }
  * });
  */
+

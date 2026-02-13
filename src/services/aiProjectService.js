@@ -1,4 +1,4 @@
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 
 /**
  * AI Project Service - Frontend
@@ -141,3 +141,4 @@ export function isProjectCreationResponse(aiResponse) {
   const projectData = parseProjectCreationResponse(aiResponse);
   return projectData !== null && projectData.action === 'create_project';
 }
+

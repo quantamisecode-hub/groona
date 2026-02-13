@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
   // 1. Fetch ONLY the user's balances (Requirement: "show the leave types which... allocated to that particular member")
   const { data: myBalances = [] } = useQuery({
     queryKey: ['leave-balances', currentUser?.id, tenantId],
-    queryFn: () => base44.entities.LeaveBalance.filter({
+    queryFn: () => groonabackend.entities.LeaveBalance.filter({
       tenant_id: tenantId,
       user_id: currentUser.id,
       year: new Date().getFullYear()
@@ -42,7 +42,7 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
   // Fetch pending leave requests
   const { data: pendingLeaves = [], refetch: refetchPendingLeaves } = useQuery({
     queryKey: ['my-pending-leaves', currentUser?.id, tenantId],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       tenant_id: tenantId,
       user_id: currentUser.id,
       status: 'submitted'
@@ -80,7 +80,7 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
         throw new Error(`Insufficient leave balance. Available: ${balance.remaining} days`);
       }
 
-      const leave = await base44.entities.Leave.create({
+      const leave = await groonabackend.entities.Leave.create({
         tenant_id: tenantId,
         user_id: currentUser.id,
         user_email: currentUser.email,
@@ -97,13 +97,13 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
       });
 
       // Update Balance: Enforce "Encumbrance" immediately
-      await base44.entities.LeaveBalance.update(balance.id, {
+      await groonabackend.entities.LeaveBalance.update(balance.id, {
         pending: balance.pending + totalDays,
         remaining: balance.remaining - totalDays
       });
 
       // Create Activity log for new leave application
-      await base44.entities.Activity.create({
+      await groonabackend.entities.Activity.create({
         tenant_id: tenantId,
         action: 'created',
         entity_type: 'leave',
@@ -130,7 +130,7 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
       // Fire and forget - send email asynchronously
       setTimeout(async () => {
         try {
-          await base44.email.sendTemplate({
+          await groonabackend.email.sendTemplate({
             to: currentUser.email,
             templateType: 'leave_submitted',
             data: emailData
@@ -327,3 +327,4 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
     </Dialog>
   );
 }
+

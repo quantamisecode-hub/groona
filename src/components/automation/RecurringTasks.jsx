@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,21 +27,21 @@ export default function RecurringTasks({ currentUser }) {
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: recurringTasks = [] } = useQuery({
     queryKey: ['recurring-tasks'],
-    queryFn: () => base44.entities.RecurringTask.list(),
+    queryFn: () => groonabackend.entities.RecurringTask.list(),
   });
 
   const createRecurringMutation = useMutation({
-    mutationFn: (data) => base44.entities.RecurringTask.create(data),
+    mutationFn: (data) => groonabackend.entities.RecurringTask.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring-tasks'] });
       setShowForm(false);
@@ -58,14 +58,14 @@ export default function RecurringTasks({ currentUser }) {
   });
 
   const updateRecurringMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.RecurringTask.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.RecurringTask.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring-tasks'] });
     },
   });
 
   const deleteRecurringMutation = useMutation({
-    mutationFn: (id) => base44.entities.RecurringTask.delete(id),
+    mutationFn: (id) => groonabackend.entities.RecurringTask.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring-tasks'] });
     },
@@ -285,3 +285,4 @@ export default function RecurringTasks({ currentUser }) {
     </div>
   );
 }
+

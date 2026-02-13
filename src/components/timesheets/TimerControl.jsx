@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Square, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 export default function TimerControl({ task, onTimerStop }) {
   const [isRunning, setIsRunning] = useState(false);
@@ -68,7 +68,7 @@ export default function TimerControl({ task, onTimerStop }) {
     
     setIsStopping(true);
     try {
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       const totalMinutes = Math.floor(elapsedSeconds / 60);
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
@@ -81,7 +81,7 @@ export default function TimerControl({ task, onTimerStop }) {
       // Get location if enabled
       let locationData = null;
       try {
-        const settings = await base44.entities.TenantTimesheetSettings.filter({ 
+        const settings = await groonabackend.entities.TenantTimesheetSettings.filter({ 
           tenant_id: effectiveTenantId 
         });
         
@@ -102,7 +102,7 @@ export default function TimerControl({ task, onTimerStop }) {
       }
 
       // Create draft timesheet entry
-      await base44.entities.Timesheet.create({
+      await groonabackend.entities.Timesheet.create({
         tenant_id: effectiveTenantId,
         user_email: user.email,
         user_name: user.full_name,
@@ -190,3 +190,4 @@ export default function TimerControl({ task, onTimerStop }) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -28,7 +28,7 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => 
         u.tenant_id === effectiveTenantId && 
         u.custom_role !== 'client'
@@ -42,7 +42,7 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
     queryKey: ['user-groups', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.UserGroup.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!open && !!effectiveTenantId,
   });
@@ -58,7 +58,7 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
 
   const updateProjectMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.entities.Project.update(project.id, data);
+      await groonabackend.entities.Project.update(project.id, data);
       
       // If adding a project_manager role, create ProjectUserRole entry
       if (data.team_members) {
@@ -68,7 +68,7 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
         
         for (const member of newMembers) {
           if (member.role === 'project_manager') {
-            await base44.entities.ProjectUserRole.create({
+            await groonabackend.entities.ProjectUserRole.create({
               tenant_id: effectiveTenantId,
               project_id: project.id,
               user_id: users.find(u => u.email === member.email)?.id,
@@ -127,14 +127,14 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
       
       // If removing a project_manager, also delete ProjectUserRole
       if (member?.role === 'project_manager') {
-        const projectRoles = await base44.entities.ProjectUserRole.filter({
+        const projectRoles = await groonabackend.entities.ProjectUserRole.filter({
           project_id: project.id,
           user_email: email,
           role: 'project_manager'
         });
         
         for (const role of projectRoles) {
-          await base44.entities.ProjectUserRole.delete(role.id);
+          await groonabackend.entities.ProjectUserRole.delete(role.id);
         }
       }
       
@@ -284,3 +284,4 @@ export default function ProjectTeamManagement({ open, onClose, project, currentU
     </Dialog>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ export default function SuperAdminSetup() {
 
   const loadUser = async () => {
     try {
-      const user = await base44.auth.me();
+      const user = await groonabackend.auth.me();
       setCurrentUser(user);
       
       if (user.is_super_admin) {
@@ -39,7 +39,7 @@ export default function SuperAdminSetup() {
     setPromoting(true);
     try {
       // Update current user to Super Admin
-      await base44.auth.updateMe({
+      await groonabackend.auth.updateMe({
         is_super_admin: true,
         role: 'admin',
       });
@@ -214,3 +214,4 @@ export default function SuperAdminSetup() {
     </div>
   );
 }
+

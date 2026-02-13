@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,7 @@ export default function SystemHealthOverview({ projects, tasks, users, tenant, a
     queryKey: ['all-project-files', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.ProjectFile.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.ProjectFile.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!effectiveTenantId,
     staleTime: 60 * 1000, // Cache for 1 minute
@@ -61,7 +61,7 @@ export default function SystemHealthOverview({ projects, tasks, users, tenant, a
     queryKey: ['all-documents', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Document.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Document.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!effectiveTenantId,
     staleTime: 60 * 1000,
@@ -74,8 +74,8 @@ export default function SystemHealthOverview({ projects, tasks, users, tenant, a
       if (!effectiveTenantId) return [];
       try {
         // Check if ChatMessage entity exists
-        if (base44.entities.ChatMessage) {
-          return base44.entities.ChatMessage.filter({ tenant_id: effectiveTenantId });
+        if (groonabackend.entities.ChatMessage) {
+          return groonabackend.entities.ChatMessage.filter({ tenant_id: effectiveTenantId });
         }
         return [];
       } catch (error) {
@@ -84,7 +84,7 @@ export default function SystemHealthOverview({ projects, tasks, users, tenant, a
         return [];
       }
     },
-    enabled: !!effectiveTenantId && !!base44.entities.ChatMessage,
+    enabled: !!effectiveTenantId && !!groonabackend.entities.ChatMessage,
     staleTime: 60 * 1000,
     retry: false, // Don't retry if entity doesn't exist
   });
@@ -504,3 +504,4 @@ export default function SystemHealthOverview({ projects, tasks, users, tenant, a
     </div>
   );
 }
+

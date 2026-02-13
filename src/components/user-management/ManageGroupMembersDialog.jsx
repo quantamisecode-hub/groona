@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -27,9 +27,9 @@ export default function ManageGroupMembersDialog({ open, onClose, group, current
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) {
-        return base44.entities.User.list();
+        return groonabackend.entities.User.list();
       }
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
   });
@@ -37,7 +37,7 @@ export default function ManageGroupMembersDialog({ open, onClose, group, current
   // Fetch group memberships
   const { data: memberships = [], isLoading } = useQuery({
     queryKey: ['group-memberships', group.id],
-    queryFn: () => base44.entities.UserGroupMembership.filter({ group_id: group.id }),
+    queryFn: () => groonabackend.entities.UserGroupMembership.filter({ group_id: group.id }),
   });
 
   // Add member mutation
@@ -54,11 +54,11 @@ export default function ManageGroupMembersDialog({ open, onClose, group, current
       };
 
       console.log('[Aivora ManageGroupMembersDialog] Adding member:', membershipData);
-      const newMembership = await base44.entities.UserGroupMembership.create(membershipData);
+      const newMembership = await groonabackend.entities.UserGroupMembership.create(membershipData);
 
       // Log audit entry
       try {
-        await base44.entities.AuditLog.create({
+        await groonabackend.entities.AuditLog.create({
           tenant_id: effectiveTenantId,
           action: 'update',
           entity_type: 'group',
@@ -91,11 +91,11 @@ export default function ManageGroupMembersDialog({ open, onClose, group, current
   const removeMemberMutation = useMutation({
     mutationFn: async (membership) => {
       console.log('[Aivora ManageGroupMembersDialog] Removing member:', membership.user_email);
-      await base44.entities.UserGroupMembership.delete(membership.id);
+      await groonabackend.entities.UserGroupMembership.delete(membership.id);
 
       // Log audit entry
       try {
-        await base44.entities.AuditLog.create({
+        await groonabackend.entities.AuditLog.create({
           tenant_id: effectiveTenantId,
           action: 'update',
           entity_type: 'group',
@@ -265,3 +265,4 @@ export default function ManageGroupMembersDialog({ open, onClose, group, current
     </Dialog>
   );
 }
+

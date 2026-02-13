@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Calendar, Plus, Shield, Users, Settings, BarChart3 } from "lucide-react"; 
+import { Calendar, Plus, Shield, Users, Settings, BarChart3 } from "lucide-react";
 import { useHasPermission } from "../components/shared/usePermissions";
 import ApplyLeaveDialog from "../components/leaves/ApplyLeaveDialog.jsx";
 import LeavesList from "../components/leaves/LeavesList.jsx";
@@ -15,51 +15,51 @@ import LeaveTypesConfig from "../components/leaves/LeaveTypesConfig.jsx";
 import CompOffManager from "../components/leaves/CompOffManager.jsx";
 import LeaveOverviewDashboard from "../components/leaves/LeaveOverviewDashboard.jsx";
 import LeaveGuide from "../components/leaves/LeaveGuide.jsx";
-import AnnualAllocationButton from "../components/leaves/AnnualAllocationButton.jsx"; 
+import AnnualAllocationButton from "../components/leaves/AnnualAllocationButton.jsx";
 import IndividualAllocationButton from "../components/leaves/IndividualAllocationButton.jsx";
 import AllMemberBalances from "../components/leaves/AllMemberBalances.jsx";
 import TeamCalendar from "../components/leaves/TeamCalendar.jsx";
 import { toast } from "sonner";
-import { io } from "socket.io-client"; 
+import { io } from "socket.io-client";
 import { useUser } from "../components/shared/UserContext";
 
 export default function PlannedLeavesPage() {
   // Use global user context to prevent loading spinner on navigation
   const { user: currentUser, effectiveTenantId } = useUser();
-  
+
   const [activeTab, setActiveTab] = useState("overview");
   const [showApplyDialog, setShowApplyDialog] = useState(false);
   const queryClient = useQueryClient();
-  const socketRef = useRef(null); 
+  const socketRef = useRef(null);
 
   const isAdmin = useHasPermission('can_manage_team');
   const canApproveLeaves = useHasPermission('can_approve_timesheet');
   const isProjectManager = currentUser?.custom_role === 'project_manager';
   const isOwner = currentUser?.custom_role === 'owner';
-  
+
   // For project managers: fetch projects they manage to get team members
   const { data: projectRoles = [] } = useQuery({
     queryKey: ['project-user-roles-leaves', currentUser?.id],
-    queryFn: () => base44.entities.ProjectUserRole.filter({
+    queryFn: () => groonabackend.entities.ProjectUserRole.filter({
       user_id: currentUser.id,
       role: 'project_manager'
     }),
     enabled: !!currentUser?.id && isProjectManager,
     staleTime: 5 * 60 * 1000,
   });
-  
+
   const { data: managedProjects = [] } = useQuery({
     queryKey: ['managed-projects-leaves', projectRoles.map(r => r.project_id)],
     queryFn: async () => {
       if (projectRoles.length === 0) return [];
       const projectIds = projectRoles.map(r => r.project_id);
-      const allProjects = await base44.entities.Project.list();
+      const allProjects = await groonabackend.entities.Project.list();
       return allProjects.filter(p => projectIds.includes(p.id));
     },
     enabled: isProjectManager && projectRoles.length > 0,
     staleTime: 5 * 60 * 1000,
   });
-  
+
   // Get team member emails from projects managed by project manager
   const teamMemberEmails = useMemo(() => {
     if (!isProjectManager || !managedProjects.length) return [];
@@ -91,7 +91,7 @@ export default function PlannedLeavesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-leaves'] });
       queryClient.invalidateQueries({ queryKey: ['all-leaves'] });
       queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
-      queryClient.invalidateQueries({ queryKey: ['all-leave-balances'] }); 
+      queryClient.invalidateQueries({ queryKey: ['all-leave-balances'] });
       queryClient.invalidateQueries({ queryKey: ['comp-off-credits'] });
       queryClient.invalidateQueries({ queryKey: ['my-leaves-overview'] });
       toast.info("Leave data updated");
@@ -106,11 +106,11 @@ export default function PlannedLeavesPage() {
   // For project managers: show their own leaves (not admin, so they see their personal leaves)
   const { data: myLeaves = [] } = useQuery({
     queryKey: ['my-leaves', currentUser?.email],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       user_email: currentUser.email
     }, '-created_date'),
     enabled: !!currentUser && (!isAdmin || isProjectManager), // Project managers see their own leaves
-    staleTime: 1000 * 60 * 15, 
+    staleTime: 1000 * 60 * 15,
     refetchOnWindowFocus: false,
   });
 
@@ -119,13 +119,13 @@ export default function PlannedLeavesPage() {
     queryKey: ['all-tenant-users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!effectiveTenantId && isProjectManager,
     staleTime: 5 * 60 * 1000,
   });
-  
+
   // Get emails of all project managers in the tenant (excluding current user)
   const otherProjectManagerEmails = useMemo(() => {
     if (!isProjectManager || !allTenantUsers.length) return [];
@@ -138,20 +138,20 @@ export default function PlannedLeavesPage() {
   const { data: allLeaves = [] } = useQuery({
     queryKey: ['all-leaves', effectiveTenantId, isProjectManager, otherProjectManagerEmails],
     queryFn: async () => {
-      const allLeavesData = await base44.entities.Leave.filter({
+      const allLeavesData = await groonabackend.entities.Leave.filter({
         tenant_id: effectiveTenantId
       }, '-created_date');
-      
+
       // If project manager (not owner), filter to exclude:
       // 1. Their own leaves
       // 2. Other project managers' leaves
       if (isProjectManager && !isOwner) {
-        return allLeavesData.filter(leave => 
+        return allLeavesData.filter(leave =>
           leave.user_email !== currentUser?.email && // Exclude project manager's own leaves
           !otherProjectManagerEmails.includes(leave.user_email) // Exclude other project managers' leaves
         );
       }
-      
+
       return allLeavesData;
     },
     enabled: !!effectiveTenantId && (isAdmin || canApproveLeaves || isProjectManager),
@@ -161,7 +161,7 @@ export default function PlannedLeavesPage() {
 
   // Don't show loader if user is already in context
   if (!currentUser) {
-    return null; 
+    return null;
   }
 
   return (
@@ -178,14 +178,14 @@ export default function PlannedLeavesPage() {
                   </h1>
                   <p className="text-slate-600">
                     {isAdmin && !isProjectManager
-                      ? "Manage employee leaves, approvals, and configurations" 
+                      ? "Manage employee leaves, approvals, and configurations"
                       : isProjectManager
-                      ? "Apply for leave, track balances, and approve team members' leaves"
-                      : "Apply for leave, track balances, and manage approvals"
+                        ? "Apply for leave, track balances, and approve team members' leaves"
+                        : "Apply for leave, track balances, and manage approvals"
                     }
                   </p>
                 </div>
-                
+
                 {(!isAdmin || isProjectManager) && (
                   <Button
                     onClick={() => setShowApplyDialog(true)}
@@ -201,54 +201,54 @@ export default function PlannedLeavesPage() {
 
             {/* Sticky Tabs Section */}
             <div className="px-4 md:px-6 lg:px-8 pb-2">
-              <TabsList className="bg-white/80 backdrop-blur-xl flex-wrap h-auto">
-              <TabsTrigger value="overview" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" /> Overview
-              </TabsTrigger>
-              
-              {(!isAdmin || isProjectManager) && (
-                <>
-                  <TabsTrigger value="my-leaves" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" /> My Leaves
-                  </TabsTrigger>
-                  <TabsTrigger value="balances" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" /> Balances
-                  </TabsTrigger>
-                </>
-              )}
-              
-              {(isAdmin || canApproveLeaves || isProjectManager) && (
-                <TabsTrigger value="approvals" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Approvals
-                  {allLeaves.filter(l => l.status === 'submitted').length > 0 && (
-                    <Badge className="ml-1 bg-orange-500 text-white">
-                      {allLeaves.filter(l => l.status === 'submitted').length}
-                    </Badge>
-                  )}
+              <TabsList className="bg-white/80 backdrop-blur-xl w-full justify-start overflow-x-auto flex-nowrap h-auto scrollbar-hide py-1">
+                <TabsTrigger value="overview" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Overview
                 </TabsTrigger>
-              )}
-              
-              {(isAdmin || isProjectManager) && (
-                <>
-                  <TabsTrigger value="team-calendar" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" /> Team Calendar
+
+                {(!isAdmin || isProjectManager) && (
+                  <>
+                    <TabsTrigger value="my-leaves" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" /> My Leaves
+                    </TabsTrigger>
+                    <TabsTrigger value="balances" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" /> Balances
+                    </TabsTrigger>
+                  </>
+                )}
+
+                {(isAdmin || canApproveLeaves || isProjectManager) && (
+                  <TabsTrigger value="approvals" className="flex items-center gap-2">
+                    <Users className="h-4 w-4" /> Approvals
+                    {allLeaves.filter(l => l.status === 'submitted').length > 0 && (
+                      <Badge className="ml-1 bg-orange-500 text-white">
+                        {allLeaves.filter(l => l.status === 'submitted').length}
+                      </Badge>
+                    )}
                   </TabsTrigger>
-                  <TabsTrigger value="team-balances" className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4" /> Team Balances
-                  </TabsTrigger>
-                </>
-              )}
-              
-              {isAdmin && !isProjectManager && (
-                <>
-                  <TabsTrigger value="comp-off" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" /> Comp Off
-                  </TabsTrigger>
-                  <TabsTrigger value="config" className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" /> Configuration
-                  </TabsTrigger>
-                </>
-              )}
+                )}
+
+                {(isAdmin || isProjectManager) && (
+                  <>
+                    <TabsTrigger value="team-calendar" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" /> Team Calendar
+                    </TabsTrigger>
+                    <TabsTrigger value="team-balances" className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" /> Team Balances
+                    </TabsTrigger>
+                  </>
+                )}
+
+                {isAdmin && !isProjectManager && (
+                  <>
+                    <TabsTrigger value="comp-off" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" /> Comp Off
+                    </TabsTrigger>
+                    <TabsTrigger value="config" className="flex items-center gap-2">
+                      <Settings className="h-4 w-4" /> Configuration
+                    </TabsTrigger>
+                  </>
+                )}
               </TabsList>
             </div>
           </div>
@@ -274,9 +274,9 @@ export default function PlannedLeavesPage() {
 
               {(isAdmin || canApproveLeaves || isProjectManager) && (
                 <TabsContent value="approvals" className="mt-4">
-                  <LeaveApprovals 
-                    leaves={allLeaves} 
-                    currentUser={currentUser} 
+                  <LeaveApprovals
+                    leaves={allLeaves}
+                    currentUser={currentUser}
                     tenantId={effectiveTenantId}
                     isProjectManager={isProjectManager}
                     otherProjectManagerEmails={otherProjectManagerEmails}
@@ -289,7 +289,7 @@ export default function PlannedLeavesPage() {
                   <TabsContent value="team-calendar" className="mt-4">
                     <TeamCalendar currentUser={currentUser} tenantId={effectiveTenantId} />
                   </TabsContent>
-                  
+
                   <TabsContent value="team-balances" className="mt-4">
                     <AllMemberBalances tenantId={effectiveTenantId} />
                   </TabsContent>
@@ -301,7 +301,7 @@ export default function PlannedLeavesPage() {
                   <TabsContent value="comp-off" className="mt-4">
                     <CompOffManager currentUser={currentUser} tenantId={effectiveTenantId} />
                   </TabsContent>
-                  
+
                   <TabsContent value="config" className="mt-4">
                     <div className="flex justify-end mb-4 gap-2">
                       <IndividualAllocationButton tenantId={effectiveTenantId} />
@@ -324,3 +324,4 @@ export default function PlannedLeavesPage() {
     </div>
   );
 }
+

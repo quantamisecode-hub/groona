@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * Notification Service
@@ -12,9 +12,9 @@ export const notificationService = {
     if (!projectId) return null;
     try {
       // Try both id and _id
-      let projects = await base44.entities.Project.filter({ id: projectId });
+      let projects = await groonabackend.entities.Project.filter({ id: projectId });
       if (!projects || projects.length === 0) {
-        projects = await base44.entities.Project.filter({ _id: projectId });
+        projects = await groonabackend.entities.Project.filter({ _id: projectId });
       }
       return projects[0];
     } catch (e) {
@@ -30,9 +30,9 @@ export const notificationService = {
     if (!sprintId) return null;
     try {
       // Try both id and _id
-      let sprints = await base44.entities.Sprint.filter({ id: sprintId });
+      let sprints = await groonabackend.entities.Sprint.filter({ id: sprintId });
       if (!sprints || sprints.length === 0) {
-        sprints = await base44.entities.Sprint.filter({ _id: sprintId });
+        sprints = await groonabackend.entities.Sprint.filter({ _id: sprintId });
       }
       return sprints[0];
     } catch (e) {
@@ -50,7 +50,7 @@ export const notificationService = {
       // Check if it's already a name (no @)
       if (!email.includes('@')) return email;
 
-      const users = await base44.entities.User.filter({ email: email });
+      const users = await groonabackend.entities.User.filter({ email: email });
       if (users && users.length > 0) {
         return users[0].full_name || users[0].email;
       }
@@ -88,7 +88,7 @@ export const notificationService = {
 
     try {
       if (notifications.length > 0) {
-        await base44.entities.Notification.bulkCreate(notifications);
+        await groonabackend.entities.Notification.bulkCreate(notifications);
       }
     } catch (error) {
       console.error('[NotificationService] Failed to create task assignment notifications:', error);
@@ -105,7 +105,7 @@ export const notificationService = {
 
     try {
       if (projectOwner) {
-        await base44.entities.Notification.create({
+        await groonabackend.entities.Notification.create({
           tenant_id: tenantId,
           recipient_email: projectOwner,
           type: 'task_completed',
@@ -152,9 +152,9 @@ export const notificationService = {
       // For task comments, fetch the task to get project_id and sprint_id
       try {
         // Try both id and _id
-        let tasks = await base44.entities.Task.filter({ id: entityId });
+        let tasks = await groonabackend.entities.Task.filter({ id: entityId });
         if (!tasks || tasks.length === 0) {
-          tasks = await base44.entities.Task.filter({ _id: entityId });
+          tasks = await groonabackend.entities.Task.filter({ _id: entityId });
         }
         const task = tasks[0];
         if (task) {
@@ -260,7 +260,7 @@ export const notificationService = {
 
     try {
       if (notifications.length > 0) {
-        await base44.entities.Notification.bulkCreate(notifications);
+        await groonabackend.entities.Notification.bulkCreate(notifications);
       }
     } catch (error) {
       console.error('[NotificationService] Failed to create project update notifications:', error);
@@ -278,9 +278,9 @@ export const notificationService = {
     try {
       if (entityType === 'task') {
         // Try both id and _id
-        let tasks = await base44.entities.Task.filter({ id: entityId });
+        let tasks = await groonabackend.entities.Task.filter({ id: entityId });
         if (!tasks || tasks.length === 0) {
-          tasks = await base44.entities.Task.filter({ _id: entityId });
+          tasks = await groonabackend.entities.Task.filter({ _id: entityId });
         }
         const task = tasks[0];
         if (task) {
@@ -334,10 +334,11 @@ export const notificationService = {
 
     try {
       if (notifications.length > 0) {
-        await base44.entities.Notification.bulkCreate(notifications);
+        await groonabackend.entities.Notification.bulkCreate(notifications);
       }
     } catch (error) {
       console.error('[NotificationService] Failed to create comment notifications:', error);
     }
   }
 };
+

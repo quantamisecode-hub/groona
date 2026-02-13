@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -221,14 +221,14 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   const { data: project } = useQuery({
     queryKey: ['project', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return null;
-      const projects = await base44.entities.Project.list();
+      const projects = await groonabackend.entities.Project.list();
       return projects.find(p => (p.id === currentProjectId) || (p._id === currentProjectId));
     },
     enabled: !!currentProjectId && open,
@@ -238,7 +238,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     queryKey: ['users', validTenantId],
     queryFn: async () => {
       if (!validTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(user =>
         user.tenant_id === validTenantId &&
         !user.is_super_admin &&
@@ -253,7 +253,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     queryKey: ['rework-alarms', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return await base44.entities.Notification.filter({
+      return await groonabackend.entities.Notification.filter({
         tenant_id: effectiveTenantId,
         type: 'high_rework_alarm',
         status: 'OPEN'
@@ -267,21 +267,21 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
 
   const { data: sprints = [] } = useQuery({
     queryKey: ['sprints', currentProjectId],
-    queryFn: () => base44.entities.Sprint.filter({ project_id: currentProjectId }),
+    queryFn: () => groonabackend.entities.Sprint.filter({ project_id: currentProjectId }),
     enabled: !!currentProjectId,
   });
 
   const { data: stories = [] } = useQuery({
     queryKey: ['stories', currentProjectId],
     queryFn: () => currentProjectId
-      ? base44.entities.Story.filter({ project_id: currentProjectId })
-      : base44.entities.Story.list(),
+      ? groonabackend.entities.Story.filter({ project_id: currentProjectId })
+      : groonabackend.entities.Story.list(),
     enabled: open, // Enable if modal is open, regardless of currentProjectId
   });
 
   const { data: epics = [] } = useQuery({
     queryKey: ['epics', currentProjectId],
-    queryFn: () => base44.entities.Epic.filter({ project_id: currentProjectId }),
+    queryFn: () => groonabackend.entities.Epic.filter({ project_id: currentProjectId }),
     enabled: !!currentProjectId && open,
   });
 
@@ -290,14 +290,14 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     queryKey: ['impediments', currentProjectId],
     queryFn: async () => {
       if (!currentProjectId) return [];
-      return await base44.entities.Impediment.filter({ project_id: currentProjectId });
+      return await groonabackend.entities.Impediment.filter({ project_id: currentProjectId });
     },
     enabled: !!currentProjectId && open,
   });
 
   const { data: tasks = [] } = useQuery({
     queryKey: ['tasks', currentProjectId],
-    queryFn: () => base44.entities.Task.filter({ project_id: currentProjectId }),
+    queryFn: () => groonabackend.entities.Task.filter({ project_id: currentProjectId }),
     enabled: !!currentProjectId,
   });
 
@@ -320,7 +320,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
 
     try {
       const uploadPromises = files.map(async (file) => {
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
         return {
           name: file.name,
           url: file_url,
@@ -374,7 +374,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         attachments: data.attachments || [],
         progress: 0,
       };
-      return await base44.entities.Epic.create(epicData);
+      return await groonabackend.entities.Epic.create(epicData);
     },
     onSuccess: async (newEpic) => {
       queryClient.invalidateQueries({ queryKey: ['epics', currentProjectId] });
@@ -384,7 +384,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         if (selectedEpicImpedimentId && selectedEpicImpedimentId !== "new" && selectedEpicImpedimentId !== "") {
           // Link epic to existing impediment
           try {
-            await base44.entities.Impediment.update(selectedEpicImpedimentId, {
+            await groonabackend.entities.Impediment.update(selectedEpicImpedimentId, {
               epic_id: newEpic.id || newEpic._id,
             });
             toast.success('Epic created and linked to impediment successfully!');
@@ -407,7 +407,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
               reported_by: currentUser?.email,
               reported_by_name: currentUser?.full_name || currentUser?.email,
             };
-            await base44.entities.Impediment.create(impedimentPayload);
+            await groonabackend.entities.Impediment.create(impedimentPayload);
             toast.success('Epic and impediment created successfully!');
             queryClient.invalidateQueries({ queryKey: ['impediments', currentProjectId] });
           } catch (error) {
@@ -449,7 +449,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         labels: data.labels,
         epic_id: data.epic_id || undefined,
       };
-      return await base44.entities.Story.create(storyData);
+      return await groonabackend.entities.Story.create(storyData);
     },
     onSuccess: async (newStory) => {
       queryClient.invalidateQueries({ queryKey: ['stories', currentProjectId] });
@@ -459,7 +459,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         if (selectedStoryImpedimentId && selectedStoryImpedimentId !== "new" && selectedStoryImpedimentId !== "") {
           // Link story to existing impediment
           try {
-            await base44.entities.Impediment.update(selectedStoryImpedimentId, {
+            await groonabackend.entities.Impediment.update(selectedStoryImpedimentId, {
               story_id: newStory.id || newStory._id,
               epic_id: storyData.epic_id || undefined,
             });
@@ -484,7 +484,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
               reported_by: currentUser?.email,
               reported_by_name: currentUser?.full_name || currentUser?.email,
             };
-            await base44.entities.Impediment.create(impedimentPayload);
+            await groonabackend.entities.Impediment.create(impedimentPayload);
             toast.success('Story and impediment created successfully!');
             queryClient.invalidateQueries({ queryKey: ['impediments', currentProjectId] });
           } catch (error) {
@@ -570,11 +570,11 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         ai_metadata: (data.ai_metadata && typeof data.ai_metadata === 'object') ? data.ai_metadata : {}
       };
 
-      const newTask = await base44.entities.Task.create(cleanData);
+      const newTask = await groonabackend.entities.Task.create(cleanData);
 
       if (validTenantId) {
         try {
-          await base44.entities.Activity.create({
+          await groonabackend.entities.Activity.create({
             tenant_id: validTenantId,
             action: 'created',
             entity_type: 'task',
@@ -591,14 +591,15 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         await Promise.all(newTask.assigned_to.map(async (assigneeEmail) => {
           if (assigneeEmail !== currentUser.email) {
             try {
-              await base44.entities.Notification.create({
+              await groonabackend.entities.Notification.create({
                 tenant_id: validTenantId,
                 recipient_email: assigneeEmail,
                 type: 'task_assigned',
                 title: 'New Task Assigned',
                 message: `${currentUser.full_name} assigned you to task: ${newTask.title}`,
                 entity_type: 'task',
-                entity_id: newTask.id,
+                entity_id: newTask.id || newTask._id,
+                project_id: newTask.project_id || currentProjectId,
                 sender_name: currentUser.full_name,
               });
             } catch (notifError) {
@@ -739,7 +740,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
       }
 
       // Update impediment to link to task
-      await base44.entities.Impediment.update(selectedImpedimentId, {
+      await groonabackend.entities.Impediment.update(selectedImpedimentId, {
         task_id: newTask.id || newTask._id,
         sprint_id: sprintId || undefined,
         story_id: storyId || undefined,
@@ -792,7 +793,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         reported_by_name: currentUser?.full_name || currentUser?.email,
       };
 
-      await base44.entities.Impediment.create(impedimentPayload);
+      await groonabackend.entities.Impediment.create(impedimentPayload);
       toast.success('Task and impediment created successfully!');
       queryClient.invalidateQueries({ queryKey: ['impediments', currentProjectId] });
       if (sprintId) {
@@ -860,7 +861,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         reported_by_name: currentUser?.full_name || currentUser?.email,
       };
 
-      const newImpediment = await base44.entities.Impediment.create(impedimentPayload);
+      const newImpediment = await groonabackend.entities.Impediment.create(impedimentPayload);
       toast.success('Impediment reported successfully!');
 
       setImpedimentData({
@@ -983,7 +984,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
       
       Output only the description text (no JSON, no markdown formatting, just plain descriptive text).`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -1021,7 +1022,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
       
       Output only the description text (no JSON, no markdown formatting, just plain descriptive text).`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -2128,3 +2129,5 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     </Dialog>
   );
 }
+
+

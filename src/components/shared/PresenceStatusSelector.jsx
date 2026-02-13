@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,7 @@ export default function PresenceStatusSelector({ user }) {
   const handleStatusChange = async (newStatus) => {
     setUpdating(true);
     try {
-      await base44.auth.updateMe({
+      await groonabackend.auth.updateMe({
         presence_status: newStatus,
         last_seen: new Date().toISOString(),
       });
@@ -78,3 +78,4 @@ export default function PresenceStatusSelector({ user }) {
     </DropdownMenu>
   );
 }
+

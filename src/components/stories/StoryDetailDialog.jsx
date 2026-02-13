@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
 import {
@@ -48,9 +48,9 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
     queryKey: ["story-detail", storyId],
     queryFn: async () => {
       if (!storyId) return null;
-      let stories = await base44.entities.Story.filter({ _id: storyId });
+      let stories = await groonabackend.entities.Story.filter({ _id: storyId });
       if (!stories || stories.length === 0) {
-        stories = await base44.entities.Story.filter({ id: storyId });
+        stories = await groonabackend.entities.Story.filter({ id: storyId });
       }
       return stories[0] || null;
     },
@@ -63,9 +63,9 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
     queryKey: ["project", story?.project_id],
     queryFn: async () => {
       if (!story?.project_id) return null;
-      let projects = await base44.entities.Project.filter({ _id: story.project_id });
+      let projects = await groonabackend.entities.Project.filter({ _id: story.project_id });
       if (!projects || projects.length === 0) {
-        projects = await base44.entities.Project.filter({ id: story.project_id });
+        projects = await groonabackend.entities.Project.filter({ id: story.project_id });
       }
       return projects[0] || null;
     },
@@ -74,7 +74,7 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ["all-users"],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -85,7 +85,7 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
       if (allUsers.length > 0) {
         return allUsers.filter(u => story.assigned_to.includes(u.email));
       }
-      const users = await base44.entities.User.list();
+      const users = await groonabackend.entities.User.list();
       return users.filter(u => story.assigned_to.includes(u.email));
     },
     enabled: !!story?.assigned_to && story.assigned_to.length > 0,
@@ -95,7 +95,7 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
     queryKey: ["story-tasks", storyId, story?.project_id],
     queryFn: async () => {
       if (!storyId || !story?.project_id) return [];
-      const tasks = await base44.entities.Task.filter({ project_id: story.project_id });
+      const tasks = await groonabackend.entities.Task.filter({ project_id: story.project_id });
       return tasks.filter(t => {
         const taskStoryId = t.story_id?.id || t.story_id?._id || t.story_id;
         return String(taskStoryId) === String(storyId);
@@ -518,3 +518,5 @@ export default function StoryDetailDialog({ open, onClose, storyId, initialStory
     </>
   );
 }
+
+

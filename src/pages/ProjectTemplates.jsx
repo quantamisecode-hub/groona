@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -13,7 +13,7 @@ export default function ProjectTemplatesPage() {
   const [currentUser, setCurrentUser] = React.useState(null);
 
   React.useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
   }, []);
 
   const createProjectFromTemplate = useMutation({
@@ -34,12 +34,12 @@ export default function ProjectTemplatesPage() {
         projectData.deadline = format(addDays(new Date(), template.estimated_duration_days), 'yyyy-MM-dd');
       }
 
-      const newProject = await base44.entities.Project.create(projectData);
+      const newProject = await groonabackend.entities.Project.create(projectData);
 
       // Create tasks from template
       if (template.task_templates && template.task_templates.length > 0) {
         const taskPromises = template.task_templates.map(taskTemplate => {
-          return base44.entities.Task.create({
+          return groonabackend.entities.Task.create({
             tenant_id: currentUser?.tenant_id,
             project_id: newProject.id,
             title: taskTemplate.title,
@@ -56,13 +56,13 @@ export default function ProjectTemplatesPage() {
       }
 
       // Update template usage count
-      await base44.entities.ProjectTemplate.update(template.id, {
+      await groonabackend.entities.ProjectTemplate.update(template.id, {
         usage_count: (template.usage_count || 0) + 1,
       });
 
       // Create activity
       if (currentUser) {
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: currentUser.tenant_id,
           action: 'created',
           entity_type: 'project',
@@ -101,3 +101,4 @@ export default function ProjectTemplatesPage() {
     </div>
   );
 }
+

@@ -2,7 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Lock, AlertTriangle } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 export default function SubscriptionExpired() {
   return (
@@ -26,18 +26,18 @@ export default function SubscriptionExpired() {
               Access to the platform is restricted until your subscription is updated. Please contact support or your administrator to upgrade your plan.
             </p>
           </div>
-          
+
           <div className="flex flex-col gap-3">
-            <Button 
+            <Button
               className="w-full bg-slate-900 hover:bg-slate-800"
               onClick={() => window.location.href = 'mailto:support@base44.com'}
             >
               Contact Support
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full"
-              onClick={() => base44.auth.logout()}
+              onClick={() => groonabackend.auth.logout()}
             >
               Sign Out
             </Button>
@@ -47,3 +47,4 @@ export default function SubscriptionExpired() {
     </div>
   );
 }
+

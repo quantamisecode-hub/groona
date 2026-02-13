@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, X, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 export default function TeamSetupStep({ data, tenant, user, onNext }) {
   const [invites, setInvites] = useState(data.team_setup?.invites || []);
@@ -40,7 +40,7 @@ export default function TeamSetupStep({ data, tenant, user, onNext }) {
       const invitationLink = `${window.location.origin}/accept-invitation?email=${encodeURIComponent(newInvite.email)}&tenant_id=${tenant.id}&role=${systemRole}&custom_role=${customRole}`;
       
       // Send invitation email
-      await base44.integrations.Core.SendEmail({
+      await groonabackend.integrations.Core.SendEmail({
         to: newInvite.email,
         subject: `You've been invited to join ${tenant.name || 'GROONA'}`,
         body: `
@@ -204,3 +204,4 @@ export default function TeamSetupStep({ data, tenant, user, onNext }) {
     </form>
   );
 }
+

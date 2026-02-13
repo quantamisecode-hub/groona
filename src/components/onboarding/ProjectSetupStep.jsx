@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
       
       The description should be relevant to the project name "${projectName}" and appropriate for a ${industryContext}. Return the response as a JSON object with "description" and "priority" fields.`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         response_json_schema: {
           type: "object",
@@ -112,7 +112,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
       const createdProjects = [];
       
       for (const project of validProjects) {
-        const newProject = await base44.entities.Project.create({
+        const newProject = await groonabackend.entities.Project.create({
           tenant_id: tenant.id,
           name: project.name.trim(),
           description: project.description.trim(),
@@ -123,7 +123,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
         });
 
         // Create activity
-        await base44.entities.Activity.create({
+        await groonabackend.entities.Activity.create({
           tenant_id: tenant.id,
           action: 'created',
           entity_type: 'project',
@@ -284,3 +284,4 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
     </div>
   );
 }
+

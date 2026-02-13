@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import axios from 'axios';
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,18 +64,18 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ['project-expenses', projectId],
-    queryFn: () => base44.entities.ProjectExpense.filter({ project_id: projectId }, '-date'),
+    queryFn: () => groonabackend.entities.ProjectExpense.filter({ project_id: projectId }, '-date'),
     enabled: !!projectId,
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: timesheets = [] } = useQuery({
     queryKey: ['project-timesheets', projectId],
-    queryFn: () => base44.entities.Timesheet.filter({ project_id: projectId, status: 'approved' }),
+    queryFn: () => groonabackend.entities.Timesheet.filter({ project_id: projectId, status: 'approved' }),
     enabled: !!projectId,
   });
 
@@ -97,7 +97,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
         expenseData.approved_at = new Date().toISOString();
       }
 
-      return base44.entities.ProjectExpense.create(expenseData);
+      return groonabackend.entities.ProjectExpense.create(expenseData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-expenses', projectId] });
@@ -117,7 +117,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
   });
 
   const updateExpenseMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProjectExpense.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.ProjectExpense.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-expenses', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -129,7 +129,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
   });
 
   const deleteExpenseMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProjectExpense.delete(id),
+    mutationFn: (id) => groonabackend.entities.ProjectExpense.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project-expenses', projectId] });
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -139,7 +139,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
   });
 
   const updateBudgetMutation = useMutation({
-    mutationFn: (data) => base44.entities.Project.update(projectId, data),
+    mutationFn: (data) => groonabackend.entities.Project.update(projectId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -201,7 +201,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
     setLoadingForecast(true);
     setShowForecast(true);
     try {
-      const result = await base44.functions.invoke('forecastProjectCost', { project_id: projectId });
+      const result = await groonabackend.functions.invoke('forecastProjectCost', { project_id: projectId });
       setForecast(result.data);
     } catch (error) {
       toast.error('Failed to generate forecast');
@@ -653,3 +653,4 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
     </div>
   );
 }
+

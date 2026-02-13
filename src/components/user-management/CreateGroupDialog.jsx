@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -45,11 +45,11 @@ export default function CreateGroupDialog({ open, onClose, currentUser, effectiv
       };
 
       console.log('[Aivora CreateGroupDialog] Creating group with data:', groupData);
-      const newGroup = await base44.entities.UserGroup.create(groupData);
+      const newGroup = await groonabackend.entities.UserGroup.create(groupData);
 
       // Log audit entry
       try {
-        await base44.entities.AuditLog.create({
+        await groonabackend.entities.AuditLog.create({
           tenant_id: effectiveTenantId,
           action: 'create',
           entity_type: 'group',
@@ -172,3 +172,4 @@ export default function CreateGroupDialog({ open, onClose, currentUser, effectiv
     </Dialog>
   );
 }
+

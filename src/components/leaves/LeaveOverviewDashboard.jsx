@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,13 @@ export default function LeaveOverviewDashboard({ currentUser, tenantId, onApplyL
   // Fetch all users to get profile pictures
   const { data: allUsers = [] } = useQuery({
     queryKey: ['users-list'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   // Fetch my leaves
   const { data: myLeaves = [] } = useQuery({
     queryKey: ['my-leaves-overview', currentUser?.email],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       user_email: currentUser.email
     }),
     enabled: !!currentUser,
@@ -36,7 +36,7 @@ export default function LeaveOverviewDashboard({ currentUser, tenantId, onApplyL
   // Fetch ALL leaves for Tenant (if Admin) or just Approved (if Employee)
   const { data: allTenantLeaves = [] } = useQuery({
     queryKey: ['all-tenant-leaves', tenantId],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       tenant_id: tenantId
     }),
     enabled: !!tenantId && isAdmin,
@@ -45,7 +45,7 @@ export default function LeaveOverviewDashboard({ currentUser, tenantId, onApplyL
   // Fetch approved leaves for team visibility (available to everyone)
   const { data: teamLeaves = [] } = useQuery({
     queryKey: ['team-leaves-overview', tenantId],
-    queryFn: () => base44.entities.Leave.filter({
+    queryFn: () => groonabackend.entities.Leave.filter({
       tenant_id: tenantId,
       status: 'approved'
     }),
@@ -55,7 +55,7 @@ export default function LeaveOverviewDashboard({ currentUser, tenantId, onApplyL
   // Fetch my balances
   const { data: balances = [] } = useQuery({
     queryKey: ['my-balances-overview', currentUser?.id],
-    queryFn: () => base44.entities.LeaveBalance.filter({
+    queryFn: () => groonabackend.entities.LeaveBalance.filter({
       tenant_id: tenantId,
       user_id: currentUser.id,
       year: new Date().getFullYear()
@@ -290,3 +290,4 @@ export default function LeaveOverviewDashboard({ currentUser, tenantId, onApplyL
     </div>
   );
 }
+

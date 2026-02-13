@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ export default function AISubscriptionManagement() {
   const [recommendations, setRecommendations] = useState([]);
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = createPageUrl("Dashboard");
       }
@@ -30,17 +30,17 @@ export default function AISubscriptionManagement() {
 
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list('-created_date'),
+    queryFn: () => groonabackend.entities.Tenant.list('-created_date'),
   });
 
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   const { data: allProjects = [] } = useQuery({
     queryKey: ['all-projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   // Generate AI insights
@@ -82,7 +82,7 @@ Please provide:
 
 Format as structured JSON with sections: revenue_opportunities, churn_risks, upsell_candidates, resource_warnings, growth_insights, action_items`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: prompt,
         response_json_schema: {
           type: "object",
@@ -122,7 +122,7 @@ Format as structured JSON with sections: revenue_opportunities, churn_risks, ups
 Tenant Details:
 ${tenants.slice(0, 10).map(t => `${t.name}: ${t.subscription_plan} (${t.status})`).join('\n')}`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: `${context}\n\nUser Question: ${chatInput}\n\nProvide a strategic answer for the platform administrator.`
       });
 
@@ -415,3 +415,4 @@ ${tenants.slice(0, 10).map(t => `${t.name}: ${t.subscription_plan} (${t.status})
     </div>
   );
 }
+

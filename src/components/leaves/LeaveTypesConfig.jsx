@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default function LeaveTypesConfig({ tenantId, currentUser }) {
   // Fetch leave types
   const { data: leaveTypes = [] } = useQuery({
     queryKey: ['leave-types', tenantId],
-    queryFn: () => base44.entities.LeaveType.filter({ tenant_id: tenantId }),
+    queryFn: () => groonabackend.entities.LeaveType.filter({ tenant_id: tenantId }),
     enabled: !!tenantId,
   });
 
@@ -59,9 +59,9 @@ export default function LeaveTypesConfig({ tenantId, currentUser }) {
   const saveMutation = useMutation({
     mutationFn: async (data) => {
       if (editingType) {
-        return base44.entities.LeaveType.update(editingType.id, data);
+        return groonabackend.entities.LeaveType.update(editingType.id, data);
       } else {
-        return base44.entities.LeaveType.create({
+        return groonabackend.entities.LeaveType.create({
           ...data,
           tenant_id: tenantId
         });
@@ -81,7 +81,7 @@ export default function LeaveTypesConfig({ tenantId, currentUser }) {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      return base44.entities.LeaveType.delete(id);
+      return groonabackend.entities.LeaveType.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-types'] });
@@ -101,7 +101,7 @@ export default function LeaveTypesConfig({ tenantId, currentUser }) {
         // Check if exists by code to avoid duplicates
         const exists = leaveTypes.find(lt => lt.code === type.code || lt.name === type.name);
         if (!exists) {
-          await base44.entities.LeaveType.create({
+          await groonabackend.entities.LeaveType.create({
             ...type,
             tenant_id: tenantId,
             is_active: true
@@ -369,3 +369,4 @@ export default function LeaveTypesConfig({ tenantId, currentUser }) {
     </>
   );
 }
+

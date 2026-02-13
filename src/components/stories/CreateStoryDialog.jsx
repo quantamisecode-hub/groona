@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -252,7 +252,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
       
       Output only the description text (no JSON, no markdown formatting, just plain descriptive text).`;
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         response_json_schema: {
           type: "object",
@@ -283,7 +283,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
   const { data: project } = useQuery({
     queryKey: ['project', projectId],
     queryFn: async () => {
-      const projects = await base44.entities.Project.list();
+      const projects = await groonabackend.entities.Project.list();
       return projects.find(p => (p.id === projectId) || (p._id === projectId));
     },
     enabled: !!projectId && open,
@@ -293,7 +293,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
     queryKey: ['epics', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Epic.filter({ project_id: projectId });
+      return await groonabackend.entities.Epic.filter({ project_id: projectId });
     },
     enabled: !!projectId && open,
   });
@@ -303,7 +303,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
     queryKey: ['project-team-members', projectId],
     queryFn: async () => {
       if (!projectId || !project?.team_members) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       // Filter to only include users who are team members of this project
       return project.team_members
         .map(member => {
@@ -322,7 +322,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
     queryKey: ['impediments', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Impediment.filter({ project_id: projectId });
+      return await groonabackend.entities.Impediment.filter({ project_id: projectId });
     },
     enabled: !!projectId && open,
   });
@@ -332,7 +332,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
     queryKey: ['rework-alarms', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return await base44.entities.Notification.filter({
+      return await groonabackend.entities.Notification.filter({
         tenant_id: effectiveTenantId,
         type: 'high_rework_alarm',
         status: 'OPEN'
@@ -379,18 +379,18 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
       };
 
       if (isEditMode) {
-        await base44.entities.Story.update(story.id || story._id, storyData);
+        await groonabackend.entities.Story.update(story.id || story._id, storyData);
         toast.success('Story updated successfully!');
         if (onSuccess) onSuccess({ ...story, ...storyData });
       } else {
-        const newStory = await base44.entities.Story.create(storyData);
+        const newStory = await groonabackend.entities.Story.create(storyData);
 
         // Handle impediment if checkbox is checked
         if (isStoryReportImpediment) {
           if (selectedStoryImpedimentId && selectedStoryImpedimentId !== "new" && selectedStoryImpedimentId !== "") {
             // Link story to existing impediment
             try {
-              await base44.entities.Impediment.update(selectedStoryImpedimentId, {
+              await groonabackend.entities.Impediment.update(selectedStoryImpedimentId, {
                 story_id: newStory.id || newStory._id,
                 epic_id: formData.epic_id || undefined,
               });
@@ -415,7 +415,7 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
                 reported_by: currentUser?.email,
                 reported_by_name: currentUser?.full_name || currentUser?.email,
               };
-              await base44.entities.Impediment.create(impedimentPayload);
+              await groonabackend.entities.Impediment.create(impedimentPayload);
               toast.success('Story and impediment created successfully!');
             } catch (error) {
               console.error('Error creating impediment:', error);
@@ -890,3 +890,5 @@ export default function CreateStoryDialog({ open, onClose, projectId, epicId, st
     </Dialog>
   );
 }
+
+

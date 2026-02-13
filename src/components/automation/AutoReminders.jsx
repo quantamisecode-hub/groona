@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,13 @@ export default function AutoReminders({ currentUser }) {
     queryKey: ['all-tasks', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId });
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
 
   const createNotificationMutation = useMutation({
-    mutationFn: (data) => base44.entities.Notification.create(data),
+    mutationFn: (data) => groonabackend.entities.Notification.create(data),
   });
 
   const sendReminders = async () => {
@@ -235,3 +235,4 @@ export default function AutoReminders({ currentUser }) {
     </div>
   );
 }
+

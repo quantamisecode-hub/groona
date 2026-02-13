@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,23 +14,23 @@ export default function IndustryTemplateManager() {
 
   const { data: templates = [] } = useQuery({
     queryKey: ['project-templates-all'],
-    queryFn: () => base44.entities.ProjectTemplate.list(),
+    queryFn: () => groonabackend.entities.ProjectTemplate.list(),
   });
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-tm'],
-    queryFn: () => base44.auth.me(),
+    queryFn: () => groonabackend.auth.me(),
   });
 
   const toggleLockMutation = useMutation({
     mutationFn: async ({ template, isLocked }) => {
-      return await base44.entities.ProjectTemplate.update(template.id, {
+      return await groonabackend.entities.ProjectTemplate.update(template.id, {
         is_global: isLocked,
         is_public: !isLocked
       });
     },
     onSuccess: async (_, { template, isLocked }) => {
-      await base44.entities.SuperAdminAuditLog.create({
+      await groonabackend.entities.SuperAdminAuditLog.create({
         admin_email: currentUser.email,
         admin_name: currentUser.full_name,
         action_type: 'TEMPLATE_MODIFIED',
@@ -138,3 +138,4 @@ export default function IndustryTemplateManager() {
     </Card>
   );
 }
+

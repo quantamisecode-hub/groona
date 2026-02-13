@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Paperclip, X, Loader2, File } from 'lucide-react';
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 
 export default function FileUploadButton({ onFilesUploaded, maxFiles = 3, disabled = false }) {
@@ -29,7 +29,7 @@ export default function FileUploadButton({ onFilesUploaded, maxFiles = 3, disabl
           throw new Error(`${file.name} is too large. Max size is 10MB`);
         }
 
-        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
         
         return {
           name: file.name,
@@ -130,3 +130,4 @@ export default function FileUploadButton({ onFilesUploaded, maxFiles = 3, disabl
     </div>
   );
 }
+

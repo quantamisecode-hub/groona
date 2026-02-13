@@ -105,6 +105,17 @@
   }
 }
 
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
 /* --- prose list styling (for missing typography plugin) --- */
 .prose ul {
   list-style-type: disc !important;

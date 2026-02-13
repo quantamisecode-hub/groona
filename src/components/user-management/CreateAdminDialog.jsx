@@ -34,7 +34,7 @@ export default function CreateAdminDialog({ open, onClose }) {
           <Alert className="bg-blue-50 border-blue-200">
             <Mail className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-900">
-              To create a new admin, you need to invite them through the Base44 Dashboard.
+              To create a new admin, you need to invite them through the groonabackend Dashboard.
             </AlertDescription>
           </Alert>
 
@@ -44,7 +44,7 @@ export default function CreateAdminDialog({ open, onClose }) {
               <ol className="space-y-3 text-sm text-slate-700">
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">1</span>
-                  <span>Go to the Base44 Dashboard (click the button below)</span>
+                  <span>Go to the groonabackend Dashboard (click the button below)</span>
                 </li>
                 <li className="flex gap-3">
                   <span className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold">2</span>

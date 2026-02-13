@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { format } from "date-fns";
 export default function MilestonesWidget({ projectId }) {
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ['milestones', projectId],
-    queryFn: () => base44.entities.Milestone.filter({ project_id: projectId }, 'due_date'),
+    queryFn: () => groonabackend.entities.Milestone.filter({ project_id: projectId }, 'due_date'),
     enabled: !!projectId,
   });
 
@@ -63,3 +63,4 @@ export default function MilestonesWidget({ projectId }) {
     </Card>
   );
 }
+

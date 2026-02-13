@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
   const { data: users = [] } = useQuery({
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
-      const list = await base44.entities.User.list();
+      const list = await groonabackend.entities.User.list();
       return effectiveTenantId
         ? list.filter(u =>
           u.tenant_id === effectiveTenantId &&
@@ -32,7 +32,7 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
   const { data: tasks = [] } = useQuery({
     queryKey: ['all-tasks', effectiveTenantId],
     queryFn: async () => {
-      const list = await base44.entities.Task.list();
+      const list = await groonabackend.entities.Task.list();
       return effectiveTenantId ? list.filter(t => t.tenant_id === effectiveTenantId) : [];
     },
     enabled: !!effectiveTenantId,
@@ -355,3 +355,4 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
     </>
   );
 }
+

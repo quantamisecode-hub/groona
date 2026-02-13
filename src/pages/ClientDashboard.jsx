@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -69,7 +69,7 @@ export default function ClientDashboard() {
   const { data: projectAssignments = [], isLoading: assignmentsLoading } = useQuery({
     queryKey: ['client-projects', currentUser?.id],
     queryFn: async () => {
-      const assignments = await base44.entities.ProjectClient.filter({
+      const assignments = await groonabackend.entities.ProjectClient.filter({
         client_user_id: currentUser.id,
         revoked: false
       });
@@ -85,7 +85,7 @@ export default function ClientDashboard() {
       const projectIds = projectAssignments.map(a => a.project_id);
       if (projectIds.length === 0) return [];
       
-      const allProjects = await base44.entities.Project.filter({
+      const allProjects = await groonabackend.entities.Project.filter({
         tenant_id: effectiveTenantId
       });
       
@@ -97,7 +97,7 @@ export default function ClientDashboard() {
   // Fetch milestones for selected project
   const { data: milestones = [] } = useQuery({
     queryKey: ['client-milestones', selectedProject?.id],
-    queryFn: () => base44.entities.Milestone.filter({
+    queryFn: () => groonabackend.entities.Milestone.filter({
       project_id: selectedProject.id
     }, '-due_date'),
     enabled: !!selectedProject,
@@ -106,7 +106,7 @@ export default function ClientDashboard() {
   // Fetch tasks for selected project
   const { data: tasks = [] } = useQuery({
     queryKey: ['client-tasks', selectedProject?.id],
-    queryFn: () => base44.entities.Task.filter({
+    queryFn: () => groonabackend.entities.Task.filter({
       project_id: selectedProject.id
     }, '-due_date'),
     enabled: !!selectedProject,
@@ -115,7 +115,7 @@ export default function ClientDashboard() {
   // Fetch Sprints for selected project
   const { data: sprints = [] } = useQuery({
     queryKey: ['client-sprints', selectedProject?.id],
-    queryFn: () => base44.entities.Sprint.filter({
+    queryFn: () => groonabackend.entities.Sprint.filter({
       project_id: selectedProject.id
     }, '-start_date'),
     enabled: !!selectedProject,
@@ -124,7 +124,7 @@ export default function ClientDashboard() {
   // NEW: Fetch Real Change Logs (Updated to use ChangeLog entity)
   const { data: changeLogs = [] } = useQuery({
     queryKey: ['changeLogs', viewSprint?.id],
-    queryFn: () => base44.entities.ChangeLog.filter({ sprint_id: viewSprint.id }, '-timestamp'),
+    queryFn: () => groonabackend.entities.ChangeLog.filter({ sprint_id: viewSprint.id }, '-timestamp'),
     enabled: !!viewSprint,
   });
 
@@ -132,7 +132,7 @@ export default function ClientDashboard() {
   const { data: changeRequests = [] } = useQuery({
     queryKey: ['changeRequests', viewSprint?.id],
     queryFn: async () => {
-       const sprintTasks = await base44.entities.Task.filter({ sprint_id: viewSprint.id, project_id: selectedProject.id });
+       const sprintTasks = await groonabackend.entities.Task.filter({ sprint_id: viewSprint.id, project_id: selectedProject.id });
        return sprintTasks.filter(t => t.labels && t.labels.includes('Scope Change'));
     },
     enabled: !!viewSprint && !!selectedProject
@@ -141,7 +141,7 @@ export default function ClientDashboard() {
   // NEW: Mutation to Create Change Request Task
   const createChangeRequestMutation = useMutation({
     mutationFn: async (data) => {
-       return await base44.entities.Task.create({
+       return await groonabackend.entities.Task.create({
         tenant_id: currentUser?.tenant_id,
         project_id: selectedProject.id,
         sprint_id: viewSprint.id,
@@ -723,3 +723,4 @@ export default function ClientDashboard() {
     </div>
   );
 }
+

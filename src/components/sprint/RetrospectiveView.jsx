@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import {
@@ -66,7 +66,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
 
   const { data: retrospectives = [] } = useQuery({
     queryKey: ['retrospectives', projectId],
-    queryFn: () => base44.entities.Retrospective.filter({ project_id: projectId }, '-meeting_date'),
+    queryFn: () => groonabackend.entities.Retrospective.filter({ project_id: projectId }, '-meeting_date'),
     enabled: !!projectId
   });
 
@@ -119,7 +119,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
       };
       
       console.log("Saving Retrospective Payload:", payload);
-      return base44.entities.Retrospective.create(payload);
+      return groonabackend.entities.Retrospective.create(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
@@ -170,7 +170,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
         what_could_be_improved: negativeContent || " "
       };
       
-      return base44.entities.Retrospective.update(id, payload);
+      return groonabackend.entities.Retrospective.update(id, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
@@ -185,7 +185,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
   });
 
   const deleteRetroMutation = useMutation({
-    mutationFn: (id) => base44.entities.Retrospective.delete(id),
+    mutationFn: (id) => groonabackend.entities.Retrospective.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['retrospectives'] });
       setDeleteConfirm(null);
@@ -201,7 +201,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
       if (!tenantId) throw new Error("Tenant ID missing");
 
       // 1. Create the task
-      const newTask = await base44.entities.Task.create({
+      const newTask = await groonabackend.entities.Task.create({
         tenant_id: tenantId,
         project_id: projectId,
         title: `[Action Item] ${actionItem.description}`,
@@ -218,7 +218,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
       const updatedActionItems = [...(retro.action_items || [])];
       updatedActionItems[index] = { ...actionItem, linked_task_id: newTask.id, status: 'in_progress' };
       
-      await base44.entities.Retrospective.update(retroId, {
+      await groonabackend.entities.Retrospective.update(retroId, {
         action_items: updatedActionItems
       });
 
@@ -244,7 +244,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
         content = `Went Well: ${retro.what_went_well}\nTo Improve: ${retro.what_could_be_improved}`;
       }
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: `Generate a summary and concrete action items for this retrospective:
         ${content}`,
         response_json_schema: {
@@ -268,7 +268,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
       
       const result = typeof response === 'string' ? JSON.parse(response) : response;
       
-      await base44.entities.Retrospective.update(retro.id, {
+      await groonabackend.entities.Retrospective.update(retro.id, {
         ai_summary: result.summary,
         ai_suggestions: result.suggestions,
         action_items: result.action_items?.map(ai => ({
@@ -301,7 +301,7 @@ export default function RetrospectiveView({ projectId, tenantId }) {
         return `Date: ${r.meeting_date}\n${items}`;
       }).join('\n---\n');
 
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt: `Analyze the following retrospective records and identify recurring themes.
         1. Identify patterns in what goes well (Recurring Strengths).
         2. Identify persistent issues or blockers (Recurring Issues).
@@ -780,3 +780,4 @@ export default function RetrospectiveView({ projectId, tenantId }) {
     </div>
   );
 }
+

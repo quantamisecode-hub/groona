@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ export default function BrandingStep({ tenant, onNext, onSkip, onBack }) {
 
     setUploading(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       setBranding({ ...branding, logo_url: file_url });
       toast.success("Logo uploaded!");
     } catch (error) {
@@ -39,7 +39,7 @@ export default function BrandingStep({ tenant, onNext, onSkip, onBack }) {
   const handleNext = async () => {
     setLoading(true);
     try {
-      await base44.entities.Tenant.update(tenant.id, {
+      await groonabackend.entities.Tenant.update(tenant.id, {
         branding: branding,
       });
 
@@ -177,3 +177,4 @@ export default function BrandingStep({ tenant, onNext, onSkip, onBack }) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { groonabackend } from '@/api/groonabackend';
 import { useQuery } from '@tanstack/react-query';
 import { useOnboarding } from './OnboardingProvider';
 import WelcomeGuideDialog from './WelcomeGuideDialog';
@@ -17,7 +17,7 @@ export default function FeatureOnboarding({ currentUser, featureArea, userRole =
   const { data: configs = [] } = useQuery({
     queryKey: ['onboarding-config', featureArea, userRole],
     queryFn: async () => {
-      const results = await base44.entities.OnboardingFeatureConfig.filter({
+      const results = await groonabackend.entities.OnboardingFeatureConfig.filter({
         feature_area: featureArea,
         is_active: true
       });
@@ -117,3 +117,4 @@ export default function FeatureOnboarding({ currentUser, featureArea, userRole =
     </>
   );
 }
+

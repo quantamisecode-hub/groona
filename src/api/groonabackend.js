@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { queryClient } from '@/queryClient';
 
 // --- CONFIGURATION ---
 // Base URL is configured in .env file
@@ -67,7 +68,7 @@ const createEntityHandler = (entityName) => ({
 });
 
 // --- MAIN CLIENT OBJECT ---
-export const base44 = {
+export const groonabackend = {
   auth: {
     me: async () => {
       const res = await api.get(`${AUTH_URL}/me`);
@@ -106,8 +107,16 @@ export const base44 = {
       } catch (e) {
         console.error("Logout failed on server:", e);
       } finally {
-        localStorage.removeItem('auth_token');
-        window.location.href = '/SignIn';
+        // Clear all caches and storage
+        if (typeof window !== 'undefined') {
+          try {
+            queryClient.clear();
+          } catch (e) {
+            console.error("Failed to clear query cache:", e);
+          }
+          localStorage.clear();
+          window.location.href = '/SignIn';
+        }
       }
     },
     updateMe: async (data) => {
@@ -292,7 +301,7 @@ export const base44 = {
         return fixId(res.data);
       } catch (e) {
         // Fallback: search in list
-        const conversations = await base44.agents.listConversations();
+        const conversations = await groonabackend.agents.listConversations();
         return conversations.find(c => c.id === conversationId || c._id === conversationId) || null;
       }
     },

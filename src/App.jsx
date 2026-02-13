@@ -1,20 +1,13 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './queryClient';
 import { TooltipProvider } from "@/components/ui/tooltip";
 // FIX: Use only one Toaster (Sonner) and configure it globally
 import { Toaster } from "@/components/ui/sonner";
 import { UserProvider } from "@/components/shared/UserContext";
-import Pages from "@/pages/index.jsx";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+import Pages from "@/pages/Index.jsx";
+import TenantGuard from "@/components/shared/TenantGuard";
 
 function App() {
   return (
@@ -22,7 +15,9 @@ function App() {
       <TooltipProvider>
         <BrowserRouter>
           <UserProvider>
-            <Pages />
+            <TenantGuard>
+              <Pages />
+            </TenantGuard>
             {/* FIX: Position top-right to match your preference, remove duplicate bottom-right */}
             <Toaster position="top-right" richColors closeButton />
           </UserProvider>

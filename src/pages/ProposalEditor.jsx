@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -37,7 +37,7 @@ export default function ProposalEditor() {
   const { data: proposal, isLoading: proposalLoading } = useQuery({
     queryKey: ['proposal', proposalId],
     queryFn: async () => {
-        const p = await base44.entities.Proposal.list();
+        const p = await groonabackend.entities.Proposal.list();
         return p.find(x => x.id === proposalId);
     },
     enabled: !!proposalId
@@ -46,20 +46,20 @@ export default function ProposalEditor() {
   // Fetch Sections
   const { data: sections = [], isLoading: sectionsLoading } = useQuery({
     queryKey: ['proposalSections', proposalId],
-    queryFn: () => base44.entities.ProposalSection.filter({ proposal_id: proposalId }),
+    queryFn: () => groonabackend.entities.ProposalSection.filter({ proposal_id: proposalId }),
     enabled: !!proposalId
   });
 
   // Fetch Pricing
   const { data: pricingItems = [], isLoading: pricingLoading } = useQuery({
     queryKey: ['proposalPricing', proposalId],
-    queryFn: () => base44.entities.ProposalPricingItem.filter({ proposal_id: proposalId }),
+    queryFn: () => groonabackend.entities.ProposalPricingItem.filter({ proposal_id: proposalId }),
     enabled: !!proposalId
   });
 
   // Mutations
   const updateProposalMutation = useMutation({
-    mutationFn: (data) => base44.entities.Proposal.update(proposalId, data),
+    mutationFn: (data) => groonabackend.entities.Proposal.update(proposalId, data),
     onSuccess: () => {
         queryClient.invalidateQueries(['proposal', proposalId]);
         toast.success("Proposal updated");
@@ -67,7 +67,7 @@ export default function ProposalEditor() {
   });
 
   const deleteProposalMutation = useMutation({
-    mutationFn: () => base44.entities.Proposal.delete(proposalId),
+    mutationFn: () => groonabackend.entities.Proposal.delete(proposalId),
     onSuccess: () => {
         toast.success("Proposal deleted");
         navigate(createPageUrl("SalesDashboard"));
@@ -75,14 +75,14 @@ export default function ProposalEditor() {
   });
 
   const updateSectionMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProposalSection.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.ProposalSection.update(id, data),
     onSuccess: () => {
         queryClient.invalidateQueries(['proposalSections', proposalId]);
     }
   });
 
   const createSectionMutation = useMutation({
-    mutationFn: (data) => base44.entities.ProposalSection.create({ ...data, proposal_id: proposalId, tenant_id: proposal.tenant_id }),
+    mutationFn: (data) => groonabackend.entities.ProposalSection.create({ ...data, proposal_id: proposalId, tenant_id: proposal.tenant_id }),
     onSuccess: () => {
         queryClient.invalidateQueries(['proposalSections', proposalId]);
         toast.success("Section added");
@@ -90,7 +90,7 @@ export default function ProposalEditor() {
   });
 
   const deleteSectionMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalSection.delete(id),
+    mutationFn: (id) => groonabackend.entities.ProposalSection.delete(id),
     onSuccess: () => queryClient.invalidateQueries(['proposalSections', proposalId])
   });
 
@@ -98,15 +98,15 @@ export default function ProposalEditor() {
   const updateProposalTotal = async (newItems) => {
     if (!proposal) return;
     const total = newItems.reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.unit_price)), 0);
-    await base44.entities.Proposal.update(proposalId, { total_amount: total });
+    await groonabackend.entities.Proposal.update(proposalId, { total_amount: total });
     queryClient.invalidateQueries(['proposal', proposalId]);
   };
 
   const createPricingItemMutation = useMutation({
-    mutationFn: (data) => base44.entities.ProposalPricingItem.create({ ...data, proposal_id: proposalId, tenant_id: proposal.tenant_id }),
+    mutationFn: (data) => groonabackend.entities.ProposalPricingItem.create({ ...data, proposal_id: proposalId, tenant_id: proposal.tenant_id }),
     onSuccess: async () => {
       await queryClient.invalidateQueries(['proposalPricing', proposalId]);
-      const allItems = await base44.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
+      const allItems = await groonabackend.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
       updateProposalTotal(allItems);
       toast.success("Item added");
       setPricingDialogOpen(false);
@@ -114,10 +114,10 @@ export default function ProposalEditor() {
   });
 
   const updatePricingItemMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.ProposalPricingItem.update(id, data),
+    mutationFn: ({ id, data }) => groonabackend.entities.ProposalPricingItem.update(id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries(['proposalPricing', proposalId]);
-      const allItems = await base44.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
+      const allItems = await groonabackend.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
       updateProposalTotal(allItems);
       toast.success("Item updated");
       setPricingDialogOpen(false);
@@ -125,10 +125,10 @@ export default function ProposalEditor() {
   });
 
   const deletePricingItemMutation = useMutation({
-    mutationFn: (id) => base44.entities.ProposalPricingItem.delete(id),
+    mutationFn: (id) => groonabackend.entities.ProposalPricingItem.delete(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries(['proposalPricing', proposalId]);
-      const allItems = await base44.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
+      const allItems = await groonabackend.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
       updateProposalTotal(allItems);
       toast.success("Item deleted");
     }
@@ -168,7 +168,7 @@ export default function ProposalEditor() {
   const handleExportPDF = async () => {
     const toastId = toast.loading("Generating PDF...");
     try {
-        const response = await base44.functions.invoke('exportProposalPdf', { proposalId });
+        const response = await groonabackend.functions.invoke('exportProposalPdf', { proposalId });
         const { pdfBase64, error } = response.data;
         
         if (error) throw new Error(error);
@@ -191,7 +191,7 @@ export default function ProposalEditor() {
         // Try to gather context from sections
         const contextText = sections.map(s => s.title + ": " + s.body).join("\n").substring(0, 1000);
         
-        const response = await base44.functions.invoke('suggestProposalPricing', {
+        const response = await groonabackend.functions.invoke('suggestProposalPricing', {
             serviceType: "Consulting/Development", // Could be inferred
             scope: contextText,
             costHints: "Standard market rates"
@@ -201,7 +201,7 @@ export default function ProposalEditor() {
         if (suggestions && suggestions.length > 0) {
             // Add suggested items
             for (const item of suggestions) {
-                await base44.entities.ProposalPricingItem.create({
+                await groonabackend.entities.ProposalPricingItem.create({
                     proposal_id: proposalId,
                     tenant_id: proposal.tenant_id,
                     item_name: item.item_name,
@@ -213,7 +213,7 @@ export default function ProposalEditor() {
                 });
             }
             await queryClient.invalidateQueries(['proposalPricing', proposalId]);
-            const allItems = await base44.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
+            const allItems = await groonabackend.entities.ProposalPricingItem.filter({ proposal_id: proposalId });
             updateProposalTotal(allItems);
             return `Added ${suggestions.length} suggested pricing items`;
         } else {
@@ -349,7 +349,7 @@ export default function ProposalEditor() {
                                 />
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                     <Button size="sm" variant="ghost" className="text-purple-600" onClick={() => {
-                                        toast.promise(base44.functions.invoke('rewriteProposalSection', {
+                                        toast.promise(groonabackend.functions.invoke('rewriteProposalSection', {
                                             currentBody: section.body,
                                             context: { type: section.section_type },
                                             instruction: "Make it more professional"
@@ -487,7 +487,7 @@ export default function ProposalEditor() {
                         <CardHeader className="pb-2"><CardTitle className="text-sm">Quality Check</CardTitle></CardHeader>
                         <CardContent>
                             <Button size="sm" className="w-full bg-purple-100 text-purple-700 hover:bg-purple-200" onClick={() => {
-                                toast.promise(base44.functions.invoke('checkProposalQuality', {
+                                toast.promise(groonabackend.functions.invoke('checkProposalQuality', {
                                     proposalContent: sections,
                                     pricingItems
                                 }), {
@@ -527,3 +527,4 @@ export default function ProposalEditor() {
     </div>
   );
 }
+

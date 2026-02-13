@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { base44, API_BASE } from "@/api/base44Client";
+import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +63,7 @@ export default function AIAssistantPage() {
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await base44.agents.listModels();
+        const response = await groonabackend.agents.listModels();
         if (response.success && response.models && response.models.length > 0) {
           setAvailableModels(response.models);
           // Set default model if not already set (prefer gemini-2.5-flash)
@@ -87,7 +87,7 @@ export default function AIAssistantPage() {
 
   // CRITICAL FIX: Remove setTimeout and handle permission check properly
   useEffect(() => {
-    base44.auth.me()
+    groonabackend.auth.me()
       .then(user => {
         if (process.env.NODE_ENV !== 'production') {
           console.log('[AIAssistant] Current user loaded:', user);
@@ -130,7 +130,7 @@ export default function AIAssistantPage() {
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Project.filter({ tenant_id: effectiveTenantId }) || [];
+      return groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
@@ -139,7 +139,7 @@ export default function AIAssistantPage() {
     queryKey: ['tasks', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return base44.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 20) || [];
+      return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId }, '-updated_date', 20) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
@@ -148,7 +148,7 @@ export default function AIAssistantPage() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId) || [];
     },
     enabled: !!currentUser && !!effectiveTenantId,
@@ -172,7 +172,7 @@ export default function AIAssistantPage() {
         console.log('[AIAssistant] Fetching conversations...');
       }
       try {
-        const convos = await base44.agents.listConversations();
+        const convos = await groonabackend.agents.listConversations();
         if (process.env.NODE_ENV !== 'production') {
           console.log('[AIAssistant] Conversations loaded:', convos?.length || 0);
         }
@@ -193,7 +193,7 @@ export default function AIAssistantPage() {
 
     const pollInterval = setInterval(async () => {
       try {
-        const conversation = await base44.agents.getConversation(activeConversationId);
+        const conversation = await groonabackend.agents.getConversation(activeConversationId);
         if (conversation && conversation.messages) {
           setMessages(conversation.messages || []);
         }
@@ -326,7 +326,7 @@ export default function AIAssistantPage() {
     if (activeConversationId) {
       const loadConversation = async () => {
         try {
-          const conversation = await base44.agents.getConversation(activeConversationId);
+          const conversation = await groonabackend.agents.getConversation(activeConversationId);
           if (conversation) {
             if (process.env.NODE_ENV !== 'production') {
               console.log('[AIAssistant] Loading conversation:', conversation.id);
@@ -361,7 +361,7 @@ export default function AIAssistantPage() {
         console.log('[AIAssistant] Creating new conversation...');
       }
       try {
-        const conversation = await base44.agents.createConversation({
+        const conversation = await groonabackend.agents.createConversation({
           agent_name: 'project_assistant',
           metadata: {
             name: `Conversation ${new Date().toLocaleString()}`,
@@ -464,7 +464,7 @@ export default function AIAssistantPage() {
           }
           
           try {
-            conversation = await base44.agents.createConversation({
+            conversation = await groonabackend.agents.createConversation({
               agent_name: 'project_assistant',
               metadata: {
                 name: message.substring(0, 50),
@@ -504,7 +504,7 @@ export default function AIAssistantPage() {
         }
         
         // Use sendMessage with selected model and abort signal
-        const response = await base44.agents.sendMessage(
+        const response = await groonabackend.agents.sendMessage(
           safeConversation.id,
           {
             content: message,
@@ -519,7 +519,7 @@ export default function AIAssistantPage() {
           setMessages(response.conversation.messages);
         } else {
           // Fallback: fetch updated conversation to get messages
-          const updatedConversation = await base44.agents.getConversation(safeConversation.id);
+          const updatedConversation = await groonabackend.agents.getConversation(safeConversation.id);
           if (updatedConversation && updatedConversation.messages) {
             setMessages(updatedConversation.messages);
           }
@@ -565,7 +565,7 @@ export default function AIAssistantPage() {
       // Refresh conversations and messages
       await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
       if (activeConversationId) {
-        const conversation = await base44.agents.getConversation(activeConversationId);
+        const conversation = await groonabackend.agents.getConversation(activeConversationId);
         if (conversation && conversation.messages) {
           setMessages(conversation.messages);
         }
@@ -990,3 +990,4 @@ export default function AIAssistantPage() {
     </OnboardingProvider>
   );
 }
+

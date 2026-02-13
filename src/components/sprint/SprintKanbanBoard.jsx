@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { toast } from "sonner";
 import { useUser } from "@/components/shared/UserContext";
 import { useQueryClient } from "@tanstack/react-query";
@@ -163,7 +163,7 @@ export default function SprintKanbanBoard({
     try {
       setColumns(updatedColumns);
       if (sprint && sprint.id) {
-        await base44.entities.Sprint.update(sprint.id, { board_columns: updatedColumns });
+        await groonabackend.entities.Sprint.update(sprint.id, { board_columns: updatedColumns });
         toast.success("Board configuration saved");
       }
     } catch (error) {
@@ -465,3 +465,4 @@ export default function SprintKanbanBoard({
     </div>
   );
 }
+

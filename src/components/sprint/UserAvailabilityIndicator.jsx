@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CalendarOff } from "lucide-react";
@@ -12,7 +12,7 @@ export default function UserAvailabilityIndicator({ userEmail, sprintStartDate, 
     queryFn: async () => {
       if (!userEmail || !sprintStartDate || !sprintEndDate) return [];
       
-      const allLeaves = await base44.entities.Leave.filter({ 
+      const allLeaves = await groonabackend.entities.Leave.filter({ 
         user_email: userEmail,
         status: 'approved'
       });
@@ -79,3 +79,4 @@ export default function UserAvailabilityIndicator({ userEmail, sprintStartDate, 
     </TooltipProvider>
   );
 }
+

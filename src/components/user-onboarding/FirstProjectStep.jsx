@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,14 +53,14 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
         ]
       };
 
-      const project = await base44.entities.Project.create(projectData);
+      const project = await groonabackend.entities.Project.create(projectData);
 
       if (!project || !project.id) {
          throw new Error("Failed to receive valid project ID from server.");
       }
 
       // CRITICAL: Create the ProjectUserRole entry so the Dashboard can see it
-      await base44.entities.ProjectUserRole.create({
+      await groonabackend.entities.ProjectUserRole.create({
         tenant_id: tenant.id,
         user_id: user.id,
         project_id: project.id,
@@ -68,10 +68,10 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
       });
 
       // 2. Create workspace if doesn't exist
-      const workspaces = await base44.entities.Workspace.filter({ tenant_id: tenant.id });
+      const workspaces = await groonabackend.entities.Workspace.filter({ tenant_id: tenant.id });
       let workspace;
       if (workspaces.length === 0) {
-        workspace = await base44.entities.Workspace.create({
+        workspace = await groonabackend.entities.Workspace.create({
           tenant_id: tenant.id,
           name: 'Default Workspace',
           description: 'Your main workspace',
@@ -94,7 +94,7 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
       }
 
       // 3. Assign workspace to project
-      await base44.entities.Project.update(project.id, {
+      await groonabackend.entities.Project.update(project.id, {
         workspace_id: workspace.id
       });
 
@@ -105,7 +105,7 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
             ? `Generate 5 initial tasks for a marketing campaign project named "${formData.project_name}". Include tasks like strategy, content creation, design, and launch preparation.`
             : `Generate 5 initial tasks for a software project named "${formData.project_name}". Include tasks like requirements gathering, design, development, testing, and deployment.`;
 
-          const aiResponse = await base44.integrations.Core.InvokeLLM({
+          const aiResponse = await groonabackend.integrations.Core.InvokeLLM({
             prompt: taskPrompt,
             response_json_schema: {
               type: "object",
@@ -128,7 +128,7 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
           // Create tasks
           if (aiResponse?.tasks) {
             for (const task of aiResponse.tasks) {
-              await base44.entities.Task.create({
+              await groonabackend.entities.Task.create({
                 tenant_id: tenant.id,
                 workspace_id: workspace.id,
                 project_id: project.id,
@@ -153,7 +153,7 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
       }
 
       // 5. Log activity
-      await base44.entities.Activity.create({
+      await groonabackend.entities.Activity.create({
         tenant_id: tenant.id,
         action: 'created',
         entity_type: 'project',
@@ -166,7 +166,7 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
       });
 
       // 6. Mark project creation as complete in onboarding
-      await base44.entities.Tenant.update(tenant.id, {
+      await groonabackend.entities.Tenant.update(tenant.id, {
         onboarding_data: {
           ...(tenant.onboarding_data || {}),
           completed_steps: [
@@ -297,3 +297,4 @@ export default function FirstProjectStep({ data, tenant, user, onNext }) {
     </form>
   );
 }
+

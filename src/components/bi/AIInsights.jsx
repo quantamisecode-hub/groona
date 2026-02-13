@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,7 +89,7 @@ Format the response in clear sections with bullet points.`;
 
       console.log('[AI Insights] Generating insights with prompt...');
       
-      const response = await base44.integrations.Core.InvokeLLM({
+      const response = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
         add_context_from_internet: false,
       });
@@ -345,3 +345,4 @@ Format the response in clear sections with bullet points.`;
     </div>
   );
 }
+

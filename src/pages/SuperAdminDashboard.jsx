@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ export default function SuperAdminDashboard() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(user => {
+    groonabackend.auth.me().then(user => {
       if (!user.is_super_admin) {
         window.location.href = createPageUrl("Dashboard");
       }
@@ -43,45 +43,45 @@ export default function SuperAdminDashboard() {
   // Fetch all tenants
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list('-created_date'),
+    queryFn: () => groonabackend.entities.Tenant.list('-created_date'),
   });
 
   // Fetch all users across tenants
   const { data: allUsers = [] } = useQuery({
     queryKey: ['all-users'],
-    queryFn: () => base44.entities.User.list(),
+    queryFn: () => groonabackend.entities.User.list(),
   });
 
   // Fetch all projects across tenants
   const { data: allProjects = [] } = useQuery({
     queryKey: ['all-projects'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   // Create tenant mutation with proper user creation
   const createTenantMutation = useMutation({
     mutationFn: async (tenantData) => {
       // Step 1: Create the tenant
-      const newTenant = await base44.entities.Tenant.create(tenantData);
+      const newTenant = await groonabackend.entities.Tenant.create(tenantData);
       
       // Step 2: Create the tenant admin user (separate from Super Admin)
       try {
         // Check if a user with this email already exists
-        const existingUsers = await base44.entities.User.filter({ 
+        const existingUsers = await groonabackend.entities.User.filter({ 
           email: tenantData.owner_email 
         });
         
         let tenantAdminUser;
         if (existingUsers.length > 0) {
           // Update existing user to be associated with this tenant
-          tenantAdminUser = await base44.entities.User.update(existingUsers[0].id, {
+          tenantAdminUser = await groonabackend.entities.User.update(existingUsers[0].id, {
             tenant_id: newTenant.id,
             role: 'admin',
             full_name: tenantData.owner_name || existingUsers[0].full_name,
           });
         } else {
           // Create new user for this tenant
-          tenantAdminUser = await base44.entities.User.create({
+          tenantAdminUser = await groonabackend.entities.User.create({
             email: tenantData.owner_email,
             full_name: tenantData.owner_name || tenantData.owner_email.split('@')[0],
             role: 'admin',
@@ -92,7 +92,7 @@ export default function SuperAdminDashboard() {
         }
         
         // Step 3: Update tenant with the user's ID
-        await base44.entities.Tenant.update(newTenant.id, {
+        await groonabackend.entities.Tenant.update(newTenant.id, {
           owner_user_id: tenantAdminUser.id,
         });
         
@@ -100,7 +100,7 @@ export default function SuperAdminDashboard() {
       } catch (error) {
         console.error('Failed to create tenant admin user:', error);
         // If user creation fails, delete the tenant to maintain consistency
-        await base44.entities.Tenant.delete(newTenant.id);
+        await groonabackend.entities.Tenant.delete(newTenant.id);
         throw new Error('Failed to create tenant admin user: ' + error.message);
       }
     },
@@ -121,7 +121,7 @@ export default function SuperAdminDashboard() {
       console.log('[SuperAdminDashboard] Updating tenant:', id);
       console.log('[SuperAdminDashboard] Update data:', JSON.stringify(data, null, 2));
       
-      const result = await base44.entities.Tenant.update(id, data);
+      const result = await groonabackend.entities.Tenant.update(id, data);
       
       console.log('[SuperAdminDashboard] Update result:', result);
       
@@ -150,14 +150,14 @@ export default function SuperAdminDashboard() {
       const tenantUsers = allUsers.filter(u => u.tenant_id === id);
       for (const user of tenantUsers) {
         try {
-          await base44.entities.User.delete(user.id);
+          await groonabackend.entities.User.delete(user.id);
         } catch (error) {
           console.error('Failed to delete user:', error);
         }
       }
       
       // Then delete the tenant
-      await base44.entities.Tenant.delete(id);
+      await groonabackend.entities.Tenant.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tenants'] });
@@ -473,3 +473,4 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
+

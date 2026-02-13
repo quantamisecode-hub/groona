@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Lock, CheckCircle, AlertCircle, Sprout } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { API_BASE } from '@/api/base44Client';
+import { API_BASE } from '@/api/groonabackend';
 
 const ClientChangePassword = () => {
   const [searchParams] = useSearchParams();

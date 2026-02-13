@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export default function Reports() {
     queryKey: ['report-timesheets', effectiveTenantId, filters],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      const allTimesheets = await base44.entities.Timesheet.filter({ tenant_id: effectiveTenantId });
+      const allTimesheets = await groonabackend.entities.Timesheet.filter({ tenant_id: effectiveTenantId });
       
       // Apply filters
       return allTimesheets.filter(t => {
@@ -72,7 +72,7 @@ export default function Reports() {
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects', effectiveTenantId],
-    queryFn: () => base44.entities.Project.filter({ tenant_id: effectiveTenantId }),
+    queryFn: () => groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }),
     enabled: !!effectiveTenantId,
     staleTime: 5 * 60 * 1000,
   });
@@ -80,7 +80,7 @@ export default function Reports() {
   const { data: users = [] } = useQuery({
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!effectiveTenantId,
@@ -89,7 +89,7 @@ export default function Reports() {
 
   const { data: savedReports = [] } = useQuery({
     queryKey: ['saved-reports', effectiveTenantId, currentUser?.email],
-    queryFn: () => base44.entities.ReportConfig.filter({ 
+    queryFn: () => groonabackend.entities.ReportConfig.filter({ 
       tenant_id: effectiveTenantId,
       user_email: currentUser?.email 
     }),
@@ -100,7 +100,7 @@ export default function Reports() {
   // Save report configuration
   const saveReportMutation = useMutation({
     mutationFn: async (reportData) => {
-      return await base44.entities.ReportConfig.create({
+      return await groonabackend.entities.ReportConfig.create({
         tenant_id: effectiveTenantId,
         user_email: currentUser?.email,
         ...reportData,
@@ -314,3 +314,4 @@ export default function Reports() {
     </div>
   );
 }
+

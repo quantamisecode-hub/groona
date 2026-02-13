@@ -1,4 +1,4 @@
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 
 /**
  * Centralized Event Emitter
@@ -13,7 +13,7 @@ class EventEmitter {
    */
   async emit(eventData) {
     try {
-      const event = await base44.entities.ActivityEvent.create({
+      const event = await groonabackend.entities.ActivityEvent.create({
         ...eventData,
         processed: false,
         created_date: new Date().toISOString()
@@ -45,7 +45,7 @@ class EventEmitter {
       await notificationEngine.processEvent(event);
       
       // Mark event as processed
-      await base44.entities.ActivityEvent.update(event.id, { processed: true });
+      await groonabackend.entities.ActivityEvent.update(event.id, { processed: true });
     } catch (error) {
       console.error('[EventEmitter] Failed to process event:', error);
       throw error;
@@ -374,3 +374,4 @@ class EventEmitter {
 
 // Export singleton instance
 export const eventEmitter = new EventEmitter();
+

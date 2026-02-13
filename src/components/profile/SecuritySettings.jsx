@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,7 +86,7 @@ export default function SecuritySettings({ user, onUpdate }) {
   // --- QUERIES (REAL DATA) ---
   const { data: rawSessions = [], isLoading: isLoadingSessions } = useQuery({
     queryKey: ['active-sessions'],
-    queryFn: () => base44.auth.getSessions(),
+    queryFn: () => groonabackend.auth.getSessions(),
   });
 
   // --- COMPUTED: Process Sessions ---
@@ -123,12 +123,12 @@ export default function SecuritySettings({ user, onUpdate }) {
 
   const changePasswordMutation = useMutation({
     mutationFn: async (data) => {
-      await base44.auth.changePassword(data.current_password, data.new_password);
+      await groonabackend.auth.changePassword(data.current_password, data.new_password);
     },
     onSuccess: () => {
       toast.success("Password changed successfully! Please log in again.");
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
-      setTimeout(() => base44.auth.logout(), 2000);
+      setTimeout(() => groonabackend.auth.logout(), 2000);
     },
     onError: (err) => {
       const msg = err.response?.data?.msg || "Failed to change password.";
@@ -137,7 +137,7 @@ export default function SecuritySettings({ user, onUpdate }) {
   });
 
   const revokeSessionMutation = useMutation({
-    mutationFn: (sessionId) => base44.auth.revokeSession(sessionId),
+    mutationFn: (sessionId) => groonabackend.auth.revokeSession(sessionId),
     onSuccess: () => {
       toast.success("Session logged out successfully");
       setShowRevokeDialog(null);
@@ -147,7 +147,7 @@ export default function SecuritySettings({ user, onUpdate }) {
   });
 
   const revokeAllSessionsMutation = useMutation({
-    mutationFn: () => base44.auth.revokeOtherSessions(),
+    mutationFn: () => groonabackend.auth.revokeOtherSessions(),
     onSuccess: () => {
       toast.success("All other sessions logged out");
       setShowLogoutDialog(false);
@@ -193,7 +193,7 @@ export default function SecuritySettings({ user, onUpdate }) {
   };
 
   const handleLogout = () => {
-    base44.auth.logout();
+    groonabackend.auth.logout();
     toast.success("Signing out...");
   };
 
@@ -201,7 +201,7 @@ export default function SecuritySettings({ user, onUpdate }) {
     setIs2FALoading(true);
     try {
       const newValue = !user.is_two_factor_enabled;
-      const updatedUser = await base44.auth.updateMe({ is_two_factor_enabled: newValue });
+      const updatedUser = await groonabackend.auth.updateMe({ is_two_factor_enabled: newValue });
       toast.success(`Two-factor authentication ${newValue ? 'enabled' : 'disabled'}`);
       if (onUpdate) onUpdate(updatedUser);
     } catch (error) {
@@ -631,3 +631,4 @@ export default function SecuritySettings({ user, onUpdate }) {
     </div>
   );
 }
+

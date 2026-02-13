@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, CheckCircle2, Info, Upload, X, Building2, User, CreditCard, Settings, FileText, Shield } from "lucide-react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -25,7 +25,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
   // Fetch subscription plans from database
   const { data: subscriptionPlans = [] } = useQuery({
     queryKey: ['subscription-plans'],
-    queryFn: () => base44.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
+    queryFn: () => groonabackend.entities.SubscriptionPlan.filter({ is_active: true }, 'sort_order'),
     enabled: open,
   });
 
@@ -41,7 +41,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
         company_type: tenant.company_type || "SOFTWARE",
         max_users: tenant.max_users || 5,
         status: tenant.status || "active",
-        
+
         // Primary Contact
         owner_name: tenant.owner_name || "",
         owner_email: tenant.owner_email || "",
@@ -49,7 +49,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
         owner_job_title: tenant.owner_job_title || "",
         admin_username: tenant.admin_username || "",
         sso_type: tenant.sso_type || "local",
-        
+
         // Tenant Config
         tenant_config: tenant.tenant_config || {
           enable_sprints: true,
@@ -57,7 +57,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
           require_task_approval: false,
           terminology_map: {}
         },
-        
+
         // Subscription
         subscription_plan: tenant.subscription_plan || "free",
         subscription_plan_id: tenant.subscription_plan_id || "",
@@ -69,7 +69,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
         max_projects: tenant.max_projects || 10,
         max_workspaces: tenant.max_workspaces || 1,
         max_storage_gb: tenant.max_storage_gb || 5,
-        
+
         // Billing
         billing_contact_name: tenant.billing_contact_name || "",
         billing_email: tenant.billing_email || "",
@@ -84,14 +84,14 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
         company_registration_number: tenant.company_registration_number || "",
         billing_currency: tenant.billing_currency || "USD",
         billing_payment_method: tenant.billing_payment_method || "credit_card",
-        
+
         // Technical
         data_region: tenant.data_region || "us-east-1",
         default_language: tenant.default_language || "en-US",
         default_timezone: tenant.default_timezone || "UTC",
         api_access_enabled: tenant.api_access_enabled || false,
         api_rate_limit: tenant.api_rate_limit || 1000,
-        
+
         // Features
         features_enabled: tenant.features_enabled || {
           ai_assistant: true,
@@ -100,19 +100,19 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
           custom_branding: false,
           api_access: false,
         },
-        
+
         // Branding
         branding: tenant.branding || {
           logo_url: "",
           primary_color: "#6366f1",
           company_website: "",
         },
-        
+
         // Compliance
         terms_accepted: tenant.terms_accepted || false,
         dpa_accepted: tenant.dpa_accepted || false,
         privacy_policy_accepted: tenant.privacy_policy_accepted || false,
-        
+
         // Internal
         internal_notes: tenant.internal_notes || "",
       });
@@ -122,16 +122,16 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     console.log('[EditTenantDialog] Submitting form data:', formData);
-    
+
     setLoading(true);
     try {
       // Update the tenant with all form data
       await onSubmit(formData);
-      
+
       console.log('[EditTenantDialog] Tenant updated successfully');
-      
+
       setHasChanges(false);
       toast.success('Tenant updated successfully!');
     } catch (error) {
@@ -142,9 +142,38 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
     }
   };
 
+
   const handleFieldChange = (field, value) => {
     console.log(`[EditTenantDialog] Field changed: ${field} = `, value);
-    setFormData({ ...formData, [field]: value });
+
+    let newFormData = { ...formData, [field]: value };
+
+    // Auto-suspend logic for Trial End Date
+    if (field === 'trial_ends_at' && value) {
+      // Parse YYYY-MM-DD to local midnight
+      const [year, month, day] = value.split('-').map(Number);
+      const trialDate = new Date(year, month - 1, day);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (trialDate < today) {
+        newFormData.status = 'suspended';
+        newFormData.subscription_status = 'past_due';
+        toast.warning("Trial date is in the past. Tenant status set to Suspended.");
+      } else if (trialDate.getTime() === today.getTime()) {
+        toast.info("Trial ends today. Tenant will be suspended tomorrow.");
+      } else {
+        // If extending trial from a suspended state, reactive it
+        if (formData.status === 'suspended' || formData.subscription_status === 'past_due') {
+          newFormData.status = 'trial';
+          newFormData.subscription_status = 'trialing';
+          toast.success("Trial date extended. Tenant status set to Trial.");
+        }
+      }
+    }
+
+    setFormData(newFormData);
     setHasChanges(true);
   };
 
@@ -181,7 +210,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
     setUploadingLogo(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
       handleBrandingChange('logo_url', file_url);
       toast.success('Logo uploaded successfully!');
     } catch (error) {
@@ -202,10 +231,10 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
     if (selectedPlan) {
       console.log('[EditTenantDialog] Applying plan preset:', selectedPlan.name);
       console.log('[EditTenantDialog] Plan features:', selectedPlan.features);
-      
+
       const isTrial = selectedPlan.name.toLowerCase().includes('trial');
       const validityDays = selectedPlan.validity_days || 30;
-      
+
       let trialEndsAt = formData.trial_ends_at;
       let subscriptionEndsAt = formData.subscription_ends_at;
       let subscriptionType = formData.subscription_type;
@@ -246,7 +275,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
         api_access_enabled: formData.api_access_enabled || false,
       });
       setHasChanges(true);
-      
+
       console.log('[EditTenantDialog] Updated formData with plan features');
       toast.success(`Applied ${selectedPlan.name} plan settings`);
     }
@@ -473,7 +502,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-3">Authentication Settings</h4>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="admin_username">Admin Username</Label>
@@ -547,7 +576,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-slate-500">
-                    {formData.subscription_plan_id 
+                    {formData.subscription_plan_id
                       ? `Current: ${subscriptionPlans.find(p => p.id === formData.subscription_plan_id)?.name || 'Unknown'}`
                       : 'No plan selected'}
                   </p>
@@ -626,7 +655,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-3">Resource Limits</h4>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="max_users_limit">Max Users</Label>
@@ -764,7 +793,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-3">Tax Information</h4>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tax_id">Tax ID / EIN</Label>
@@ -928,7 +957,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-3">Feature Toggles</h4>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                     <div>
@@ -995,7 +1024,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
 
               <div className="border-t pt-4 mt-4">
                 <h4 className="font-semibold text-sm mb-3">Branding</h4>
-                
+
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Company Logo</Label>
@@ -1189,9 +1218,9 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
                   Unsaved changes
                 </span>
               )}
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   const tabs = ["tenant", "contact", "subscription", "billing", "technical", "compliance"];
                   const currentIndex = tabs.indexOf(currentTab);
@@ -1209,7 +1238,7 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
               <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                 Cancel
               </Button>
-              
+
               {currentTab !== "compliance" ? (
                 <Button
                   type="button"
@@ -1226,8 +1255,8 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
                   Next Step
                 </Button>
               ) : (
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={loading || !hasChanges}
                   className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
                 >
@@ -1251,3 +1280,4 @@ export default function EditTenantDialog({ open, onClose, tenant, onSubmit }) {
     </Dialog>
   );
 }
+

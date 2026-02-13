@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, BookOpen, FolderKanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function StoriesList({ projectId, epicId }) {
       if (epicId) {
         filters.epic_id = epicId;
       }
-      return await base44.entities.Story.filter(filters);
+      return await groonabackend.entities.Story.filter(filters);
     },
     enabled: !!projectId,
   });
@@ -34,7 +34,7 @@ export default function StoriesList({ projectId, epicId }) {
     queryKey: ['epics', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Epic.filter({ project_id: projectId });
+      return await groonabackend.entities.Epic.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -43,7 +43,7 @@ export default function StoriesList({ projectId, epicId }) {
     queryKey: ['tasks', projectId],
     queryFn: async () => {
       if (!projectId) return [];
-      return await base44.entities.Task.filter({ project_id: projectId });
+      return await groonabackend.entities.Task.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -51,7 +51,7 @@ export default function StoriesList({ projectId, epicId }) {
   const { data: users = [] } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const allUsers = await base44.entities.User.list();
+      const allUsers = await groonabackend.entities.User.list();
       return allUsers.filter(u => u.custom_role !== 'client');
     },
     enabled: true,
@@ -66,17 +66,17 @@ export default function StoriesList({ projectId, epicId }) {
   const deleteStoryMutation = useMutation({
     mutationFn: async (storyId) => {
       // 1. Find all tasks associated with this story
-      const storyTasks = await base44.entities.Task.filter({ story_id: storyId });
+      const storyTasks = await groonabackend.entities.Task.filter({ story_id: storyId });
 
       // 2. Delete all associated tasks
       if (storyTasks.length > 0) {
         await Promise.all(
-          storyTasks.map(task => base44.entities.Task.delete(task.id || task._id))
+          storyTasks.map(task => groonabackend.entities.Task.delete(task.id || task._id))
         );
       }
 
       // 3. Delete the story itself
-      await base44.entities.Story.delete(storyId);
+      await groonabackend.entities.Story.delete(storyId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['stories', projectId, epicId] });
@@ -316,3 +316,5 @@ export default function StoriesList({ projectId, epicId }) {
     </div>
   );
 }
+
+

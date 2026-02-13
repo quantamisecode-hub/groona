@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
       if (sprint?.id) {
         filters.sprint_id = sprint.id;
       }
-      return await base44.entities.Impediment.filter(filters);
+      return await groonabackend.entities.Impediment.filter(filters);
     },
     enabled: !!projectId,
   });
@@ -70,19 +70,19 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
   // Fetch related entities for context
   const { data: epics = [] } = useQuery({
     queryKey: ['epics', projectId],
-    queryFn: () => base44.entities.Epic.filter({ project_id: projectId }),
+    queryFn: () => groonabackend.entities.Epic.filter({ project_id: projectId }),
     enabled: !!projectId,
   });
 
   const { data: stories = [] } = useQuery({
     queryKey: ['stories', projectId],
-    queryFn: () => base44.entities.Story.filter({ project_id: projectId }),
+    queryFn: () => groonabackend.entities.Story.filter({ project_id: projectId }),
     enabled: !!projectId,
   });
 
   const { data: sprints = [] } = useQuery({
     queryKey: ['sprints', projectId],
-    queryFn: () => base44.entities.Sprint.filter({ project_id: projectId }),
+    queryFn: () => groonabackend.entities.Sprint.filter({ project_id: projectId }),
     enabled: !!projectId,
   });
 
@@ -104,7 +104,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
         reported_by: currentUser?.email,
         reported_by_name: currentUser?.full_name || currentUser?.email,
       };
-      return await base44.entities.Impediment.create(impedimentData);
+      return await groonabackend.entities.Impediment.create(impedimentData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
@@ -125,7 +125,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
       if (data.status === 'resolved') {
         updateData.resolved_date = new Date().toISOString();
       }
-      return await base44.entities.Impediment.update(id, updateData);
+      return await groonabackend.entities.Impediment.update(id, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
@@ -139,7 +139,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
   // Mutation for deleting impediment
   const deleteImpedimentMutation = useMutation({
     mutationFn: async (id) => {
-      return await base44.entities.Impediment.delete(id);
+      return await groonabackend.entities.Impediment.delete(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
@@ -432,3 +432,4 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     </div>
   );
 }
+

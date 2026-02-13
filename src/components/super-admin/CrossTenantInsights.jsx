@@ -1,5 +1,5 @@
 import React from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Users, Building2 } from "lucide-react";
@@ -8,22 +8,22 @@ import { Progress } from "@/components/ui/progress";
 export default function CrossTenantInsights() {
   const { data: tenants = [] } = useQuery({
     queryKey: ['tenants-insights'],
-    queryFn: () => base44.entities.Tenant.list(),
+    queryFn: () => groonabackend.entities.Tenant.list(),
   });
 
   const { data: allProjects = [] } = useQuery({
     queryKey: ['all-projects-insights'],
-    queryFn: () => base44.entities.Project.list(),
+    queryFn: () => groonabackend.entities.Project.list(),
   });
 
   const { data: allSprints = [] } = useQuery({
     queryKey: ['all-sprints-insights'],
-    queryFn: () => base44.entities.Sprint.list(),
+    queryFn: () => groonabackend.entities.Sprint.list(),
   });
 
   const { data: allTimesheets = [] } = useQuery({
     queryKey: ['all-timesheets-insights'],
-    queryFn: () => base44.entities.Timesheet.list(),
+    queryFn: () => groonabackend.entities.Timesheet.list(),
   });
 
   const softwareCount = tenants.filter(t => t.company_type === 'SOFTWARE').length;
@@ -121,3 +121,4 @@ export default function CrossTenantInsights() {
     </Card>
   );
 }
+

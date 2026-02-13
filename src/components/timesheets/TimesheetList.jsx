@@ -65,6 +65,7 @@ export default function TimesheetList({
       case 'submitted': return <AlertCircle className="h-3 w-3" />;
       case 'pending_pm': return <Clock className="h-3 w-3" />;
       case 'pending_admin': return <User className="h-3 w-3" />;
+      case 'draft': return <FileText className="h-3 w-3" />;
       default: return <FileText className="h-3 w-3" />;
     }
   };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
+import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,13 +47,13 @@ export default function TenantRecoveryTools() {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    base44.auth.me().then(setCurrentUser);
+    groonabackend.auth.me().then(setCurrentUser);
   }, []);
 
   // Fetch all tenants
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ['tenants'],
-    queryFn: () => base44.entities.Tenant.list('-created_date'),
+    queryFn: () => groonabackend.entities.Tenant.list('-created_date'),
   });
 
   // Filter tenants based on search
@@ -77,12 +77,12 @@ export default function TenantRecoveryTools() {
           updatedFeatures[feature] = enable;
         });
 
-        const updated = await base44.entities.Tenant.update(tenantId, {
+        const updated = await groonabackend.entities.Tenant.update(tenantId, {
           features_enabled: updatedFeatures,
         });
 
         // Log the action
-        await base44.entities.SuperAdminAuditLog.create({
+        await groonabackend.entities.SuperAdminAuditLog.create({
           admin_email: currentUser.email,
           admin_name: currentUser.full_name,
           action_type: enable ? 'TENANT_REACTIVATED' : 'TENANT_SUSPENDED',
@@ -451,3 +451,4 @@ export default function TenantRecoveryTools() {
     </div>
   );
 }
+
