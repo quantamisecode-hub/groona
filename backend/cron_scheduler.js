@@ -31,6 +31,9 @@ const SCRIPTS = [
     'generate_rework_alarm.js',
     'generate_overwork_alarm.js',
     'timesheet_reminder_alerts.js',
+    'alert_low_logged_hours.js',
+    'alert_availability_update.js',
+
 ];
 
 const runScript = (scriptName) => {

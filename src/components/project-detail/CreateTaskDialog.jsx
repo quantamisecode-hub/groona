@@ -116,8 +116,12 @@ export default function CreateTaskDialog({ open, onClose, onSubmit, loading }) {
               <SelectContent>
                 <SelectItem value={null}>Unassigned</SelectItem>
                 {users.map((user) => (
-                  <SelectItem key={user.id} value={user.email}>
-                    {user.full_name} ({user.email})
+                  <SelectItem
+                    key={user.id}
+                    value={user.email}
+                    disabled={user.is_overloaded}
+                  >
+                    {user.full_name} ({user.email}) {user.is_overloaded ? "- (Overloaded - Action Required)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

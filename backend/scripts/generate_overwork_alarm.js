@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const SchemaDefinitions = require('../models/SchemaDefinitions');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/groona_dev';
@@ -66,6 +67,7 @@ const runChecks = async () => {
         const User = mongoose.model('User');
         const Task = mongoose.model('Task');
         const Notification = mongoose.model('Notification');
+        const emailService = require('../services/emailService');
 
         console.log(`\n=== OVERWORK ALARM CHECK (PLANNED WORKLOAD) ===`);
         console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -92,22 +94,34 @@ const runChecks = async () => {
                 assigned_to: user.email
             });
 
-            // Filter tasks relevant to "Current Workload" (Matching Frontend Logic)
+            // Filter tasks relevant to "Current Workload" (Matching ResourceAllocation.jsx UI Logic)
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
             const relevantTasks = userTasks.filter(t => {
                 const status = (t.status || '').toLowerCase();
                 const isCompleted = ['completed', 'done', 'closed', 'resolved'].includes(status);
 
-                // 1. Active Work (In Progress / Review) - Always count
-                if (['in_progress', 'review'].includes(status)) return true;
+                if (isCompleted) return false;
 
-                if (!t.due_date) return false;
-                const dueDate = new Date(t.due_date);
+                // Condition 1: Overdue Pending (Checked against week start in UI, but then filtered by today)
+                const isOverduePending = t.due_date && new Date(t.due_date) < startOfWeek;
 
-                // 2. Due This Week
-                if (dueDate >= startOfWeek && dueDate <= endOfWeek) return true;
+                // Condition 2: Current Week Tasks
+                const isCurrentWeek = t.due_date && new Date(t.due_date) >= startOfWeek && new Date(t.due_date) <= endOfWeek;
 
-                // 3. Overdue Pending
-                if (dueDate < startOfWeek && !isCompleted) return true;
+                // Condition 3: Active Work (In Progress / Review)
+                const isActiveWork = ['in_progress', 'review'].includes(status);
+
+                // If it matches any category...
+                if (isOverduePending || isCurrentWeek || isActiveWork) {
+                    // EXCLUDE if Due Date is strictly before Today (As per UI Requirement)
+                    if (t.due_date) {
+                        const dueDate = new Date(t.due_date);
+                        if (dueDate < todayStart) return false;
+                    }
+                    return true;
+                }
 
                 return false;
             });
@@ -127,42 +141,92 @@ const runChecks = async () => {
             }
 
             // Update user state if changed
-            if (isOverloaded && !user.is_overloaded) {
+            if (isOverloaded) {
                 console.log(`   -> [FLAG] OVERLOADED (> ${THRESHOLD_TOTAL}h)`);
 
-                // 1. Update User Flag
-                await User.updateOne({ _id: user._id }, { $set: { is_overloaded: true } });
-
-                // 2. Notify PMs
-                const pms = await User.find({
-                    tenant_id: user.tenant_id,
-                    custom_role: 'project_manager'
-                });
-
-                if (pms.length > 0) {
-                    for (const pm of pms) {
-                        await Notification.create({
-                            tenant_id: pm.tenant_id,
-                            recipient_email: pm.email,
-                            user_id: pm._id,
-                            start_date: new Date(),
-                            title: '🚨 Overwork Plan Alert',
-                            message: `User ${user.full_name} is planned for ${totalHours.toFixed(1)}h this week (> Limit). Overtime disabled to prevent burnout.`,
-                            type: 'overwork_alarm',
-                            category: 'alarm',
-                            status: 'OPEN',
-                            read: false,
-                            created_date: new Date()
-                        });
-                    }
-                    console.log(`      -> Notified ${pms.length} PMs`);
+                // 1. Update User Flag if not already set
+                if (!user.is_overloaded) {
+                    await User.updateOne({ _id: user._id }, { $set: { is_overloaded: true } });
                 }
 
-            } else if (!isOverloaded && user.is_overloaded) {
+                // 2. Notify USER (In-App + Email) - Check if already notified today
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+
+                const existingNotification = await Notification.findOne({
+                    user_id: user._id,
+                    type: 'overwork_alarm',
+                    created_date: { $gte: todayStart }
+                });
+
+                if (!existingNotification) {
+                    const userAlertMessage = `You’ve been working long hours consistently. Please discuss workload adjustment with your manager.`;
+
+                    await Notification.create({
+                        tenant_id: user.tenant_id,
+                        recipient_email: user.email,
+                        user_id: user._id,
+                        title: '🚨 Overwork Alert',
+                        message: userAlertMessage,
+                        type: 'overwork_alarm',
+                        category: 'alarm',
+                        status: 'OPEN',
+                        read: false,
+                        created_date: new Date()
+                    });
+
+                    try {
+                        await emailService.sendEmail({
+                            to: user.email,
+                            templateType: 'overwork_alarm',
+                            data: {
+                                userName: user.full_name || user.email,
+                                userEmail: user.email,
+                                totalHours: totalHours
+                            }
+                        });
+                        console.log(`      -> Email sent to user ${user.email}`);
+                    } catch (emailErr) {
+                        console.error(`      -> Failed to send email to user ${user.email}:`, emailErr.message);
+                    }
+                } else {
+                    console.log(`      -> User already notified today. Skipping repeat.`);
+                }
+
+                // 3. Notify PMs (Only on first transition or maybe also daily?)
+                // Assuming PMs only want one alert per overload period to avoid spam.
+                if (!user.is_overloaded) {
+                    const pms = await User.find({
+                        tenant_id: user.tenant_id,
+                        custom_role: 'project_manager'
+                    });
+
+                    if (pms.length > 0) {
+                        for (const pm of pms) {
+                            await Notification.create({
+                                tenant_id: pm.tenant_id,
+                                recipient_email: pm.email,
+                                user_id: pm._id,
+                                start_date: new Date(),
+                                title: '🚨 Overwork Plan Alert',
+                                message: `User ${user.full_name} is planned for ${totalHours.toFixed(1)}h this week (> Limit). Overtime disabled to prevent burnout.`,
+                                type: 'overwork_alarm',
+                                category: 'alarm',
+                                status: 'OPEN',
+                                read: false,
+                                created_date: new Date()
+                            });
+                        }
+                        console.log(`      -> Notified ${pms.length} PMs`);
+                    }
+                } else {
+                    console.log(`      -> PMs already notified for this overload period.`);
+                }
+            } else if (user.is_overloaded) {
                 console.log(`   -> [RESET] Normal Workload.`);
                 await User.updateOne({ _id: user._id }, { $set: { is_overloaded: false } });
-            } else if (isOverloaded) {
-                console.log(`   -> [KEEP] Still Overloaded.`);
+            } else {
+                console.log(`   -> [OK] Workload within limits.`);
             }
         }
 

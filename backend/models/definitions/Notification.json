@@ -59,7 +59,9 @@
         "leave_rejection",
         "leave_cancellation",
         "timesheet_reminder",
-        "timesheet_late_submission"
+        "timesheet_late_submission",
+        "low_logged_hours",
+        "user_availability_update"
       ],
       "description": "Type of notification"
     },

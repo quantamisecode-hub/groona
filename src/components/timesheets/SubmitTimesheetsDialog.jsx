@@ -97,9 +97,18 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
 
       // Send email acknowledgment to the user who submitted
       try {
+        // Get today's date in local ISO format (YYYY-MM-DD)
+        const todayStr = new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
+
         // Get the first timesheet for details (if single entry)
         const submittedTimesheets = draftEntries.filter(e => timesheetIds.includes(e.id));
         const firstTimesheet = submittedTimesheets[0];
+
+        // Determine if any entry is late
+        const isLateBatch = submittedTimesheets.some(t => {
+          const entryDateStr = t.date?.substring(0, 10);
+          return entryDateStr && entryDateStr < todayStr;
+        });
 
         await groonabackend.email.sendTemplate({
           to: user.email,
@@ -112,7 +121,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
             hours: firstTimesheet?.hours || 0,
             minutes: firstTimesheet?.minutes || 0,
             projectName: firstTimesheet?.project_name,
-            entryCount: timesheetIds.length
+            entryCount: timesheetIds.length,
+            isLate: isLateBatch
           }
         });
 
@@ -120,10 +130,12 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
         await groonabackend.entities.Notification.create({
           tenant_id: effectiveTenantId,
           recipient_email: user.email,
-          type: 'timesheet_submission',
+          type: isLateBatch ? 'late_timesheet_submission' : 'timesheet_submission',
           category: 'general',
-          title: 'Timesheet Submitted',
-          message: `You have successfully submitted ${timesheetIds.length} timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`,
+          title: isLateBatch ? 'Late Timesheet Submission' : 'Timesheet Submitted',
+          message: isLateBatch
+            ? `You have submitted ${timesheetIds.length} late timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`
+            : `You have successfully submitted ${timesheetIds.length} timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`,
           entity_type: 'timesheet',
           sender_name: 'System'
         });

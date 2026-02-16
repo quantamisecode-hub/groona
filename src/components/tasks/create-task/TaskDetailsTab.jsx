@@ -100,14 +100,45 @@ export default function TaskDetailsTab({
   }, [stories]);
 
   // Auto-set sprint when story is selected (if story has a sprint)
+  // Also filter assignees based on project team
+  const filteredUsers = React.useMemo(() => {
+    if (!taskData.story_id) return [];
+
+    const selectedStory = stories.find(s => (s.id || s._id) === taskData.story_id);
+    if (!selectedStory) return users;
+
+    const projectId = selectedStory.project_id?.id || selectedStory.project_id?._id || selectedStory.project_id;
+    const project = projects.find(p => (p.id || p._id) === projectId);
+
+    if (!project || !project.team_members) return users;
+
+    const teamEmails = project.team_members.map(m => m.email);
+    return users.filter(u => teamEmails.includes(u.email));
+  }, [taskData.story_id, stories, users, projects]);
+
   React.useEffect(() => {
     if (taskData.story_id) {
       const selectedStory = stories.find(s => (s.id || s._id) === taskData.story_id);
+
+      // Auto-set sprint
       if (selectedStory?.sprint_id && !taskData.sprint_id) {
         setTaskData(prev => ({ ...prev, sprint_id: selectedStory.sprint_id }));
       }
+
+      // Filter out existing assignees who are not in the project team
+      const projectId = selectedStory?.project_id?.id || selectedStory?.project_id?._id || selectedStory?.project_id;
+      const project = projects.find(p => (p.id || p._id) === projectId);
+
+      if (project && project.team_members && taskData.assigned_to?.length > 0) {
+        const teamEmails = project.team_members.map(m => m.email);
+        const validAssignees = taskData.assigned_to.filter(email => teamEmails.includes(email));
+
+        if (validAssignees.length !== taskData.assigned_to.length) {
+          setTaskData(prev => ({ ...prev, assigned_to: validAssignees }));
+        }
+      }
     }
-  }, [taskData.story_id, stories, taskData.sprint_id, setTaskData]);
+  }, [taskData.story_id, stories, projects, setTaskData]);
 
 
   // Notify parent when impediment data changes
@@ -356,142 +387,7 @@ export default function TaskDetailsTab({
           </Select>
         </div>
 
-        {/* Assignees and Reference URL - Side by Side */}
-        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-2">
-          {/* Assignees */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-2">
-              <Users className="h-4 w-4 text-indigo-500" />
-              Assignees
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between h-10 px-3 py-1.5"
-                >
-                  {taskData.assigned_to && taskData.assigned_to.length > 0
-                    ? <div className="flex flex-wrap gap-1 overflow-hidden">
-                      {taskData.assigned_to.map(assigneeEmail => {
-                        const user = users.find(u => u.email === assigneeEmail);
-                        const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
-                        return (
-                          <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
-                            <Avatar className="h-4 w-4">
-                              <AvatarImage src={user?.profile_image_url} />
-                              <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
-                            </Avatar>
-                            <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer hover:text-red-500"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTaskData(prev => ({
-                                  ...prev,
-                                  assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
-                                }));
-                              }}
-                            />
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                    : <span className="text-slate-500">Select assignees...</span>}
-                  <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search users..." />
-                  <CommandList className="max-h-[300px] overflow-y-auto">
-                    <CommandEmpty>No user found.</CommandEmpty>
-                    <CommandGroup className="overflow-visible">
-                      {users.map((user) => {
-                        const isSelected = Array.isArray(taskData.assigned_to) && taskData.assigned_to.includes(user.email);
-                        const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                        return (
-                          <CommandItem
-                            key={user.id}
-                            value={user.email}
-                            onSelect={() => {
-                              const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                              if (hasReworkAlarm && !isSelected) {
-                                const msg = "Cannot assign task: User has too many rework tasks.";
-                                toast.error(msg);
-                                setLocalError(msg);
-                                return;
-                              }
-
-                              const currentAssignees = Array.isArray(taskData.assigned_to) ? taskData.assigned_to : [];
-                              const newAssignees = isSelected
-                                ? currentAssignees.filter((email) => email !== user.email)
-                                : [...currentAssignees, user.email];
-
-                              setLocalError(""); // Clear error on valid selection
-                              setTaskData(prev => ({ ...prev, assigned_to: newAssignees }));
-                            }}
-                          >
-                            <div className={cn(
-                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                              isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
-                            )}>
-                              <Check className={cn("h-4 w-4")} />
-                            </div>
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarImage src={user.profile_image_url} />
-                              <AvatarFallback className="text-xs">
-                                {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className={cn("truncate flex-1", hasReworkAlarm && "text-slate-400 line-through")}>{user.full_name}</span>
-                            {hasReworkAlarm && (
-                              <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
-                                <Siren className="h-2 w-2" />
-                                FROZEN
-                              </Badge>
-                            )}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {taskData.assigned_to.some(email => reworkAlarms.some(a => a.recipient_email === email)) && (
-              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
-                <Siren className="h-3.5 w-3.5" />
-                One or more selected users have their assignments frozen.
-              </div>
-            )}
-            {(validationErrors.assigned_to || localError) && (
-              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
-                <Siren className="h-3.5 w-3.5" />
-                {validationErrors.assigned_to || localError}
-              </div>
-            )}
-          </div>
-
-          {/* Reference URL */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-cyan-500" />
-              Reference URL / Image Link
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                type="url"
-                value={taskData.reference_url || ""}
-                onChange={(e) => setTaskData({ ...taskData, reference_url: e.target.value })}
-                placeholder="https://example.com/mockup-design"
-                className="flex-1 h-10"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Story - Full Width Row */}
+        {/* Story - Moved Above Assignees */}
         <div className="md:col-span-2 space-y-2">
           <Label className="text-sm font-semibold flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-green-500" />
@@ -593,6 +489,154 @@ export default function TaskDetailsTab({
               })()}
             </div>
           )}
+        </div>
+
+        {/* Assignees and Reference URL - Side by Side */}
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-2">
+          {/* Assignees */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4 text-indigo-500" />
+              Assignees
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="w-full justify-between h-10 px-3 py-1.5"
+                >
+                  {taskData.assigned_to && taskData.assigned_to.length > 0
+                    ? <div className="flex flex-wrap gap-1 overflow-hidden">
+                      {taskData.assigned_to.map(assigneeEmail => {
+                        const user = users.find(u => u.email === assigneeEmail);
+                        const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
+                        return (
+                          <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
+                            <Avatar className="h-4 w-4">
+                              <AvatarImage src={user?.profile_image_url} />
+                              <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                            </Avatar>
+                            <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
+                            <X
+                              className="h-3 w-3 cursor-pointer hover:text-red-500"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTaskData(prev => ({
+                                  ...prev,
+                                  assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
+                                }));
+                              }}
+                            />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    : <span className="text-slate-500">Select assignees...</span>}
+                  <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search users..." />
+                  <CommandList className="max-h-[300px] overflow-y-auto">
+                    <CommandEmpty>No user found.</CommandEmpty>
+                    <CommandGroup className="overflow-visible">
+                      {filteredUsers.map((user) => {
+                        const isSelected = Array.isArray(taskData.assigned_to) && taskData.assigned_to.includes(user.email);
+                        const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                        return (
+                          <CommandItem
+                            key={user.id}
+                            value={user.email}
+                            onSelect={() => {
+                              if (user.is_overloaded && !isSelected) {
+                                const msg = "Cannot assign task: User is overloaded.";
+                                toast.error(msg);
+                                setLocalError(msg);
+                                return;
+                              }
+
+                              const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                              if (hasReworkAlarm && !isSelected) {
+                                const msg = "Cannot assign task: User has too many rework tasks.";
+                                toast.error(msg);
+                                setLocalError(msg);
+                                return;
+                              }
+
+                              const currentAssignees = Array.isArray(taskData.assigned_to) ? taskData.assigned_to : [];
+                              const newAssignees = isSelected
+                                ? currentAssignees.filter((email) => email !== user.email)
+                                : [...currentAssignees, user.email];
+
+                              setLocalError(""); // Clear error on valid selection
+                              setTaskData(prev => ({ ...prev, assigned_to: newAssignees }));
+                            }}
+                          >
+                            <div className={cn(
+                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                              isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                            )}>
+                              <Check className={cn("h-4 w-4")} />
+                            </div>
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarImage src={user.profile_image_url} />
+                              <AvatarFallback className="text-xs">
+                                {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded) && "text-slate-400 line-through")}>{user.full_name}</span>
+                            {user.is_overloaded && (
+                              <Badge variant="outline" className="ml-auto text-[8px] border-orange-200 bg-orange-50 text-orange-600 gap-1 animate-pulse">
+                                <Siren className="h-2 w-2" />
+                                OVERLOADED
+                              </Badge>
+                            )}
+                            {hasReworkAlarm && (
+                              <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
+                                <Siren className="h-2 w-2" />
+                                FROZEN
+                              </Badge>
+                            )}
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {taskData.assigned_to.some(email => reworkAlarms.some(a => a.recipient_email === email)) && (
+              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
+                <Siren className="h-3.5 w-3.5" />
+                One or more selected users have their assignments frozen.
+              </div>
+            )}
+            {(validationErrors.assigned_to || localError) && (
+              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
+                <Siren className="h-3.5 w-3.5" />
+                {validationErrors.assigned_to || localError}
+              </div>
+            )}
+          </div>
+
+          {/* Reference URL */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-cyan-500" />
+              Reference URL / Image Link
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                type="url"
+                value={taskData.reference_url || ""}
+                onChange={(e) => setTaskData({ ...taskData, reference_url: e.target.value })}
+                placeholder="https://example.com/mockup-design"
+                className="flex-1 h-10"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Story Points */}

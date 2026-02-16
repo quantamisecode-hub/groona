@@ -100,6 +100,10 @@ function getEmailTemplate(templateType, data = {}) {
       return getTimesheetLockoutAlarmTemplate(data);
     case 'timesheet_missing_alert':
       return getTimesheetMissingAlertTemplate(data);
+    case 'low_logged_hours':
+      return getLowLoggedHoursTemplate(data);
+    case 'overwork_alarm':
+      return getOverworkAlarmTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -355,7 +359,7 @@ function getFailedLoginAttemptsTemplate(data) {
   const { userName, userEmail, attemptCount, lastAttemptTime, ipAddress, location, deviceName, userAgent } = data;
 
   const content = `
-  < p style = "${styles.text}" > We detected < strong > ${attemptCount} failed login attempts</strong > on your Groona account.</p >
+    <p style="${styles.text}">We detected <strong>${attemptCount} failed login attempts</strong> on your Groona account.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -408,7 +412,7 @@ function getFailedLoginAttemptsTemplate(data) {
   return {
     html: getBaseTemplate(
       'Security Alert: Failed Login Attempts',
-      `Hello, ${userName || userEmail} `,
+      `Hello, ${userName || userEmail}`,
       content
     ),
     defaultSubject: `Security Alert: ${attemptCount} Failed Login Attempts`
@@ -422,7 +426,7 @@ function getLeaveApprovedTemplate(data) {
   const { memberName, memberEmail, leaveType, startDate, endDate, duration, totalDays, approvedBy, description, projectUrl } = data;
 
   const content = `
-  < p style = "${styles.text}" > Your leave application has been < strong style = "color: #10b981;" > approved</strong >.</p >
+  <p style="${styles.text}">Your leave application has been <strong style="color: #10b981;">approved</strong>.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -459,10 +463,10 @@ function getLeaveApprovedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Leave Application Approved',
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Leave Application Approved: ${leaveType} `
+    defaultSubject: `Leave Application Approved: ${leaveType}`
   };
 }
 
@@ -478,7 +482,7 @@ function getLeaveCancelledTemplate(data) {
   const actionBy = cancelledBy || 'Administrator';
 
   const content = `
-  < p style = "${styles.text}" > Your leave application has been < strong style = "color: #ef4444;" > ${statusText}</strong >.</p >
+  <p style="${styles.text}">Your leave application has been <strong style="color: #ef4444;">${statusText}</strong>.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -515,10 +519,10 @@ function getLeaveCancelledTemplate(data) {
   return {
     html: getBaseTemplate(
       `Leave Application ${isRejected ? 'Rejected' : 'Cancelled'} `,
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Leave Application ${isRejected ? 'Rejected' : 'Cancelled'}: ${leaveType} `
+    defaultSubject: `Leave Application ${isRejected ? 'Rejected' : 'Cancelled'}: ${leaveType}`
   };
 }
 
@@ -529,7 +533,7 @@ function getTeamMemberRemovedTemplate(data) {
   const { memberName, memberEmail, projectName, removedBy, reason } = data;
 
   const content = `
-  < p style = "${styles.text}" > You have been removed from the project < strong > ${projectName}</strong >.</p >
+  <p style="${styles.text}">You have been removed from the project <strong>${projectName}</strong>.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -554,10 +558,10 @@ function getTeamMemberRemovedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Removed from Project',
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Removed from Project: ${projectName} `
+    defaultSubject: `Removed from Project: ${projectName}`
   };
 }
 
@@ -568,7 +572,7 @@ function getLeaveSubmittedTemplate(data) {
   const { memberName, memberEmail, leaveType, startDate, endDate, duration, totalDays, reason } = data;
 
   const content = `
-  < p style = "${styles.text}" > Your leave application has been < strong style = "color: #3b82f6;" > submitted successfully</strong > and is pending approval.</p >
+  <p style="${styles.text}">Your leave application has been <strong style="color: #3b82f6;">submitted successfully</strong> and is pending approval.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -601,10 +605,10 @@ function getLeaveSubmittedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Leave Application Submitted',
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Leave Application Submitted: ${leaveType} `
+    defaultSubject: `Leave Application Submitted: ${leaveType}`
   };
 }
 
@@ -615,7 +619,7 @@ function getTimesheetApprovedTemplate(data) {
   const { memberName, memberEmail, taskTitle, date, hours, minutes, approvedBy, comment } = data;
 
   const content = `
-  < p style = "${styles.text}" > Your timesheet has been < strong style = "color: #10b981;" > approved</strong >.</p >
+  <p style="${styles.text}">Your timesheet has been <strong style="color: #10b981;">approved</strong>.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -648,10 +652,10 @@ function getTimesheetApprovedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Timesheet Approved',
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Timesheet Approved: ${taskTitle || 'Timesheet'} `
+    defaultSubject: `Timesheet Approved: ${taskTitle || 'Timesheet'}`
   };
 }
 
@@ -662,7 +666,7 @@ function getTimesheetRejectedTemplate(data) {
   const { memberName, memberEmail, taskTitle, date, hours, minutes, rejectedBy, comment, reason } = data;
 
   const content = `
-  < p style = "${styles.text}" > Your timesheet has been < strong style = "color: #ef4444;" > rejected</strong >.</p >
+  <p style="${styles.text}">Your timesheet has been <strong style="color: #ef4444;">rejected</strong>.</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
@@ -695,10 +699,10 @@ function getTimesheetRejectedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Timesheet Rejected',
-      `Hello, ${memberName || memberEmail} `,
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
-    defaultSubject: `Timesheet Rejected: ${taskTitle || 'Timesheet'} `
+    defaultSubject: `Timesheet Rejected: ${taskTitle || 'Timesheet'}`
   };
 }
 
@@ -706,11 +710,26 @@ function getTimesheetRejectedTemplate(data) {
  * Timesheet Submitted Template (Acknowledgment)
  */
 function getTimesheetSubmittedTemplate(data) {
-  const { memberName, memberEmail, taskTitle, date, hours, minutes, projectName, entryCount } = data;
+  const { memberName, memberEmail, taskTitle, date, hours, minutes, projectName, entryCount, isLate } = data;
+
+  const subjectPrefix = isLate ? 'Late Timesheet Submission' : 'Timesheet Submitted';
+  const titleColor = isLate ? '#eab308' : '#3b82f6'; // Yellow for Late, Blue for Normal
 
   const content = `
-  < p style = "${styles.text}" > Your timesheet${entryCount > 1 ? 's have' : ' has'} been < strong style = "color: #3b82f6;" > submitted successfully</strong > and ${entryCount > 1 ? 'are' : 'is'} pending approval.</p >
+    <p style="${styles.text}">
+      Your timesheet${entryCount > 1 ? 's have' : ' has'} been 
+      <strong style="color: ${titleColor};">${isLate ? 'submitted late' : 'submitted successfully'}</strong> 
+      and ${entryCount > 1 ? 'are' : 'is'} pending approval.
+    </p>
     
+    ${isLate ? `
+      <div style="background-color: #fefce8; border: 1px solid #fde047; padding: 12px; border-radius: 6px; margin-bottom: 24px;">
+        <p style="margin: 0; color: #854d0e; font-size: 14px;">
+          <strong>Note:</strong> This submission is for a past date and has been marked as <strong>Late</strong>.
+        </p>
+      </div>
+    ` : ''}
+
     <div style="${styles.infoBox}">
       ${entryCount > 1 ? `
         <div style="${styles.infoRow}">
@@ -744,13 +763,13 @@ function getTimesheetSubmittedTemplate(data) {
 
   return {
     html: getBaseTemplate(
-      'Timesheet Submitted',
-      `Hello, ${memberName || memberEmail} `,
+      isLate ? 'Late Timesheet Submission' : 'Timesheet Submitted',
+      `Hello, ${memberName || memberEmail}`,
       content
     ),
     defaultSubject: entryCount > 1
-      ? `${entryCount} Timesheet Entries Submitted`
-      : `Timesheet Submitted: ${taskTitle || 'Timesheet'} `
+      ? `${isLate ? 'Late: ' : ''}${entryCount} Timesheet Entries Submitted`
+      : `${subjectPrefix}: ${taskTitle || 'Timesheet'}`
   };
 }
 
@@ -794,6 +813,86 @@ function getTimesheetReminderTemplate(data) {
       content
     ),
     defaultSubject: "Reminder: Please log your time today"
+  };
+}
+
+/**
+ * Low Logged Hours Template
+ */
+function getLowLoggedHoursTemplate(data) {
+  const { userName, userEmail, consecutiveDays, loggedHours, availability } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>Notification:</strong> Your logged hours have been consistently below your declared availability.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: #f59e0b;">Low Hours Detected</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Observation:</span>
+        <span style="${styles.value}">${consecutiveDays} consecutive working days</span>
+      </div>
+      <p style="font-size: 14px; color: #475569; margin-top: 12px; margin-bottom: 0;">
+        <strong>Your logged hours are below your declared availability. Please review your workload.</strong>
+      </p>
+    </div>
+
+    <p style="${styles.text}">Maintaining accurate timesheets is essential for project tracking and resource planning. If you're facing impediments or your workload is lower than expected, please discuss this with your manager.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${process.env.FRONTEND_URL || '#'}/timesheets" style="${styles.primaryBtn}">View My Timesheets</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Workload Review Required',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: "Action Required: Low Logged Hours Detected"
+  };
+}
+
+/**
+ * Overwork Alarm Template
+ */
+function getOverworkAlarmTemplate(data) {
+  const { userName, userEmail, totalHours } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>Alert:</strong> High workload detected.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: #ef4444;">Overwork Alarm</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Planned Hours:</span>
+        <span style="${styles.value}">${totalHours.toFixed(1)} hours (this week)</span>
+      </div>
+      <p style="font-size: 14px; color: #475569; margin-top: 12px; margin-bottom: 0;">
+        <strong>You’ve been working long hours consistently. Please discuss workload adjustment with your manager.</strong>
+      </p>
+    </div>
+
+    <p style="${styles.text}">Your health and well-being are important. Consistently high workload can lead to burnout. We encourage you to review your tasks and discuss prioritizing or delegating work where possible.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${process.env.FRONTEND_URL || '#'}/tasks" style="${styles.primaryBtn}">Review My Tasks</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Workload Review: High Hours Detected',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: "🚨 Action Required: High Workload Alert"
   };
 }
 

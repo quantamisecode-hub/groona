@@ -87,6 +87,18 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     enabled: !!task?.project_id,
   });
 
+  const { data: project } = useQuery({
+    queryKey: ['project', task?.project_id],
+    queryFn: async () => {
+      if (!task?.project_id) return null;
+      const projects = await groonabackend.entities.Project.list();
+      return projects.find(p => (p.id === task.project_id) || (p._id === task.project_id));
+    },
+    enabled: !!task?.project_id && open,
+  });
+
+
+
   // Fetch active rework alarms
   const { data: reworkAlarms = [] } = useQuery({
     queryKey: ['rework-alarms', effectiveTenantId],
@@ -155,7 +167,16 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     };
   });
 
+  const filteredUsers = React.useMemo(() => {
+    // Stricter filtering: If no story is selected, show no assignees
+    if (!formData.story_id) return [];
 
+    // Determine the project to filter by
+    if (!project || !project.team_members) return users;
+
+    const teamEmails = project.team_members.map(m => m.email);
+    return users.filter(u => teamEmails.includes(u.email));
+  }, [users, project, formData.story_id]);
 
   const updateTaskMutation = useMutation({
     mutationFn: async (data) => {
@@ -622,136 +643,6 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
             />
           </div>
 
-          {/* Assigned To and Reference URL - Side by Side */}
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 mt-2">
-            {/* Assigned To */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-indigo-500" />
-                Assigned To
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    className="w-full justify-between h-auto min-h-10 px-3 py-2"
-                    disabled={updateTaskMutation.isPending}
-                  >
-                    {formData.assigned_to && formData.assigned_to.length > 0
-                      ? <div className="flex flex-wrap gap-1">
-                        {formData.assigned_to.map(assigneeEmail => {
-                          const user = users.find(u => u.email === assigneeEmail);
-                          const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
-                          return (
-                            <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
-                              <Avatar className="h-4 w-4">
-                                <AvatarImage src={user?.profile_image_url} />
-                                <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
-                              </Avatar>
-                              <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
-                              <X
-                                className="h-3 w-3 cursor-pointer hover:text-red-500"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setFormData(prev => ({
-                                    ...prev,
-                                    assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
-                                  }));
-                                }}
-                              />
-                            </Badge>
-                          );
-                        })}
-                      </div>
-                      : <span className="text-slate-500">Select assignees...</span>}
-                    <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search users..." />
-                    <CommandList className="max-h-[300px] overflow-y-auto">
-                      <CommandEmpty>No user found.</CommandEmpty>
-                      <CommandGroup className="overflow-visible">
-                        {users.map((user) => {
-                          const isSelected = Array.isArray(formData.assigned_to) && formData.assigned_to.includes(user.email);
-                          const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                          return (
-                            <CommandItem
-                              key={user.id}
-                              value={user.email}
-                              onSelect={() => {
-                                const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                                if (hasReworkAlarm && !isSelected) {
-                                  const msg = "Cannot assign task: User has too many rework tasks.";
-                                  toast.error(msg);
-                                  setAssignmentError(msg);
-                                  return;
-                                }
-
-                                const currentAssignees = Array.isArray(formData.assigned_to) ? formData.assigned_to : [];
-                                const newAssignees = isSelected
-                                  ? currentAssignees.filter((email) => email !== user.email)
-                                  : [...currentAssignees, user.email];
-
-                                setAssignmentError(""); // Clear error
-                                setFormData(prev => ({ ...prev, assigned_to: newAssignees }));
-                              }}
-                            >
-                              <div className={cn(
-                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
-                              )}>
-                                <Check className={cn("h-4 w-4")} />
-                              </div>
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarImage src={user.profile_image_url} />
-                                <AvatarFallback className="text-xs">
-                                  {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className={cn("truncate flex-1", hasReworkAlarm && "text-slate-400 line-through")}>{user.full_name}</span>
-                              {hasReworkAlarm && (
-                                <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
-                                  <Siren className="h-2 w-2" />
-                                  FROZEN
-                                </Badge>
-                              )}
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              {assignmentError && (
-                <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
-                  <Siren className="h-3.5 w-3.5" />
-                  {assignmentError}
-                </div>
-              )}
-            </div>
-
-            {/* Reference URL */}
-            <div className="space-y-2">
-              <Label htmlFor="reference_url" className="flex items-center gap-2">
-                <LinkIcon className="h-4 w-4 text-cyan-500" />
-                Reference URL
-              </Label>
-              <Input
-                id="reference_url"
-                type="url"
-                value={formData.reference_url || ""}
-                onChange={(e) => setFormData({ ...formData, reference_url: e.target.value })}
-                placeholder="https://example.com/design"
-                className="h-10"
-                disabled={updateTaskMutation.isPending}
-              />
-            </div>
-          </div>
-
           {/* Story - Full Width */}
           <div className="md:col-span-2 space-y-2">
             <Label htmlFor="story_id" className="flex items-center gap-2">
@@ -848,6 +739,149 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
                 </div>
               );
             })()}
+          </div>
+
+          {/* Assigned To and Reference URL - Side by Side */}
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 mt-2">
+            {/* Assigned To */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-indigo-500" />
+                Assigned To
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-auto min-h-10 px-3 py-2"
+                    disabled={updateTaskMutation.isPending}
+                  >
+                    {formData.assigned_to && formData.assigned_to.length > 0
+                      ? <div className="flex flex-wrap gap-1">
+                        {formData.assigned_to.map(assigneeEmail => {
+                          const user = users.find(u => u.email === assigneeEmail);
+                          const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
+                          return (
+                            <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={user?.profile_image_url} />
+                                <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
+                              <X
+                                className="h-3 w-3 cursor-pointer hover:text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
+                                  }));
+                                }}
+                              />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                      : <span className="text-slate-500">Select assignees...</span>}
+                    <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search users..." />
+                    <CommandList className="max-h-[300px] overflow-y-auto">
+                      <CommandEmpty>No user found.</CommandEmpty>
+                      <CommandGroup className="overflow-visible">
+                        {filteredUsers.map((user) => {
+                          const isSelected = Array.isArray(formData.assigned_to) && formData.assigned_to.includes(user.email);
+                          const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                          return (
+                            <CommandItem
+                              key={user.id}
+                              value={user.email}
+                              onSelect={() => {
+                                if (user.is_overloaded && !isSelected) {
+                                  const msg = "Cannot assign task: User is overloaded.";
+                                  toast.error(msg);
+                                  setAssignmentError(msg);
+                                  return;
+                                }
+
+                                const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                                if (hasReworkAlarm && !isSelected) {
+                                  const msg = "Cannot assign task: User has too many rework tasks.";
+                                  toast.error(msg);
+                                  setAssignmentError(msg);
+                                  return;
+                                }
+
+                                const currentAssignees = Array.isArray(formData.assigned_to) ? formData.assigned_to : [];
+                                const newAssignees = isSelected
+                                  ? currentAssignees.filter((email) => email !== user.email)
+                                  : [...currentAssignees, user.email];
+
+                                setAssignmentError(""); // Clear error
+                                setFormData(prev => ({ ...prev, assigned_to: newAssignees }));
+                              }}
+                            >
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                              )}>
+                                <Check className={cn("h-4 w-4")} />
+                              </div>
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarImage src={user.profile_image_url} />
+                                <AvatarFallback className="text-xs">
+                                  {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded) && "text-slate-400 line-through")}>{user.full_name}</span>
+                              {user.is_overloaded && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-orange-200 bg-orange-50 text-orange-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  OVERLOADED
+                                </Badge>
+                              )}
+                              {hasReworkAlarm && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  FROZEN
+                                </Badge>
+                              )}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {assignmentError && (
+                <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
+                  <Siren className="h-3.5 w-3.5" />
+                  {assignmentError}
+                </div>
+              )}
+            </div>
+
+            {/* Reference URL */}
+            <div className="space-y-2">
+              <Label htmlFor="reference_url" className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-cyan-500" />
+                Reference URL
+              </Label>
+              <Input
+                id="reference_url"
+                type="url"
+                value={formData.reference_url || ""}
+                onChange={(e) => setFormData({ ...formData, reference_url: e.target.value })}
+                placeholder="https://example.com/design"
+                className="h-10"
+                disabled={updateTaskMutation.isPending}
+              />
+            </div>
           </div>
 
           {/* Description with Draft with AI Button */}

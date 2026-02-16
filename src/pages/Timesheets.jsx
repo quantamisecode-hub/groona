@@ -202,16 +202,21 @@ export default function TimesheetsPage() {
 
       if (isSubmission && wasDraft) {
         try {
+          const entryDateStr = newEntry.date?.substring(0, 10);
+          const isLate = entryDateStr && entryDateStr < todayStr;
+
           // 1. Notify the Submitter (User)
           await groonabackend.entities.Notification.create({
             tenant_id: effectiveTenantId,
             recipient_email: currentUser.email,
-            type: 'timesheet_submission',
-            title: 'Timesheet Submitted',
-            message: `You have successfully submitted a timesheet for task: ${newEntry.task_title}`,
-            entity_type: 'timesheet', // Explicitly timesheet
+            type: isLate ? 'late_timesheet_submission' : 'timesheet_submission',
+            title: isLate ? 'Late Timesheet Submission' : 'Timesheet Submitted',
+            message: isLate
+              ? `You have submitted a late timesheet for task: ${newEntry.task_title}`
+              : `You have successfully submitted a timesheet for task: ${newEntry.task_title}`,
+            entity_type: 'timesheet',
             entity_id: newEntry.id,
-            project_id: newEntry.project_id, // Add project_id for routing
+            project_id: newEntry.project_id,
             sender_name: 'System'
           });
 
@@ -270,6 +275,9 @@ export default function TimesheetsPage() {
         // Send email asynchronously after timesheet is successfully logged/submitted
         setTimeout(async () => {
           try {
+            const entryDateStr = newEntry.date?.substring(0, 10);
+            const isLate = entryDateStr && entryDateStr < todayStr;
+
             await groonabackend.email.sendTemplate({
               to: currentUser.email,
               templateType: 'timesheet_submitted',
@@ -281,7 +289,8 @@ export default function TimesheetsPage() {
                 hours: newEntry.hours || 0,
                 minutes: newEntry.minutes || 0,
                 projectName: newEntry.project_name,
-                entryCount: 1
+                entryCount: 1,
+                isLate: isLate
               }
             });
           } catch (emailError) {
@@ -411,6 +420,12 @@ export default function TimesheetsPage() {
           });
         }
 
+        // Determine if any entry is late
+        const isLateBatch = timesheets.some(t => {
+          const entryDateStr = t.date?.substring(0, 10);
+          return entryDateStr && entryDateStr < todayStr;
+        });
+
         // Send Email to Submitter
         await groonabackend.email.sendTemplate({
           to: user.email,
@@ -423,8 +438,23 @@ export default function TimesheetsPage() {
             hours: firstTimesheet?.hours || 0,
             minutes: firstTimesheet?.minutes || 0,
             projectName: firstTimesheet?.project_name,
-            entryCount: timesheetIds.length
+            entryCount: timesheetIds.length,
+            isLate: isLateBatch
           }
+        });
+
+        // Create In-App Notification for Submitter
+        await groonabackend.entities.Notification.create({
+          tenant_id: effectiveTenantId,
+          recipient_email: user.email,
+          type: isLateBatch ? 'late_timesheet_submission' : 'timesheet_submission',
+          category: 'general',
+          title: isLateBatch ? 'Late Timesheet Submission' : 'Timesheet Submitted',
+          message: isLateBatch
+            ? `You have submitted ${timesheetIds.length} late timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`
+            : `You have successfully submitted ${timesheetIds.length} timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`,
+          entity_type: 'timesheet',
+          sender_name: 'System'
         });
 
       } catch (err) {
