@@ -57,7 +57,9 @@
         "leave_application",
         "leave_approval",
         "leave_rejection",
-        "leave_cancellation"
+        "leave_cancellation",
+        "timesheet_reminder",
+        "timesheet_late_submission"
       ],
       "description": "Type of notification"
     },

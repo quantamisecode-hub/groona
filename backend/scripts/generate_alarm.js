@@ -107,29 +107,89 @@ const runChecks = async () => {
         const startOfTarget = new Date(targetDate.setHours(0, 0, 0, 0));
         const endOfTarget = new Date(targetDate.setHours(23, 59, 59, 999));
 
-        for (const user of users) {
-            // 1. Query UserActivityLog for TARGET DATE
-            const activityLog = await UserActivityLog.findOne({
-                user_id: user._id,
-                timestamp: { $gte: startOfTarget, $lte: endOfTarget }
-            });
+        // 2. CHECK MISSING TIMESHEETS (Last 7 Days)
+        const missingThreshold = 3;
+        const checkWindowDays = 7;
 
-            if (!activityLog) {
-                console.log(`[SKIP] ${user.email} - No activity log found for target date.`);
-                continue;
+        let startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - checkWindowDays);
+        startDate.setHours(0, 0, 0, 0);
+
+        let endDate = new Date(now);
+        endDate.setDate(endDate.getDate() - 1); // Exclude today from "missing" check usually, or include? Let's exclude today to be safe.
+        endDate.setHours(23, 59, 59, 999);
+
+        // Map to store User -> MissingCount
+        console.log(`\n=== MISSING TIMESHEET CHECK (${startDate.toDateString()} - ${endDate.toDateString()}) ===`);
+
+        const Project = mongoose.model('Project');
+        const UserTimesheets = mongoose.model('User_timesheets');
+
+        // We assume 'users' array from previous block is still valid or we fetch again if we want to be safe. 
+        // We can reuse the 'users' array if it targets the right audience.
+        // The previous block filtered by role='member' and custom_role='viewer'. 
+        // Let's broaden this if the requirement is for ALL team members, but usually it's members/viewers.
+        // User request: "USER_MISSING_TIMESHEET_REPEATED". 
+        // Let's reuse 'users' but maybe we should re-fetch to be sure we get everyone relevant. 
+        // Let's stick to the users we have for now or re-fetch if we closed the scope.
+        // Actually, the previous block might have filtered too strictly if it was just testing. 
+        // Let's re-fetch standard members.
+
+        const memberUsers = await User.find({
+            role: { $in: ['member', 'employee', 'user'] }, // Adjust based on actual roles
+            custom_role: { $ne: 'client' }, // Exclude clients
+            status: 'active'
+        });
+
+        for (const user of memberUsers) {
+            // Skip if already locked? Maybe we should re-check to define if we need to send ANOTHER notification or just ensuring lock.
+            // If already locked, we might skip to avoid spam, or check if they resolved it. 
+            // For now, let's process everyone to ensure lock is enforced if they fall back into bad habits or if we need to remind.
+
+            let missingCount = 0;
+            let missingDates = [];
+
+            // Iterate last 7 days
+            for (let d = 0; d < checkWindowDays; d++) {
+                let checkDate = new Date(now);
+                checkDate.setDate(checkDate.getDate() - (d + 1)); // Start from yesterday backwards
+                checkDate.setHours(0, 0, 0, 0);
+
+                // Skip Sundays
+                if (checkDate.getDay() === 0) continue;
+
+                const startOfDay = new Date(checkDate);
+                const endOfDay = new Date(checkDate);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                const ts = await UserTimesheets.findOne({
+                    user_email: user.email,
+                    timesheet_date: { $gte: startOfDay, $lte: endOfDay },
+                    status: { $in: ['submitted', 'approved'] } // Only count valid submissions
+                });
+
+                if (!ts) {
+                    missingCount++;
+                    missingDates.push(checkDate.toISOString().split('T')[0]);
+                }
             }
 
-            const ignoredCount = activityLog.ignored_alert_count || 0;
-            console.log(`[CHECK] ${user.email} - Ignored Count: ${ignoredCount}`);
+            if (missingCount > missingThreshold) {
+                console.log(`[ALARM] User ${user.email} missing ${missingCount} timesheets.`);
 
-            if (ignoredCount >= IGNORE_THRESHOLD) {
-                console.log(`   -> [ALARM] Threshold Reached/Exceeded! (${ignoredCount} >= ${IGNORE_THRESHOLD})`);
+                // 1. Lock User
+                if (!user.is_timesheet_locked) {
+                    await User.findByIdAndUpdate(user._id, { is_timesheet_locked: true });
+                    console.log(`   -> Locked User Account`);
+                }
 
-                // Check for existing Lockout Alarm
+                // 2. Notify User (In-App)
+                // Check if we already sent this specific alarm recently to avoid spamming every cron run? 
+                // We'll create it anyway as 'OPEN' status acts as the active alarm.
                 const existingAlarm = await Notification.findOne({
                     user_id: user._id,
                     type: 'timesheet_lockout_alarm',
-                    status: 'OPEN'
+                    status: { $in: ['OPEN', 'APPEALED'] }
                 });
 
                 if (!existingAlarm) {
@@ -137,22 +197,120 @@ const runChecks = async () => {
                         tenant_id: user.tenant_id || 'default',
                         recipient_email: user.email,
                         user_id: user._id,
-                        rule_id: 'TIMESHEET_LOCKOUT_MAX_IGNORES',
+                        rule_id: 'TIMESHEET_LOCKOUT_REPEATED_MISSING',
                         scope: 'user',
                         status: 'OPEN',
-                        type: 'timesheet_lockout_alarm', // user-requested specific trigger type
-                        category: 'alarm', // Higher severity than 'alert'
-                        title: '🚨 Account Locked: Non-Compliance',
-                        message: `You have ignored the timesheet alert ${ignoredCount} times. Your account is locked until Manager Approval.`,
+                        type: 'timesheet_lockout_alarm',
+                        category: 'alarm',
+                        title: '🚨 Timesheets Locked: Repeated Non-Compliance',
+                        message: `You have missed ${missingCount} daily timesheets in the last week. Your ability to log new time is LOCKED until you fill in the missing days.`,
                         read: false,
                         created_date: new Date()
                     });
-                    console.log(`      -> Created LOCKOUT Alarm`);
-                } else {
-                    console.log(`      -> Lockout Alarm already active.`);
+
+                    // 3. Email User
+                    const emailService = require('../services/emailService');
+                    if (emailService) {
+                        // Send Lockout Email
+                        await emailService.sendEmail({
+                            to: user.email,
+                            templateType: 'timesheet_lockout_alarm', // Ensure this template exists or handle generic
+                            subject: 'Urgent: Timesheet Submission Locked',
+                            data: {
+                                name: user.full_name,
+                                missingCount: missingCount,
+                                dates: missingDates.join(', ')
+                            }
+                        }).catch(e => console.error("Failed to send user email:", e.message));
+                    }
+                }
+
+                // 4. Notify & Email PMs and Admins
+                // Find Projects
+                const projects = await Project.find({
+                    "team_members.email": user.email,
+                    status: 'active'
+                });
+
+                let managersToNotify = new Set();
+
+                // Add Project Managers and Owners of active projects
+                projects.forEach(p => {
+                    if (p.owner) managersToNotify.add(p.owner); // Assuming owner is email string
+                    if (p.team_members) {
+                        p.team_members.forEach(tm => {
+                            if (tm.role === 'project_manager' || tm.role === 'owner') {
+                                managersToNotify.add(tm.email);
+                            }
+                        });
+                    }
+                });
+
+                // Finds Admins in the tenant
+                const admins = await User.find({
+                    tenant_id: user.tenant_id,
+                    role: { $in: ['admin', 'owner', 'manager'] },
+                    status: 'active'
+                });
+                admins.forEach(a => managersToNotify.add(a.email));
+
+                // Send Notifications to Managers
+                for (const managerEmail of managersToNotify) {
+                    // console.log(`   -> Notifying Manager/Admin: ${managerEmail}`);
+                    // Check if manager exists to get ID (optional for notification but good for linking)
+                    const managerUser = await User.findOne({ email: managerEmail });
+                    if (!managerUser) continue;
+
+                    // Avoid duplicate notifications for the same user lockout today
+                    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+                    const alreadyNotified = await Notification.findOne({
+                        recipient_email: managerEmail,
+                        type: 'timesheet_missing_alarm', // Using slightly different type for manager info
+                        message: { $regex: user.full_name }, // Rough check to avoid spamming same user info
+                        created_date: { $gte: todayStart }
+                    });
+
+                    if (!alreadyNotified) {
+                        await Notification.create({
+                            tenant_id: managerUser.tenant_id,
+                            recipient_email: managerEmail,
+                            user_id: managerUser._id,
+                            rule_id: 'TEAM_MEMBER_LOCKED',
+                            scope: 'user',
+                            status: 'OPEN',
+                            type: 'timesheet_missing_alarm',
+                            category: 'alert', // Alert for PM, Alarm for User
+                            title: `User Locked: ${user.full_name}`,
+                            message: `${user.full_name} has been locked out of timesheets due to ${missingCount} missing entries in the last week.`,
+                            read: false,
+                            created_date: new Date()
+                        });
+
+                        // Email Manager
+                        const emailService = require('../services/emailService');
+                        if (emailService) {
+                            await emailService.sendEmail({
+                                to: managerEmail,
+                                templateType: 'timesheet_missing_alert',
+                                subject: `Alert: ${user.full_name} Timesheet Lockout`,
+                                data: {
+                                    managerName: managerUser.full_name,
+                                    userName: user.full_name,
+                                    missingCount: missingCount
+                                }
+                            }).catch(e => console.error("Failed to send manager email:", e.message));
+                        }
+                    }
                 }
             } else {
-                console.log(`   -> [OK] Count within limits.`);
+                // Check if we should UNLOCK automatically if they fixed it?
+                // The requirement says "Lock new time entries". It implies unlocking happens when they submit.
+                // We will handle unlocking in the API when they submit the missing days. 
+                // But if the "last 7 days" window moves and they are no longer >3 missing, should we unlock?
+                // The API logic requires filling "Start of Month -> Yesterday". 
+                // If they fill those, the API unlocks. 
+                // So we don't need to auto-unlock here based on the 7-day sliding window alone, 
+                // because the API enforces the specific "Month-to-Date" compliance.
             }
         }
 

@@ -18,132 +18,102 @@ const runChecks = async () => {
 
         const users = await User.find({
             status: { $ne: 'inactive' },
-            role: 'member',
-            custom_role: 'viewer'
+            $or: [
+                { role: 'member', custom_role: 'viewer' },
+                { role: 'admin', custom_role: 'project_manager' }
+            ]
         });
-        console.log(`Checking ${users.length} active VIEWER users...`);
+        console.log(`Checking ${users.length} active users...`);
 
-        // Cleanup stale alerts for non-viewers
-        const allOpenMissingAlerts = await Notification.find({ type: 'timesheet_missing_alert', status: 'OPEN' });
-        for (const alert of allOpenMissingAlerts) {
-            const user = await User.findById(alert.user_id);
-            if (!user || user.status === 'inactive' || user.custom_role !== 'viewer') {
-                await Notification.updateOne({ _id: alert._id }, { status: 'RESOLVED', updated_at: new Date() });
-            }
-        }
-
-        const now = new Date();
-        // TESTING MODE: Check logs from TODAY to verify specific 2-minute rules quickly.
-        // PRODUCTION: Should use "yesterday" logic below.
-
-        // --- TEST MODE (Today) ---
-        //const targetDate = new Date(now);
-        //const startOfTarget = new Date(targetDate.setHours(0, 0, 0, 0));
-        //const endOfTarget = new Date(targetDate.setHours(23, 59, 59, 999));
-
-        // --- PRODUCTION MODE (Yesterday) ---
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const startOfTarget = new Date(yesterday.setHours(0, 0, 0, 0));
-        const endOfTarget = new Date(yesterday.setHours(23, 59, 59, 999));
+        const REQUIRED_MINUTES = 480; // 8 Hours
 
         for (const user of users) {
-            // 1. Query UserActivityLog for TARGET DATE
-            const activityLog = await UserActivityLog.findOne({
-                user_id: user._id,
-                timestamp: { $gte: startOfTarget, $lte: endOfTarget }
-            });
-
-            if (!activityLog) {
-                console.log(`[SKIP] ${user.email} - No activity log found for target date.`);
-                continue;
+            const now = new Date();
+            const currentHour = now.getHours();
+            let checkDate = new Date(now);
+            if (currentHour < 18) {
+                checkDate.setDate(checkDate.getDate() - 1);
             }
+            checkDate.setHours(0, 0, 0, 0);
 
-            // 2. Determine "Start Work Time" and Deadline
-            let startHour = 10;
-            let startMinute = 0;
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            firstOfMonth.setHours(0, 0, 0, 0);
 
-            if (activityLog.scheduled_working_start) {
-                const parts = activityLog.scheduled_working_start.split(':');
-                if (parts.length >= 2) {
-                    startHour = parseInt(parts[0], 10);
-                    startMinute = parseInt(parts[1], 10);
+            let firstMissingDateStr = null;
+
+            while (checkDate >= firstOfMonth) {
+                // Skip Sundays
+                if (checkDate.getDay() === 0) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                    continue;
                 }
+
+                const y = checkDate.getFullYear();
+                const m = String(checkDate.getMonth() + 1).padStart(2, '0');
+                const d = String(checkDate.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
+
+                const startOfTarget = new Date(`${dateStr}T00:00:00.000Z`);
+                const endOfTarget = new Date(`${dateStr}T23:59:59.999Z`);
+
+                const UserTimesheets = Models.User_timesheets;
+                const dayRecord = await UserTimesheets.findOne({
+                    user_email: user.email,
+                    timesheet_date: { $gte: startOfTarget, $lte: endOfTarget }
+                });
+
+                const totalMinutes = dayRecord ? dayRecord.total_time_submitted_in_day : 0;
+
+                if (totalMinutes < REQUIRED_MINUTES) {
+                    firstMissingDateStr = dateStr;
+                    break;
+                }
+
+                checkDate.setDate(checkDate.getDate() - 1);
             }
 
-            // Construct the timestamp when they STARTED working on the target date
-            const workStartTime = new Date(activityLog.timestamp);
-            workStartTime.setHours(startHour, startMinute, 0, 0);
+            console.log(`[CHECK] ${user.email} - First Missing Day: ${firstMissingDateStr || 'None'}`);
 
-            // Deadline calculation
-            // TESTING: 2 Minutes grace period
-            const deadline = new Date(workStartTime.getTime() + (2 * 60 * 1000));
+            if (firstMissingDateStr) {
+                console.log(`   -> [ALERT] Incomplete for ${firstMissingDateStr}.`);
 
-            // PRODUCTION: 24 Hours grace period
-            // const deadline = new Date(workStartTime.getTime() + (24 * 60 * 60 * 1000));
+                const existingAlert = await Notification.findOne({
+                    user_id: user._id,
+                    type: 'timesheet_missing_alert',
+                    status: 'OPEN'
+                });
 
-            // 3. Check if we are past the deadline
-            if (now > deadline) {
-                // 4. Check Compliance: Submitted Matches Assigned
-                const assigned = activityLog.total_assigned_tasks || 0;
-                const submitted = activityLog.submitted_timesheets_count || 0;
-
-                console.log(`[CHECK] ${user.email} - Assigned: ${assigned}, Submitted: ${submitted}`);
-                console.log(`        Deadline was: ${deadline.toLocaleString()} (Now: ${now.toLocaleString()})`);
-
-                if (submitted < assigned) {
-                    console.log(`   -> [ALERT] Incomplete! Submitted (${submitted}) < Assigned (${assigned}).`);
-
-                    const existingAlert = await Notification.findOne({
+                if (!existingAlert) {
+                    await Notification.create({
+                        tenant_id: user.tenant_id || 'default',
+                        recipient_email: user.email,
                         user_id: user._id,
+                        rule_id: 'TIMESHEET_MANDATORY_EIGHT_HOURS',
+                        scope: 'user',
+                        status: 'OPEN',
                         type: 'timesheet_missing_alert',
-                        status: 'OPEN'
+                        category: 'alert',
+                        title: 'Missing Timesheet Entry Required',
+                        message: `Mandatory: 8 hours required for ${firstMissingDateStr}. Please log your pending hours.`,
+                        read: false,
+                        created_date: new Date()
                     });
-
-                    if (!existingAlert) {
-                        await Notification.create({
-                            tenant_id: user.tenant_id || 'default',
-                            recipient_email: user.email,
-                            user_id: user._id,
-                            rule_id: 'TIMESHEET_MISSING_ASSIGNED',
-                            scope: 'user',
-                            status: 'OPEN',
-                            type: 'timesheet_missing_alert',
-                            category: 'alert',
-                            title: 'Incomplete Timesheet Submission',
-                            // Updated message for clarity regarding the deadline logic
-                            message: `No entry for 24 hrs missing timesheet Log pending hours & Submit before EOD`,
-                            read: false,
-                            created_date: new Date()
-                        });
-                        console.log(`      -> Created Notif`);
-                    } else {
-                        console.log(`      -> Alert already active. INCREMENTING IGNORE COUNT.`);
-                        // Increment ignored count on the Activity Log
-                        const currentIgnored = activityLog.ignored_alert_count || 0;
-                        await UserActivityLog.updateOne(
-                            { _id: activityLog._id },
-                            { $set: { ignored_alert_count: currentIgnored + 1 } }
-                        );
-                        console.log(`      -> Ignored Count Updated: ${currentIgnored + 1}`);
-                    }
-
+                    console.log(`      -> Created Notif`);
                 } else {
-                    console.log(`   -> [OK] Compliant (${submitted}/${assigned}).`);
-                    // Auto-resolve
-                    const openAlert = await Notification.findOne({
-                        user_id: user._id,
-                        type: 'timesheet_missing_alert',
-                        status: 'OPEN'
-                    });
-                    if (openAlert) {
-                        await Notification.updateOne({ _id: openAlert._id }, { status: 'RESOLVED', updated_at: new Date() });
-                        console.log(`      -> Resolved Alert`);
-                    }
+                    console.log(`      -> Alert already active.`);
                 }
-
             } else {
-                console.log(`[WAIT] ${user.email} - Still within 24h grace period. Deadline: ${deadline.toLocaleString()}`);
+                console.log(`   -> [OK] All days compliant.`);
+                // Auto-resolve any open alerts
+                const openAlert = await Notification.findOne({
+                    user_id: user._id,
+                    type: 'timesheet_missing_alert',
+                    status: 'OPEN'
+                });
+                if (openAlert) {
+                    await Notification.updateOne({ _id: openAlert._id }, { status: 'RESOLVED', updated_at: new Date() });
+                    console.log(`      -> Resolved Alert`);
+                }
             }
         }
 

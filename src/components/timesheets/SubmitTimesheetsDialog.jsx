@@ -41,51 +41,58 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
         : user.tenant_id;
 
       // Notify approvers (project managers and admins)
-      const projects = [...new Set(draftEntries.map(e => e.project_id))];
+      try {
+        const uniqueProjectIds = [...new Set(draftEntries.map(e => {
+          // Handle both populated object and string ID
+          return e.project_id && typeof e.project_id === 'object' ? e.project_id._id || e.project_id.id : e.project_id;
+        }).filter(Boolean))];
 
-      for (const projectId of projects) {
-        // Get project managers
-        const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
-          project_id: projectId,
-          role: 'project_manager'
+        for (const pid of uniqueProjectIds) {
+          // Get project managers
+          const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
+            project_id: pid,
+            role: 'project_manager'
+          });
+
+          // Get project details
+          const projectList = await groonabackend.entities.Project.filter({ id: pid });
+          const projectData = projectList[0];
+
+          // Notify each PM
+          for (const pmRole of pmRoles) {
+            await groonabackend.entities.Notification.create({
+              tenant_id: effectiveTenantId,
+              recipient_email: pmRole.user_email,
+              type: 'timesheet_approval_needed',
+              category: 'general',
+              title: 'Timesheet Approval Pending',
+              message: `${user.full_name} submitted timesheets for ${projectData?.name || 'project'}`,
+              entity_type: 'timesheet',
+              sender_name: user.full_name
+            });
+          }
+        }
+
+        // Notify admins
+        const admins = await groonabackend.entities.User.filter({
+          tenant_id: effectiveTenantId,
+          role: 'admin'
         });
 
-        // Get project details
-        const projects = await groonabackend.entities.Project.filter({ id: projectId });
-        const project = projects[0];
-
-        // Notify each PM
-        for (const pmRole of pmRoles) {
+        for (const admin of admins) {
           await groonabackend.entities.Notification.create({
             tenant_id: effectiveTenantId,
-            recipient_email: pmRole.user_email,
+            recipient_email: admin.email,
             type: 'timesheet_approval_needed',
             category: 'general',
             title: 'Timesheet Approval Pending',
-            message: `${user.full_name} submitted timesheets for ${project?.name || 'project'}`,
+            message: `${user.full_name} submitted ${timesheetIds.length} timesheet entries`,
             entity_type: 'timesheet',
             sender_name: user.full_name
           });
         }
-      }
-
-      // Notify admins
-      const admins = await groonabackend.entities.User.filter({
-        tenant_id: effectiveTenantId,
-        role: 'admin'
-      });
-
-      for (const admin of admins) {
-        await groonabackend.entities.Notification.create({
-          tenant_id: effectiveTenantId,
-          recipient_email: admin.email,
-          type: 'timesheet_approval_needed',
-          category: 'general',
-          title: 'Timesheet Approval Pending',
-          message: `${user.full_name} submitted ${timesheetIds.length} timesheet entries`,
-          entity_type: 'timesheet',
-          sender_name: user.full_name
-        });
+      } catch (notifError) {
+        console.error('[SubmitTimesheetsDialog] Failed to send notifications:', notifError);
       }
 
       // Send email acknowledgment to the user who submitted
@@ -108,8 +115,21 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
             entryCount: timesheetIds.length
           }
         });
+
+        // Create In-App Notification for Submitter
+        await groonabackend.entities.Notification.create({
+          tenant_id: effectiveTenantId,
+          recipient_email: user.email,
+          type: 'timesheet_submission',
+          category: 'general',
+          title: 'Timesheet Submitted',
+          message: `You have successfully submitted ${timesheetIds.length} timesheet entr${timesheetIds.length === 1 ? 'y' : 'ies'}.`,
+          entity_type: 'timesheet',
+          sender_name: 'System'
+        });
+
       } catch (emailError) {
-        console.error('[SubmitTimesheetsDialog] Failed to send submission email:', emailError);
+        console.error('[SubmitTimesheetsDialog] Failed to send submission email/notification:', emailError);
         // Don't fail the submission if email fails
       }
     },

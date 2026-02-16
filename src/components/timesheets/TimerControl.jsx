@@ -43,7 +43,7 @@ export default function TimerControl({ task, onTimerStop }) {
     const now = Date.now();
     setStartTime(now);
     setIsRunning(true);
-    
+
     const timerKey = `timer_${task.id}`;
     localStorage.setItem(timerKey, JSON.stringify({
       start: now,
@@ -52,7 +52,7 @@ export default function TimerControl({ task, onTimerStop }) {
       project_id: task.project_id,
       sprint_id: task.sprint_id
     }));
-    
+
     toast.success(`Timer started for: ${task.title}`);
   };
 
@@ -65,7 +65,7 @@ export default function TimerControl({ task, onTimerStop }) {
 
   const handleStop = async () => {
     if (!startTime) return;
-    
+
     setIsStopping(true);
     try {
       const user = await groonabackend.auth.me();
@@ -74,22 +74,22 @@ export default function TimerControl({ task, onTimerStop }) {
       const minutes = totalMinutes % 60;
 
       // Get tenant ID properly
-      const effectiveTenantId = user.is_super_admin && user.active_tenant_id 
-        ? user.active_tenant_id 
+      const effectiveTenantId = user.is_super_admin && user.active_tenant_id
+        ? user.active_tenant_id
         : user.tenant_id;
 
       // Get location if enabled
       let locationData = null;
       try {
-        const settings = await groonabackend.entities.TenantTimesheetSettings.filter({ 
-          tenant_id: effectiveTenantId 
+        const settings = await groonabackend.entities.TenantTimesheetSettings.filter({
+          tenant_id: effectiveTenantId
         });
-        
+
         if (settings[0]?.location_tracking !== 'off' && navigator.geolocation) {
           const position = await new Promise((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
           });
-          
+
           locationData = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -121,7 +121,7 @@ export default function TimerControl({ task, onTimerStop }) {
         entry_type: 'timer',
         work_type: 'development',
         status: 'draft',
-        location_data: locationData,
+        location: locationData,
         is_billable: true,
         is_locked: false
       });
@@ -129,13 +129,13 @@ export default function TimerControl({ task, onTimerStop }) {
       // Clear timer
       const timerKey = `timer_${task.id}`;
       localStorage.removeItem(timerKey);
-      
+
       setIsRunning(false);
       setStartTime(null);
       setElapsedSeconds(0);
-      
+
       toast.success(`Time logged: ${hours}h ${minutes}m`);
-      
+
       if (onTimerStop) onTimerStop();
     } catch (error) {
       console.error('[TimerControl] Error stopping timer:', error);

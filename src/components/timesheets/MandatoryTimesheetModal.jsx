@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { format, isValid } from "date-fns";
 import TimesheetEntryForm from "./TimesheetEntryForm";
 
 export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId }) {
@@ -20,6 +21,14 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
     const [showAppeal, setShowAppeal] = useState(false);
     const [appealReason, setAppealReason] = useState("");
     const queryClient = useQueryClient();
+
+    // Strictly limit to:
+    // 1. role='member' AND custom_role='viewer'
+    // 2. role='admin' AND custom_role='project_manager'
+    const isAllowedRole = (currentUser?.role === 'member' && currentUser?.custom_role === 'viewer') ||
+        (currentUser?.role === 'admin' && currentUser?.custom_role === 'project_manager');
+
+    if (!isAllowedRole) return null;
 
     // Fetch notifications to check for timesheet alerts/alarms
     const { data: notifications = [] } = useQuery({
@@ -35,12 +44,23 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
         refetchInterval: 30000, // Check every 30 seconds
     });
 
+    const { data: missingDayData } = useQuery({
+        queryKey: ['missing-timesheet-day', currentUser?.email],
+        queryFn: () => groonabackend.functions.invoke('getMissingTimesheetDay', {
+            userEmail: currentUser.email
+        }),
+        enabled: !!currentUser?.email,
+        refetchInterval: 60000,
+    });
+
     const timesheetAlerts = notifications.filter(n =>
         n.type === 'timesheet_missing_alert' ||
         n.type === 'timesheet_missing_alarm' ||
         n.type === 'timesheet_incomplete_alert' ||
         n.type === 'timesheet_lockout_alarm'
     );
+
+    const hasMissingDay = !!missingDayData?.missingDate;
 
     const hasAlarm = timesheetAlerts.some(n =>
         (n.status === 'OPEN' || n.status === 'APPEALED') &&
@@ -57,23 +77,23 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
     const isLockoutAppealed = timesheetAlerts.some(n => n.type === 'timesheet_lockout_alarm' && n.status === 'APPEALED');
 
     useEffect(() => {
-        // If we have alerts (including lockouts), and we aren't currently submitting
-        if (timesheetAlerts.length > 0 && !isSubmitting) {
+        // If we have alerts (including lockouts), OR a missing day detected
+        if ((timesheetAlerts.length > 0 || hasMissingDay) && !isSubmitting) {
             setOpen(true);
-        } else if (timesheetAlerts.length === 0) {
+        } else if (timesheetAlerts.length === 0 && !hasMissingDay) {
             setOpen(false);
         }
-    }, [timesheetAlerts.length, isSubmitting]);
+    }, [timesheetAlerts.length, hasMissingDay, isSubmitting]);
 
     const handleSuccess = async () => {
-        queryClient.invalidateQueries({ queryKey: ['mandatory-timesheet-check'] });
+        queryClient.invalidateQueries({ queryKey: ['missing-timesheet-day', currentUser?.email] });
         queryClient.invalidateQueries({ queryKey: ['task-notifications'] });
         setOpen(false);
         setShowAppeal(false);
         setAppealReason("");
     };
 
-    if (timesheetAlerts.length === 0) return null;
+    if (timesheetAlerts.length === 0 && !hasMissingDay) return null;
 
     // --- LOCKOUT VIEW ---
     if (hasLockout || isLockoutAppealed) {
@@ -192,14 +212,27 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                 <DialogTitle className={`text-xl font-bold ${hasAlarm ? 'text-red-900' : 'text-amber-900'}`}>
                                     {hasAlarm
                                         ? (isTaskDelay ? 'Action Required: Resolve Task Delays' : 'Action Required: Log Pending Hours')
-                                        : 'Timesheet Entry Required'}
+                                        : 'Missing Timesheet Entry Required'}
                                 </DialogTitle>
                                 <DialogDescription className={`text-sm mt-1 ${hasAlarm ? 'text-red-700' : 'text-amber-700'}`}>
                                     {hasAlarm
                                         ? (isTaskDelay
                                             ? "Critical: 3 Task delays detected. Admin has been notified. Work start is locked until reasons are provided."
                                             : "Severe Policy Violation: Multiple missing timesheets detected. Work tracking is locked until pending hours are logged.")
-                                        : "You haven't logged your time yet. Please log your daily hours to continue."}
+                                        : (hasMissingDay && missingDayData?.missingDate && isValid(new Date(missingDayData.missingDate))
+                                            ? (
+                                                <div className="space-y-1">
+                                                    <span>You haven't logged at least 8 hours for {format(new Date(missingDayData.missingDate), 'MMMM do, yyyy')}. Please log your hours to continue.</span>
+                                                    {missingDayData.dailyTotal > 0 && (
+                                                        <div className="text-xs font-semibold mt-2 flex items-center gap-1.5 px-2 py-1 bg-white/50 rounded-md border border-amber-200/50 w-fit">
+                                                            <Clock className="w-3 h-3" />
+                                                            Currently: {(missingDayData.dailyTotal / 60).toFixed(2)}h in {missingDayData.dailyStatus === 'draft' ? 'Draft' : 'Submitted'}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                            : "You haven't logged your time yet. Please log your daily hours to continue.")
+                                    }
                                 </DialogDescription>
                             </div>
                         </div>
@@ -212,7 +245,8 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                     currentUser={currentUser}
                                     effectiveTenantId={effectiveTenantId}
                                     forceRemark={hasAlarm}
-                                    hideCancel={hasAlarm}
+                                    hideCancel={hasAlarm || hasMissingDay}
+                                    preSelectedDate={missingDayData?.missingDate}
                                     remarkLabel={isTaskDelay ? "Delay Reason" : "Backlog Reason"}
                                     extraButtons={
                                         hasAlarm && currentUser?.custom_role === 'viewer' && (
@@ -243,7 +277,7 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                                 }
                                             }
 
-                                            toast.success("Timesheet logged successfully. Alarms cleared.");
+                                            toast.success("Timesheet logged successfully. Enforcement cleared.");
                                             handleSuccess();
                                         } catch (error) {
                                             console.error('Failed to create timesheet:', error);
@@ -253,8 +287,8 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
                                         }
                                     }}
                                     onCancel={() => {
-                                        // Cannot cancel if it's an alarm
-                                        if (!hasAlarm) {
+                                        // Cannot cancel if it's an alarm or mandatory missing day
+                                        if (!hasAlarm && !hasMissingDay) {
                                             setOpen(false);
                                         }
                                     }}

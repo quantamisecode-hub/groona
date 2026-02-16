@@ -1174,7 +1174,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                         variant="link"
                         size="sm"
                         className="h-auto p-0 text-[10px] text-indigo-600 hover:text-indigo-700 w-full justify-center"
-                        onClick={() => navigate(createPageUrl('Pricing'))}
+                        onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
                       >
                         Upgrade Plan &rarr;
                       </Button>

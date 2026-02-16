@@ -218,7 +218,8 @@ export default function NotificationCenter({ currentUser }) {
             case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
             case 'timesheet_submission':
             case 'timesheet_approval_needed':
-            case 'timesheet_status': return <Clock className="h-5 w-5 text-amber-600" />;
+            case 'timesheet_status':
+            case 'timesheet_reminder': return <Clock className="h-5 w-5 text-amber-600" />;
             case 'impediment_reported':
             case 'impediment_alert': return <AlertTriangle className="h-5 w-5 text-red-500" />;
             case 'task_escalation_alert': return <Flame className="h-5 w-5 text-red-600" />;
@@ -328,7 +329,8 @@ export default function NotificationCenter({ currentUser }) {
       case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
       case 'timesheet_submission':
       case 'timesheet_approval_needed':
-      case 'timesheet_status': return <Clock className="h-5 w-5 text-amber-600" />;
+      case 'timesheet_status':
+      case 'timesheet_reminder': return <Clock className="h-5 w-5 text-amber-600" />;
       case 'impediment_reported':
       case 'impediment_alert': return <AlertTriangle className="h-5 w-5 text-red-500" />;
       default: return <Bell className="h-5 w-5 text-slate-600" />;

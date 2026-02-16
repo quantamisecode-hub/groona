@@ -86,8 +86,8 @@
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
-    font-size: 75%;
-    /* Scaled down UI to 75% */
+    font-size: 82.5%;
+    /* Scaled up text to 110% (from base 75%) */
   }
 
   /* --- FIX: Hide Browser Default Password Eye Icon --- */

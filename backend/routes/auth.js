@@ -246,13 +246,11 @@ async function logUserLogin(user, session, req) {
 
     if (Task && Timesheet) {
       try {
-        // 1. Get Active Tasks Assigned to User
-        // Assuming 'assigned_to' contains the user's email
-        const activeTasks = await Task.find({
-          assigned_to: user.email,
-          status: { $nin: ['completed', 'archived', 'done'] } // Exclude finished tasks
+        // 1. Get ALL Tasks Assigned to User (Lifetime)
+        const allTasks = await Task.find({
+          assigned_to: user.email
         });
-        assignedCount = activeTasks.length;
+        assignedCount = allTasks.length;
 
         // 2. Get Timesheets for TODAY (IST)
         const todayIST = getISTDate();
@@ -273,13 +271,21 @@ async function logUserLogin(user, session, req) {
           date: dateString
         });
 
-        // Set of task IDs that have timesheets
-        const loggedTaskIds = new Set(todaysTimesheets.map(t => t.task_id));
+        // 3. Lifetime Submitted Timesheets
+        const lifetimeTimesheets = await Timesheet.find({
+          user_email: user.email
+        });
+        user.lifetimeCount = lifetimeTimesheets.length;
 
-        // Pending = Active Tasks that are NOT in loggedTaskIds
-        // We filter activeTasks to see how many don't have a specific timesheet entry today
+        // 4. Pending Today = Active Tasks that don't have a log today
+        const activeTasks = allTasks.filter(t => !['completed', 'archived', 'done'].includes(t.status));
+        const loggedTaskIds = new Set(todaysTimesheets.map(t => t.task_id));
         const pendingTasks = activeTasks.filter(t => !loggedTaskIds.has(t._id.toString()));
         pendingCount = pendingTasks.length;
+
+        // Count of timesheets submitted TODAY
+        const todayCount = todaysTimesheets.length;
+        user.todayCountToday = todayCount; // Temporarily store for log update
 
       } catch (statsErr) {
         console.error('[UserLog] Error calculating stats:', statsErr);
@@ -295,24 +301,34 @@ async function logUserLogin(user, session, req) {
     }
 
     // Still perform session logging as before
-    await UserLog.create({
-      user_id: user._id || user.id,
-      email: user.email,
-      tenant_id: user.tenant_id,
-      session_id: session._id || session.id,
-      login_time: istTime,
-      ip_address: getClientIp(req),
-      device_info: deviceInfo,
-      // Snapshot of working schedule
-      scheduled_working_start: user.working_hours_start || "",
-      scheduled_working_end: user.working_hours_end || "",
-      scheduled_working_days: user.working_days || [],
-      present_working_day: istTime.toLocaleDateString('en-US', { weekday: 'short' }),
-      // Timesheet Stats (Snapshot for session)
-      total_assigned_tasks: assignedCount,
-      pending_log_count: pendingCount,
-      submitted_timesheets_count: 0
-    });
+    // Use findOneAndUpdate with upsert: true to ensure only one record per user
+    await UserLog.findOneAndUpdate(
+      { email: user.email },
+      {
+        $set: {
+          user_id: user._id || user.id,
+          email: user.email,
+          tenant_id: user.tenant_id,
+          session_id: session._id || session.id,
+          login_time: istTime,
+          logout_time: null, // Reset logout time on new login
+          ip_address: getClientIp(req),
+          device_info: deviceInfo,
+          // Snapshot of working schedule
+          scheduled_working_start: user.working_hours_start || "",
+          scheduled_working_end: user.working_hours_end || "",
+          scheduled_working_days: user.working_days || [],
+          present_working_day: istTime.toLocaleDateString('en-US', { weekday: 'short' }),
+          // Timesheet Stats (Snapshot for session)
+          total_assigned_tasks: assignedCount,
+          pending_log_count: pendingCount,
+          submitted_timesheets_count: user.lifetimeCount || 0, // Lifetime count
+          today_submitted_timesheets_count: user.todayCountToday || 0,
+          updated_date: istTime
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
     console.log(`[UserLog] Logged login (IST) for ${user.email}`);
   } catch (error) {
     console.error('[UserLog] Failed to log login:', error);

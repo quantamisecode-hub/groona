@@ -159,6 +159,75 @@ function getFileHandler(filePath) { const ext = path.extname(filePath).toLowerCa
 async function processFilesForGemini(fileUrls, req) { const parts = []; if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) return parts; for (const url of fileUrls) { try { const cleanUrl = decodeURIComponent(url); const filename = cleanUrl.split('/').pop(); const handler = getFileHandler(filename); if (handler.type === 'unsupported') continue; let processed = false; const localPath = findFileLocally(filename); if (localPath) { try { if (handler.type === 'text') { const textContent = fs.readFileSync(localPath, 'utf8'); parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` }); processed = true; } else if (handler.type === 'media') { const fileBuffer = fs.readFileSync(localPath); parts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: handler.mimeType } }); processed = true; } } catch (e) { console.error("Local file read error:", e); } } if (!processed) { let downloadUrl = url; if (url.startsWith('/')) { const protocol = req.protocol || 'http'; const host = req.get('host'); downloadUrl = `${protocol}://${host}${url}`; } const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' }); if (handler.type === 'text') { const textContent = Buffer.from(response.data).toString('utf8'); parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` }); } else { parts.push({ inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType: response.headers['content-type'] || handler.mimeType } }); } } } catch (fileError) { console.error("Attachment Error:", fileError.message); } } return parts; }
 
 // --- CASCADE DELETE HELPER ---
+// --- USER TIMESHEET SYNC HELPER ---
+async function syncUserTimesheetDay(userEmail, date, tenantId) {
+  try {
+    const UserTimesheets = Models.User_timesheets;
+    const TimesheetModel = Models.Timesheet;
+    const UserModel = Models.User;
+
+    if (!UserTimesheets || !TimesheetModel || !UserModel) return;
+
+    const user = await UserModel.findOne({ email: userEmail });
+    if (!user) return;
+
+    // 1. Calculate cumulative total minutes for this user on this date (only SUBMITTED/APPROVED)
+    const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
+    const startOfDay = new Date(dateStr + 'T00:00:00.000Z');
+    const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
+
+    const dayTimesheets = await TimesheetModel.find({
+      user_email: userEmail,
+      date: { $gte: startOfDay, $lte: endOfDay },
+      status: { $ne: 'rejected' } // Include drafts/pending/etc, exclude rejected
+    });
+
+    const totalMinutes = dayTimesheets.reduce((acc, ts) => acc + (ts.total_minutes || 0), 0);
+
+    // Determine day-level status: if any entry is NOT draft/rejected, it's 'submitted'
+    const hasOfficialEntry = dayTimesheets.some(ts =>
+      !['draft', 'rejected'].includes(ts.status)
+    );
+    const dailyStatus = hasOfficialEntry ? 'submitted' : (dayTimesheets.length > 0 ? 'draft' : null);
+
+    if (totalMinutes === 0 || !dailyStatus) {
+      // Delete record if no time logged
+      await UserTimesheets.deleteMany({
+        user_email: userEmail,
+        timesheet_date: { $gte: startOfDay, $lte: endOfDay }
+      });
+      console.log(`[Sync] Deleted UserTimesheets for ${userEmail} on ${dateStr} (0 total)`);
+    } else {
+      // Upsert record
+      const latestTs = dayTimesheets.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+
+      const updateData = {
+        tenant_id: tenantId,
+        user_id: user._id,
+        user_email: userEmail,
+        timesheet_date: startOfDay,
+        actual_date: new Date(),
+        status: dailyStatus,
+        work_type: latestTs?.work_type || 'other',
+        start_time: latestTs?.start_time || startOfDay,
+        end_time: latestTs?.end_time || endOfDay,
+        location: latestTs?.location || {},
+        total_time_submitted_in_day: totalMinutes,
+        created_at: new Date()
+      };
+
+      await UserTimesheets.findOneAndUpdate(
+        { user_email: userEmail, timesheet_date: { $gte: startOfDay, $lte: endOfDay } },
+        { $set: updateData },
+        { upsert: true }
+      );
+      console.log(`[Sync] Updated UserTimesheets for ${userEmail} on ${dateStr}. Total: ${totalMinutes}m`);
+    }
+  } catch (err) {
+    console.error("[Sync] Error syncUserTimesheetDay:", err);
+  }
+}
+
 async function handleCascadeDelete(entity, id) {
   try {
     if (entity === 'Project') {
@@ -463,6 +532,108 @@ router.post('/entities/:entity/create', async (req, res) => {
       }
     }
 
+    // --- TIMESHEET VALIDATION: LOCKED ACCOUNT & MISSING DAYS ---
+    if (entityName === 'Timesheet') {
+      const userEmail = req.body.user_email;
+      const submissionDateStr = req.body.timesheet_date || req.body.date; // Support both fields just in case
+      const User = Models.User;
+
+      if (userEmail && submissionDateStr) {
+        const user = await User.findOne({ email: userEmail });
+
+        // Only enforce if the user is currently locked
+        if (user && user.is_timesheet_locked) {
+          const UserTimesheets = Models.User_timesheets;
+
+          // 1. Calculate Missing Days (Start of Month -> Yesterday)
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          yesterday.setHours(23, 59, 59, 999);
+
+          const missingDays = [];
+
+          if (startOfMonth < yesterday) {
+            let loopDate = new Date(startOfMonth);
+            // Iterate until yesterday
+            while (loopDate <= yesterday) {
+              const d = loopDate.getDay();
+              if (d !== 0) { // Skip Sundays
+                const sDay = new Date(loopDate); sDay.setHours(0, 0, 0, 0);
+                const eDay = new Date(loopDate); eDay.setHours(23, 59, 59, 999);
+
+                // Check if a valid timesheet exists for this day
+                // We consider 'submitted' or 'approved' as valid. 'draft' or missing is NOT valid.
+                const exists = await UserTimesheets.exists({
+                  user_email: userEmail,
+                  timesheet_date: { $gte: sDay, $lte: eDay },
+                  status: { $in: ['submitted', 'approved'] }
+                });
+
+                if (!exists) {
+                  // Use local YYYY-MM-DD format to avoid UTC shift
+                  const year = sDay.getFullYear();
+                  const month = String(sDay.getMonth() + 1).padStart(2, '0');
+                  const day = String(sDay.getDate()).padStart(2, '0');
+                  missingDays.push(`${year}-${month}-${day}`);
+                }
+              }
+              loopDate.setDate(loopDate.getDate() + 1);
+            }
+          }
+
+          if (missingDays.length > 0) {
+            // 2. Check if current submission is fixing a gap
+            // submissionDateStr is usually YYYY-MM-DD from frontend OR ISO string.
+            // convert to local YYYY-MM-DD to match missingDays format
+            let subDate = submissionDateStr;
+            if (submissionDateStr && submissionDateStr.includes('T')) {
+              const sDate = new Date(submissionDateStr);
+              const year = sDate.getFullYear();
+              const month = String(sDate.getMonth() + 1).padStart(2, '0');
+              const day = String(sDate.getDate()).padStart(2, '0');
+              subDate = `${year}-${month}-${day}`;
+            } else if (submissionDateStr && submissionDateStr.length >= 10) {
+              // If it's already YYYY-MM-DD or similar string without T
+              subDate = submissionDateStr.substring(0, 10);
+            }
+
+            if (!missingDays.includes(subDate)) {
+              // User is trying to submit for Today/Future or a non-missing day, but they have gaps!
+
+              // ONLY BLOCK IF SUBMITTING (Allow Drafts)
+              // Check status from body. If undefined, assume submission? No, usually 'submitted' or 'draft'.
+              // Safe default: only block if status explicitly 'submitted' or 'approved'
+              const isSubmitting = req.body.status === 'submitted' || req.body.status === 'approved';
+
+              if (isSubmitting) {
+                return res.status(403).json({
+                  error: 'ACCOUNT LOCKED. You have missing timesheets. Please submit timesheets for the following dates first: ' + missingDays.join(', '),
+                  missingdates: missingDays,
+                  locked: true
+                });
+              }
+              // If draft, proceed.
+            } else {
+              // User is submitting one of the missing days. ALLOW.
+              // Check if this was the ONLY missing day (i.e., they are clearing the backlog completely)
+              if (missingDays.length === 1 && missingDays[0] === subDate) {
+                await User.findByIdAndUpdate(user._id, { is_timesheet_locked: false });
+                console.log(`[Timesheet] User ${userEmail} cleared backlog. Account UNLOCKED.`);
+              }
+              // If there are multiple missing days, we allow this one, but they remain locked until they clear the last one.
+            }
+
+          } else {
+            // No missing days found (maybe they filled them but flag was stuck?)
+            // Auto-unlock
+            await User.findByIdAndUpdate(user._id, { is_timesheet_locked: false });
+          }
+        }
+      }
+    }
+
     // --- TIMESHEET SPECIAL LOGIC: SNAPSHOT CTC ---
     if (entityName === 'Timesheet') {
       try {
@@ -488,6 +659,113 @@ router.post('/entities/:entity/create', async (req, res) => {
     const savedItem = await item.save();
 
     res.json(savedItem);
+
+    // --- TIMESHEET LOGGING: Dynamic Sync ---
+    if (entityName === 'Timesheet') {
+      try {
+        await syncUserTimesheetDay(savedItem.user_email, savedItem.date, savedItem.tenant_id);
+      } catch (err) {
+        console.error("[Sync] Error in create sync:", err);
+      }
+    }
+
+
+
+    // --- TIMESHEET SUBMISSION NOTIFICATION ---
+    if (entityName === 'Timesheet' && savedItem.status === 'submitted') {
+      setImmediate(async () => {
+        try {
+          const tsDate = new Date(savedItem.date);
+          const now = new Date();
+
+          // Normalized Dates (Midnight)
+          const workDate = new Date(tsDate);
+          workDate.setHours(0, 0, 0, 0);
+
+          const actualDate = new Date(now);
+          actualDate.setHours(0, 0, 0, 0);
+
+          if (workDate < actualDate) {
+            const Notification = Models.Notification;
+            const User = Models.User;
+
+            const user = await User.findOne({ email: savedItem.user_email });
+            const fs = require('fs');
+            const path = require('path');
+            const logPath = path.join(__dirname, '../debug_notif.log');
+            const log = (msg) => fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+
+            log(`Timesheet submitted. WorkDate: ${workDate}, ActualDate: ${actualDate}, UserEmail: ${savedItem.user_email}`);
+
+            if (user) {
+              log(`User found: ${user._id}`);
+              const notif = await Notification.create({
+                tenant_id: savedItem.tenant_id,
+                recipient_email: savedItem.user_email,
+                user_id: user._id,
+                type: 'timesheet_late_submission',
+                category: 'general',
+                title: 'Late Timesheet Submission',
+                message: 'Your timesheet was submitted late. Please ensure timely updates',
+                entity_type: 'timesheet',
+                entity_id: savedItem._id,
+                sender_name: 'System',
+                read: false,
+                created_date: new Date()
+              });
+              log(`Notification created: ${notif._id}`);
+
+              if (req.io) {
+                log(`Emitting socket to room: ${savedItem.tenant_id}`);
+                req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+              } else {
+                log('req.io is undefined!');
+              }
+            } else {
+              log('User NOT found!');
+            }
+          } else {
+            // OPTIONAL: Send "Timesheet Submitted" notification if ON TIME
+            const fs = require('fs');
+            const path = require('path');
+            const logPath = path.join(__dirname, '../debug_notif.log');
+            const log = (msg) => fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+
+            log('Timesheet On Time.');
+
+            const Notification = Models.Notification;
+            const User = Models.User;
+            const user = await User.findOne({ email: savedItem.user_email });
+            if (user) {
+              const notif = await Notification.create({
+                tenant_id: savedItem.tenant_id,
+                recipient_email: savedItem.user_email,
+                user_id: user._id,
+                type: 'timesheet_submission',
+                category: 'general',
+                title: 'Timesheet Submitted',
+                message: 'Your timesheet has been successfully submitted.',
+                entity_type: 'timesheet',
+                entity_id: savedItem._id,
+                sender_name: 'System',
+                read: false,
+                created_date: new Date()
+              });
+              log(`OnTime Notification created: ${notif._id}`);
+
+              if (req.io) {
+                log(`Emitting socket to room: ${savedItem.tenant_id}`);
+                req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+              } else {
+                log('req.io is undefined (OnTime)!');
+              }
+            }
+          }
+        } catch (err) {
+          console.error("[LateSubmission] Error:", err);
+        }
+      });
+    }
 
     // --- ACTIVITY LOGGING ---
     setImmediate(async () => {
@@ -522,7 +800,10 @@ router.post('/entities/:entity/create', async (req, res) => {
             // Or just the latest session for this user
             const activeLog = await UserLog.findOne({
               email: userEmail,
-              logout_time: { $exists: false } // Assuming null or missing field
+              $or: [
+                { logout_time: { $exists: false } },
+                { logout_time: null }
+              ]
             }).sort({ login_time: -1 });
 
             if (activeLog) {
@@ -532,6 +813,7 @@ router.post('/entities/:entity/create', async (req, res) => {
               await UserLog.findByIdAndUpdate(activeLog._id, {
                 $inc: {
                   submitted_timesheets_count: 1,
+                  today_submitted_timesheets_count: 1,
                   pending_log_count: -1 // reduce pending count
                 },
                 $push: {
@@ -957,6 +1239,73 @@ router.post('/entities/:entity/update', async (req, res) => {
     // Perform update
     const updatedDoc = await Model.findByIdAndUpdate(id, data, { new: true });
 
+    // --- TIMESHEET SUBMISSION NOTIFICATION (Update Route) ---
+    if (entityName === 'Timesheet' && updatedDoc.status === 'submitted' && oldDoc.status !== 'submitted') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+
+          const tsDate = new Date(updatedDoc.date);
+          const now = new Date();
+
+          const workDate = new Date(tsDate);
+          workDate.setHours(0, 0, 0, 0);
+
+          const actualDate = new Date(now);
+          actualDate.setHours(0, 0, 0, 0);
+
+          const user = await User.findOne({ email: updatedDoc.user_email });
+
+          if (user) {
+            let type = 'timesheet_submission';
+            let title = 'Timesheet Submitted';
+            let message = 'Your timesheet has been successfully submitted.';
+
+            if (workDate < actualDate) {
+              type = 'timesheet_late_submission';
+              title = 'Late Timesheet Submission';
+              message = 'Your timesheet was submitted late. Please ensure timely updates';
+            }
+
+            const notif = await Notification.create({
+              tenant_id: updatedDoc.tenant_id,
+              recipient_email: updatedDoc.user_email,
+              user_id: user._id,
+              type: type,
+              category: 'general',
+              title: title,
+              message: message,
+              entity_type: 'timesheet',
+              entity_id: updatedDoc._id,
+              sender_name: 'System',
+              read: false,
+              created_date: new Date()
+            });
+
+            if (req.io) {
+              req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+            }
+          }
+        } catch (notifErr) {
+          console.error('[TimesheetUpdate] Notification Error:', notifErr);
+        }
+      });
+    }
+
+    // --- TIMESHEET LOGGING: Dynamic Sync ---
+    if (entityName === 'Timesheet') {
+      try {
+        // Sync both old date and new date in case the date was changed
+        await syncUserTimesheetDay(updatedDoc.user_email, updatedDoc.date, updatedDoc.tenant_id);
+        if (oldDoc.date && oldDoc.date.toString() !== updatedDoc.date.toString()) {
+          await syncUserTimesheetDay(updatedDoc.user_email, oldDoc.date, updatedDoc.tenant_id);
+        }
+      } catch (err) {
+        console.error("[Sync] Error in update sync:", err);
+      }
+    }
+
     // Send response immediately after update
     res.json(updatedDoc);
 
@@ -1237,6 +1586,47 @@ router.post('/entities/:entity/update', async (req, res) => {
                 }
               }
             }
+
+            // Find removed members (in old list but not in new list)
+            const removedAssignees = oldAssignees.filter(email => !newAssignees.includes(email));
+
+            if (removedAssignees.length > 0) {
+              // Get project info
+              let projectName = 'No Project';
+              if (updatedDoc.project_id) {
+                const project = await Models.Project.findById(updatedDoc.project_id);
+                if (project) projectName = project.name;
+              }
+
+              // Get unassigner info
+              const unassignerEmail = req.user?.email || 'System';
+              const unassigner = await Models.User.findOne({ email: unassignerEmail });
+              const unassignerName = unassigner?.full_name || unassignerEmail;
+
+              for (const assigneeEmail of removedAssignees) {
+                try {
+                  const assignee = await Models.User.findOne({ email: assigneeEmail });
+                  const assigneeName = assignee?.full_name || assigneeEmail;
+
+                  await emailService.sendEmail({
+                    to: assigneeEmail,
+                    templateType: 'task_unassigned',
+                    data: {
+                      memberName: assigneeName,
+                      memberEmail: assigneeEmail,
+                      taskTitle: updatedDoc.title,
+                      projectName,
+                      unassignedBy: unassignerName,
+                      taskUrl: updatedDoc.project_id
+                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
+                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                    }
+                  });
+                } catch (error) {
+                  console.error(`Failed to send task unassignment email to ${assigneeEmail}:`, error);
+                }
+              }
+            }
           }
 
           // --- 2. SUBTASK ASSIGNMENT NOTIFICATIONS ---
@@ -1347,9 +1737,21 @@ router.post('/entities/:entity/delete', async (req, res) => {
     // 1. Perform cascade deletion first
     await handleCascadeDelete(entity, id);
 
-    // 2. Delete the entity itself
+    // 2. Fetch doc before deletion for sync
     const Model = Models[entity];
+    const docToDelete = await Model.findById(id);
+
+    // 3. Delete the entity itself
     await Model.findByIdAndDelete(id);
+
+    // 4. TIMESHEET LOGGING: Dynamic Sync
+    if (entity === 'Timesheet' && docToDelete) {
+      try {
+        await syncUserTimesheetDay(docToDelete.user_email, docToDelete.date, docToDelete.tenant_id);
+      } catch (err) {
+        console.error("[Sync] Error in delete sync:", err);
+      }
+    }
 
     res.json({ success: true });
   } catch (err) {

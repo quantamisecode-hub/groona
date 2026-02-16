@@ -50,6 +50,22 @@
                 "type": "string"
             },
             "description": "Snapshot of working days at login"
+        },
+        "submitted_timesheets_count": {
+            "type": "integer",
+            "description": "Total count of all timesheets ever submitted by the user"
+        },
+        "total_assigned_tasks": {
+            "type": "integer",
+            "description": "Total tasks assigned to user"
+        },
+        "pending_log_count": {
+            "type": "integer",
+            "description": "Count of tasks pending timesheet for today"
+        },
+        "today_submitted_timesheets_count": {
+            "type": "integer",
+            "description": "Count of timesheets submitted today"
         }
     },
     "required": [

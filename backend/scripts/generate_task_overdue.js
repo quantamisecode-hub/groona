@@ -234,7 +234,7 @@ const runChecks = async () => {
                                     message: message,
                                     read: false,
                                     created_date: new Date()
-                                }
+                                }   
                             }
                         );
                         console.log(`      -> Updated escalation for ${email}`);

@@ -889,9 +889,16 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Due Date</p>
-                        <p className="text-sm font-bold text-slate-800">
-                          {task.due_date ? format(parseISO(task.due_date), "MMM d, yyyy") : "None"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-slate-800">
+                            {task.due_date ? format(parseISO(task.due_date), "MMM d, yyyy") : "None"}
+                          </p>
+                          {task.due_date && differenceInDays(new Date(), parseISO(task.due_date)) >= 1 && (
+                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none text-[8px] h-4 px-1 py-0 shadow-none animate-pulse">
+                              OVERDUE
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Estimate</p>
@@ -965,7 +972,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                 </Card>
 
                 {/* AI Priority Suggestions (Only if Overdue) */}
-                {task.due_date && new Date(task.due_date) < new Date() && (
+                {task.due_date && differenceInDays(new Date(), parseISO(task.due_date)) >= 1 && (
                   <Card className="border-red-200 shadow-sm bg-red-50/50">
                     <div className="bg-red-100 p-3 border-b border-red-200 flex items-center gap-2">
                       <div className="h-6 w-6 rounded bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center animate-pulse">

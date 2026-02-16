@@ -160,7 +160,8 @@ function PagesContent() {
         'Pricing',
         'AboutUs',
         'UserOnboarding',
-        'TenantOnboarding'
+        'TenantOnboarding',
+        'SubscriptionManagement'
     ];
 
     const isStandalone = standalonePages.includes(currentPage) || location.pathname === '/' || location.pathname === '/accept-invitation';
@@ -193,6 +194,8 @@ function PagesContent() {
                 <Route path="/AboutUs" element={<AboutUs />} />
                 <Route path="/UserOnboarding" element={<UserOnboarding />} />
                 <Route path="/TenantOnboarding" element={<TenantOnboarding />} />
+                <Route path="/SubscriptionManagement" element={<SubscriptionManagement />} />
+                <Route path="/subscription-management" element={<SubscriptionManagement />} />
             </Routes>
         );
     }
@@ -234,8 +237,6 @@ function PagesContent() {
                 <Route path="/TestAIChat" element={<TestAIChat />} />
                 <Route path="/AdminBIDashboard" element={<AdminBIDashboard />} />
                 <Route path="/SupportDashboard" element={<SupportDashboard />} />
-                <Route path="/SubscriptionManagement" element={<SubscriptionManagement />} />
-                <Route path="/subscription-management" element={<SubscriptionManagement />} />
                 <Route path="/SystemNotificationManager" element={<SystemNotificationManager />} />
                 <Route path="/ProjectFinancials" element={<ProjectFinancials />} />
                 <Route path="/ProjectProfitabilityDetail" element={<ProjectProfitabilityDetail />} />

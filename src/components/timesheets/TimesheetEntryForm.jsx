@@ -11,7 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon, Clock, Save, Send, Loader2, DollarSign } from "lucide-react";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { TimePicker } from "@/components/ui/time-picker";
@@ -29,7 +29,8 @@ export default function TimesheetEntryForm({
   forceRemark = false,
   remarkLabel = "Remark",
   hideCancel = false,
-  extraButtons = null
+  extraButtons = null,
+  preSelectedDate = null // Missing timesheet date for enforcement
 }) {
   // --- REAL-TIME USER STATUS CHECK ---
   // The global UserContext might be stale (1 min cache).
@@ -48,17 +49,24 @@ export default function TimesheetEntryForm({
   // Use realtime status if available, fallback to context user
   const effectiveUser = realtimeUser || currentUser;
 
+  const isValidDate = (d) => d instanceof Date && !isNaN(d);
+  const safeFormat = (date, fmt) => {
+    const d = date instanceof Date ? date : new Date(date);
+    return isValidDate(d) ? format(d, fmt) : '';
+  };
+
   const [entryMode, setEntryMode] = useState("manual");
   const [formData, setFormData] = useState({
-    date: initialData?.date ? format(new Date(initialData.date), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+    date: preSelectedDate ? safeFormat(preSelectedDate, 'yyyy-MM-dd') :
+      (initialData?.date ? safeFormat(initialData.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
     project_id: initialData?.project_id || '',
     story_id: initialData?.story_id || '',
     sprint_id: initialData?.sprint_id || '',
     task_id: initialData?.task_id || '',
     hours: initialData?.hours || 0,
     minutes: initialData?.minutes || 0,
-    start_time: initialData?.start_time ? format(new Date(initialData.start_time), 'HH:mm') : '',
-    end_time: initialData?.end_time ? format(new Date(initialData.end_time), 'HH:mm') : '',
+    start_time: initialData?.start_time ? safeFormat(initialData.start_time, 'HH:mm') : '',
+    end_time: initialData?.end_time ? safeFormat(initialData.end_time, 'HH:mm') : '',
     description: initialData?.description || '',
     remark: initialData?.remark || '',
     work_type: initialData?.work_type || 'development',
@@ -67,7 +75,10 @@ export default function TimesheetEntryForm({
     currency: initialData?.currency || 'USD',
   });
   const [location, setLocation] = useState(initialData?.location || null);
-  const [selectedDate, setSelectedDate] = useState(initialData?.date ? new Date(initialData.date) : new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = preSelectedDate ? new Date(preSelectedDate) : (initialData?.date ? new Date(initialData.date) : new Date());
+    return isValidDate(d) ? d : new Date();
+  });
 
   // Determine the user context (for admin editing)
   const targetUserEmail = selectedUserEmail || currentUser?.email;
@@ -260,9 +271,22 @@ export default function TimesheetEntryForm({
     }
   }, [projects, initialData]);
 
+  // Sync preSelectedDate if it changes (e.g. after one day is filled)
+  useEffect(() => {
+    if (preSelectedDate) {
+      const d = new Date(preSelectedDate);
+      if (isValidDate(d)) {
+        setSelectedDate(d);
+        setFormData(prev => ({ ...prev, date: format(d, 'yyyy-MM-dd') }));
+      }
+    }
+  }, [preSelectedDate]);
+
   const handleDateSelect = (date) => {
-    setSelectedDate(date);
-    setFormData(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
+    if (date && isValidDate(date)) {
+      setSelectedDate(date);
+      setFormData(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
+    }
   };
 
   const handleProjectChange = (projectId) => {
@@ -393,6 +417,7 @@ export default function TimesheetEntryForm({
                         "w-full justify-start text-left font-normal",
                         !selectedDate && "text-muted-foreground"
                       )}
+                      disabled={!!preSelectedDate}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}

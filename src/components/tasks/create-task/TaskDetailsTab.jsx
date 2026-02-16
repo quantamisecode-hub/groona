@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, Upload, X, Plus, Trash2, Users, Check, Eye, ExternalLink, Sparkles, Loader2, Wand2, FileIcon, Paperclip, ImageIcon, ClipboardList, Tag, Flag, BookOpen, Target, Clock, User, Link2, Hash, AlignLeft, FolderKanban, AlertTriangle, Siren } from "lucide-react";
+import { Calendar as CalendarIcon, Upload, X, Plus, Trash2, Users, Check, Sparkles, Loader2, Wand2, FileIcon, Paperclip, ImageIcon, ClipboardList, Tag, Flag, BookOpen, Target, Clock, User, Link2, Hash, AlignLeft, FolderKanban, AlertTriangle, Siren } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -120,7 +120,6 @@ export default function TaskDetailsTab({
   const [newLabel, setNewLabel] = useState("");
   const [newSubtask, setNewSubtask] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [localError, setLocalError] = useState("");
 
@@ -488,18 +487,6 @@ export default function TaskDetailsTab({
                 placeholder="https://example.com/mockup-design"
                 className="flex-1 h-10"
               />
-              {taskData.reference_url && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowPreview(true)}
-                  className="h-10 w-10 shrink-0 border-slate-200"
-                  title="Preview URL"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -976,50 +963,6 @@ export default function TaskDetailsTab({
           </div>
         )}
       </div>
-
-      {/* Reference URL Preview Modal */}
-      {
-        showPreview && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white w-full max-w-5xl h-[85vh] rounded-xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-gray-800">URL Preview</h3>
-                  <a
-                    href={taskData.reference_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 bg-blue-50 px-2 py-1 rounded-full border border-blue-100"
-                  >
-                    Open in New Tab <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="p-1 hover:bg-gray-200 rounded-full transition-colors text-gray-500 hover:text-gray-700"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Modal Content (Iframe) */}
-              <div className="flex-1 bg-gray-100 relative w-full h-full">
-                <iframe
-                  src={taskData.reference_url}
-                  title="Reference Preview"
-                  className="w-full h-full border-0"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                  onError={() => toast.error("Could not load preview. Try opening in a new tab.")}
-                />
-                <div className="absolute -z-10 inset-0 flex items-center justify-center text-gray-400 font-medium">
-                  Loading content...
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
     </div >
   );

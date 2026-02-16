@@ -1,10 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit2, Trash2, Users, Folder, HardDrive, FolderKanban, Sparkles, BarChart3, Loader2, Check, ShieldAlert, Zap, Crown, Building2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, Folder, HardDrive, FolderKanban, Sparkles, BarChart3, Loader2, Check, ShieldAlert, Zap, Crown, Building2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import SubscriptionPlanDialog from "../components/subscriptions/SubscriptionPlanDialog";
 import { useUser } from "@/components/shared/UserContext";
@@ -26,6 +27,7 @@ export default function SubscriptionManagement() {
   const [editingPlan, setEditingPlan] = useState(null);
   const [deletingPlan, setDeletingPlan] = useState(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: plans = [], isLoading: isPlansLoading } = useQuery({
     queryKey: ['subscription-plans'],
@@ -211,7 +213,16 @@ export default function SubscriptionManagement() {
     }
 
     return (
-      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto relative">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/Dashboard')}
+          className="absolute left-4 top-4 md:left-8 md:top-8 text-slate-500 hover:text-slate-900"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Dashboard
+        </Button>
         <div className="text-center space-y-4">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Upgrade Your Workspace</h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
@@ -375,7 +386,16 @@ export default function SubscriptionManagement() {
 
   // --- ADMIN VIEW (Existing) ---
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="p-6 md:p-8 space-y-6 relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate('/Dashboard')}
+        className="absolute left-4 top-4 md:left-8 md:top-8 text-slate-500 hover:text-slate-900"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back to Dashboard
+      </Button>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Subscription Plans</h1>

@@ -138,6 +138,11 @@
       "type": "string",
       "format": "date-time"
     },
+    "is_timesheet_locked": {
+      "type": "boolean",
+      "default": false,
+      "description": "System flag: True if user has >3 missing timesheets in last 7 days"
+    },
     "settings": {
       "type": "object",
       "description": "User specific UI preferences"

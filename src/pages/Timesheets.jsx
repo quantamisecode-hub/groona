@@ -266,6 +266,28 @@ export default function TimesheetsPage() {
         } catch (error) {
           console.error("Failed to send submission notifications:", error);
         }
+
+        // Send email asynchronously after timesheet is successfully logged/submitted
+        setTimeout(async () => {
+          try {
+            await groonabackend.email.sendTemplate({
+              to: currentUser.email,
+              templateType: 'timesheet_submitted',
+              data: {
+                memberName: currentUser.full_name,
+                memberEmail: currentUser.email,
+                taskTitle: newEntry.task_title || 'N/A',
+                date: newEntry.date || new Date().toLocaleDateString('en-CA'),
+                hours: newEntry.hours || 0,
+                minutes: newEntry.minutes || 0,
+                projectName: newEntry.project_name,
+                entryCount: 1
+              }
+            });
+          } catch (emailError) {
+            console.error('[Timesheets] Failed to send submission email:', emailError);
+          }
+        }, 0);
       }
 
       // === REAL-TIME UPDATE LOGIC ===
@@ -309,33 +331,7 @@ export default function TimesheetsPage() {
         console.error('[Timesheets] Failed to log activity:', error);
       }
 
-      // Send email asynchronously after timesheet is successfully logged/submitted
-      // This ensures timesheet creation is not affected by email failures
-      // Send email for all new timesheet entries (not edits), regardless of status
-      if (!editingEntry) {
-        // Fire and forget - send email asynchronously after timesheet is created
-        setTimeout(async () => {
-          try {
-            await groonabackend.email.sendTemplate({
-              to: currentUser.email,
-              templateType: 'timesheet_submitted',
-              data: {
-                memberName: currentUser.full_name,
-                memberEmail: currentUser.email,
-                taskTitle: newEntry.task_title || 'N/A',
-                date: newEntry.date || new Date().toLocaleDateString('en-CA'),
-                hours: newEntry.hours || 0,
-                minutes: newEntry.minutes || 0,
-                projectName: newEntry.project_name,
-                entryCount: 1
-              }
-            });
-          } catch (emailError) {
-            console.error('[Timesheets] Failed to send submission email:', emailError);
-            // Email failure does not affect timesheet creation
-          }
-        }, 0);
-      }
+
 
       toast.success(editingEntry ? 'Timesheet updated!' : 'Time logged successfully!');
       setShowForm(false);
@@ -369,6 +365,72 @@ export default function TimesheetsPage() {
           });
         })
       );
+
+      // === NOTIFICATION & EMAIL LOGIC (Added to match SubmitDialog) ===
+      try {
+        // Fetch full timesheet details to get project info
+        const timesheets = await Promise.all(timesheetIds.map(id => groonabackend.entities.Timesheet.get(id)));
+        const firstTimesheet = timesheets[0];
+        const user = currentUser;
+
+        // Notify Approvers
+        const uniqueProjectIds = [...new Set(timesheets.map(e => {
+          return e.project_id && typeof e.project_id === 'object' ? e.project_id._id || e.project_id.id : e.project_id;
+        }).filter(Boolean))];
+
+        for (const pid of uniqueProjectIds) {
+          const pmRoles = await groonabackend.entities.ProjectUserRole.filter({ project_id: pid, role: 'project_manager' });
+          const projectList = await groonabackend.entities.Project.filter({ id: pid });
+          const projectData = projectList[0];
+
+          for (const pmRole of pmRoles) {
+            await groonabackend.entities.Notification.create({
+              tenant_id: effectiveTenantId,
+              recipient_email: pmRole.user_email,
+              type: 'timesheet_approval_needed',
+              category: 'general',
+              title: 'Timesheet Approval Pending',
+              message: `${user.full_name} submitted timesheets for ${projectData?.name || 'project'}`,
+              entity_type: 'timesheet',
+              sender_name: user.full_name
+            });
+          }
+        }
+
+        const admins = await groonabackend.entities.User.filter({ tenant_id: effectiveTenantId, role: 'admin' });
+        for (const admin of admins) {
+          await groonabackend.entities.Notification.create({
+            tenant_id: effectiveTenantId,
+            recipient_email: admin.email,
+            type: 'timesheet_approval_needed',
+            category: 'general',
+            title: 'Timesheet Approval Pending',
+            message: `${user.full_name} submitted ${timesheetIds.length} timesheet entries`,
+            entity_type: 'timesheet',
+            sender_name: user.full_name
+          });
+        }
+
+        // Send Email to Submitter
+        await groonabackend.email.sendTemplate({
+          to: user.email,
+          templateType: 'timesheet_submitted',
+          data: {
+            memberName: user.full_name,
+            memberEmail: user.email,
+            taskTitle: timesheetIds.length === 1 ? (firstTimesheet?.task_title || 'N/A') : undefined,
+            date: firstTimesheet?.date || new Date().toLocaleDateString('en-CA'),
+            hours: firstTimesheet?.hours || 0,
+            minutes: firstTimesheet?.minutes || 0,
+            projectName: firstTimesheet?.project_name,
+            entryCount: timesheetIds.length
+          }
+        });
+
+      } catch (err) {
+        console.error('[Timesheets] Bulk submit notification error:', err);
+        // Don't fail the mutation if only notifications fail
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });

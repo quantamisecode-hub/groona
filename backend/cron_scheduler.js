@@ -30,6 +30,7 @@ const SCRIPTS = [
     'generate_task_overdue.js',
     'generate_rework_alarm.js',
     'generate_overwork_alarm.js',
+    'timesheet_reminder_alerts.js',
 ];
 
 const runScript = (scriptName) => {
