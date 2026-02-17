@@ -518,16 +518,18 @@ export default function NotificationCenter({ currentUser }) {
                             </div>
                             <p className="text-sm text-red-900 font-medium">{alarm.message.replace(/\*\*/g, '')}</p>
                             <div className="flex gap-2 mt-3">
-                              <Button
-                                onClick={() => handleTakeAction(alarm)}
-                                size="sm"
-                                className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white w-full shadow-red-200"
-                                disabled={loadingState.id === alarm.id && loadingState.action === 'takeAction'}
-                              >
-                                {loadingState.id === alarm.id && loadingState.action === 'takeAction' ? (
-                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Taking Action...</>
-                                ) : 'Take Action'}
-                              </Button>
+                              {!alarm.hide_action && (
+                                <Button
+                                  onClick={() => handleTakeAction(alarm)}
+                                  size="sm"
+                                  className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white w-full shadow-red-200"
+                                  disabled={loadingState.id === alarm.id && loadingState.action === 'takeAction'}
+                                >
+                                  {loadingState.id === alarm.id && loadingState.action === 'takeAction' ? (
+                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Taking Action...</>
+                                  ) : 'Take Action'}
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </div>

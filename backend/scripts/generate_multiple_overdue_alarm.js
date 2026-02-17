@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const connectDB = require('../config/db');
 const path = require('path');
+const { sendEmail } = require('../services/emailService');
 
 // Load Env
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -32,14 +33,16 @@ const runChecks = async () => {
         for (const tenant of tenants) {
             console.log(`\n--- Tenant: ${tenant.name || tenant._id} ---`);
 
-            // 2. Find Viewers in this Tenant
-            const viewers = await User.find({
-                custom_role: 'viewer',
-                tenant_id: tenant._id
+            // 2. Find All Relevant Members in this Tenant
+            const members = await User.find({
+                tenant_id: tenant._id,
+                role: { $in: ['member', 'employee', 'user'] },
+                custom_role: { $nin: ['project_manager', 'owner', 'client'] },
+                status: 'active'
             });
-            console.log(`Found ${viewers.length} viewers in tenant.`);
+            console.log(`Found ${members.length} potentially applicable members in tenant.`);
 
-            for (const user of viewers) {
+            for (const user of members) {
                 // 3. Find Overdue Tasks for this User
                 const overdueTasks = await Task.find({
                     assigned_to: user.email,
@@ -47,7 +50,15 @@ const runChecks = async () => {
                     due_date: { $lt: now }
                 }).sort({ due_date: 1 });
 
-                if (overdueTasks.length >= THRESHOLD_COUNT) {
+                const hasMultipleOverdue = overdueTasks.length >= THRESHOLD_COUNT;
+
+                // Sync User Lock Flag
+                if (user.is_overdue_blocked !== hasMultipleOverdue) {
+                    await User.updateOne({ _id: user._id }, { $set: { is_overdue_blocked: hasMultipleOverdue } });
+                    console.log(`   -> [STATUS] User ${user.email} is_overdue_blocked set to ${hasMultipleOverdue}`);
+                }
+
+                if (hasMultipleOverdue) {
                     console.log(`   -> [ALARM] User ${user.email} has ${overdueTasks.length} overdue tasks!`);
 
                     // A. Notify USER (Alarm)
@@ -61,6 +72,10 @@ const runChecks = async () => {
                         type: 'multiple_overdue_alarm',
                         status: 'OPEN'
                     });
+
+                    const isViewOnlyMember = user.role === 'member' && user.custom_role === 'viewer';
+
+                    let shouldSendEmail = false;
 
                     if (!existingAlarm) {
                         await Notification.create({
@@ -78,11 +93,21 @@ const runChecks = async () => {
                             entity_type: 'task',
                             entity_id: mostOverdueTask._id.toString(),
                             read: false,
+                            hide_action: isViewOnlyMember,
                             deep_link: `/ProjectDetail?id=${mostOverdueTask.project_id}&taskId=${mostOverdueTask._id.toString()}`,
-                            created_date: new Date()
+                            created_date: new Date(),
+                            last_email_sent: new Date()
                         });
-                        console.log(`      -> Sent User Alarm to ${user.email}`);
+                        console.log(`      -> Sent User Alarm to ${user.email} (Hide Action: ${isViewOnlyMember})`);
+                        shouldSendEmail = true;
                     } else {
+                        // Cooldown: 4 hours
+                        const lastSent = existingAlarm.last_email_sent;
+                        const cooldownPeriod = 4 * 60 * 60 * 1000;
+                        if (!lastSent || (new Date() - new Date(lastSent)) > cooldownPeriod) {
+                            shouldSendEmail = true;
+                        }
+
                         await Notification.updateOne(
                             { _id: existingAlarm._id },
                             {
@@ -90,11 +115,30 @@ const runChecks = async () => {
                                     title: alarmTitle,
                                     message: alarmMessage,
                                     created_date: new Date(),
-                                    read: false
+                                    hide_action: isViewOnlyMember,
+                                    read: false,
+                                    ...(shouldSendEmail ? { last_email_sent: new Date() } : {})
                                 }
                             }
                         );
-                        console.log(`      -> Updated User Alarm for ${user.email}`);
+                        console.log(`      -> Updated User Alarm for ${user.email} (Email Should Send: ${shouldSendEmail})`);
+                    }
+
+                    if (shouldSendEmail) {
+                        // Send Email Notification
+                        await sendEmail({
+                            to: user.email,
+                            templateType: 'multiple_overdue_alarm',
+                            data: {
+                                userName: user.full_name || user.email,
+                                userEmail: user.email,
+                                overdueCount: overdueTasks.length,
+                                taskTitles: overdueTasks.slice(0, 3).map(t => t.title).join(', '),
+                                dashboardUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/Dashboard`
+                            },
+                            subject: alarmTitle
+                        }).catch(e => console.error(`      -> Failed to send email to ${user.email}:`, e.message));
+                        console.log(`      -> Sent User Alarm Email to ${user.email}`);
                     }
 
                     // B. Notify MANAGERS (Escalation)

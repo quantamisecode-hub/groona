@@ -1,0 +1,62 @@
+{
+    "name": "SprintVelocity",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "ID of the tenant"
+        },
+        "project_id": {
+            "type": "string",
+            "description": "ID of the project"
+        },
+        "sprint_id": {
+            "type": "string",
+            "description": "ID of the sprint"
+        },
+        "sprint_name": {
+            "type": "string",
+            "description": "Name of the sprint"
+        },
+        "committed_points": {
+            "type": "number",
+            "default": 0,
+            "description": "Total story points committed when sprint was locked"
+        },
+        "completed_points": {
+            "type": "number",
+            "default": 0,
+            "description": "Total story points completed (includes partial completion)"
+        },
+        "total_stories": {
+            "type": "integer",
+            "default": 0
+        },
+        "completed_stories": {
+            "type": "integer",
+            "default": 0
+        },
+        "total_tasks": {
+            "type": "integer",
+            "default": 0
+        },
+        "completed_tasks": {
+            "type": "integer",
+            "default": 0
+        },
+        "accuracy": {
+            "type": "number",
+            "default": 0,
+            "description": "Commitment accuracy percentage"
+        },
+        "last_synced_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "project_id",
+        "sprint_id"
+    ]
+}

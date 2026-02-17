@@ -136,8 +136,8 @@ const runChecks = async () => {
         // Let's re-fetch standard members.
 
         const memberUsers = await User.find({
-            role: { $in: ['member', 'employee', 'user'] }, // Adjust based on actual roles
-            custom_role: { $ne: 'client' }, // Exclude clients
+            role: { $in: ['member', 'employee', 'user'] },
+            custom_role: { $nin: ['project_manager', 'owner', 'client', 'admin'] },
             status: 'active'
         });
 
@@ -217,9 +217,10 @@ const runChecks = async () => {
                             templateType: 'timesheet_lockout_alarm', // Ensure this template exists or handle generic
                             subject: 'Urgent: Timesheet Submission Locked',
                             data: {
-                                name: user.full_name,
+                                userName: user.full_name,
+                                userEmail: user.email,
                                 missingCount: missingCount,
-                                dates: missingDates.join(', ')
+                                missingDates: missingDates.join(', ')
                             }
                         }).catch(e => console.error("Failed to send user email:", e.message));
                     }
@@ -278,7 +279,7 @@ const runChecks = async () => {
                             rule_id: 'TEAM_MEMBER_LOCKED',
                             scope: 'user',
                             status: 'OPEN',
-                            type: 'timesheet_missing_alarm',
+                            type: 'team_member_lockout_notice',
                             category: 'alert', // Alert for PM, Alarm for User
                             title: `User Locked: ${user.full_name}`,
                             message: `${user.full_name} has been locked out of timesheets due to ${missingCount} missing entries in the last week.`,
@@ -294,9 +295,12 @@ const runChecks = async () => {
                                 templateType: 'timesheet_missing_alert',
                                 subject: `Alert: ${user.full_name} Timesheet Lockout`,
                                 data: {
-                                    managerName: managerUser.full_name,
+                                    recipientName: managerUser.full_name,
+                                    recipientEmail: managerEmail,
                                     userName: user.full_name,
-                                    missingCount: missingCount
+                                    userEmail: user.email,
+                                    missingCount: missingCount,
+                                    missingDates: missingDates.join(', ')
                                 }
                             }).catch(e => console.error("Failed to send manager email:", e.message));
                         }

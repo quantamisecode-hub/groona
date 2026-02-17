@@ -36,8 +36,8 @@ const runReminders = async () => {
         for (const log of activeLogs) {
             try {
                 const user = await User.findOne({ email: log.email });
-                if (!user || user.status === 'inactive') {
-                    console.log(`[SKIP] ${log.email} - User inactive or not found.`);
+                if (!user || user.status === 'inactive' || user.role === 'admin' || user.custom_role === 'project_manager' || user.custom_role === 'owner') {
+                    console.log(`[SKIP] ${log.email} - User inactive, manager, or admin skip.`);
                     continue;
                 }
 

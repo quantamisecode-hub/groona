@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Calendar, Target, List, Loader2, RefreshCw, Download, ChevronDown, ChevronUp, Eye, CheckSquare, Square, Trash2, BookOpen, Edit, ChevronRight, ListTodo, FolderKanban, Archive } from "lucide-react";
+import { Plus, Calendar, Target, List, Loader2, RefreshCw, Download, ChevronDown, ChevronUp, Eye, CheckSquare, Square, Trash2, BookOpen, Edit, ChevronRight, ListTodo, FolderKanban, Archive, Users } from "lucide-react";
 import SprintKanbanBoard from "../components/sprint/SprintKanbanBoard";
 import SprintCapacityView from "../components/sprint/SprintCapacityView";
 import SprintBurndown from "../components/sprint/SprintBurndown";
@@ -75,6 +75,7 @@ export default function SprintBoard() {
   });
 
   const [manuallyChangedStatuses, setManuallyChangedStatuses] = useState(new Set()); // Track manually changed story statuses
+  const [selectedMemberEmail, setSelectedMemberEmail] = useState("all");
   const queryClient = useQueryClient();
   const printRef = useRef(null); // You can keep this even if unused for now
 
@@ -369,7 +370,10 @@ export default function SprintBoard() {
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
   const selectedSprint = sprints.find(s => s.id === selectedSprintId);
+  const isCurrentProjectManager = projectRoles.some(r => r.project_id === selectedProjectId);
   const isProjectManager = projectRoles.length > 0;
+  const isOwner = currentUser?.custom_role === 'owner';
+  const canSeeMemberFilter = isAdmin || isCurrentProjectManager || isOwner;
   const userRole = isAdmin ? 'admin' : (isProjectManager ? 'project_manager' : 'user');
 
   // Filter tasks: For team members (not admin, not project manager), only show assigned tasks
@@ -380,9 +384,25 @@ export default function SprintBoard() {
   // So we don't need to filter projects again - just use the projects variable directly
   const filteredProjects = projects;
 
-  // Filter tasks: For team members, only show assigned tasks
+  // Filter tasks: For team members (not admin, not project manager), only show assigned tasks
   // But keep all tasks for admins and project managers
   let filteredTasks = tasks;
+
+  // Apply Member Filter if active
+  if (canSeeMemberFilter && selectedMemberEmail && selectedMemberEmail !== "all") {
+    filteredTasks = tasks.filter(t => {
+      const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+      return taskAssignees.some(assignee => {
+        const assigneeVal = (typeof assignee === 'object' && assignee !== null)
+          ? (assignee.email || assignee.id || '')
+          : String(assignee || '');
+
+        const normalizedAssignee = assigneeVal.toLowerCase().trim();
+        const normalizedFilter = selectedMemberEmail.toLowerCase().trim();
+        return normalizedAssignee === normalizedFilter;
+      });
+    });
+  }
   /* 
   // DISABLED FILTERING: Team members should see ALL tasks in the sprint
   if (isTeamMember && userEmail) {
@@ -654,7 +674,6 @@ export default function SprintBoard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stories, tasks, backlogStories, manuallyChangedStatuses, selectedSprint]);
 
-  const isCurrentProjectManager = projectRoles.some(r => r.project_id === selectedProjectId);
   const canViewMetrics = isAdmin || isCurrentProjectManager;
 
   const getInitials = (name) => {
@@ -848,6 +867,7 @@ export default function SprintBoard() {
   const handleProjectChange = (projectId) => {
     setSelectedProjectId(projectId);
     setSelectedSprintId("");
+    setSelectedMemberEmail("all");
   };
 
   const handleManualRefresh = () => {
@@ -1623,6 +1643,49 @@ export default function SprintBoard() {
                             </SelectContent>
                           </Select>
                         </div>
+
+                        {canSeeMemberFilter && (
+                          <div className="flex-1 w-full">
+                            <Select value={selectedMemberEmail} onValueChange={setSelectedMemberEmail}>
+                              <SelectTrigger className="bg-white h-9 text-sm w-full">
+                                <SelectValue placeholder="Filter by Member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">
+                                  <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
+                                      <Users className="h-3.5 w-3.5 text-slate-500" />
+                                    </div>
+                                    <span>All Members</span>
+                                  </div>
+                                </SelectItem>
+                                {selectedProject?.team_members?.map(member => {
+                                  // Find user in the users list to get current full name
+                                  const user = users.find(u =>
+                                    (member.email && u.email === member.email) ||
+                                    (member.id && u.id === member.id)
+                                  );
+                                  const displayName = user?.full_name || member.full_name || member.email || "Unknown Member";
+                                  const initials = getInitials(displayName);
+
+                                  return (
+                                    <SelectItem key={member.email || member.id} value={member.email || member.id}>
+                                      <div className="flex items-center gap-2">
+                                        <Avatar className="h-6 w-6">
+                                          <AvatarImage src={user?.profile_image_url} />
+                                          <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 font-medium">
+                                            {initials}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="truncate">{displayName}</span>
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
 
                         {!isMarketingCompany && (
                           <>

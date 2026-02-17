@@ -183,6 +183,9 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     });
 
     const totalMinutes = dayTimesheets.reduce((acc, ts) => acc + (ts.total_minutes || 0), 0);
+    const reworkMinutes = dayTimesheets.reduce((acc, ts) => {
+      return acc + (ts.work_type === 'rework' ? (ts.total_minutes || 0) : 0);
+    }, 0);
 
     // Determine day-level status: if any entry is NOT draft/rejected, it's 'submitted'
     const hasOfficialEntry = dayTimesheets.some(ts =>
@@ -213,6 +216,7 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
         end_time: latestTs?.end_time || endOfDay,
         location: latestTs?.location || {},
         total_time_submitted_in_day: totalMinutes,
+        rework_time_in_day: reworkMinutes,
         created_at: new Date()
       };
 
@@ -225,6 +229,93 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     }
   } catch (err) {
     console.error("[Sync] Error syncUserTimesheetDay:", err);
+  }
+}
+
+async function syncSprintVelocity(sprintId, tenantId) {
+  try {
+    const SprintModel = Models.Sprint;
+    const StoryModel = Models.Story;
+    const TaskModel = Models.Task;
+    const VelocityModel = Models.SprintVelocity;
+
+    if (!SprintModel || !StoryModel || !TaskModel || !VelocityModel) return;
+
+    const sprint = await SprintModel.findById(sprintId);
+    if (!sprint) return;
+
+    // 1. Get all stories for this sprint
+    const sprintStories = await StoryModel.find({ sprint_id: sprintId, tenant_id: tenantId });
+
+    // 2. Committed Points (set when sprint locked)
+    const totalStoryPointsInSprint = sprintStories.reduce((sum, s) => sum + (Number(s.story_points) || 0), 0);
+    const committedPoints = (sprint.committed_points !== undefined && sprint.committed_points !== null)
+      ? Number(sprint.committed_points)
+      : totalStoryPointsInSprint;
+
+    // 3. Completed Points (Partial Completion Logic)
+    const sprintStoryIds = sprintStories.map(s => s._id.toString());
+    const allRelevantTasks = await TaskModel.find({
+      $or: [
+        { sprint_id: sprintId },
+        { story_id: { $in: sprintStoryIds } }
+      ],
+      tenant_id: tenantId
+    });
+
+    let completedPoints = 0;
+    let completedStoriesCount = 0;
+
+    for (const story of sprintStories) {
+      const storyId = story._id.toString();
+      const storyStatus = (story.status || '').toLowerCase();
+      const storyPoints = Number(story.story_points) || 0;
+
+      if (storyStatus === 'done' || storyStatus === 'completed') {
+        completedPoints += storyPoints;
+        completedStoriesCount++;
+        continue;
+      }
+
+      const storyTasks = allRelevantTasks.filter(t => t.story_id?.toString() === storyId);
+      if (storyTasks.length > 0) {
+        const completedTasksCount = storyTasks.filter(t => t.status === 'completed').length;
+        const taskCompletionRatio = completedTasksCount / storyTasks.length;
+        completedPoints += (storyPoints * taskCompletionRatio);
+
+        if (taskCompletionRatio === 1) completedStoriesCount++;
+      }
+    }
+
+    const totalTasks = allRelevantTasks.length;
+    const completedTasks = allRelevantTasks.filter(t => t.status === 'completed').length;
+    const accuracy = committedPoints > 0 ? (completedPoints / committedPoints) * 100 : 0;
+
+    // Upsert into SprintVelocity
+    const updateData = {
+      tenant_id: tenantId,
+      project_id: sprint.project_id,
+      sprint_id: sprintId,
+      sprint_name: sprint.name,
+      committed_points: committedPoints,
+      completed_points: parseFloat(completedPoints.toFixed(2)),
+      total_stories: sprintStories.length,
+      completed_stories: completedStoriesCount,
+      total_tasks: totalTasks,
+      completed_tasks: completedTasks,
+      accuracy: parseFloat(accuracy.toFixed(2)),
+      last_synced_at: new Date()
+    };
+
+    await VelocityModel.findOneAndUpdate(
+      { sprint_id: sprintId },
+      { $set: updateData },
+      { upsert: true }
+    );
+
+    console.log(`[VelocitySync] Updated velocity for sprint: ${sprint.name} (${sprintId}). Points: ${completedPoints.toFixed(2)}/${committedPoints}`);
+  } catch (err) {
+    console.error("[VelocitySync] Error syncing sprint velocity:", err);
   }
 }
 
@@ -763,6 +854,29 @@ router.post('/entities/:entity/create', async (req, res) => {
           }
         } catch (err) {
           console.error("[LateSubmission] Error:", err);
+        }
+      });
+    }
+
+    // --- SPRINT VELOCITY SYNC (Create) ---
+    if (['Task', 'Story', 'Sprint'].includes(entityName)) {
+      setImmediate(async () => {
+        try {
+          let sprintId = null;
+          if (entityName === 'Sprint') {
+            sprintId = savedItem._id;
+          } else if (savedItem.sprint_id) {
+            sprintId = savedItem.sprint_id;
+          } else if (entityName === 'Task' && savedItem.story_id) {
+            const story = await Models.Story.findById(savedItem.story_id);
+            if (story && story.sprint_id) sprintId = story.sprint_id;
+          }
+
+          if (sprintId) {
+            await syncSprintVelocity(sprintId, savedItem.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in create trigger:", err);
         }
       });
     }
@@ -1309,6 +1423,39 @@ router.post('/entities/:entity/update', async (req, res) => {
     // Send response immediately after update
     res.json(updatedDoc);
 
+    // --- SPRINT VELOCITY SYNC (Update) ---
+    if (['Task', 'Story', 'Sprint'].includes(entityName)) {
+      setImmediate(async () => {
+        try {
+          const sprintIdsToSync = new Set();
+
+          // Current sprint
+          if (entityName === 'Sprint') {
+            sprintIdsToSync.add(updatedDoc._id.toString());
+          } else if (updatedDoc.sprint_id) {
+            sprintIdsToSync.add(updatedDoc.sprint_id.toString());
+          } else if (entityName === 'Task' && updatedDoc.story_id) {
+            const story = await Models.Story.findById(updatedDoc.story_id);
+            if (story && story.sprint_id) sprintIdsToSync.add(story.sprint_id.toString());
+          }
+
+          // Previous sprint (if changed)
+          if (oldDoc.sprint_id && oldDoc.sprint_id.toString() !== (updatedDoc.sprint_id ? updatedDoc.sprint_id.toString() : '')) {
+            sprintIdsToSync.add(oldDoc.sprint_id.toString());
+          } else if (entityName === 'Task' && oldDoc.story_id && oldDoc.story_id.toString() !== (updatedDoc.story_id ? updatedDoc.story_id.toString() : '')) {
+            const oldStory = await Models.Story.findById(oldDoc.story_id);
+            if (oldStory && oldStory.sprint_id) sprintIdsToSync.add(oldStory.sprint_id.toString());
+          }
+
+          for (const sId of sprintIdsToSync) {
+            await syncSprintVelocity(sId, updatedDoc.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in update trigger:", err);
+        }
+      });
+    }
+
     // --- ACTIVITY LOGGING ---
     setImmediate(async () => {
       try {
@@ -1744,13 +1891,38 @@ router.post('/entities/:entity/delete', async (req, res) => {
     // 3. Delete the entity itself
     await Model.findByIdAndDelete(id);
 
-    // 4. TIMESHEET LOGGING: Dynamic Sync
+    // --- TIMESHEET LOGGING: Dynamic Sync ---
     if (entity === 'Timesheet' && docToDelete) {
       try {
         await syncUserTimesheetDay(docToDelete.user_email, docToDelete.date, docToDelete.tenant_id);
       } catch (err) {
         console.error("[Sync] Error in delete sync:", err);
       }
+    }
+
+    // --- SPRINT VELOCITY SYNC (Delete) ---
+    if (['Task', 'Story', 'Sprint'].includes(entity) && docToDelete) {
+      setImmediate(async () => {
+        try {
+          let sprintId = null;
+          if (entity === 'Sprint') {
+            await Models.SprintVelocity.findOneAndDelete({ sprint_id: docToDelete._id });
+            console.log(`[VelocitySync] Deleted velocity record for sprint: ${docToDelete.name}`);
+            return;
+          } else if (docToDelete.sprint_id) {
+            sprintId = docToDelete.sprint_id;
+          } else if (entity === 'Task' && docToDelete.story_id) {
+            const story = await Models.Story.findById(docToDelete.story_id);
+            if (story && story.sprint_id) sprintId = story.sprint_id;
+          }
+
+          if (sprintId) {
+            await syncSprintVelocity(sprintId, docToDelete.tenant_id);
+          }
+        } catch (err) {
+          console.error("[VelocitySync] Error in delete trigger:", err);
+        }
+      });
     }
 
     res.json({ success: true });

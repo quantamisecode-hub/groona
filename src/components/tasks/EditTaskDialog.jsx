@@ -801,8 +801,8 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
                               key={user.id}
                               value={user.email}
                               onSelect={() => {
-                                if (user.is_overloaded && !isSelected) {
-                                  const msg = "Cannot assign task: User is overloaded.";
+                                if (user.is_overdue_blocked && !isSelected) {
+                                  const msg = "Cannot assign task: User has multiple overdue tasks.";
                                   toast.error(msg);
                                   setAssignmentError(msg);
                                   return;
@@ -837,11 +837,17 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
                                   {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded) && "text-slate-400 line-through")}>{user.full_name}</span>
+                              <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded || user.is_overdue_blocked) && "text-slate-400 line-through")}>{user.full_name}</span>
                               {user.is_overloaded && (
                                 <Badge variant="outline" className="ml-auto text-[8px] border-orange-200 bg-orange-50 text-orange-600 gap-1 animate-pulse">
                                   <Siren className="h-2 w-2" />
                                   OVERLOADED
+                                </Badge>
+                              )}
+                              {user.is_overdue_blocked && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  OVERDUE
                                 </Badge>
                               )}
                               {hasReworkAlarm && (

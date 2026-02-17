@@ -104,6 +104,14 @@ function getEmailTemplate(templateType, data = {}) {
       return getLowLoggedHoursTemplate(data);
     case 'overwork_alarm':
       return getOverworkAlarmTemplate(data);
+    case 'multiple_overdue_alarm':
+      return getMultipleOverdueAlarmTemplate(data);
+    case 'rework_alarm':
+      return getReworkAlarmTemplate(data, false);
+    case 'high_rework_alarm':
+      return getReworkAlarmTemplate(data, true);
+    case 'rework_alert':
+      return getReworkGeneralAlertTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -125,7 +133,7 @@ function getTimesheetLockoutAlarmTemplate(data) {
       </div>
       <div style="${styles.infoRow}">
         <span style="${styles.label}">Missing Days:</span>
-        <span style="${styles.value}">${missingCount} days</span>
+        <span style="${styles.value}">${missingCount || 0} day(s)</span>
       </div>
       ${missingDates ? `
       <div style="${styles.infoRow}">
@@ -144,7 +152,7 @@ function getTimesheetLockoutAlarmTemplate(data) {
   return {
     html: getBaseTemplate(
       'Account Locked: Missing Timesheets',
-      `Hello, ${userName || userEmail}`,
+      `Hello, ${userName || userEmail || data.name || 'User'}`,
       content
     ),
     defaultSubject: '🚨 Account Locked: Missing Timesheets Action Required'
@@ -189,7 +197,7 @@ function getTimesheetMissingAlertTemplate(data) {
   return {
     html: getBaseTemplate(
       'Alert: User Locked (Missing Timesheets)',
-      `Hello, ${recipientName || recipientEmail}`,
+      `Hello, ${recipientName || recipientEmail || data.managerName || 'Manager'}`,
       content
     ),
     defaultSubject: `🚨 Alert: ${userName || userEmail} Locked due to Missing Timesheets`
@@ -200,7 +208,7 @@ function getTimesheetMissingAlertTemplate(data) {
  * Project Member Added Template
  */
 function getProjectMemberAddedTemplate(data) {
-  const { memberName, memberEmail, projectName, projectDescription, addedBy, projectUrl } = data;
+  const { memberName, memberEmail, userName, projectName, projectDescription, addedBy, projectUrl } = data;
 
   const content = `
     <p style="${styles.text}">You have been added as a team member to the project <strong>${projectName}</strong>.</p>
@@ -232,7 +240,7 @@ function getProjectMemberAddedTemplate(data) {
   return {
     html: getBaseTemplate(
       'Added to Project',
-      `Hello, ${memberName || memberEmail}`,
+      `Hello, ${memberName || memberEmail || userName || 'User'}`,
       content
     ),
     defaultSubject: `You've been added to project: ${projectName}`
@@ -893,6 +901,136 @@ function getOverworkAlarmTemplate(data) {
       content
     ),
     defaultSubject: "🚨 Action Required: High Workload Alert"
+  };
+}
+
+/**
+ * Multiple Overdue Alarms Template
+ */
+function getMultipleOverdueAlarmTemplate(data) {
+  const { userName, userEmail, overdueCount, taskTitles, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>Critical Alert:</strong> You have <strong>${overdueCount} tasks</strong> that are currently overdue.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: #ef4444;">Multiple Overdue Tasks</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Overdue Count:</span>
+        <span style="${styles.value}">${overdueCount} tasks</span>
+      </div>
+      ${taskTitles ? `
+        <div style="${styles.infoRow}">
+          <span style="${styles.label}">Recent Tasks:</span>
+          <span style="${styles.value}">${taskTitles}</span>
+        </div>
+      ` : ''}
+    </div>
+
+    <p style="${styles.text}">Immediately consultation with your Project Manager is required to reprioritize these tasks and ensure project timelines are met.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View My Dashboard</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Critical Alarm: Multiple Overdue Tasks',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: `🚨 CRITICAL: ${overdueCount} Overdue Tasks - Action Required`
+  };
+}
+
+/**
+ * Rework Alarm Template
+ */
+function getReworkAlarmTemplate(data, isHigh = false) {
+  const { userName, userEmail, reworkPercent, threshold, dashboardUrl } = data;
+  const severity = isHigh ? 'CRITICAL' : 'HIGH';
+  const color = isHigh ? '#ef4444' : '#f59e0b';
+
+  const content = `
+    <p style="${styles.text}"><strong>${severity} Alert:</strong> High rework percentage detected.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: ${color};">${severity} Rework Alert</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Rework Ratio:</span>
+        <span style="${styles.value}"><strong>${reworkPercent}%</strong> (Threshold: ${threshold}%)</span>
+      </div>
+      ${isHigh ? `
+      <p style="font-size: 14px; color: #ef4444; margin-top: 12px; margin-bottom: 0;">
+        <strong>Task assignments have been temporarily frozen. Immediate consultation with your manager/PM is required.</strong>
+      </p>` : ''}
+    </div>
+
+    <p style="${styles.text}">
+      ${isHigh
+      ? 'Your rework time has exceeded the critical threshold. This indicates significant repeated efforts that require intervention. A peer review of your current tasks is being scheduled.'
+      : 'Your rework time is above recommended limits. High rework can indicate missing requirements, technical debt, or need for further training. We recommend discussing this with your PM to optimize your workflow.'}
+    </p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View My Timesheets</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      `${isHigh ? 'Critical' : 'High'} Rework Alert`,
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: `${isHigh ? '🚨 CRITICAL' : '⚠️ ALERT'}: High Rework Detected (${reworkPercent}%)`
+  };
+}
+
+/**
+ * General Rework Alert Template (Informational)
+ */
+function getReworkGeneralAlertTemplate(data) {
+  const { userName, userEmail, reworkPercent, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>Notice:</strong> Rework time has been logged in your recent timesheets.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}">Rework Detected</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Rework Ratio:</span>
+        <span style="${styles.value}"><strong>${reworkPercent}%</strong> of total time</span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">
+      We noticed you've logged some rework time. While some rework is natural, consistent or high levels can impact project velocity. 
+      Please ensure project requirements are clear before starting tasks to minimize the need for rework.
+    </p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View My Timesheets</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Rework Logged Notification',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: `Notice: Rework time logged (${reworkPercent}%)`
   };
 }
 

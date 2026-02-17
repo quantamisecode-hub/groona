@@ -143,6 +143,11 @@
       "default": false,
       "description": "System flag: True if user has >3 missing timesheets in last 7 days"
     },
+    "is_overdue_blocked": {
+      "type": "boolean",
+      "default": false,
+      "description": "System flag: True if user has >= 3 overdue tasks"
+    },
     "settings": {
       "type": "object",
       "description": "User specific UI preferences"

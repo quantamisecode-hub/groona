@@ -1,39 +1,20 @@
 const mongoose = require('mongoose');
 const path = require('path');
-const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
+// Import centralized models and services
+const { User, User_timesheets, Notification, UserActivityLog } = require('../models/SchemaDefinitions');
+const emailService = require('../services/emailService');
 
 // --- CONFIGURATION ---
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/groona_dev';
 const REWORK_THRESHOLD_PERCENT = 15; // 15%
 const LOOKBACK_DAYS = 7;
 
-// --- MODEL LOADING HELPER ---
-const loadModels = () => {
-    const modelsPath = path.join(__dirname, '../models/definitions');
-    const files = fs.readdirSync(modelsPath);
-    files.forEach(file => {
-        if (file.endsWith('.json')) {
-            const modelDef = require(path.join(modelsPath, file));
-            const schema = new mongoose.Schema(modelDef.properties, {
-                timestamps: true,
-                strict: false
-            });
-            mongoose.model(modelDef.name, schema);
-            console.log(`✅ Model Loaded: ${modelDef.name}`);
-        }
-    });
-};
-
 const runChecks = async () => {
     try {
         await mongoose.connect(MONGO_URI);
         console.log('MongoDB Connected');
-
-        loadModels();
-        const User = mongoose.model('User');
-        const Timesheet = mongoose.model('Timesheet');
-        const Notification = mongoose.model('Notification');
 
         console.log(`\n=== REWORK ALARM CHECK (Threshold: >${REWORK_THRESHOLD_PERCENT}% in last ${LOOKBACK_DAYS} days) ===`);
 
@@ -47,19 +28,13 @@ const runChecks = async () => {
         startDate.setHours(0, 0, 0, 0);
 
         for (const user of users) {
-            // Fetch ALL timesheets for the user (Date format in DB is string "Mon Jan...", so DB query $gte fails)
-            const timesheets = await Timesheet.find({
-                user_email: user.email
+            // Fetch aggregated data from User_timesheets (much more efficient)
+            const dailyData = await User_timesheets.find({
+                user_email: user.email,
+                timesheet_date: { $gte: startDate }
             });
 
-            // Filter in memory
-            const recentTimesheets = timesheets.filter(t => {
-                if (!t.date) return false;
-                const tDate = new Date(t.date); // JS can parse "Mon Jan 19 2026..."
-                return tDate >= startDate;
-            });
-
-            if (recentTimesheets.length === 0) {
+            if (dailyData.length === 0) {
                 console.log(`User: ${user.email} | No timesheets in last ${LOOKBACK_DAYS} days.`);
                 continue;
             }
@@ -67,12 +42,9 @@ const runChecks = async () => {
             let totalMinutes = 0;
             let reworkMinutes = 0;
 
-            recentTimesheets.forEach(t => {
-                const mins = (t.hours * 60) + (t.minutes || 0);
-                totalMinutes += mins;
-                if (t.work_type === 'rework') {
-                    reworkMinutes += mins;
-                }
+            dailyData.forEach(day => {
+                totalMinutes += (day.total_time_submitted_in_day || 0);
+                reworkMinutes += (day.rework_time_in_day || 0);
             });
 
             if (totalMinutes === 0) {
@@ -87,83 +59,163 @@ const runChecks = async () => {
 
             // --- LOG ACTIVITY ---
             try {
-                const UserActivityLog = mongoose.model('UserActivityLog');
                 await UserActivityLog.create({
                     user_id: user.id || user._id,
                     email: user.email,
                     tenant_id: user.tenant_id,
                     event_type: 'rework_check',
                     rework_percentage: parseFloat(formattedPercent),
+                    rework_minutes: reworkMinutes,
+                    total_minutes: totalMinutes,
                     timestamp: new Date()
                 });
                 console.log(`   -> [LOG] Rework percentage logged.`);
             } catch (logErr) {
                 console.error(`   -> [ERROR] Failed to log rework activity:`, logErr.message);
             }
-            // --------------------
 
-            if (reworkPercent > 25) {
-                console.log(`   -> [FLAG] CRITICAL REWORK (> 25%)`);
+            // Always notify if ANY rework detected, but use thresholds for alarm severity
+            if (reworkMinutes > 0) {
+                if (reworkPercent > 25) {
+                    console.log(`   -> [FLAG] CRITICAL REWORK (> 25%)`);
 
-                // Check if active HIGH alarm exists
-                const existingAlarm = await Notification.findOne({
-                    recipient_email: user.email,
-                    type: 'high_rework_alarm',
-                    status: { $in: ['OPEN', 'APPEALED'] }
-                });
-
-                // Also check if normal alarm exists (to upgrade it later if needed, but for now just create new high)
-                // Ideally we should close the 'rework_alarm' if we upgrade to 'high_rework_alarm' to avoid duplicates?
-                // For simplicity, let's just create high alarm.
-
-                if (existingAlarm) {
-                    console.log('   -> High Rework Alarm already exists. Skipping.');
-                } else {
-                    console.log('   -> Creating CRITICAL High Rework Alarm (Freeze Activated)...');
-                    await Notification.create({
-                        tenant_id: user.tenant_id,
+                    // Check if active HIGH alarm exists
+                    const existingAlarm = await Notification.findOne({
                         recipient_email: user.email,
-                        type: 'high_rework_alarm', // New Type
-                        category: 'alarm',
-                        title: 'Critical Rework Detected',
-                        message: `Your rework time is at ${formattedPercent}%, exceeding the 25% threshold. Task assignments are frozen. Peer review required.`,
-                        entity_type: 'user',
-                        entity_id: user.id,
-                        scope: 'user',
-                        status: 'OPEN',
-                        sender_name: 'Groona Bot'
+                        type: 'high_rework_alarm',
+                        status: { $in: ['OPEN', 'APPEALED'] }
                     });
-                    console.log('   -> High Alarm Created ✅');
-                }
 
-            } else if (reworkPercent > REWORK_THRESHOLD_PERCENT) {
-                console.log(`   -> [FLAG] HIGH REWORK (> ${REWORK_THRESHOLD_PERCENT}%)`);
+                    if (existingAlarm) {
+                        console.log('   -> High Rework Alarm already exists. Skipping notification/email.');
+                    } else {
+                        console.log('   -> Creating CRITICAL High Rework Alarm (Freeze Activated)...');
+                        await Notification.create({
+                            tenant_id: user.tenant_id,
+                            recipient_email: user.email,
+                            user_id: user.id || user._id,
+                            type: 'high_rework_alarm',
+                            category: 'alarm',
+                            title: 'Critical Rework Detected',
+                            message: `Your rework time is at ${formattedPercent}%, exceeding the 25% threshold. Task assignments are frozen. Peer review required.`,
+                            entity_type: 'user',
+                            entity_id: user.id || user._id,
+                            scope: 'user',
+                            status: 'OPEN',
+                            sender_name: 'Groona Bot',
+                            created_date: new Date()
+                        });
 
-                // Check if active alarm exists
-                const existingAlarm = await Notification.findOne({
-                    recipient_email: user.email,
-                    type: { $in: ['rework_alarm', 'high_rework_alarm'] }, // Don't downgrade if high exists?
-                    status: { $in: ['OPEN', 'APPEALED'] }
-                });
+                        try {
+                            await emailService.sendEmail({
+                                to: user.email,
+                                templateType: 'high_rework_alarm',
+                                data: {
+                                    userName: user.full_name || user.email,
+                                    userEmail: user.email,
+                                    reworkPercent: formattedPercent,
+                                    threshold: 25,
+                                    dashboardUrl: `${process.env.FRONTEND_URL || 'https://groona.quantumisecode.com'}/timesheets`
+                                }
+                            });
+                            console.log('      -> High Rework Email Sent ✅');
+                        } catch (emailErr) {
+                            console.error('      -> Failed to send high rework email:', emailErr.message);
+                        }
+                    }
 
-                if (existingAlarm) {
-                    console.log('   -> Alarm already exists. Skipping.');
-                } else {
-                    console.log('   -> Creating NEW Rework Alarm...');
-                    await Notification.create({
-                        tenant_id: user.tenant_id,
+                } else if (reworkPercent > REWORK_THRESHOLD_PERCENT) {
+                    console.log(`   -> [FLAG] HIGH REWORK (> ${REWORK_THRESHOLD_PERCENT}%)`);
+
+                    // Check if active alarm exists
+                    const existingAlarm = await Notification.findOne({
                         recipient_email: user.email,
-                        type: 'rework_alarm',
-                        category: 'alarm',
-                        title: 'High Rework Detected',
-                        message: `Your rework time is at ${formattedPercent}%, exceeding the ${REWORK_THRESHOLD_PERCENT}% threshold. Peer review is recommended.`,
-                        entity_type: 'user',
-                        entity_id: user.id,
-                        scope: 'user',
-                        status: 'OPEN',
-                        sender_name: 'Groona Bot'
+                        type: { $in: ['rework_alarm', 'high_rework_alarm'] },
+                        status: { $in: ['OPEN', 'APPEALED'] }
                     });
-                    console.log('   -> Alarm Created ✅');
+
+                    if (existingAlarm) {
+                        console.log('   -> Rework Alarm already exists. Skipping notification/email.');
+                    } else {
+                        console.log('   -> Creating NEW Rework Alarm...');
+                        await Notification.create({
+                            tenant_id: user.tenant_id,
+                            recipient_email: user.email,
+                            user_id: user.id || user._id,
+                            type: 'rework_alarm',
+                            category: 'alarm',
+                            title: 'High Rework Detected',
+                            message: `Your rework time is at ${formattedPercent}%, exceeding the ${REWORK_THRESHOLD_PERCENT}% threshold. Peer review is recommended.`,
+                            entity_type: 'user',
+                            entity_id: user.id || user._id,
+                            scope: 'user',
+                            status: 'OPEN',
+                            sender_name: 'Groona Bot',
+                            created_date: new Date()
+                        });
+
+                        try {
+                            await emailService.sendEmail({
+                                to: user.email,
+                                templateType: 'rework_alarm',
+                                data: {
+                                    userName: user.full_name || user.email,
+                                    userEmail: user.email,
+                                    reworkPercent: formattedPercent,
+                                    threshold: REWORK_THRESHOLD_PERCENT,
+                                    dashboardUrl: `${process.env.FRONTEND_URL || 'https://groona.quantumisecode.com'}/timesheets`
+                                }
+                            });
+                            console.log('      -> Rework Email Sent ✅');
+                        } catch (emailErr) {
+                            console.error('      -> Failed to send rework email:', emailErr.message);
+                        }
+                    }
+                } else {
+                    // Normal rework notification (Informational)
+                    console.log(`   -> [INFO] Rework detected (${formattedPercent}%). Below threshold.`);
+
+                    // Optional: Create a general notification for any rework? 
+                    // The user said: "if any user had rework then send him inapp notification and mail"
+                    // So let's create a 'general' notification for any rework > 0 but < 15%
+
+                    const existingNotif = await Notification.findOne({
+                        recipient_email: user.email,
+                        type: 'rework_alert',
+                        created_date: { $gte: startDate } // Check if alert already sent in lookback period
+                    });
+
+                    if (!existingNotif) {
+                        await Notification.create({
+                            tenant_id: user.tenant_id,
+                            recipient_email: user.email,
+                            user_id: user.id || user._id,
+                            type: 'rework_alert',
+                            category: 'general',
+                            title: 'Rework Logged',
+                            message: `You have logged rework time recently (${formattedPercent}% of total). Please ensure quality and clarity of requirements.`,
+                            status: 'OPEN',
+                            read: false,
+                            created_date: new Date()
+                        });
+                        console.log('      -> General Rework Information Notification Created.');
+
+                        try {
+                            await emailService.sendEmail({
+                                to: user.email,
+                                templateType: 'rework_alert',
+                                data: {
+                                    userName: user.full_name || user.email,
+                                    userEmail: user.email,
+                                    reworkPercent: formattedPercent,
+                                    dashboardUrl: `${process.env.FRONTEND_URL || 'https://groona.quantumisecode.com'}/timesheets`
+                                }
+                            });
+                            console.log('      -> General Rework Email Sent ✅');
+                        } catch (emailErr) {
+                            console.error('      -> Failed to send general rework email:', emailErr.message);
+                        }
+                    }
                 }
             }
         }

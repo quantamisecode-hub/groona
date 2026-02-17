@@ -61,7 +61,8 @@
         "timesheet_reminder",
         "timesheet_late_submission",
         "low_logged_hours",
-        "user_availability_update"
+        "user_availability_update",
+        "context_switching_alert"
       ],
       "description": "Type of notification"
     },

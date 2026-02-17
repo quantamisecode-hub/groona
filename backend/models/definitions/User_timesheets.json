@@ -65,6 +65,10 @@
             "type": "number",
             "description": "Total minutes submitted by this user on this timesheet_date (cumulative)"
         },
+        "rework_time_in_day": {
+            "type": "number",
+            "description": "Total rework minutes submitted by this user on this timesheet_date"
+        },
         "created_at": {
             "type": "string",
             "format": "date-time"

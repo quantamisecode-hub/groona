@@ -33,7 +33,7 @@ const SCRIPTS = [
     'timesheet_reminder_alerts.js',
     'alert_low_logged_hours.js',
     'alert_availability_update.js',
-
+    'generate_context_switching_alert.js',
 ];
 
 const runScript = (scriptName) => {

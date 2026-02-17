@@ -119,9 +119,9 @@ export default function CreateTaskDialog({ open, onClose, onSubmit, loading }) {
                   <SelectItem
                     key={user.id}
                     value={user.email}
-                    disabled={user.is_overloaded}
+                    disabled={user.is_overloaded || user.is_overdue_blocked}
                   >
-                    {user.full_name} ({user.email}) {user.is_overloaded ? "- (Overloaded - Action Required)" : ""}
+                    {user.full_name} ({user.email}) {user.is_overloaded ? "- (Overloaded)" : ""} {user.is_overdue_blocked ? "- (Overdue Tasks - Action Required)" : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
