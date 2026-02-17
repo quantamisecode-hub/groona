@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Bell, CheckCircle2, XCircle, AlertCircle, Info, Trash2, UserPlus, MessageSquare, Megaphone, Clock, Search, AlertTriangle, Siren, ShieldAlert, Loader2, Flame,
-  AlignLeft,
-  Sparkles,
-  BatteryLow,
-  CalendarDays
-} from "lucide-react";
+import { Bell, CheckCircle2, XCircle, AlertCircle, Info, Trash2, UserPlus, MessageSquare, Megaphone, Clock, Search, AlertTriangle, Siren, ShieldAlert, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function NotificationCenter({ currentUser }) {
@@ -36,7 +30,7 @@ export default function NotificationCenter({ currentUser }) {
       );
     },
     enabled: !!currentUser?.email,
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const markAsReadMutation = useMutation({
@@ -197,42 +191,16 @@ export default function NotificationCenter({ currentUser }) {
         markAsReadMutation.mutate(notification.id);
       }
 
-      // 0. DEEP LINK PRIORITY
-      if (notification.deep_link || notification.link) {
-        navigate(notification.deep_link || notification.link);
+      // 2. Determine Destination
+      // Priority A: Deep Link (New System)
+      if (notification.deep_link) {
+        navigate(notification.deep_link);
         setOpen(false);
         return;
       }
 
-      // 2. Determine Destination
-      // Priority A: We have project_id (New Notifications)
+      // Priority B: We have project_id (Legacy / Fallback)
       if (notification.project_id) {
-        // ... (rest of function logic) ...
-
-        const getIcon = (type) => {
-          switch (type) {
-            case 'task_assigned':
-            case 'subtask_assignment': return <UserPlus className="h-5 w-5 text-purple-600" />;
-            case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
-            case 'comment_added':
-            case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
-            case 'timesheet_submission':
-            case 'timesheet_approval_needed':
-            case 'timesheet_status':
-            case 'timesheet_reminder': return <Clock className="h-5 w-5 text-amber-600" />;
-            case 'impediment_reported':
-            case 'impediment_alert': return <AlertTriangle className="h-5 w-5 text-red-500" />;
-            case 'task_escalation_alert': return <Flame className="h-5 w-5 text-red-600" />;
-            case 'multiple_overdue_alarm': return <Siren className="h-5 w-5 text-red-600 animate-pulse" />;
-            case 'multiple_overdue_escalation': return <ShieldAlert className="h-5 w-5 text-red-700" />;
-            case 'low_workload_alert': return <BatteryLow className="h-5 w-5 text-amber-600" />;
-            case 'leave_application': return <CalendarDays className="h-5 w-5 text-blue-500" />;
-            case 'leave_approval': return <CalendarDays className="h-5 w-5 text-green-600" />;
-            case 'leave_rejection': return <CalendarDays className="h-5 w-5 text-red-500" />;
-            case 'leave_cancellation': return <CalendarDays className="h-5 w-5 text-gray-500" />;
-            default: return <Bell className="h-5 w-5 text-slate-600" />;
-          }
-        };
         let targetUrl = `/ProjectDetail?id=${notification.project_id}`;
 
         // Handle Timesheet Notifications explicitly
@@ -268,19 +236,8 @@ export default function NotificationCenter({ currentUser }) {
         navigate(targetUrl);
         setOpen(false);
       }
-      // Priority B: Fallback for Legacy Notifications
+      // Priority B: Fallback for Legacy Notifications (Missing project_id)
       else {
-        // Handle Leave Notifications
-        if (notification.entity_type === 'leave' || notification.type.includes('leave')) {
-          if (notification.type === 'leave_application') {
-            navigate('/PlannedLeaves?tab=approvals');
-          } else {
-            navigate('/PlannedLeaves?tab=my-leaves');
-          }
-          setOpen(false);
-          return;
-        }
-
         if (notification.entity_type === 'timesheet' || notification.type.includes('timesheet') || notification.type === 'user_streak_escalation' || notification.type === 'task_delay_alarm') {
           if (notification.type === 'timesheet_approval_needed') {
             navigate('/Timesheets?tab=approvals');
@@ -325,14 +282,10 @@ export default function NotificationCenter({ currentUser }) {
       case 'task_assigned': return <UserPlus className="h-5 w-5 text-purple-600" />;
       case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case 'comment_added':
-      case 'mentiones': return <MessageSquare className="h-5 w-5 text-blue-600" />; // Typo in original? No, "mention"
       case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
       case 'timesheet_submission':
       case 'timesheet_approval_needed':
-      case 'timesheet_status':
-      case 'timesheet_reminder': return <Clock className="h-5 w-5 text-amber-600" />;
-      case 'impediment_reported':
-      case 'impediment_alert': return <AlertTriangle className="h-5 w-5 text-red-500" />;
+      case 'timesheet_status': return <Clock className="h-5 w-5 text-amber-600" />;
       default: return <Bell className="h-5 w-5 text-slate-600" />;
     }
   };
@@ -352,12 +305,6 @@ export default function NotificationCenter({ currentUser }) {
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return new Date();
-
-      // Clamp future dates to now to prevent "in X hours" due to timezone mismatch
-      const now = new Date();
-      if (d > now) {
-        return now;
-      }
       return d;
     } catch (e) {
       return new Date();
@@ -543,6 +490,4 @@ export default function NotificationCenter({ currentUser }) {
     </Sheet >
   );
 }
-
-
 

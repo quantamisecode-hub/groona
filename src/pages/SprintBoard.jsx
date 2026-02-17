@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
+import { useNavigate, useSearchParams } from "react-router-dom"; // Added useSearchParams
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -75,8 +76,25 @@ export default function SprintBoard() {
   });
 
   const [manuallyChangedStatuses, setManuallyChangedStatuses] = useState(new Set()); // Track manually changed story statuses
+  const [highlightCommentId, setHighlightCommentId] = useState(null); // Added state for comment highlight
   const queryClient = useQueryClient();
   const printRef = useRef(null); // You can keep this even if unused for now
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // === DEEP LINKING HANDLER ===
+  useEffect(() => {
+    const taskIdParam = searchParams.get("taskId");
+    const commentIdParam = searchParams.get("commentId");
+
+    if (taskIdParam) {
+      setSelectedTaskId(taskIdParam);
+      if (commentIdParam) {
+        setHighlightCommentId(commentIdParam);
+      }
+    }
+  }, [searchParams]);
+  // ============================
 
   const { tenant } = useUser();
 
@@ -2083,12 +2101,22 @@ export default function SprintBoard() {
                 setShowCreateTaskDialog(false);
               }}
             />
-
             {/* RENDER TASK DETAIL DIALOG WITH CALLBACK */}
             <TaskDetailDialog
               open={!!selectedTaskId}
-              onClose={() => setSelectedTaskId(null)}
+              onClose={() => {
+                setSelectedTaskId(null);
+                setHighlightCommentId(null);
+                // Clear URL params on close
+                setSearchParams(params => {
+                  const newParams = new URLSearchParams(params);
+                  newParams.delete('taskId');
+                  newParams.delete('commentId');
+                  return newParams;
+                });
+              }}
               taskId={selectedTaskId}
+              highlightCommentId={highlightCommentId} // Pass highlight ID
               onTaskUpdate={() => {
                 refetchTasks();
                 refetchSprints();

@@ -159,9 +159,13 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 const connectDB = require('./config/db');
 const path = require('path');
+const initCronJobs = require('./cron_scheduler');
 
 // 2. Connect to Database
 connectDB();
+
+// 3. Initialize Cron Jobs
+initCronJobs();
 
 const app = express();
 const server = http.createServer(app);

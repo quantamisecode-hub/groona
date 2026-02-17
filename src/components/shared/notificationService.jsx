@@ -130,111 +130,184 @@ export const notificationService = {
   async notifyComment({ comment, mentions, entityType, entityId, entityName, tenantId, commentContent }) {
     let projectId = null;
     let projectName = null;
+    let sprintName = '';
+    let taskName = '';
+    let assignees = [];
 
-    // For project comments, entityName should be the project name (passed from component)
-    // For task comments, we need to fetch the project
+    // 1. Context Resolution
     if (entityType === 'project') {
-      // For project comments, entityId IS the projectId, and entityName should be the project name
       projectId = entityId;
-      // Priority: Use entityName first (most reliable as it's passed directly)
-      if (entityName && entityName.trim() !== '') {
-        projectName = entityName.trim();
-      } else {
-        // Fallback: Try to fetch project
+      projectName = entityName || 'Unknown Project';
+
+      // Fetch project if name is missing
+      if (projectName === 'Unknown Project') {
         try {
           const project = await this.getProjectDetails(projectId);
-          projectName = project ? project.name : 'Unknown Project';
-        } catch (e) {
-          projectName = 'Unknown Project';
-        }
+          if (project) projectName = project.name;
+        } catch (e) { /* ignore */ }
       }
     } else if (entityType === 'task') {
-      // For task comments, fetch the task to get project_id and sprint_id
       try {
-        // Try both id and _id
+        // Fetch Task for details
+        let task = null;
         let tasks = await groonabackend.entities.Task.filter({ id: entityId });
         if (!tasks || tasks.length === 0) {
           tasks = await groonabackend.entities.Task.filter({ _id: entityId });
         }
-        const task = tasks[0];
-        if (task) {
-          // 1. Get Project
+        if (tasks && tasks.length > 0) {
+          task = tasks[0];
           projectId = task.project_id;
-          if (projectId) {
-            const project = await this.getProjectDetails(projectId);
-            projectName = project ? project.name : (entityName || 'Unknown Project');
-          } else {
-            projectName = entityName || 'Unknown Project';
-          }
+          taskName = task.title;
 
-          // 2. Get Task Name
-          const taskName = task.title || entityName || 'Task';
-
-          // 3. Get Sprint Name if exists
-          let sprintName = '';
-          if (task.sprint_id) {
-            const sprint = await this.getSprintDetails(task.sprint_id);
-            if (sprint) {
-              sprintName = sprint.name;
+          // Get Assignees
+          if (task.assigned_to) {
+            if (Array.isArray(task.assigned_to)) {
+              assignees = task.assigned_to.map(a => typeof a === 'object' ? a.email : a);
+            } else if (typeof task.assigned_to === 'object') {
+              assignees = [task.assigned_to.email];
+            } else {
+              assignees = [task.assigned_to];
             }
           }
 
-          // 4. Construct rich context name
-          // Format: Project > Sprint > Task (if sprint exists)
-          // Format: Project > Task (if no sprint)
-          if (sprintName) {
-            projectName = `${projectName} > ${sprintName} > ${taskName}`;
-          } else {
-            projectName = `${projectName} > ${taskName}`;
+          // Get Project Name
+          if (projectId) {
+            const project = await this.getProjectDetails(projectId);
+            projectName = project ? project.name : (entityName || 'Unknown Project');
           }
-        } else {
-          projectName = entityName || 'Unknown Project';
+
+          // Get Sprint Name
+          if (task.sprint_id) {
+            const sprint = await this.getSprintDetails(task.sprint_id);
+            if (sprint) sprintName = sprint.name;
+          }
         }
       } catch (e) {
-        console.error("Error resolving task context for comment notification", e);
-        projectName = entityName || 'Unknown Project';
+        console.error("Error resolving task details:", e);
       }
-    } else {
-      // Fallback for other entity types
-      projectName = entityName || 'Unknown Project';
     }
 
-    // Final check: ensure project name is never empty
-    if (!projectName || projectName.trim() === '') {
-      projectName = entityName || 'Unknown Project';
+    // Default names if resolution failed
+    projectName = projectName || entityName || 'Unknown Project';
+
+    // Construct Context String
+    // Format: Project > Sprint > Task
+    let contextString = projectName;
+    if (sprintName) contextString += ` > ${sprintName}`;
+    if (taskName) contextString += ` > ${taskName}`;
+
+    // 2. Identify Recipients
+    // Mentions are passed in 'mentions' array (emails)
+    // Assignees are in 'assignees' array (emails)
+
+    const mentionSet = new Set(mentions || []);
+    const assigneeSet = new Set(assignees || []);
+
+    // Remove author from all lists
+    mentionSet.delete(comment.author_email);
+    assigneeSet.delete(comment.author_email);
+
+    // If a user is mentioned, remove them from assignees list (Mention takes priority)
+    mentionSet.forEach(email => assigneeSet.delete(email));
+
+    // 3. Prepare Notifications
+    const notifications = [];
+
+    // Deep Link Generation
+    // Base: /SprintBoard
+    // Params: taskId (if task), commentId (for highlight)
+    let deepLink = `/SprintBoard?`;
+    if (entityType === 'task') {
+      deepLink += `taskId=${entityId}`;
+    } else if (entityType === 'project') {
+      deepLink = `/ProjectDetail?id=${entityId}`; // Different flow for project comments
     }
 
-    // Get comment preview (first 50 characters for cleaner display)
-    let commentPreview = (commentContent || '').trim();
-    // Remove @ mentions from preview for cleaner text, but keep the rest
-    commentPreview = commentPreview.replace(/@[A-Za-z][A-Za-z\s'-]*/g, '').trim();
-    // Remove extra whitespace
-    commentPreview = commentPreview.replace(/\s+/g, ' ').trim();
+    // Append commentId for highlighting
+    if (comment.id) {
+      deepLink += `&commentId=${comment.id}`;
+    }
 
-    // Build clear, descriptive notification message with project name and comment preview
-    // Always include project name and comment preview in the message
-    const previewText = commentPreview && commentPreview.length > 0
-      ? `: "${commentPreview}"`
-      : '';
-
-    // Ensure project name is always in the message - use resolved projectName
-    const finalProjectName = projectName || entityName || 'Unknown Project';
-
-    // Improved message format: "User mentioned you in Context: Preview"
-    // "Context" will now be "Project > Sprint > Task" or "Project > Task" or just "Project"
-    const message = `${comment.author_name} mentioned you in ${finalProjectName}${previewText}`;
-
-    // Debug logging
-    console.log('[NotificationService] Mention detection (Backend will handle notifications):', {
-      projectName,
-      finalProjectName,
-      message,
-      mentionsCount: mentions.length
+    // Handle Mentions (High Priority)
+    mentionSet.forEach(email => {
+      notifications.push({
+        tenant_id: tenantId,
+        recipient_email: email,
+        type: 'mention', // Special type for mentions
+        title: 'You were mentioned',
+        message: `${comment.author_name} mentioned you in ${contextString}`,
+        entity_type: entityType,
+        entity_id: entityId,
+        project_id: projectId,
+        project_name: projectName,
+        sender_name: comment.author_name,
+        comment_id: comment.id,
+        deep_link: deepLink, // <--- NEW DEEP LINK
+        read: false,
+        created_date: new Date().toISOString()
+      });
     });
 
-    // NOTE: In-app mention notifications are now handled by backend middleware in SchemaDefinitions.js
-    // to prevent duplication and ensure consistency across all clients/devices.
-    return { message, finalProjectName };
+    // Handle Assignees (Standard Priority)
+    assigneeSet.forEach(email => {
+      notifications.push({
+        tenant_id: tenantId,
+        recipient_email: email,
+        type: 'comment_added',
+        title: 'New Comment',
+        message: `${comment.author_name} commented on ${taskName || contextString}`,
+        entity_type: entityType,
+        entity_id: entityId,
+        project_id: projectId,
+        project_name: projectName,
+        sender_name: comment.author_name,
+        comment_id: comment.id,
+        deep_link: deepLink, // <--- NEW DEEP LINK
+        read: false,
+        created_date: new Date().toISOString()
+      });
+    });
+
+    // 4. Save to Database (Promise.all)
+    if (notifications.length > 0) {
+      try {
+        console.log(`[NotificationService] Saving ${notifications.length} notifications...`);
+        await Promise.all(notifications.map(async (n) => {
+          // 4a. Save to DB
+          await groonabackend.entities.Notification.create(n);
+
+          // 4b. Trigger Email (Fire and Forget)
+          // We don't await this to keep UI snappy, or we can await if critical.
+          // Let's await for reliability but catch errors so notifications don't fail.
+          try {
+            const recipientName = await this.getUserName(n.recipient_email);
+            const emailPayload = {
+              to: n.recipient_email,
+              templateType: 'comment_added',
+              templateData: {
+                recipientName: recipientName,
+                authorName: comment.author_name,
+                commentContent: commentContent || "New comment received.",
+                contextString: contextString,
+                actionUrl: `${window.location.origin}${deepLink}` // Full URL for email
+              }
+            };
+
+            // Use the backend function wrapper
+            groonabackend.functions.invoke('sendNotificationEmail', emailPayload)
+              .catch(err => console.error('[NotificationService] Email trigger failed silently:', err));
+
+          } catch (emailErr) {
+            console.error('[NotificationService] Failed to prepare email:', emailErr);
+          }
+        }));
+        console.log('[NotificationService] Notifications saved and emails triggered.');
+      } catch (error) {
+        console.error('[NotificationService] Failed to save notifications:', error);
+      }
+    }
+
+    return { count: notifications.length };
   },
 
   /**
@@ -335,10 +408,35 @@ export const notificationService = {
     try {
       if (notifications.length > 0) {
         await groonabackend.entities.Notification.bulkCreate(notifications);
+
+        // Trigger Emails (Fire and Forget)
+        notifications.forEach(n => {
+          try {
+            // Reconstruct deep link (simplified)
+            let deepLink = `/SprintBoard?`;
+            if (entityType === 'task') deepLink += `taskId=${entityId}`;
+            else if (entityType === 'project') deepLink = `/ProjectDetail?id=${entityId}`;
+            if (comment.id) deepLink += `&commentId=${comment.id}`;
+
+            const emailPayload = {
+              to: n.recipient_email,
+              templateType: 'comment_added',
+              templateData: {
+                recipientName: "User", // We don't have name here, template handles it nicely
+                authorName: comment.author_name,
+                commentContent: comment.content || "New comment received.",
+                contextString: n.project_name || entityName || "Project",
+                actionUrl: `${window.location.origin}${deepLink}`
+              }
+            };
+
+            groonabackend.functions.invoke('sendNotificationEmail', emailPayload)
+              .catch(e => console.error('[NotificationService] Email trigger failed silently:', e));
+          } catch (e) { console.error(e); }
+        });
       }
     } catch (error) {
       console.error('[NotificationService] Failed to create comment notifications:', error);
     }
   }
 };
-
