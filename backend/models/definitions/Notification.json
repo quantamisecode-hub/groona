@@ -63,7 +63,8 @@
         "low_logged_hours",
         "user_availability_update",
         "PM_VELOCITY_DROP",
-        "PM_CONSISTENT_VELOCITY_DROP"
+        "PM_CONSISTENT_VELOCITY_DROP",
+        "PM_DEADLINE_RISK"
       ],
       "description": "Type of notification"
     },
