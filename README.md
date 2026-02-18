@@ -35,5 +35,3 @@ Deep dive into the React/Vite architecture, TanStack Query state management, dyn
 2. `npm run dev`
 
 ---
-
-*Developed & Maintained by Kstechsolution*
