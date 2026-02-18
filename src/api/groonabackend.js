@@ -53,6 +53,10 @@ const createEntityHandler = (entityName) => ({
     const res = await api.post(`/entities/${entityName}/filter`, { filters, sort });
     return fixId(res.data);
   },
+  get: async (id) => {
+    const res = await api.post(`/entities/${entityName}/get/${id}`);
+    return fixId(res.data);
+  },
   create: async (data) => {
     const res = await api.post(`/entities/${entityName}/create`, data);
     return fixId(res.data);

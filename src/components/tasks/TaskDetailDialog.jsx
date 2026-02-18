@@ -300,7 +300,7 @@ const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, curr
   );
 };
 
-export default function TaskDetailDialog({ open, onClose, taskId, initialTask, highlightCommentId, readOnly = false, onTaskUpdate }) {
+export default function TaskDetailDialog({ open, onClose, taskId, initialTask, highlightCommentId, readOnly = false, onTaskUpdate, autoEdit = false }) {
   const queryClient = useQueryClient();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const { user: currentUser } = useUser();
@@ -312,6 +312,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
   });
   const [selectedImpedimentId, setSelectedImpedimentId] = useState("new");
   const [isReporting, setIsReporting] = useState(false);
+
 
 
   const handleReportImpediment = async () => {
@@ -382,6 +383,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     initialData: initialTask,
     staleTime: initialTask ? 60 * 1000 : 0,
   });
+
+  React.useEffect(() => {
+    // Exception for peer reviews: allow edit mode even for viewers if autoEdit is enabled
+    if (open && autoEdit && task && !readOnly && (!isViewer || autoEdit)) {
+      setShowEditDialog(true);
+    }
+  }, [open, autoEdit, task, readOnly, isViewer]);
 
   const { data: projectImpediments = [] } = useQuery({
     queryKey: ['impediments', task?.project_id],
@@ -721,7 +729,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                 </div>
               </div>
 
-              {!readOnly && !isViewer && (
+              {(!readOnly && !isViewer || autoEdit) && (
                 <Button
                   onClick={handleEditClick}
                   size="sm"

@@ -62,7 +62,9 @@
         "timesheet_late_submission",
         "low_logged_hours",
         "user_availability_update",
-        "context_switching_alert"
+        "context_switching_alert",
+        "rework_review_accepted",
+        "rework_review_declined"
       ],
       "description": "Type of notification"
     },

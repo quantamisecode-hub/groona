@@ -172,7 +172,16 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     if (!user) return;
 
     // 1. Calculate cumulative total minutes for this user on this date (only SUBMITTED/APPROVED)
-    const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
+    // FORCE UTC MIDNIGHT NORMALIZATION
+    let dateStr = date;
+    if (date instanceof Date) {
+      dateStr = date.toISOString().split('T')[0];
+    } else if (typeof date === 'string' && date.includes('T')) {
+      dateStr = date.split('T')[0];
+    } else if (typeof date === 'string') {
+      dateStr = date.substring(0, 10);
+    }
+
     const startOfDay = new Date(dateStr + 'T00:00:00.000Z');
     const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
 
@@ -184,7 +193,9 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
 
     const totalMinutes = dayTimesheets.reduce((acc, ts) => acc + (ts.total_minutes || 0), 0);
     const reworkMinutes = dayTimesheets.reduce((acc, ts) => {
-      return acc + (ts.work_type === 'rework' ? (ts.total_minutes || 0) : 0);
+      // Ensure we handle potential string/null cases for work_type
+      const isRework = ts.work_type === 'rework';
+      return acc + (isRework ? (ts.total_minutes || 0) : 0);
     }, 0);
 
     // Determine day-level status: if any entry is NOT draft/rejected, it's 'submitted'
@@ -1926,6 +1937,17 @@ router.post('/entities/:entity/delete', async (req, res) => {
     }
 
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+router.post('/entities/:entity/get/:id', async (req, res) => {
+  try {
+    const Model = Models[req.params.entity];
+    if (!Model) return res.status(400).json({ error: 'Entity not found' });
+    const item = await Model.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    res.json(item);
   } catch (err) {
     res.status(500).send(err.message);
   }

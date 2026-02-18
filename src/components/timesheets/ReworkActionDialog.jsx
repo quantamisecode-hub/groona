@@ -75,6 +75,17 @@ export default function ReworkActionDialog({
                 const taskTitle = reworkEntry ? reworkEntry.task_title : (notification ? "Rework Task" : "Rework Task"); // Fallback
                 const projectName = reworkEntry ? reworkEntry.project_name : "Project";
 
+                // Fetch task details to get due_date
+                let taskDueDate = null;
+                if (taskId) {
+                    try {
+                        const taskData = await groonabackend.entities.Task.get(taskId);
+                        if (taskData) taskDueDate = taskData.due_date;
+                    } catch (e) {
+                        console.warn("Could not fetch task due date:", e);
+                    }
+                }
+
                 await groonabackend.entities.PeerReviewRequest.create({
                     tenant_id: currentUser.tenant_id || (notification ? notification.tenant_id : null),
                     requester_email: currentUser.email,
@@ -83,6 +94,7 @@ export default function ReworkActionDialog({
                     task_id: taskId,
                     task_title: taskTitle,
                     project_name: projectName,
+                    task_due_date: taskDueDate,
                     message: comment || 'General Code Quality',
                     status: 'PENDING'
                 });
@@ -92,12 +104,12 @@ export default function ReworkActionDialog({
                     tenant_id: currentUser.tenant_id,
                     recipient_email: reviewerEmail,
                     type: 'rework_peer_review',
-                    category: 'action_request',
+                    category: 'alert',
                     title: 'Peer Review Requested',
                     message: `${currentUser.full_name} has requested a peer review for ${taskTitle}. Click to view in Rework Reviews tab.`,
                     entity_type: 'peer_review_request',
                     entity_id: currentUser.id, // Linking to user for avatar/profile
-                    link: '/timesheets?tab=rework-reviews',
+                    link: '/Timesheets?tab=rework-reviews',
                     scope: 'user',
                     sender_name: currentUser.full_name,
                     status: 'OPEN'

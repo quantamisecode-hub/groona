@@ -22,10 +22,9 @@ const runChecks = async () => {
         const users = await User.find({ role: 'member', status: 'active' });
         console.log(`Checking ${users.length} active members...`);
 
-        const now = new Date();
         const startDate = new Date();
-        startDate.setDate(now.getDate() - LOOKBACK_DAYS);
-        startDate.setHours(0, 0, 0, 0);
+        startDate.setUTCDate(startDate.getUTCDate() - LOOKBACK_DAYS);
+        startDate.setUTCHours(0, 0, 0, 0, 0);
 
         for (const user of users) {
             // Fetch aggregated data from User_timesheets (much more efficient)
@@ -191,9 +190,10 @@ const runChecks = async () => {
                             recipient_email: user.email,
                             user_id: user.id || user._id,
                             type: 'rework_alert',
-                            category: 'general',
+                            category: 'alert',
                             title: 'Rework Logged',
                             message: `You have logged rework time recently (${formattedPercent}% of total). Please ensure quality and clarity of requirements.`,
+                            link: '/Timesheets?tab=rework-info',
                             status: 'OPEN',
                             read: false,
                             created_date: new Date()

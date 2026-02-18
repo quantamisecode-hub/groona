@@ -36,7 +36,12 @@ import {
   Briefcase,
   ShieldAlert,
   MoreVertical,
-  Send
+  Send,
+  Calendar,
+  ThumbsUp,
+  ThumbsDown,
+  XCircle,
+  Trash2
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -47,7 +52,8 @@ import ApprovalDashboard from "../components/timesheets/ApprovalDashboard";
 import SubmitTimesheetsDialog from "../components/timesheets/SubmitTimesheetsDialog";
 import TimesheetReportGenerator from "../components/timesheets/TimesheetReportGenerator";
 import AlarmsTab from "../components/timesheets/AlarmsTab";
-import ReworkActionDialog from "../components/timesheets/ReworkActionDialog"; // Imp
+import ReworkActionDialog from "../components/timesheets/ReworkActionDialog";
+import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
 import { toast } from "sonner";
 import { useHasPermission } from "../components/shared/usePermissions";
 import { useUser } from "../components/shared/UserContext";
@@ -85,6 +91,7 @@ export default function TimesheetsPage() {
       tabParam === "team-timesheets" ||
       tabParam === "reports" ||
       tabParam === "alarms" ||
+      tabParam === "rework-info" ||
       tabParam === "rework-reviews"
       ? tabParam : "my-timesheets"
   );
@@ -93,11 +100,14 @@ export default function TimesheetsPage() {
   const [showReworkActionDialog, setShowReworkActionDialog] = useState(false);
   const [showGoalReachedDialog, setShowGoalReachedDialog] = useState(false);
   const [selectedReworkEntry, setSelectedReworkEntry] = useState(null);
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const [showTaskDetailDialog, setShowTaskDetailDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
   const queryClient = useQueryClient();
+
 
   const canApproveTimesheets = useHasPermission('can_approve_timesheet');
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_super_admin || currentUser?.custom_role === 'owner';
@@ -585,13 +595,23 @@ export default function TimesheetsPage() {
     staleTime: 5000 // Refresh often
   });
 
+  // --- AUTOMATED MODAL TRIGGER (From Deep Linking) ---
+  const openReworkModalParam = searchParams.get('openReworkModal');
+
+  React.useEffect(() => {
+    if (openReworkModalParam === 'true' && activeTab === 'rework-info' && reworkAlarm) {
+      setShowReworkActionDialog(true);
+      // Optional: Clear the parameter so it doesn't trigger again on refresh
+      // navigate('/Timesheets?tab=rework-info', { replace: true });
+    }
+  }, [openReworkModalParam, activeTab, reworkAlarm]);
+
   // Fetch INCOMING Peer Review Requests (New Schema)
   const { data: peerReviewRequests = [], refetch: refetchPeerReviews } = useQuery({
     queryKey: ['peer-review-requests', currentUser?.email],
     queryFn: async () => {
       const reqs = await groonabackend.entities.PeerReviewRequest.filter({
-        reviewer_email: currentUser.email,
-        status: 'PENDING'
+        reviewer_email: currentUser.email
       });
       return reqs || [];
     },
@@ -599,17 +619,88 @@ export default function TimesheetsPage() {
     staleTime: 5000
   });
 
-  // Handle Mark Review as Done
-  const completeReviewMutation = useMutation({
-    mutationFn: async (requestId) => {
-      await groonabackend.entities.PeerReviewRequest.update(requestId, {
-        status: 'COMPLETED',
-        completed_at: new Date().toISOString()
+  // Fetch OUTGOING Peer Review Requests (Requests I sent)
+  const { data: sentPeerReviewRequests = [] } = useQuery({
+    queryKey: ['sent-peer-review-requests', currentUser?.email],
+    queryFn: async () => {
+      const reqs = await groonabackend.entities.PeerReviewRequest.filter({
+        requester_email: currentUser.email
       });
+      return reqs || [];
+    },
+    enabled: !!currentUser?.email && currentUser?.custom_role === 'viewer',
+    staleTime: 5000
+  });
+
+  // Handle Update Peer Review Status
+  const updateReviewMutation = useMutation({
+    mutationFn: async ({ requestId, status }) => {
+      // 1. Get request details first
+      const req = await groonabackend.entities.PeerReviewRequest.get(requestId);
+
+      // 2. Update status
+      await groonabackend.entities.PeerReviewRequest.update(requestId, {
+        status,
+        ...(status === 'COMPLETED' ? { completed_at: new Date().toISOString() } : {})
+      });
+
+      // 3. Notify the requester
+      if (req && req.requester_email) {
+        await groonabackend.entities.Notification.create({
+          tenant_id: effectiveTenantId,
+          recipient_email: req.requester_email,
+          type: status === 'COMPLETED' ? 'rework_review_accepted' : 'rework_review_declined',
+          category: 'general',
+          title: status === 'COMPLETED' ? 'Peer Review Accepted' : 'Peer Review Declined',
+          message: `${currentUser.full_name} has ${status === 'COMPLETED' ? 'accepted' : 'declined'} your peer review request for ${req.task_title || 'task'}.`,
+          entity_type: 'peer_review_request',
+          entity_id: requestId,
+          sender_name: currentUser.full_name
+        });
+      }
+
+      // 4. Auto-assign the reviewer to the task
+      if (status === 'COMPLETED' && req && req.task_id) {
+        try {
+          const taskData = await groonabackend.entities.Task.get(req.task_id);
+          if (taskData) {
+            const currentAssignees = Array.isArray(taskData.assigned_to)
+              ? taskData.assigned_to
+              : (taskData.assigned_to ? [taskData.assigned_to] : []);
+
+            if (!currentAssignees.includes(currentUser.email)) {
+              await groonabackend.entities.Task.update(req.task_id, {
+                assigned_to: [...currentAssignees, currentUser.email]
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("Auto-assignment failed:", e);
+        }
+      }
+    },
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === 'COMPLETED' ? "Review accepted!" : "Review declined");
+      refetchPeerReviews();
+    },
+    onError: (error) => {
+      console.error("Failed to update review status:", error);
+      toast.error("Action failed");
+    }
+  });
+
+  const deleteReviewMutation = useMutation({
+    mutationFn: async (requestId) => {
+      await groonabackend.entities.PeerReviewRequest.delete(requestId);
     },
     onSuccess: () => {
-      toast.success("Review marked as complete");
+      toast.success("Review deleted");
       refetchPeerReviews();
+      queryClient.invalidateQueries({ queryKey: ['sent-peer-review-requests', currentUser?.email] });
+    },
+    onError: (error) => {
+      console.error("Failed to delete review:", error);
+      toast.error("Action failed");
     }
   });
 
@@ -1212,58 +1303,98 @@ export default function TimesheetsPage() {
                                 </Card>
                               </div>
                             ) : (
-                              reworkEntries.map(entry => (
-                                <Card key={entry.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
-                                  <CardContent className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                        Rework
-                                      </Badge>
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-slate-500">
-                                          {new Date(entry.date).toLocaleDateString()}
-                                        </span>
-                                        {/* Card Action Menu */}
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100">
-                                              <MoreVertical className="h-4 w-4 text-slate-400" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => {
-                                              setSelectedReworkEntry(entry);
-                                              setShowReworkActionDialog(true);
-                                            }}>
-                                              <Users className="w-4 h-4 mr-2" />
-                                              Request Peer Review
-                                            </DropdownMenuItem>
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
+                              reworkEntries.map(entry => {
+                                // Find associated peer review request
+                                const assocRequest = sentPeerReviewRequests.find(r => r.task_id === entry.task_id);
+
+                                return (
+                                  <Card key={entry.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
+                                    <CardContent className="p-4">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                            Rework
+                                          </Badge>
+                                          {assocRequest && (
+                                            <Badge
+                                              variant="secondary"
+                                              className={`text-[10px] uppercase font-bold ${assocRequest.status === 'COMPLETED'
+                                                ? 'bg-green-100 text-green-700 border-green-200'
+                                                : assocRequest.status === 'DECLINED'
+                                                  ? 'bg-red-100 text-red-700 border-red-200'
+                                                  : 'bg-blue-100 text-blue-700 border-blue-200'
+                                                }`}
+                                            >
+                                              {assocRequest.status === 'COMPLETED' ? 'Review Accepted' : assocRequest.status === 'DECLINED' ? 'Review Declined' : 'Review Pending'}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs text-slate-500">
+                                            {new Date(entry.date).toLocaleDateString()}
+                                          </span>
+                                          {/* Card Action Menu */}
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100">
+                                                <MoreVertical className="h-4 w-4 text-slate-400" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              <DropdownMenuItem onClick={() => {
+                                                setSelectedReworkEntry(entry);
+                                                setShowReworkActionDialog(true);
+                                              }}>
+                                                <Users className="w-4 h-4 mr-2" />
+                                                Request Peer Review
+                                              </DropdownMenuItem>
+                                              {assocRequest && (
+                                                <DropdownMenuItem
+                                                  className="text-red-600 focus:text-red-700"
+                                                  onClick={() => deleteReviewMutation.mutate(assocRequest.id)}
+                                                >
+                                                  <Trash2 className="w-4 h-4 mr-2" />
+                                                  Delete Review Request
+                                                </DropdownMenuItem>
+                                              )}
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <h3 className="font-semibold text-slate-900 mb-1 line-clamp-1">{entry.task_title || 'Untitled Task'}</h3>
-                                    <p className="text-xs text-slate-600 mb-3 flex items-center gap-1">
-                                      <Briefcase className="h-3 w-3" />
-                                      {entry.project_name || 'Unknown Project'}
-                                    </p>
+                                      <h3
+                                        className={`font-semibold text-slate-900 mb-1 line-clamp-1 ${assocRequest?.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
+                                          }`}
+                                        onClick={() => {
+                                          if (assocRequest?.status === 'COMPLETED') {
+                                            setSelectedTaskId(entry.task_id);
+                                            setShowTaskDetailDialog(true);
+                                          }
+                                        }}
+                                      >
+                                        {entry.task_title || 'Untitled Task'}
+                                      </h3>
+                                      <p className="text-xs text-slate-600 mb-3 flex items-center gap-1">
+                                        <Briefcase className="h-3 w-3" />
+                                        {entry.project_name || 'Unknown Project'}
+                                      </p>
 
-                                    <div className="bg-slate-50 p-3 rounded-md mb-3 text-sm text-slate-700 italic border border-slate-100">
-                                      "{entry.remark || 'No remark provided'}"
-                                    </div>
+                                      <div className="bg-slate-50 p-3 rounded-md mb-3 text-sm text-slate-700 italic border border-slate-100">
+                                        "{entry.remark || 'No remark provided'}"
+                                      </div>
 
-                                    <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-                                      <span className="flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {entry.hours}h {entry.minutes}m
-                                      </span>
-                                      <Badge variant="secondary" className="text-[10px]">
-                                        {entry.status}
-                                      </Badge>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              ))
+                                      <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
+                                        <span className="flex items-center gap-1">
+                                          <Clock className="h-3 w-3" />
+                                          {entry.hours}h {entry.minutes}m
+                                        </span>
+                                        <Badge variant="secondary" className="text-[10px]">
+                                          {entry.status}
+                                        </Badge>
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })
                             )}
                           </div>
                         );
@@ -1287,41 +1418,118 @@ export default function TimesheetsPage() {
                           </div>
                         ) : (
                           peerReviewRequests.map(req => (
-                            <Card key={req.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
+                            <Card key={req.id} className="bg-white hover:shadow-md transition-shadow border-t-4 border-t-blue-500 overflow-hidden">
                               <CardContent className="p-4">
                                 <div className="flex justify-between items-start mb-3">
-                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                    Review Request
-                                  </Badge>
-                                  <span className="text-xs text-slate-500">
-                                    {new Date(req.createdAt || Date.now()).toLocaleDateString()}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
+                                      Review Request
+                                    </Badge>
+                                    {req.status !== 'PENDING' && (
+                                      <Badge
+                                        variant="secondary"
+                                        className={`text-[10px] uppercase font-bold ${req.status === 'COMPLETED'
+                                          ? 'bg-green-100 text-green-700 border-green-200'
+                                          : 'bg-red-100 text-red-700 border-red-200'
+                                          }`}
+                                      >
+                                        {req.status === 'COMPLETED' ? 'Accepted' : 'Declined'}
+                                      </Badge>
+                                    )}
+                                    {req.status === 'PENDING' && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[10px] uppercase font-bold bg-blue-100 text-blue-700 border-blue-200"
+                                      >
+                                        Review Pending
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                      onClick={() => deleteReviewMutation.mutate(req.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                                      {new Date(req.createdAt || Date.now()).toLocaleDateString()}
+                                    </span>
+                                  </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 mb-3">
-                                  <Avatar className="h-8 w-8">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${req.sender_name}`} />
-                                    <AvatarFallback>{req.sender_name?.substring(0, 2)}</AvatarFallback>
+                                <div className="flex items-center gap-3 mb-4">
+                                  <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${req.requester_name}`} />
+                                    <AvatarFallback>{req.requester_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
                                   </Avatar>
-                                  <div>
-                                    <h4 className="font-semibold text-sm text-slate-900">{req.sender_name}</h4>
+                                  <div className="min-w-0">
+                                    <h4 className="font-bold text-sm text-slate-900 truncate">{req.requester_name}</h4>
                                     <p className="text-xs text-slate-500">Requested a review</p>
                                   </div>
                                 </div>
 
-                                <div className="bg-slate-50 p-3 rounded-md mb-4 text-sm text-slate-700 border border-slate-100">
-                                  <p className="font-medium text-xs text-slate-500 mb-1 uppercase">Message:</p>
-                                  "{req.message?.split('Focus: ')[1] || req.message}"
+                                <div className="space-y-3 mb-4">
+                                  <div className="flex flex-col gap-1">
+                                    <h3
+                                      className={`font-bold text-slate-800 text-sm leading-snug line-clamp-2 ${req.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
+                                        }`}
+                                      onClick={() => {
+                                        if (req.status === 'COMPLETED') {
+                                          setSelectedTaskId(req.task_id);
+                                          setShowTaskDetailDialog(true);
+                                        }
+                                      }}
+                                    >
+                                      {req.task_title || 'Untitled Task'}
+                                    </h3>
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                      <div className="flex items-center gap-1">
+                                        <Briefcase className="h-3 w-3" />
+                                        <span className="truncate max-w-[120px]">{req.project_name}</span>
+                                      </div>
+                                      {req.task_due_date && (
+                                        <div className="flex items-center gap-1 text-amber-600 font-medium whitespace-nowrap">
+                                          <Calendar className="h-3 w-3" />
+                                          {new Date(req.task_due_date).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-600 border border-slate-100/50">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Message:</p>
+                                    <p className="italic leading-relaxed">
+                                      "{req.message?.split('Focus: ')[1] || req.message || 'No specific instructions provided.'}"
+                                    </p>
+                                  </div>
                                 </div>
 
-                                <Button
-                                  size="sm"
-                                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                                  onClick={() => completeReviewMutation.mutate(req.id)}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Mark as Done
-                                </Button>
+                                {req.status === 'PENDING' && (
+                                  <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
+                                      onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'DECLINED' })}
+                                      disabled={updateReviewMutation.isPending}
+                                    >
+                                      <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                                      Decline
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-md transform active:scale-95 transition-all duration-200 border-none"
+                                      onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'COMPLETED' })}
+                                      disabled={updateReviewMutation.isPending}
+                                    >
+                                      <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+                                      Accept review
+                                    </Button>
+                                  </div>
+                                )}
                               </CardContent>
                             </Card>
                           ))
@@ -1450,6 +1658,17 @@ export default function TimesheetsPage() {
           }}
         />
       )}
+
+      {/* Task Detail Dialog for Rework */}
+      <TaskDetailDialog
+        open={showTaskDetailDialog}
+        onClose={() => {
+          setShowTaskDetailDialog(false);
+          setSelectedTaskId(null);
+        }}
+        taskId={selectedTaskId}
+        autoEdit={true}
+      />
     </div>
   );
 }

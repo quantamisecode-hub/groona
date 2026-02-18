@@ -14,6 +14,14 @@ Deep dive into the React/Vite architecture, TanStack Query state management, dyn
 
 ---
 
+- [x] Enhance Rework Alarms & Deep Linking <!-- id: 12 -->
+    - [x] Research NotificationCenter and Timesheets logic <!-- id: 13 -->
+    - [x] Approve Implementation Plan for Enhancements <!-- id: 14 -->
+    - [x] Add suggestion message to NotificationCenter Alarms <!-- id: 15 -->
+    - [x] Implement deep linking in `handleTakeAction` <!-- id: 16 -->
+    - [x] Add automated modal trigger in TimesheetsPage <!-- id: 17 -->
+    - [/] Verify enhancements <!-- id: 18 -->
+
 ## 🛠 Project Layout
 
 - `/backend` - The Node.js API server.

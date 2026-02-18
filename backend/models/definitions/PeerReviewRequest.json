@@ -30,6 +30,11 @@
             "type": "string",
             "description": "Project associated with the task"
         },
+        "task_due_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Due date of the task"
+        },
         "message": {
             "type": "string",
             "description": "Focus area or instructions for the reviewer"
@@ -38,7 +43,8 @@
             "type": "string",
             "enum": [
                 "PENDING",
-                "COMPLETED"
+                "COMPLETED",
+                "DECLINED"
             ],
             "default": "PENDING",
             "description": "Status of the review request"

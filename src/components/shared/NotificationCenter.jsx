@@ -14,7 +14,8 @@ import {
   AlignLeft,
   Sparkles,
   BatteryLow,
-  CalendarDays
+  CalendarDays,
+  Lightbulb
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -74,6 +75,10 @@ export default function NotificationCenter({ currentUser }) {
         // Navigate to timesheets log page for timesheet alerts
         navigate('/Timesheets');
         setOpen(false);
+      } else if (notification.type === 'rework_alert') {
+        // Navigate to Rework Info tab
+        navigate(notification.link || '/Timesheets?tab=rework-info');
+        setOpen(false);
       } else if (notification.project_id) {
         // Navigate to project detail for project-related alerts
         let targetUrl = `/ProjectDetail?id=${notification.project_id}`;
@@ -84,6 +89,10 @@ export default function NotificationCenter({ currentUser }) {
         }
 
         navigate(targetUrl);
+        setOpen(false);
+      } else if (notification.link || notification.deep_link) {
+        // Generic link navigation (e.g. for peer review requests)
+        navigate(notification.link || notification.deep_link);
         setOpen(false);
       }
     } finally {
@@ -117,9 +126,16 @@ export default function NotificationCenter({ currentUser }) {
 
         navigate(targetUrl);
         setOpen(false);
-      } else if (notification.type.includes('timesheet') || notification.type === 'user_streak_escalation' || notification.type === 'task_delay_alarm') {
+      } else if (notification.type.includes('timesheet') || notification.type === 'user_streak_escalation' || notification.type === 'task_delay_alarm' || notification.type === 'rework_alarm' || notification.type === 'high_rework_alarm') {
         // Navigate to timesheets for timesheet-related alarms/escalations
-        navigate('/Timesheets?tab=alarms');
+        let targetUrl = '/Timesheets?tab=alarms';
+
+        // Special deep link for rework alarms
+        if (notification.type === 'rework_alarm' || notification.type === 'high_rework_alarm') {
+          targetUrl = '/Timesheets?tab=rework-info&openReworkModal=true';
+        }
+
+        navigate(targetUrl);
         setOpen(false);
       }
     } finally {
@@ -166,7 +182,7 @@ export default function NotificationCenter({ currentUser }) {
         if (shouldShow) alarms.push(n);
       }
       // 2. Warnings/Advisories -> ALERTS (Yellow)
-      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable')) {
+      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.category === 'action_request' || n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable')) {
         if (shouldShow) alerts.push(n);
       }
       // 3. Fallback -> GENERAL
@@ -230,6 +246,8 @@ export default function NotificationCenter({ currentUser }) {
             case 'leave_approval': return <CalendarDays className="h-5 w-5 text-green-600" />;
             case 'leave_rejection': return <CalendarDays className="h-5 w-5 text-red-500" />;
             case 'leave_cancellation': return <CalendarDays className="h-5 w-5 text-gray-500" />;
+            case 'rework_review_accepted': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+            case 'rework_review_declined': return <XCircle className="h-5 w-5 text-red-600" />;
             default: return <Bell className="h-5 w-5 text-slate-600" />;
           }
         };
@@ -467,7 +485,9 @@ export default function NotificationCenter({ currentUser }) {
                               >
                                 {loadingState.id === alert.id && loadingState.action === 'review' ? (
                                   <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
-                                ) : 'Review'}
+                                ) : (
+                                  alert.type === 'rework_alert' ? <strong>Peer Review requested</strong> : 'Review'
+                                )}
                               </Button>
                               <Button
                                 onClick={() => handleDismiss(alert)}
@@ -517,6 +537,15 @@ export default function NotificationCenter({ currentUser }) {
                               <span className="text-[10px] font-mono bg-red-200 text-red-900 px-1.5 py-0.5 rounded">{alarm.escalationTime || 'Auto-Escalating'}</span>
                             </div>
                             <p className="text-sm text-red-900 font-medium">{alarm.message.replace(/\*\*/g, '')}</p>
+
+                            {/* Suggestion Message for Rework Alarms */}
+                            {(alarm.type === 'rework_alarm' || alarm.type === 'high_rework_alarm') && (
+                              <div className="mt-2 py-1.5 px-2 bg-red-100/50 rounded border border-red-200/50 flex items-center gap-2">
+                                <Lightbulb className="h-3.5 w-3.5 text-red-600" />
+                                <span className="text-xs font-semibold text-red-800 italic">Suggestion: Peer Review Requested</span>
+                              </div>
+                            )}
+
                             <div className="flex gap-2 mt-3">
                               {!alarm.hide_action && (
                                 <Button
