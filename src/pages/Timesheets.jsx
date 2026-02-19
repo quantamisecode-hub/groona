@@ -81,7 +81,7 @@ export default function TimesheetsPage() {
     staleTime: 5000
   });
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
 
   const [showForm, setShowForm] = useState(false);
@@ -107,6 +107,7 @@ export default function TimesheetsPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
   const queryClient = useQueryClient();
+  const lastAutoOpenedId = React.useRef(null);
 
 
   const canApproveTimesheets = useHasPermission('can_approve_timesheet');
@@ -516,6 +517,12 @@ export default function TimesheetsPage() {
   const handleCancel = () => {
     setShowForm(false);
     setEditingEntry(null);
+
+    // Clear search params to prevent the useEffect from re-triggering the modal
+    const params = new URLSearchParams(searchParams);
+    params.delete('editId');
+    params.delete('openReworkModal');
+    setSearchParams(params);
   };
 
   // Check if user is PM (moved up or ensured this runs before usage)
@@ -595,16 +602,34 @@ export default function TimesheetsPage() {
     staleTime: 5000 // Refresh often
   });
 
-  // --- AUTOMATED MODAL TRIGGER (From Deep Linking) ---
   const openReworkModalParam = searchParams.get('openReworkModal');
+  const editIdParam = searchParams.get('editId');
 
   React.useEffect(() => {
     if (openReworkModalParam === 'true' && activeTab === 'rework-info' && reworkAlarm) {
       setShowReworkActionDialog(true);
-      // Optional: Clear the parameter so it doesn't trigger again on refresh
-      // navigate('/Timesheets?tab=rework-info', { replace: true });
     }
   }, [openReworkModalParam, activeTab, reworkAlarm]);
+
+  // --- AUTOMATED EDIT TRIGGER (From Rejection Deep Linking) ---
+  React.useEffect(() => {
+    // Only trigger if we have an editIdParam AND it's different from what we last handled
+    // This prevents the modal from re-opening after the user closes it (which clears editingEntry)
+    if (editIdParam && targetTimesheets.length > 0 && lastAutoOpenedId.current !== editIdParam) {
+      const entryToEdit = targetTimesheets.find(t => String(t.id || t._id) === String(editIdParam));
+      if (entryToEdit) {
+        setEditingEntry(entryToEdit);
+        setShowForm(true);
+        lastAutoOpenedId.current = editIdParam;
+      }
+    }
+
+    // Reset the tracker if the URL parameter is cleared.
+    // This allows the user to re-trigger the same entry if they navigate away and click it again.
+    if (!editIdParam) {
+      lastAutoOpenedId.current = null;
+    }
+  }, [editIdParam, targetTimesheets]);
 
   // Fetch INCOMING Peer Review Requests (New Schema)
   const { data: peerReviewRequests = [], refetch: refetchPeerReviews } = useQuery({
@@ -811,10 +836,10 @@ export default function TimesheetsPage() {
   }
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative">
-      <div className="max-w-[1800px] mx-auto w-full flex flex-col relative">
+    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative min-h-screen">
+      <div className="max-w-[1800px] mx-auto w-full flex flex-col relative flex-1">
         {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 pb-4 pt-6">
+        <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/60 pb-4 pt-6">
           <div className="px-6 md:px-8 pt-0 pb-4">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
               <div>
@@ -833,23 +858,20 @@ export default function TimesheetsPage() {
                       Submit {myDraftCount} Draft{myDraftCount > 1 ? 's' : ''}
                     </Button>
                   )}
-                  {/* Log Time Button - Always enabled, restriction handled in Timer tab */}
-                  <div className="relative group">
-                    <Button
-                      onClick={() => {
-                        if (isTargetMet) {
-                          setShowGoalReachedDialog(true);
-                        } else {
-                          setShowForm(true);
-                          setEditingEntry(null);
-                        }
-                      }}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Log Time
-                    </Button>
-                  </div>
+                  <Button
+                    onClick={() => {
+                      if (isTargetMet) {
+                        setShowGoalReachedDialog(true);
+                      } else {
+                        setShowForm(true);
+                        setEditingEntry(null);
+                      }
+                    }}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Log Time
+                  </Button>
                 </div>
               )}
             </div>
@@ -915,7 +937,6 @@ export default function TimesheetsPage() {
                         </Card>
                       </>
                     )}
-                    {/* Approved Card */}
                     <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -932,7 +953,6 @@ export default function TimesheetsPage() {
                       </CardContent>
                     </Card>
 
-                    {/* Submitted Card */}
                     <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -949,7 +969,6 @@ export default function TimesheetsPage() {
                       </CardContent>
                     </Card>
 
-                    {/* Drafts Card */}
                     <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -971,705 +990,587 @@ export default function TimesheetsPage() {
             </div>
           </div>
 
-          {/* Tabs Section - Merged with header */}
-          {
-            !showForm && (
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <div className="px-4 md:px-6 lg:px-8 pt-2 pb-2 border-t border-slate-200/60">
-                  <div className="flex flex-col xl:flex-row items-center justify-between gap-4">
-                    <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 w-full xl:w-auto flex flex-wrap h-auto p-1 gap-1">
-                      <TabsTrigger value="my-timesheets" className="gap-2 flex-1 xl:flex-none">
-                        {isAdmin || isPM ? <Briefcase className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                        {isAdmin || isPM ? "All Timesheets" : "My Timesheets"}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="px-6 md:px-8 pt-2 pb-2 border-t border-slate-200/60">
+              <div className="flex flex-col xl:flex-row items-center justify-between gap-4">
+                <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 w-full xl:w-auto flex flex-wrap h-auto p-1 gap-1">
+                  <TabsTrigger value="my-timesheets" className="gap-2 flex-1 xl:flex-none">
+                    {isAdmin || isPM ? <Briefcase className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                    {isAdmin || isPM ? "All Timesheets" : "My Timesheets"}
+                  </TabsTrigger>
+                  <TabsTrigger value="drafts" className="gap-2 flex-1 xl:flex-none relative">
+                    <FileText className="h-4 w-4" />
+                    Drafts
+                    {myDraftCount > 0 && (
+                      <Badge className="ml-1 bg-slate-500 text-white px-1.5 h-5 min-w-[1.25rem]">
+                        {myDraftCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  {currentUser?.custom_role === 'viewer' && (
+                    <>
+                      <TabsTrigger value="rework-info" className="gap-2 flex-1 xl:flex-none">
+                        <AlertCircle className="h-4 w-4" />
+                        Rework Info
                       </TabsTrigger>
-                      <TabsTrigger value="drafts" className="gap-2 flex-1 xl:flex-none relative">
-                        <FileText className="h-4 w-4" />
-                        Drafts
-                        {myDraftCount > 0 && (
-                          <Badge className="ml-1 bg-slate-500 text-white px-1.5 h-5 min-w-[1.25rem]">
-                            {myDraftCount}
+                      <TabsTrigger value="rework-reviews" className="gap-2 flex-1 xl:flex-none relative">
+                        <Users className="h-4 w-4" />
+                        Rework Reviews
+                        {peerReviewRequests.length > 0 && (
+                          <Badge className="ml-1 bg-amber-500 text-white px-1.5 h-5 min-w-[1.25rem]">
+                            {peerReviewRequests.length}
                           </Badge>
                         )}
                       </TabsTrigger>
-                      {currentUser?.custom_role === 'viewer' && (
-                        <>
-                          <TabsTrigger value="rework-info" className="gap-2 flex-1 xl:flex-none">
-                            <AlertCircle className="h-4 w-4" />
-                            Rework Info
-                          </TabsTrigger>
-                          <TabsTrigger value="rework-reviews" className="gap-2 flex-1 xl:flex-none relative">
-                            <Users className="h-4 w-4" />
-                            Rework Reviews
-                            {peerReviewRequests.length > 0 && (
-                              <Badge className="ml-1 bg-amber-500 text-white px-1.5 h-5 min-w-[1.25rem]">
-                                {peerReviewRequests.length}
-                              </Badge>
-                            )}
-                          </TabsTrigger>
-                        </>
-                      )}
-                      {(isAdmin || isPM) && (
-                        <>
-                          <TabsTrigger value="approvals" className="gap-2 flex-1 xl:flex-none">
-                            <CheckCircle className="h-4 w-4" />
-                            Approvals
-                            {pendingApprovals > 0 && (
-                              <Badge className="ml-1 bg-amber-500 text-white">
-                                {pendingApprovals}
-                              </Badge>
-                            )}
-                          </TabsTrigger>
-                          <TabsTrigger value="alarms" className="gap-2 flex-1 xl:flex-none">
-                            <ShieldAlert className="h-4 w-4" />
-                            Alarms
-                            {appealedAlarmsCount > 0 && (
-                              <Badge className="ml-1 bg-amber-500 text-white">
-                                {appealedAlarmsCount}
-                              </Badge>
-                            )}
-                          </TabsTrigger>
-                        </>
-                      )}
-                      {isAdmin && (
-                        <>
-                          <TabsTrigger value="team-timesheets" className="gap-2 flex-1 xl:flex-none">
-                            <Users className="h-4 w-4" />
-                            Team Overview
-                          </TabsTrigger>
-                          <TabsTrigger value="reports" className="gap-2 flex-1 xl:flex-none">
-                            <FileText className="h-4 w-4" />
-                            Reports
-                          </TabsTrigger>
-                        </>
-                      )}
-                    </TabsList>
-
-                    {/* Filters - Only show for my-timesheets tab */}
-                    {activeTab === "my-timesheets" && (
-                      <div className="flex flex-wrap items-center gap-2 ml-auto w-full xl:w-auto justify-end">
-                        <div className="flex items-center gap-1.5 flex-shrink-0 mr-2">
-                          <Filter className="h-4 w-4 text-slate-600" />
-                          <span className="text-sm font-medium text-slate-600">Filters:</span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-
-                          {/* User Filter (For Admin/PM/Owner) */}
-                          {(isAdmin || isPM) && (
-                            <Select value={userFilter} onValueChange={setUserFilter}>
-                              <SelectTrigger className="h-9 w-[150px] text-sm bg-white/80 backdrop-blur-xl border-slate-200">
-                                <SelectValue placeholder="All Users" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">All Users</SelectItem>
-                                {users.map((u) => (
-                                  <SelectItem key={u.id} value={u.email}>
-                                    <div className="flex items-center gap-2">
-                                      <Avatar className="h-6 w-6 ring-2 ring-slate-400 ring-offset-1">
-                                        <AvatarImage src={u.profile_image_url} />
-                                        <AvatarFallback className="text-[10px] bg-slate-100">
-                                          {u.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="truncate text-slate-600 font-medium">{u.full_name || u.email}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-
-                          <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Status</SelectItem>
-                              <SelectItem value="draft">Draft</SelectItem>
-                              <SelectItem value="submitted">Submitted</SelectItem>
-                              <SelectItem value="approved">Approved</SelectItem>
-                              <SelectItem value="rejected">Rejected</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="h-9 w-[140px] text-sm bg-white/80 backdrop-blur-xl border-slate-200">
-                              <SelectValue placeholder="Project" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Projects</SelectItem>
-                              {uniqueProjects.map(([id, name]) => (
-                                <SelectItem key={id} value={id}>{name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-
-                          <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
-                            <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200">
-                              <SelectValue placeholder="Date Range" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Time</SelectItem>
-                              <SelectItem value="today">Today</SelectItem>
-                              <SelectItem value="week">Last 7 Days</SelectItem>
-                              <SelectItem value="month">Last 30 Days</SelectItem>
-                            </SelectContent>
-                          </Select>
-
-                          {hasActiveFilters && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={clearFilters}
-                              className="h-9 px-3 text-sm text-slate-600 hover:bg-slate-100"
-                            >
-                              <X className="h-4 w-4 mr-1" />
-                              Clear
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Tabs>
-            )
-          }
-        </div >
-
-        {/* Main Content */}
-        {
-          showForm ? (
-            <div className="flex-1 overflow-y-auto overflow-x-hidden">
-              <div className="px-6 md:px-8 pt-6 pb-6 md:pb-8">
-                <Button
-                  variant="ghost"
-                  onClick={handleCancel}
-                  className="mb-4 pl-0 hover:pl-2 transition-all"
-                >
-                  ← Back to Timesheets
-                </Button>
-                <TimesheetEntryForm
-                  currentUser={currentUser}
-                  effectiveTenantId={effectiveTenantId}
-                  onSubmit={(data) => saveTimesheetMutation.mutate(data)}
-                  onCancel={handleCancel}
-                  initialData={editingEntry}
-                  loading={saveTimesheetMutation.isPending}
-                />
-              </div>
-            </div>
-          ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              {/* Scrollable Content */}
-              <div className="flex-1">
-                <div className="px-6 md:px-8 pt-6 pb-6 md:pb-8">
-                  <TabsContent value="my-timesheets" className="space-y-4 mt-4">
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                      </div>
-                    ) : (
-                      <TimesheetList
-                        timesheets={filteredTimesheets.filter(t => t.status !== 'draft')}
-                        currentUser={currentUser} // Pass currentUser for timezone logic
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        users={users}
-                        // === CRITICAL: Only Admins, Members and Viewers can see Edit/Delete buttons ===
-                        showActions={isAdmin || currentUser?.role === 'member' || currentUser?.custom_role === 'viewer'}
-                        canEditLocked={isAdmin}
-                        groupByDate={true}
-                      />
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="drafts" className="space-y-6 mt-4">
-                    {isTargetMet && (
-                      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 overflow-hidden shadow-sm">
-                        <CardContent className="p-6">
-                          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                            <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-green-200">
-                                <CheckCircle className="h-6 w-6" />
-                              </div>
-                              <div>
-                                <h3 className="text-lg font-bold text-green-900 leading-tight">Great work for today!</h3>
-                                <p className="text-green-700 text-sm mt-1">
-                                  You've logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m. Ready to finalize your daily timesheet?
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-3 w-full md:w-auto">
-                              <Button
-                                onClick={() => bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id))}
-                                disabled={bulkSubmitMutation.isPending || todayDraftEntries.length === 0}
-                                className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-100"
-                              >
-                                {bulkSubmitMutation.isPending ? (
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Send className="h-4 w-4 mr-2" />
-                                )}
-                                Submit All for Today
-                              </Button>
-                              <Button
-                                variant="outline"
-                                className="flex-1 md:flex-none border-green-200 text-green-700 hover:bg-green-100"
-                                onClick={() => toast.info("No problem! You can keep adding entries.")}
-                              >
-                                Keep Drafting
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    <TimesheetList
-                      timesheets={myDraftEntries}
-                      currentUser={currentUser}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      users={users}
-                      showActions={true}
-                      groupByDate={true}
-                    />
-                  </TabsContent>
-
-                  {currentUser?.custom_role === 'viewer' && (
-                    <TabsContent value="rework-info" className="space-y-4 mt-4">
-                      {/* Alert Banner Logic */}
-                      {reworkAlarm && reworkAlarm.status === 'OPEN' && (
-                        <div className={`border-l-4 p-4 rounded-md shadow-sm flex items-center justify-between mb-4 ${reworkAlarm.type === 'high_rework_alarm' ? 'bg-red-100 border-red-600' : 'bg-red-50 border-red-500'
-                          }`}>
-                          <div className="flex items-center gap-3">
-                            <ShieldAlert className={`h-6 w-6 ${reworkAlarm.type === 'high_rework_alarm' ? 'text-red-700 animate-pulse' : 'text-red-600'}`} />
-                            <div>
-                              <h3 className={`font-bold ${reworkAlarm.type === 'high_rework_alarm' ? 'text-red-900' : 'text-red-800'}`}>
-                                {reworkAlarm.type === 'high_rework_alarm' ? 'CRITICAL: Task Assignment Frozen' : 'High Rework Detected'}
-                              </h3>
-                              <p className="text-sm text-red-700">{reworkAlarm.message || "Rework percentage > 15%. Action required."}</p>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => setShowReworkActionDialog(true)}
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Request Peer Review
-                          </Button>
-                        </div>
-                      )}
-
-                      {/* Action Taken Status Banner */}
-                      {reworkAlarm && reworkAlarm.status === 'APPEALED' && (
-                        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-md shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                          <div className="flex items-center gap-3">
-                            <CheckCircle className="h-6 w-6 text-green-600" />
-                            <div>
-                              <h3 className="font-bold text-green-800">Status: Action Taken</h3>
-                              <p className="text-sm text-green-700">
-                                Escalation paused. Peer review requested. Escalation is on hold while changes are reviewed.
-                              </p>
-                              {reworkAlarm.appealed_at && (
-                                <p className="text-xs text-green-600 mt-1">
-                                  Timestamp: {new Date(reworkAlarm.appealed_at).toLocaleString()}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {reworkAlarm.sender_name && (
-                            <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 whitespace-nowrap">
-                              Escalation Paused
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Rework Info Content - Card-based list */}
-                      {(() => {
-                        const reworkEntries = myTimesheets.filter(t => t.work_type === 'rework');
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {reworkEntries.length === 0 ? (
-                              <div className="col-span-full">
-                                <Card className="bg-white/60 backdrop-blur-xl border-dashed border-2 border-slate-200">
-                                  <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
-                                    <CheckCircle className="h-10 w-10 mb-2 text-green-500" />
-                                    <p className="text-lg font-medium">No rework recorded</p>
-                                    <p className="text-sm">Great job! You have no rework entries.</p>
-                                  </CardContent>
-                                </Card>
-                              </div>
-                            ) : (
-                              reworkEntries.map(entry => {
-                                // Find associated peer review request
-                                const assocRequest = sentPeerReviewRequests.find(r => r.task_id === entry.task_id);
-
-                                return (
-                                  <Card key={entry.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
-                                    <CardContent className="p-4">
-                                      <div className="flex justify-between items-start mb-2">
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                                            Rework
-                                          </Badge>
-                                          {assocRequest && (
-                                            <Badge
-                                              variant="secondary"
-                                              className={`text-[10px] uppercase font-bold ${assocRequest.status === 'COMPLETED'
-                                                ? 'bg-green-100 text-green-700 border-green-200'
-                                                : assocRequest.status === 'DECLINED'
-                                                  ? 'bg-red-100 text-red-700 border-red-200'
-                                                  : 'bg-blue-100 text-blue-700 border-blue-200'
-                                                }`}
-                                            >
-                                              {assocRequest.status === 'COMPLETED' ? 'Review Accepted' : assocRequest.status === 'DECLINED' ? 'Review Declined' : 'Review Pending'}
-                                            </Badge>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-slate-500">
-                                            {new Date(entry.date).toLocaleDateString()}
-                                          </span>
-                                          {/* Card Action Menu */}
-                                          <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100">
-                                                <MoreVertical className="h-4 w-4 text-slate-400" />
-                                              </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                              <DropdownMenuItem onClick={() => {
-                                                setSelectedReworkEntry(entry);
-                                                setShowReworkActionDialog(true);
-                                              }}>
-                                                <Users className="w-4 h-4 mr-2" />
-                                                Request Peer Review
-                                              </DropdownMenuItem>
-                                              {assocRequest && (
-                                                <DropdownMenuItem
-                                                  className="text-red-600 focus:text-red-700"
-                                                  onClick={() => deleteReviewMutation.mutate(assocRequest.id)}
-                                                >
-                                                  <Trash2 className="w-4 h-4 mr-2" />
-                                                  Delete Review Request
-                                                </DropdownMenuItem>
-                                              )}
-                                            </DropdownMenuContent>
-                                          </DropdownMenu>
-                                        </div>
-                                      </div>
-                                      <h3
-                                        className={`font-semibold text-slate-900 mb-1 line-clamp-1 ${assocRequest?.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
-                                          }`}
-                                        onClick={() => {
-                                          if (assocRequest?.status === 'COMPLETED') {
-                                            setSelectedTaskId(entry.task_id);
-                                            setShowTaskDetailDialog(true);
-                                          }
-                                        }}
-                                      >
-                                        {entry.task_title || 'Untitled Task'}
-                                      </h3>
-                                      <p className="text-xs text-slate-600 mb-3 flex items-center gap-1">
-                                        <Briefcase className="h-3 w-3" />
-                                        {entry.project_name || 'Unknown Project'}
-                                      </p>
-
-                                      <div className="bg-slate-50 p-3 rounded-md mb-3 text-sm text-slate-700 italic border border-slate-100">
-                                        "{entry.remark || 'No remark provided'}"
-                                      </div>
-
-                                      <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="h-3 w-3" />
-                                          {entry.hours}h {entry.minutes}m
-                                        </span>
-                                        <Badge variant="secondary" className="text-[10px]">
-                                          {entry.status}
-                                        </Badge>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                );
-                              })
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </TabsContent>
+                    </>
                   )}
-
-                  {/* Rework Reviews Tab (Incoming Requests) */}
-                  {currentUser?.custom_role === 'viewer' && (
-                    <TabsContent value="rework-reviews" className="space-y-4 mt-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {peerReviewRequests.length === 0 ? (
-                          <div className="col-span-full">
-                            <Card className="bg-white/60 backdrop-blur-xl border-dashed border-2 border-slate-200">
-                              <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
-                                <CheckCircle className="h-10 w-10 mb-2 text-slate-300" />
-                                <p className="text-lg font-medium">No pending reviews</p>
-                                <p className="text-sm">You have no incoming peer review requests.</p>
-                              </CardContent>
-                            </Card>
-                          </div>
-                        ) : (
-                          peerReviewRequests.map(req => (
-                            <Card key={req.id} className="bg-white hover:shadow-md transition-shadow border-t-4 border-t-blue-500 overflow-hidden">
-                              <CardContent className="p-4">
-                                <div className="flex justify-between items-start mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
-                                      Review Request
-                                    </Badge>
-                                    {req.status !== 'PENDING' && (
-                                      <Badge
-                                        variant="secondary"
-                                        className={`text-[10px] uppercase font-bold ${req.status === 'COMPLETED'
-                                          ? 'bg-green-100 text-green-700 border-green-200'
-                                          : 'bg-red-100 text-red-700 border-red-200'
-                                          }`}
-                                      >
-                                        {req.status === 'COMPLETED' ? 'Accepted' : 'Declined'}
-                                      </Badge>
-                                    )}
-                                    {req.status === 'PENDING' && (
-                                      <Badge
-                                        variant="secondary"
-                                        className="text-[10px] uppercase font-bold bg-blue-100 text-blue-700 border-blue-200"
-                                      >
-                                        Review Pending
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-col items-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                                      onClick={() => deleteReviewMutation.mutate(req.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
-                                      {new Date(req.createdAt || Date.now()).toLocaleDateString()}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-3 mb-4">
-                                  <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-                                    <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${req.requester_name}`} />
-                                    <AvatarFallback>{req.requester_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                                  </Avatar>
-                                  <div className="min-w-0">
-                                    <h4 className="font-bold text-sm text-slate-900 truncate">{req.requester_name}</h4>
-                                    <p className="text-xs text-slate-500">Requested a review</p>
-                                  </div>
-                                </div>
-
-                                <div className="space-y-3 mb-4">
-                                  <div className="flex flex-col gap-1">
-                                    <h3
-                                      className={`font-bold text-slate-800 text-sm leading-snug line-clamp-2 ${req.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
-                                        }`}
-                                      onClick={() => {
-                                        if (req.status === 'COMPLETED') {
-                                          setSelectedTaskId(req.task_id);
-                                          setShowTaskDetailDialog(true);
-                                        }
-                                      }}
-                                    >
-                                      {req.task_title || 'Untitled Task'}
-                                    </h3>
-                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                      <div className="flex items-center gap-1">
-                                        <Briefcase className="h-3 w-3" />
-                                        <span className="truncate max-w-[120px]">{req.project_name}</span>
-                                      </div>
-                                      {req.task_due_date && (
-                                        <div className="flex items-center gap-1 text-amber-600 font-medium whitespace-nowrap">
-                                          <Calendar className="h-3 w-3" />
-                                          {new Date(req.task_due_date).toLocaleDateString()}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-600 border border-slate-100/50">
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Message:</p>
-                                    <p className="italic leading-relaxed">
-                                      "{req.message?.split('Focus: ')[1] || req.message || 'No specific instructions provided.'}"
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {req.status === 'PENDING' && (
-                                  <div className="grid grid-cols-2 gap-2 mt-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
-                                      onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'DECLINED' })}
-                                      disabled={updateReviewMutation.isPending}
-                                    >
-                                      <XCircle className="w-3.5 h-3.5 mr-1.5" />
-                                      Decline
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold shadow-md transform active:scale-95 transition-all duration-200 border-none"
-                                      onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'COMPLETED' })}
-                                      disabled={updateReviewMutation.isPending}
-                                    >
-                                      <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
-                                      Accept review
-                                    </Button>
-                                  </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          ))
-                        )}
-                      </div>
-                    </TabsContent>
-                  )}
-
                   {(isAdmin || isPM) && (
                     <>
-                      <TabsContent value="approvals" className="mt-4">
-                        <ApprovalDashboard currentUser={currentUser} users={users} />
-                      </TabsContent>
-                      <TabsContent value="alarms" className="mt-4">
-                        <AlarmsTab currentUser={currentUser} users={users} />
-                      </TabsContent>
+                      <TabsTrigger value="approvals" className="gap-2 flex-1 xl:flex-none">
+                        <CheckCircle className="h-4 w-4" />
+                        Approvals
+                        {pendingApprovals > 0 && (
+                          <Badge className="ml-1 bg-amber-500 text-white">
+                            {pendingApprovals}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                      <TabsTrigger value="alarms" className="gap-2 flex-1 xl:flex-none">
+                        <ShieldAlert className="h-4 w-4" />
+                        Alarms
+                        {appealedAlarmsCount > 0 && (
+                          <Badge className="ml-1 bg-amber-500 text-white">
+                            {appealedAlarmsCount}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
                     </>
                   )}
-
                   {isAdmin && (
                     <>
-                      <TabsContent value="team-timesheets" className="mt-4">
-                        <AdminTimesheetDashboard
-                          currentUser={currentUser}
-                          effectiveTenantId={effectiveTenantId}
-                          allTimesheets={allTimesheets}
-                          loading={allLoading}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="reports" className="mt-4">
-                        <TimesheetReportGenerator
-                          currentUser={currentUser}
-                          effectiveTenantId={effectiveTenantId}
-                          users={users}
-                          allTimesheets={allTimesheets}
-                        />
-                      </TabsContent>
+                      <TabsTrigger value="team-timesheets" className="gap-2 flex-1 xl:flex-none">
+                        <Users className="h-4 w-4" />
+                        Team Overview
+                      </TabsTrigger>
+                      <TabsTrigger value="reports" className="gap-2 flex-1 xl:flex-none">
+                        <FileText className="h-4 w-4" />
+                        Reports
+                      </TabsTrigger>
                     </>
                   )}
-                </div>
+                </TabsList>
+
+                {activeTab === "my-timesheets" && (
+                  <div className="flex flex-wrap items-center gap-2 ml-auto w-full xl:w-auto justify-end">
+                    <div className="flex items-center gap-1.5 flex-shrink-0 mr-2">
+                      <Filter className="h-4 w-4 text-slate-600" />
+                      <span className="text-sm font-medium text-slate-600">Filters:</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {(isAdmin || isPM) && (
+                        <Select value={userFilter} onValueChange={setUserFilter}>
+                          <SelectTrigger className="h-9 w-[150px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                            <SelectValue placeholder="All Users" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {users.map((u) => (
+                              <SelectItem key={u.id} value={u.email}>
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-6 w-6 ring-2 ring-slate-400 ring-offset-1">
+                                    <AvatarImage src={u.profile_image_url} />
+                                    <AvatarFallback className="text-[10px] bg-slate-100">
+                                      {u.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="truncate text-slate-600 font-medium">{u.full_name || u.email}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                          <SelectItem value="submitted">Submitted</SelectItem>
+                          <SelectItem value="pending_pm">Pending PM</SelectItem>
+                          <SelectItem value="pending_admin">Pending Admin</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={projectFilter} onValueChange={setProjectFilter}>
+                        <SelectTrigger className="h-9 w-[140px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                          <SelectValue placeholder="Project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Projects</SelectItem>
+                          {uniqueProjects.map(([id, name]) => (
+                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
+                        <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                          <SelectValue placeholder="Date Range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Time</SelectItem>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="week">Last 7 Days</SelectItem>
+                          <SelectItem value="month">Last 30 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {hasActiveFilters && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="h-9 px-3 text-sm text-slate-600 hover:bg-slate-100"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            </Tabs>
-          )
-        }
-      </div >
-
-      {/* Submit Dialog (Only for personal drafts) */}
-      <SubmitTimesheetsDialog
-        open={showSubmitDialog}
-        onClose={() => setShowSubmitDialog(false)}
-        draftEntries={myDraftEntries}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
-          queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
-        }}
-      />
-
-      {/* Goal Reached AlertDialog */}
-      <AlertDialog open={showGoalReachedDialog} onOpenChange={setShowGoalReachedDialog}>
-        <AlertDialogContent className="bg-white/95 backdrop-blur-xl border-slate-200">
-          <AlertDialogHeader className="relative">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute -right-2 -top-2 h-8 w-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 z-50"
-              onClick={() => setShowGoalReachedDialog(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
-            <AlertDialogTitle className="text-center text-xl font-bold text-slate-900">
-              Daily Goal Reached!
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-center text-slate-600">
-              Great work! You have logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m for today.
-              Would you like to finalize and submit your timesheets now, or continue adding more entries?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
-            <AlertDialogCancel
-              onClick={() => {
-                setShowForm(true);
-                setEditingEntry(null);
-                toast.info("Logging additional entry...");
-              }}
-              className="mt-0 sm:mt-0 flex-1 border-slate-200 text-slate-600 hover:bg-slate-50"
-            >
-              Add More
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id));
-                setShowGoalReachedDialog(false);
-              }}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md"
-            >
-              Submit All for Today
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
-      {/* Rework Action Dialog */}
-      {(reworkAlarm || selectedReworkEntry) && (
-        <ReworkActionDialog
-          open={showReworkActionDialog}
-          onClose={() => {
-            setShowReworkActionDialog(false);
-            setSelectedReworkEntry(null);
+            <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-6 md:pb-8">
+              <TabsContent value="my-timesheets" className="space-y-4 mt-4 outline-none">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                  </div>
+                ) : (
+                  <TimesheetList
+                    timesheets={filteredTimesheets.filter(t => t.status !== 'draft')}
+                    currentUser={currentUser}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    users={users}
+                    showActions={true}
+                    canEditLocked={isAdmin}
+                    groupByDate={true}
+                    highlightedId={editIdParam}
+                  />
+                )}
+              </TabsContent>
+
+              <TabsContent value="drafts" className="space-y-6 mt-4 outline-none">
+                {isTargetMet && (
+                  <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 overflow-hidden shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center text-white shrink-0 shadow-lg shadow-green-200">
+                            <CheckCircle className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-bold text-green-900 leading-tight">Great work for today!</h3>
+                            <p className="text-green-700 text-sm mt-1">
+                              You've logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m. Ready to finalize your daily timesheet?
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-3 w-full md:w-auto">
+                          <Button
+                            onClick={() => bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id))}
+                            disabled={bulkSubmitMutation.isPending || todayDraftEntries.length === 0}
+                            className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-100"
+                          >
+                            {bulkSubmitMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <Send className="h-4 w-4 mr-2" />
+                            )}
+                            Submit All for Today
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 md:flex-none border-green-200 text-green-700 hover:bg-green-100"
+                            onClick={() => toast.info("No problem! You can keep adding entries.")}
+                          >
+                            Keep Drafting
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <TimesheetList
+                  timesheets={myDraftEntries}
+                  currentUser={currentUser}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  users={users}
+                  showActions={true}
+                  groupByDate={true}
+                  highlightedId={editIdParam}
+                />
+              </TabsContent>
+
+              {currentUser?.custom_role === 'viewer' && (
+                <>
+                  <TabsContent value="rework-info" className="space-y-4 mt-4 outline-none">
+                    {reworkAlarm && reworkAlarm.status === 'OPEN' && (
+                      <div className={`border-l-4 p-4 rounded-md shadow-sm flex items-center justify-between mb-4 ${reworkAlarm.type === 'high_rework_alarm' ? 'bg-red-100 border-red-600' : 'bg-red-50 border-red-500'}`}>
+                        <div className="flex items-center gap-3">
+                          <ShieldAlert className={`h-6 w-6 ${reworkAlarm.type === 'high_rework_alarm' ? 'text-red-700 animate-pulse' : 'text-red-600'}`} />
+                          <div>
+                            <h3 className={`font-bold ${reworkAlarm.type === 'high_rework_alarm' ? 'text-red-900' : 'text-red-800'}`}>
+                              {reworkAlarm.type === 'high_rework_alarm' ? 'CRITICAL: Task Assignment Frozen' : 'High Rework Detected'}
+                            </h3>
+                            <p className="text-sm text-red-700">{reworkAlarm.message || "Rework percentage > 15%. Action required."}</p>
+                          </div>
+                        </div>
+                        <Button size="sm" variant="destructive" onClick={() => setShowReworkActionDialog(true)} className="bg-red-600 hover:bg-red-700 text-white">
+                          Request Peer Review
+                        </Button>
+                      </div>
+                    )}
+                    {/* Action Taken Status Banner */}
+                    {reworkAlarm && reworkAlarm.status === 'APPEALED' && (
+                      <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-md shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-6 w-6 text-green-600" />
+                          <div>
+                            <h3 className="font-bold text-green-800">Status: Action Taken</h3>
+                            <p className="text-sm text-green-700">
+                              Escalation paused. Peer review requested. Escalation is on hold while changes are reviewed.
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                          Escalation Paused
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {myTimesheets.filter(t => t.work_type === 'rework').length === 0 ? (
+                        <div className="col-span-full">
+                          <Card className="bg-white/60 backdrop-blur-xl border-dashed border-2 border-slate-200">
+                            <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
+                              <CheckCircle className="h-10 w-10 mb-2 text-green-500" />
+                              <p className="text-lg font-medium">No rework recorded</p>
+                              <p className="text-sm">Great job! You have no rework entries.</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : (
+                        myTimesheets.filter(t => t.work_type === 'rework').map(entry => {
+                          const assocRequest = sentPeerReviewRequests.find(r => r.task_id === entry.task_id);
+                          return (
+                            <Card key={entry.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
+                              <CardContent className="p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                                      Rework
+                                    </Badge>
+                                    {assocRequest && (
+                                      <Badge
+                                        variant="secondary"
+                                        className={`text-[10px] uppercase font-bold ${assocRequest.status === 'COMPLETED'
+                                          ? 'bg-green-100 text-green-700 border-green-200'
+                                          : assocRequest.status === 'DECLINED'
+                                            ? 'bg-red-100 text-red-700 border-red-200'
+                                            : 'bg-blue-100 text-blue-700 border-blue-200'
+                                          }`}
+                                      >
+                                        {assocRequest.status === 'COMPLETED' ? 'Review Accepted' : assocRequest.status === 'DECLINED' ? 'Review Declined' : 'Review Pending'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-500">
+                                      {new Date(entry.date).toLocaleDateString()}
+                                    </span>
+                                    {/* Card Action Menu */}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100">
+                                          <MoreVertical className="h-4 w-4 text-slate-400" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => {
+                                          setSelectedReworkEntry(entry);
+                                          setShowReworkActionDialog(true);
+                                        }}>
+                                          <Users className="w-4 h-4 mr-2" />
+                                          Request Peer Review
+                                        </DropdownMenuItem>
+                                        {assocRequest && (
+                                          <DropdownMenuItem
+                                            className="text-red-600"
+                                            onClick={() => deleteReviewMutation.mutate(assocRequest.id)}
+                                          >
+                                            <Trash2 className="w-4 h-4 mr-2" />
+                                            Delete Review Request
+                                          </DropdownMenuItem>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
+                                <h3
+                                  className={`font-semibold text-slate-900 mb-1 line-clamp-1 ${assocRequest?.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
+                                    }`}
+                                  onClick={() => {
+                                    if (assocRequest?.status === 'COMPLETED') {
+                                      setSelectedTaskId(entry.task_id);
+                                      setShowTaskDetailDialog(true);
+                                    }
+                                  }}
+                                >
+                                  {entry.task_title || 'Untitled Task'}
+                                </h3>
+                                <p className="text-xs text-slate-600 mb-3 flex items-center gap-1">
+                                  <Briefcase className="h-3 w-3" />
+                                  {entry.project_name || 'Unknown Project'}
+                                </p>
+
+                                <div className="bg-slate-50 p-3 rounded-md mb-3 text-sm text-slate-700 italic border border-slate-100">
+                                  "{entry.remark || 'No remark provided'}"
+                                </div>
+
+                                <div className="flex justify-between items-center text-xs text-slate-500 pt-2 border-t border-slate-100">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    {entry.hours}h {entry.minutes}m
+                                  </span>
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {entry.status}
+                                  </Badge>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="rework-reviews" className="space-y-4 mt-4 outline-none">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {peerReviewRequests.length === 0 ? (
+                        <div className="col-span-full">
+                          <Card className="bg-white/60 backdrop-blur-xl border-dashed border-2 border-slate-200">
+                            <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
+                              <CheckCircle className="h-10 w-10 mb-2 text-slate-300" />
+                              <p className="text-lg font-medium">No pending reviews</p>
+                              <p className="text-sm">You have no incoming peer review requests.</p>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ) : (
+                        peerReviewRequests.map(req => (
+                          <Card key={req.id} className="bg-white hover:shadow-md transition-shadow border-t-4 border-t-blue-500 overflow-hidden">
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-start mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] uppercase font-bold tracking-tight">
+                                    Review Request
+                                  </Badge>
+                                  {req.status !== 'PENDING' && (
+                                    <Badge
+                                      variant="secondary"
+                                      className={`text-[10px] uppercase font-bold ${req.status === 'COMPLETED'
+                                        ? 'bg-green-100 text-green-700 border-green-200'
+                                        : 'bg-red-100 text-red-700 border-red-200'
+                                        }`}
+                                    >
+                                      {req.status === 'COMPLETED' ? 'Accepted' : 'Declined'}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                  onClick={() => deleteReviewMutation.mutate(req.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center gap-3 mb-4">
+                                <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                                  <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${req.requester_name}`} />
+                                  <AvatarFallback>{req.requester_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <h4 className="font-bold text-sm text-slate-900 truncate">{req.requester_name}</h4>
+                                  <p className="text-xs text-slate-500">Requested a review</p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3 mb-4">
+                                <h3
+                                  className={`font-bold text-slate-800 text-sm leading-snug line-clamp-2 ${req.status === 'COMPLETED' ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''
+                                    }`}
+                                  onClick={() => {
+                                    if (req.status === 'COMPLETED') {
+                                      setSelectedTaskId(req.task_id);
+                                      setShowTaskDetailDialog(true);
+                                    }
+                                  }}
+                                >
+                                  {req.task_title || 'Untitled Task'}
+                                </h3>
+                                <div className="bg-slate-50 p-3 rounded-lg text-sm text-slate-600 border border-slate-100/50 italic">
+                                  "{req.message?.split('Focus: ')[1] || req.message || 'No specific instructions provided.'}"
+                                </div>
+                              </div>
+
+                              {req.status === 'PENDING' && (
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-semibold"
+                                    onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'DECLINED' })}
+                                    disabled={updateReviewMutation.isPending}
+                                  >
+                                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                                    Decline
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                                    onClick={() => updateReviewMutation.mutate({ requestId: req.id, status: 'COMPLETED' })}
+                                    disabled={updateReviewMutation.isPending}
+                                  >
+                                    <ThumbsUp className="w-3.5 h-3.5 mr-1.5" />
+                                    Accept
+                                  </Button>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </TabsContent>
+                </>
+              )}
+
+              {(isAdmin || isPM) && (
+                <>
+                  <TabsContent value="approvals" className="mt-4 outline-none">
+                    <ApprovalDashboard currentUser={currentUser} users={users} />
+                  </TabsContent>
+                  <TabsContent value="alarms" className="mt-4 outline-none">
+                    <AlarmsTab currentUser={currentUser} users={users} />
+                  </TabsContent>
+                </>
+              )}
+
+              {isAdmin && (
+                <>
+                  <TabsContent value="team-timesheets" className="mt-4 outline-none">
+                    <AdminTimesheetDashboard currentUser={currentUser} effectiveTenantId={effectiveTenantId} allTimesheets={allTimesheets} loading={allLoading} />
+                  </TabsContent>
+                  <TabsContent value="reports" className="mt-4 outline-none">
+                    <TimesheetReportGenerator currentUser={currentUser} effectiveTenantId={effectiveTenantId} users={users} allTimesheets={allTimesheets} />
+                  </TabsContent>
+                </>
+              )}
+            </div>
+          </Tabs>
+        </div>
+
+        {/* Edit Form Modal */}
+        <AlertDialog
+          open={showForm}
+          onOpenChange={(open) => {
+            if (!open) handleCancel();
+            else setShowForm(true);
           }}
-          notification={reworkAlarm}
-          reworkEntry={selectedReworkEntry}
-          currentUser={currentUser}
-          users={users}
-          initialAction="peerReview"
-          onActionComplete={() => {
-            queryClient.invalidateQueries({ queryKey: ['rework-alarm'] });
-            if (reworkAlarm) {
-              toast.success("Rework alert resolved.");
-            } else {
-              toast.success("Peer review requested.");
-            }
+        >
+          <AlertDialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto overflow-x-hidden p-0 border-none bg-transparent">
+            <div className="bg-white rounded-xl shadow-2xl p-6 relative">
+              <Button variant="ghost" size="icon" className="absolute right-4 top-4" onClick={handleCancel}><X className="h-4 w-4" /></Button>
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">{editingEntry ? 'Edit Timesheet' : 'Log Time'}</h2>
+              </div>
+              <TimesheetEntryForm
+                currentUser={currentUser}
+                effectiveTenantId={effectiveTenantId}
+                onSubmit={(data) => saveTimesheetMutation.mutate(data)}
+                onCancel={handleCancel}
+                initialData={editingEntry}
+                loading={saveTimesheetMutation.isPending}
+              />
+            </div>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Other Dialogs */}
+        <SubmitTimesheetsDialog
+          open={showSubmitDialog}
+          onClose={() => setShowSubmitDialog(false)}
+          draftEntries={myDraftEntries}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
+            queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
           }}
         />
-      )}
 
-      {/* Task Detail Dialog for Rework */}
-      <TaskDetailDialog
-        open={showTaskDetailDialog}
-        onClose={() => {
-          setShowTaskDetailDialog(false);
-          setSelectedTaskId(null);
-        }}
-        taskId={selectedTaskId}
-        autoEdit={true}
-      />
+        <AlertDialog open={showGoalReachedDialog} onOpenChange={setShowGoalReachedDialog}>
+          <AlertDialogContent className="bg-white/95 backdrop-blur-xl border-slate-200">
+            <AlertDialogHeader className="relative">
+              <Button variant="ghost" size="icon" className="absolute -right-2 -top-2 h-8 w-8 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 z-50" onClick={() => setShowGoalReachedDialog(false)}><X className="h-4 w-4" /></Button>
+              <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4"><CheckCircle className="h-6 w-6 text-green-600" /></div>
+              <AlertDialogTitle className="text-center text-xl font-bold text-slate-900">Daily Goal Reached!</AlertDialogTitle>
+              <AlertDialogDescription className="text-center text-slate-600">Great work! You have logged {Math.floor(todayDraftMinutes / 60)}h {todayDraftMinutes % 60}m for today. Would you like to finalize and submit now?</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+              <AlertDialogCancel onClick={() => { setShowForm(true); setEditingEntry(null); }} className="mt-0 sm:mt-0 flex-1 border-slate-200 text-slate-600 hover:bg-slate-50">Add More</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { bulkSubmitMutation.mutate(todayDraftEntries.map(e => e.id)); setShowGoalReachedDialog(false); }} className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white">Submit All</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {(reworkAlarm || selectedReworkEntry) && (
+          <ReworkActionDialog
+            open={showReworkActionDialog}
+            onClose={() => { setShowReworkActionDialog(false); setSelectedReworkEntry(null); }}
+            notification={reworkAlarm}
+            reworkEntry={selectedReworkEntry}
+            currentUser={currentUser}
+            users={users}
+            initialAction="peerReview"
+            onActionComplete={() => {
+              queryClient.invalidateQueries({ queryKey: ['rework-alarm'] });
+              if (reworkAlarm) {
+                toast.success("Rework alert resolved.");
+              } else {
+                toast.success("Peer review requested.");
+              }
+            }}
+          />
+        )}
+
+        <TaskDetailDialog
+          open={showTaskDetailDialog}
+          onClose={() => { setShowTaskDetailDialog(false); setSelectedTaskId(null); }}
+          taskId={selectedTaskId}
+        />
+      </div>
     </div>
   );
 }
-

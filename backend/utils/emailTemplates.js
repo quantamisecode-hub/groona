@@ -116,6 +116,12 @@ function getEmailTemplate(templateType, data = {}) {
       return getTrialEndingTemplate(data);
     case 'subscription_expired':
       return getSubscriptionExpiredTemplate(data);
+    case 'peer_review_requested':
+      return getPeerReviewRequestedTemplate(data);
+    case 'peer_review_declined':
+      return getPeerReviewDeclinedTemplate(data);
+    case 'under_utilization_alert':
+      return getUnderUtilizationAlertTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -1113,6 +1119,123 @@ function getSubscriptionExpiredTemplate(data) {
       content
     ),
     defaultSubject: '🚨 Your Groona Subscription Has Expired'
+  };
+}
+
+/**
+ * Peer Review Requested Template
+ */
+function getPeerReviewRequestedTemplate(data) {
+  const { reviewerName, reviewerEmail, requesterName, taskTitle, projectName, message, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>${requesterName}</strong> has requested a peer review for the task: <strong>${taskTitle}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Project:</span>
+        <span style="${styles.value}">${projectName || 'N/A'}</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Requested By:</span>
+        <span style="${styles.value}">${requesterName}</span>
+      </div>
+      ${message ? `
+        <div style="${styles.infoRow}">
+          <span style="${styles.label}">Message:</span>
+          <span style="${styles.value}">${message}</span>
+        </div>
+      ` : ''}
+    </div>
+
+    <p style="${styles.text}">Peer reviews help maintain code quality and share knowledge across the team. Please take a moment to review the changes when you have a chance.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View Review Request</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Peer Review Requested',
+      `Hello, ${reviewerName || reviewerEmail}`,
+      content
+    ),
+    defaultSubject: `Peer Review Requested: ${taskTitle}`
+  };
+}
+
+/**
+ * Peer Review Declined Template
+ */
+function getPeerReviewDeclinedTemplate(data) {
+  const { requesterName, requesterEmail, reviewerName, taskTitle, projectName, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}">Your peer review request for the task: <strong>${taskTitle}</strong> has been <strong>declined</strong> by <strong>${reviewerName}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Project:</span>
+        <span style="${styles.value}">${projectName || 'N/A'}</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: #ef4444;">DECLINED</strong></span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">You may want to request a review from another team member to ensure your changes are verified.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View My Requests</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Peer Review Declined',
+      `Hello, ${requesterName || requesterEmail}`,
+      content
+    ),
+    defaultSubject: `Peer Review Declined: ${taskTitle}`
+  };
+}
+
+/**
+ * Under Utilization Alert Template
+ */
+function getUnderUtilizationAlertTemplate(data) {
+  const { userName, userEmail, utilizationPercentage, durationDays, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}">You appear to be <strong>under-utilized</strong> based on your logged hours over the past ${durationDays || 30} days.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Utilization:</span>
+        <span style="${styles.value}"><strong style="color: #ef4444;">${utilizationPercentage}%</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Target:</span>
+        <span style="${styles.value}">60% or higher</span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">Maintaining a healthy utilization rate ensures project goals are met and resources are balanced. Please discuss your task allocation and potential blockers with your manager.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View My Timesheets</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Utilization Alert',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: `Capacity Utilization Alert: Action Required`
   };
 }
 

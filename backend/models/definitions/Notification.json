@@ -53,6 +53,7 @@
         "low_workload_alert",
         "overwork_alarm",
         "rework_peer_review",
+        "rework_peer_review_declined",
         "high_rework_alarm",
         "leave_application",
         "leave_approval",
@@ -65,9 +66,14 @@
         "context_switching_alert",
         "rework_review_accepted",
         "rework_review_declined",
+        "idle_time_alert",
+        "under_utilization_alert",
+        "timesheet_rejected",
         "PM_VELOCITY_DROP",
         "PM_CONSISTENT_VELOCITY_DROP",
-        "PM_DEADLINE_RISK"
+        "PM_DEADLINE_RISK",
+        "pending_timesheet_alert",
+        "pending_pm_summary"
       ],
       "description": "Type of notification"
     },

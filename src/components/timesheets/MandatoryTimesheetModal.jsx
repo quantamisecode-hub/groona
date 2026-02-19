@@ -251,7 +251,7 @@ export default function MandatoryTimesheetModal({ currentUser, effectiveTenantId
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogContent className="max-w-3xl w-full p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent hideCloseButton className="max-w-3xl w-full p-0 overflow-hidden border-none shadow-2xl">
                 {renderContent()}
             </DialogContent>
         </Dialog>

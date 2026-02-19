@@ -221,6 +221,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
           message: notificationMessage,
           entity_type: 'timesheet',
           entity_id: timesheetId,
+          deep_link: `/Timesheets?tab=my-timesheets&editId=${timesheetId}`,
           sender_name: currentUser.full_name
         });
 
@@ -251,8 +252,8 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
       }
 
       // Email notification using template - send asynchronously after approval/rejection
-      // ONLY SEND EMAIL IF APPROVER IS OWNER (Final Decision)
-      if (currentUser.custom_role === 'owner' || currentUser.is_super_admin) {
+      // ONLY SEND EMAIL IF APPROVER IS OWNER (Final Decision) OR PM REJECTS (Recommendation)
+      if (currentUser.custom_role === 'owner' || currentUser.is_super_admin || (currentUser.custom_role === 'project_manager' && status === 'rejected')) {
         const emailData = {
           memberName: finalTimesheet.user_name || finalTimesheet.user_email,
           memberEmail: finalTimesheet.user_email,

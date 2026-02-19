@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 export default function TimesheetList({
   timesheets,
@@ -39,8 +39,36 @@ export default function TimesheetList({
   showActions = true,
   groupByDate = true,
   canEditLocked = false,
-  currentUser // Added currentUser prop
+  currentUser, // Added currentUser prop
+  highlightedId
 }) {
+  const itemRefs = useRef({});
+
+  // --- HIGHLIGHT & SCROLL LOGIC ---
+  useEffect(() => {
+    if (highlightedId && itemRefs.current[highlightedId]) {
+      // Small Delay to ensure layout is finished
+      const timeoutId = setTimeout(() => {
+        itemRefs.current[highlightedId].scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+
+        // Add a temporary ripple/highlight effect
+        itemRefs.current[highlightedId].classList.add('ring-4', 'ring-blue-500', 'ring-offset-2', 'ring-opacity-50', 'animate-pulse');
+
+        // Remove highlight after 3 seconds
+        setTimeout(() => {
+          if (itemRefs.current[highlightedId]) {
+            itemRefs.current[highlightedId].classList.remove('ring-4', 'ring-blue-500', 'ring-offset-2', 'ring-opacity-50', 'animate-pulse');
+          }
+        }, 3000);
+      }, 300);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [highlightedId, timesheets]);
+
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
     timesheetId: null,
@@ -118,7 +146,12 @@ export default function TimesheetList({
           )}
 
           {entries.map((entry) => (
-            <Card key={entry.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-shadow">
+            <Card
+              key={entry.id}
+              ref={el => itemRefs.current[entry.id || entry._id] = el}
+              className={`bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-500 ${(highlightedId === entry.id || highlightedId === entry._id) ? 'ring-2 ring-blue-400' : ''
+                }`}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-2">
@@ -156,6 +189,16 @@ export default function TimesheetList({
                               </div>
                             );
                           })()}
+
+                          {/* PM Status Badge */}
+                          {entry.status === 'pending_admin' && (
+                            <Badge variant="outline" className={`gap-1 py-1 ${entry.rejection_reason ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                              {entry.rejection_reason ? <XCircle className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
+                              <span className="text-[10px] font-bold uppercase tracking-wider">
+                                {entry.rejection_reason ? 'PM Recommended Rejection' : 'Accepted by PM'}
+                              </span>
+                            </Badge>
+                          )}
                           {/* Edited Badge */}
                           {entry.last_modified_by_name && (
                             <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 gap-1">

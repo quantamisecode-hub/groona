@@ -99,21 +99,6 @@ export default function ReworkActionDialog({
                     status: 'PENDING'
                 });
 
-                // ALWAYS send a notification to the reviewer
-                await groonabackend.entities.Notification.create({
-                    tenant_id: currentUser.tenant_id,
-                    recipient_email: reviewerEmail,
-                    type: 'rework_peer_review',
-                    category: 'alert',
-                    title: 'Peer Review Requested',
-                    message: `${currentUser.full_name} has requested a peer review for ${taskTitle}. Click to view in Rework Reviews tab.`,
-                    entity_type: 'peer_review_request',
-                    entity_id: currentUser.id, // Linking to user for avatar/profile
-                    link: '/Timesheets?tab=rework-reviews',
-                    scope: 'user',
-                    sender_name: currentUser.full_name,
-                    status: 'OPEN'
-                });
             }
 
             if (notification) {

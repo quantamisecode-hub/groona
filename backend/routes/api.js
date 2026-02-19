@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const Models = require('../models/SchemaDefinitions');
+const emailService = require('../services/emailService');
+const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // === CURRENCY CONVERSION ENDPOINT ===
 router.get('/currency/convert', async (req, res) => {
@@ -140,14 +143,11 @@ router.get('/currency/convert', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 // nodemailer removed - using Resend SDK now
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 const WebSocket = require('ws');
 const modelHelper = require('../helpers/geminiModelHelper');
-const emailService = require('../services/emailService');
 
 // --- CONFIGURATION ---
 // Use helper to get default model (gemini-2.5-flash-native-audio-dialog)
@@ -1384,6 +1384,57 @@ router.post('/entities/:entity/create', async (req, res) => {
       });
     }
 
+    // --- PEER REVIEW NOTIFICATIONS ---
+    if (entityName === 'PeerReviewRequest') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+          const emailService = require('../services/emailService');
+
+          // 1. Create In-App Notification for Reviewer
+          const notif = await Notification.create({
+            tenant_id: savedItem.tenant_id,
+            recipient_email: savedItem.reviewer_email,
+            type: 'rework_peer_review',
+            category: 'alert',
+            title: 'Peer Review Requested',
+            message: `${savedItem.requester_name} has requested a peer review for ${savedItem.task_title}. Click to view in Rework Reviews tab.`,
+            entity_type: 'peer_review_request',
+            entity_id: savedItem._id,
+            link: '/Timesheets?tab=rework-reviews',
+            scope: 'user',
+            sender_name: savedItem.requester_name,
+            status: 'OPEN'
+          });
+
+          if (req.io) {
+            req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+          }
+
+          // 2. Send Email to Reviewer
+          const reviewer = await User.findOne({ email: savedItem.reviewer_email });
+          const reviewerName = reviewer?.full_name || savedItem.reviewer_email;
+
+          await emailService.sendEmail({
+            to: savedItem.reviewer_email,
+            templateType: 'peer_review_requested',
+            data: {
+              reviewerName,
+              reviewerEmail: savedItem.reviewer_email,
+              requesterName: savedItem.requester_name,
+              taskTitle: savedItem.task_title,
+              projectName: savedItem.project_name,
+              message: savedItem.message,
+              dashboardUrl: `${process.env.FRONTEND_URL}/Timesheets?tab=rework-reviews`
+            }
+          });
+        } catch (err) {
+          console.error('[PeerReview] Notification Error:', err);
+        }
+      });
+    }
+
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1544,6 +1595,69 @@ router.post('/entities/:entity/update', async (req, res) => {
           }
         } catch (notifErr) {
           console.error('[TimesheetUpdate] Notification Error:', notifErr);
+        }
+      });
+    }
+
+    // --- TIMESHEET REJECTION NOTIFICATION (Update Route) ---
+    if (entityName === 'Timesheet' && updatedDoc.status === 'rejected' && oldDoc.status !== 'rejected') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+
+          // Requirement: Check if the user who performed the rejection is an Admin/PM
+          const actorRole = req.user.role;
+          const actorCustomRole = req.user.custom_role;
+
+          const isAdminOrPM = actorRole === 'admin' || actorCustomRole === 'project_manager' || actorCustomRole === 'owner';
+
+          if (isAdminOrPM) {
+            const user = await User.findOne({ email: updatedDoc.user_email });
+            if (user) {
+              const notif = await Notification.create({
+                tenant_id: updatedDoc.tenant_id,
+                recipient_email: updatedDoc.user_email,
+                user_id: user._id,
+                type: 'timesheet_rejected',
+                category: 'general',
+                title: 'Time Entry Rejected',
+                message: 'A time entry was rejected. Please correct and resubmit.',
+                entity_type: 'timesheet',
+                entity_id: updatedDoc._id,
+                deep_link: `/Timesheets?tab=my-timesheets&editId=${updatedDoc._id}`,
+                sender_name: req.user.full_name || 'System',
+                read: false,
+                created_date: new Date()
+              });
+
+              if (req.io) {
+                req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+              }
+
+              // Send Email notification
+              try {
+                await emailService.sendEmail({
+                  to: updatedDoc.user_email,
+                  templateType: 'timesheet_rejected',
+                  data: {
+                    memberName: user.full_name || updatedDoc.user_email,
+                    memberEmail: updatedDoc.user_email,
+                    taskTitle: updatedDoc.task_title || 'N/A',
+                    date: updatedDoc.date,
+                    hours: updatedDoc.hours,
+                    minutes: updatedDoc.minutes,
+                    rejectedBy: req.user.full_name || 'Project Manager',
+                    comment: updatedDoc.rejection_reason || data.rejection_reason || 'No reason provided'
+                  }
+                });
+              } catch (emailErr) {
+                console.error('[Timesheet rejection] Email Error:', emailErr);
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error('[TimesheetUpdate] Rejection Notification Error:', notifErr);
         }
       });
     }
@@ -2012,6 +2126,56 @@ router.post('/entities/:entity/update', async (req, res) => {
         }
       });
     }
+
+    // --- PEER REVIEW DECLINE NOTIFICATIONS ---
+    if (entityName === 'PeerReviewRequest' && updatedDoc.status === 'DECLINED' && oldDoc.status !== 'DECLINED') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+
+          // 1. Create In-App Notification for Requester
+          const notif = await Notification.create({
+            tenant_id: updatedDoc.tenant_id,
+            recipient_email: updatedDoc.requester_email,
+            type: 'rework_peer_review_declined',
+            category: 'alert',
+            title: 'Peer Review Declined',
+            message: `Your peer review request for "${updatedDoc.task_title}" has been declined by ${updatedDoc.reviewer_email}.`,
+            entity_type: 'peer_review_request',
+            entity_id: updatedDoc._id,
+            link: '/Timesheets?tab=my-requests',
+            scope: 'user',
+            sender_name: updatedDoc.reviewer_email,
+            status: 'OPEN'
+          });
+
+          if (req.io) {
+            req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+          }
+
+          // 2. Send Email to Requester
+          const reviewer = await User.findOne({ email: updatedDoc.reviewer_email });
+          const reviewerName = reviewer?.full_name || updatedDoc.reviewer_email;
+
+          await emailService.sendEmail({
+            to: updatedDoc.requester_email,
+            templateType: 'peer_review_declined',
+            data: {
+              requesterName: updatedDoc.requester_name,
+              requesterEmail: updatedDoc.requester_email,
+              reviewerName,
+              taskTitle: updatedDoc.task_title,
+              projectName: updatedDoc.project_name,
+              dashboardUrl: `${process.env.FRONTEND_URL}/Timesheets?tab=my-requests`
+            }
+          });
+        } catch (err) {
+          console.error('[PeerReviewDecline] Notification Error:', err);
+        }
+      });
+    }
+
   } catch (err) {
     res.status(500).send(err.message);
   }

@@ -39,6 +39,8 @@ const SCRIPTS = [
     'check_low_velocity_alerts.js',
     'pm_consistent_velocity_drop.js',
     'check_deadline_risk.js',
+    'generate_utilization_alerts.js',
+    'alert_pending_timesheets.js',
 ];
 
 const runScript = (scriptName) => {
