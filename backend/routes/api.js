@@ -193,9 +193,7 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
 
     const totalMinutes = dayTimesheets.reduce((acc, ts) => acc + (ts.total_minutes || 0), 0);
     const reworkMinutes = dayTimesheets.reduce((acc, ts) => {
-      // Ensure we handle potential string/null cases for work_type
-      const isRework = ts.work_type === 'rework';
-      return acc + (isRework ? (ts.total_minutes || 0) : 0);
+      return acc + (ts.work_type === 'rework' ? (ts.total_minutes || 0) : 0);
     }, 0);
 
     // Determine day-level status: if any entry is NOT draft/rejected, it's 'submitted'
@@ -249,6 +247,9 @@ async function syncSprintVelocity(sprintId, tenantId) {
     const StoryModel = Models.Story;
     const TaskModel = Models.Task;
     const VelocityModel = Models.SprintVelocity;
+    const NotificationModel = Models.Notification;
+    const ProjectUserRoleModel = Models.ProjectUserRole;
+    const UserModel = Models.User;
 
     if (!SprintModel || !StoryModel || !TaskModel || !VelocityModel) return;
 
@@ -324,7 +325,136 @@ async function syncSprintVelocity(sprintId, tenantId) {
       { upsert: true }
     );
 
-    console.log(`[VelocitySync] Updated velocity for sprint: ${sprint.name} (${sprintId}). Points: ${completedPoints.toFixed(2)}/${committedPoints}`);
+    console.log(`[VelocitySync] Updated velocity for sprint: ${sprint.name} (${sprintId}). Accuracy: ${accuracy.toFixed(2)}%`);
+
+    // 🚨 ALERT: Check if accuracy < 85% and send notifications
+    if (accuracy < 85 && committedPoints > 0 && NotificationModel && ProjectUserRoleModel && UserModel) {
+      try {
+        // Check if alert already sent for this sprint
+        const existingAlert = await NotificationModel.findOne({
+          entity_id: sprintId,
+          type: 'PM_VELOCITY_DROP'
+        });
+
+        if (!existingAlert) {
+          // Find Project Managers
+          const pmRoles = await ProjectUserRoleModel.find({
+            project_id: sprint.project_id,
+            role: 'project_manager'
+          });
+
+          let recipients = [];
+          if (pmRoles.length > 0) {
+            const pmIds = pmRoles.map(r => r.user_id);
+            recipients = await UserModel.find({ _id: { $in: pmIds } });
+          } else {
+            // Fallback: Admin
+            const adminRoles = await ProjectUserRoleModel.find({
+              project_id: sprint.project_id,
+              role: 'admin'
+            });
+            const adminIds = adminRoles.map(r => r.user_id);
+            recipients = await UserModel.find({ _id: { $in: adminIds } });
+          }
+
+          if (recipients.length > 0) {
+            const emailService = require('../services/emailService');
+
+            for (const recipient of recipients) {
+              // Create in-app notification
+              await NotificationModel.create({
+                tenant_id: tenantId,
+                recipient_email: recipient.email,
+                user_id: recipient._id,
+                type: 'PM_VELOCITY_DROP',
+                category: 'alert',
+                title: '⚠️ Sprint Velocity Alert',
+                message: `Sprint "${sprint.name}" velocity has dropped below 85% (${accuracy.toFixed(1)}%). Committed: ${committedPoints} pts, Completed: ${completedPoints.toFixed(2)} pts. Review capacity and blockers.`,
+                entity_type: 'sprint',
+                entity_id: sprintId,
+                project_id: sprint.project_id,
+                sender_name: 'System',
+                read: false,
+                created_date: new Date()
+              });
+
+              // Send email notification
+              try {
+                await emailService.sendEmail({
+                  to: recipient.email,
+                  subject: `⚠️ Velocity Alert: ${sprint.name}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+                      <h2 style="color: #d97706; border-bottom: 3px solid #d97706; padding-bottom: 10px;">
+                        ⚠️ Sprint Velocity Alert
+                      </h2>
+                      
+                      <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+                        <strong style="color: #92400e;">ALERT:</strong> Sprint velocity has dropped below the 85% threshold
+                      </div>
+
+                      <h3 style="color: #374151; margin-top: 30px;">Sprint Details</h3>
+                      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Sprint Name</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${sprint.name}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Committed Points</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${committedPoints} pts</td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Completed Points</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${completedPoints.toFixed(2)} pts</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Accuracy</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; color: #dc2626; font-weight: bold; font-size: 18px;">
+                            ${accuracy.toFixed(1)}%
+                          </td>
+                        </tr>
+                        <tr style="background-color: #f3f4f6;">
+                          <td style="padding: 12px; border: 1px solid #e5e7eb; font-weight: bold;">Tasks Progress</td>
+                          <td style="padding: 12px; border: 1px solid #e5e7eb;">${completedTasks}/${totalTasks} completed</td>
+                        </tr>
+                      </table>
+
+                      <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+                        <h4 style="margin-top: 0; color: #1e40af;">📋 Recommended Actions</h4>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                          <li>Review sprint retrospective to identify blockers</li>
+                          <li>Check team capacity and availability</li>
+                          <li>Identify impediments affecting velocity</li>
+                          <li>Consider scope adjustment if needed</li>
+                        </ul>
+                      </div>
+
+                      <div style="text-align: center; margin: 30px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${sprint.project_id}/sprint/${sprintId}" 
+                           style="display: inline-block; background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                          View Sprint Details
+                        </a>
+                      </div>
+
+                      <p style="color: #6b7280; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                        This is an automated alert from Groona Sprint Velocity Tracking System.
+                      </p>
+                    </div>
+                  `
+                });
+                console.log(`[VelocityAlert] ✅ Email sent to ${recipient.email}`);
+              } catch (emailErr) {
+                console.error(`[VelocityAlert] ❌ Failed to send email to ${recipient.email}:`, emailErr);
+              }
+            }
+
+            console.log(`[VelocityAlert] 🚨 Sent velocity alerts for sprint: ${sprint.name}. Accuracy: ${accuracy.toFixed(1)}% (< 85%)`);
+          }
+        }
+      } catch (alertErr) {
+        console.error('[VelocityAlert] Error sending velocity alert:', alertErr);
+      }
+    }
   } catch (err) {
     console.error("[VelocitySync] Error syncing sprint velocity:", err);
   }

@@ -138,6 +138,320 @@ if (fs.existsSync(modelsPath)) {
           schema.post('findOneAndUpdate', syncSubscription);
         }
 
+        // Middleware for Sprint Completion (PM_VELOCITY_DROP Trigger)
+        if (modelName === 'Sprint') {
+          const checkVelocityDrop = async (doc) => {
+            if (!doc || doc.status !== 'completed') return;
+
+            try {
+              const Notification = mongoose.model('Notification');
+
+              // === DUPLICATE CHECK ===
+              // Check if we already sent a 'PM_VELOCITY_DROP' alert for this sprint
+              const existingAlert = await Notification.findOne({
+                entity_id: doc._id || doc.id,
+                type: 'PM_VELOCITY_DROP'
+              });
+
+              if (existingAlert) {
+                console.log(`[Sprint Hook] Alert already sent for sprint ${doc._id}. Skipping.`);
+                return;
+              }
+              // =======================
+
+              // Models
+              const Task = mongoose.model('Task');
+              const Story = mongoose.model('Story');
+
+              const sprintId = String(doc._id || doc.id);
+
+              // 1. Fetch Stories and Tasks
+              const sprintStories = await Story.find({ sprint_id: sprintId });
+              const allTasks = await Task.find({
+                $or: [
+                  { sprint_id: sprintId },
+                  { story_id: { $in: sprintStories.map(s => s._id) } }
+                ]
+              });
+
+              // 2. Calculate Committed Points
+              // Use stored committed_points if available, else sum of story points
+              const totalStoryPoints = sprintStories.reduce((sum, s) => sum + (Number(s.story_points) || 0), 0);
+              const plannedPoints = (doc.committed_points !== undefined && doc.committed_points !== null)
+                ? Number(doc.committed_points)
+                : totalStoryPoints;
+
+              // 3. Calculate Completed Points (Partial Completion Logic)
+              const completedPoints = sprintStories.reduce((sum, story) => {
+                const storyId = String(story._id);
+                const storyStatus = (story.status || '').toLowerCase();
+                const storyPoints = Number(story.story_points) || 0;
+
+                // If story is done, 100% points
+                if (storyStatus === 'done' || storyStatus === 'completed') {
+                  return sum + storyPoints;
+                }
+
+                // Find tasks for this story
+                const storyTasks = allTasks.filter(t => String(t.story_id) === storyId);
+
+                if (storyTasks.length === 0) {
+                  return sum; // No tasks, not done -> 0
+                }
+
+                // Calculate task completion %
+                const completedTasksCount = storyTasks.filter(t => t.status === 'completed').length;
+                const totalTasksCount = storyTasks.length;
+                const completionRatio = totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) : 0;
+
+                return sum + (storyPoints * completionRatio);
+              }, 0);
+
+              // 4. Check Condition (< 85%)
+              console.log(`[Sprint Hook] Velocity Check: Completed ${completedPoints.toFixed(2)} / Committed ${plannedPoints}`);
+
+              if (plannedPoints > 0 && completedPoints < (0.85 * plannedPoints)) {
+                console.log(`[Sprint Hook] LOW ACCURACY DETECTED. Sending Alert...`);
+
+                // 5. Find Product Manager(s)
+                const ProjectUserRole = mongoose.model('ProjectUserRole');
+                const User = mongoose.model('User');
+
+                // Find users with 'project_manager' role for this project
+                const pmRoles = await ProjectUserRole.find({
+                  project_id: doc.project_id,
+                  role: 'project_manager'
+                });
+
+                let recipients = [];
+                if (pmRoles.length > 0) {
+                  const pmIds = pmRoles.map(r => r.user_id);
+                  recipients = await User.find({ _id: { $in: pmIds } });
+                } else {
+                  // Fallback: Admin
+                  const adminRoles = await ProjectUserRole.find({
+                    project_id: doc.project_id,
+                    role: 'admin'
+                  });
+                  const adminIds = adminRoles.map(r => r.user_id);
+                  recipients = await User.find({ _id: { $in: adminIds } });
+                }
+
+                if (recipients.length === 0) {
+                  console.log('[Sprint Hook] No PM/Admin found to notify about velocity drop.');
+                  return;
+                }
+
+                // 6. Send Notifications
+                const emailService = require('../services/emailService'); // Lazy load
+
+                for (const recipient of recipients) {
+                  // A. In-App Notification
+                  await Notification.create({
+                    tenant_id: doc.tenant_id,
+                    recipient_email: recipient.email,
+                    user_id: recipient._id,
+                    type: 'PM_VELOCITY_DROP',
+                    category: 'alert',
+                    title: 'Sprint Velocity Alert',
+                    message: `⚠️ Sprint velocity has dropped below planned levels (${completedPoints.toFixed(2)}/${plannedPoints}). Review capacity and blockers.`,
+                    entity_type: 'sprint',
+                    entity_id: doc._id || doc.id,
+                    project_id: doc.project_id,
+                    sender_name: 'System',
+                    read: false,
+                    created_date: new Date()
+                  });
+
+                  // B. Email Notification
+                  try {
+                    await emailService.sendEmail({
+                      to: recipient.email,
+                      subject: `Velocity Alert: ${doc.name}`,
+                      html: `
+                        <div style="font-family: Arial, sans-serif; color: #333;">
+                          <h2 style="color: #d97706;">⚠️ High Velocity Drop Detected</h2>
+                          <p><strong>Sprint:</strong> ${doc.name}</p>
+                          <p>The actual velocity for this sprint was significantly lower than planned.</p>
+                          
+                          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                            <tr style="background-color: #f3f4f6;">
+                              <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: left;">Planned</th>
+                              <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: left;">Actual</th>
+                              <th style="padding: 10px; border: 1px solid #e5e7eb; text-align: left;">Performance</th>
+                            </tr>
+                            <tr>
+                              <td style="padding: 10px; border: 1px solid #e5e7eb;">${plannedPoints} pts</td>
+                              <td style="padding: 10px; border: 1px solid #e5e7eb;">${completedPoints.toFixed(2)} pts</td>
+                              <td style="padding: 10px; border: 1px solid #e5e7eb; color: #dc2626; font-weight: bold;">
+                                ${Math.round((completedPoints / plannedPoints) * 100)}%
+                              </td>
+                            </tr>
+                          </table>
+
+                          <p>Please review the sprint retrospective to identify blockers or capacity issues.</p>
+                          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${doc.project_id}/sprint/${doc._id || doc.id}" 
+                             style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
+                            View Sprint Report
+                          </a>
+                        </div>
+                      `
+                    });
+                  } catch (emailErr) {
+                    console.error(`[Sprint Hook] Failed to send email to ${recipient.email}:`, emailErr);
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("[Sprint Hook] Error processing velocity check:", err);
+            }
+          };
+
+          schema.post('save', checkVelocityDrop);
+          schema.post('findOneAndUpdate', checkVelocityDrop);
+
+          // Middleware to automatically sync SprintVelocity records
+          const syncSprintVelocity = async (doc) => {
+            // Only sync if sprint is locked or completed
+            if (!doc || (!doc.locked_date && doc.status !== 'completed')) return;
+
+            try {
+              const SprintVelocity = mongoose.model('SprintVelocity');
+              const Task = mongoose.model('Task');
+              const Story = mongoose.model('Story');
+              const Project = mongoose.model('Project');
+              const ProjectUserRole = mongoose.model('ProjectUserRole');
+              const User = mongoose.model('User');
+
+              const sprintId = String(doc._id || doc.id);
+
+              // Determine user_id (PM or owner)
+              let userId = 'system';
+              let userName = 'System';
+
+              const project = await Project.findById(doc.project_id);
+              if (project) {
+                const pmRoles = await ProjectUserRole.find({
+                  project_id: doc.project_id,
+                  role: 'project_manager'
+                });
+
+                if (pmRoles.length > 0) {
+                  const pmUser = await User.findById(pmRoles[0].user_id);
+                  if (pmUser) {
+                    userId = pmUser.email;
+                    userName = pmUser.name || pmUser.email;
+                  }
+                } else if (project.owner) {
+                  const ownerUser = await User.findOne({ email: project.owner });
+                  if (ownerUser) {
+                    userId = ownerUser.email;
+                    userName = ownerUser.name || ownerUser.email;
+                  }
+                }
+              }
+
+              // Fetch stories and tasks
+              const sprintStories = await Story.find({ sprint_id: sprintId });
+              const allTasks = await Task.find({
+                $or: [
+                  { sprint_id: sprintId },
+                  { story_id: { $in: sprintStories.map(s => s._id) } }
+                ]
+              });
+
+              // Calculate metrics
+              const totalStoryPoints = sprintStories.reduce((sum, s) => sum + (Number(s.story_points) || 0), 0);
+              const committedPoints = (doc.committed_points !== undefined && doc.committed_points !== null)
+                ? Number(doc.committed_points)
+                : totalStoryPoints;
+
+              const completedPoints = sprintStories.reduce((sum, story) => {
+                const storyId = String(story._id);
+                const storyStatus = (story.status || '').toLowerCase();
+                const storyPoints = Number(story.story_points) || 0;
+
+                if (storyStatus === 'done' || storyStatus === 'completed') {
+                  return sum + storyPoints;
+                }
+
+                const storyTasks = allTasks.filter(t => String(t.story_id) === storyId);
+                if (storyTasks.length === 0) return sum;
+
+                const completedTasksCount = storyTasks.filter(t => t.status === 'completed').length;
+                const completionRatio = completedTasksCount / storyTasks.length;
+                return sum + (storyPoints * completionRatio);
+              }, 0);
+
+              const velocityPercentage = committedPoints > 0 ? (completedPoints / committedPoints) * 100 : 0;
+              const totalTasks = allTasks.length;
+              const completedTasks = allTasks.filter(t => t.status === 'completed').length;
+              const inProgressTasks = allTasks.filter(t =>
+                t.status === 'in_progress' || t.status === 'in progress'
+              ).length;
+              const notStartedTasks = allTasks.filter(t =>
+                t.status === 'todo' || t.status === 'to do'
+              ).length;
+
+              const completedStories = sprintStories.filter(story => {
+                const storyStatus = (story.status || '').toLowerCase();
+                if (storyStatus === 'done' || storyStatus === 'completed') return true;
+                const storyTasks = allTasks.filter(t => String(t.story_id) === String(story._id));
+                return storyTasks.length > 0 && storyTasks.every(t => t.status === 'completed');
+              }).length;
+
+              const velocityData = {
+                tenant_id: doc.tenant_id,
+                project_id: doc.project_id,
+                sprint_id: sprintId,
+                user_id: userId,
+                sprint_name: doc.name,
+                sprint_start_date: doc.start_date,
+                sprint_end_date: doc.end_date,
+                committed_points: committedPoints,
+                completed_points: completedPoints,
+                planned_velocity: committedPoints,
+                actual_velocity: completedPoints,
+                velocity_percentage: velocityPercentage,
+                commitment_accuracy: velocityPercentage,
+                total_tasks: totalTasks,
+                completed_tasks: completedTasks,
+                in_progress_tasks: inProgressTasks,
+                not_started_tasks: notStartedTasks,
+                sprint_status: doc.status,
+                measurement_date: new Date(),
+                is_final_measurement: doc.status === 'completed',
+                impediments_count: doc.impediments ? doc.impediments.length : 0,
+                notes: `Auto-synced via database hook. User: ${userName}`,
+                metadata: {
+                  total_stories: sprintStories.length,
+                  completed_stories: completedStories,
+                  sync_source: 'database_hook',
+                  sync_date: new Date().toISOString()
+                }
+              };
+
+              // Update or create velocity record
+              await SprintVelocity.findOneAndUpdate(
+                {
+                  sprint_id: sprintId,
+                  is_final_measurement: doc.status === 'completed'
+                },
+                velocityData,
+                { upsert: true, new: true }
+              );
+
+              console.log(`[Sprint Hook] ✅ Synced SprintVelocity for ${doc.name}`);
+
+            } catch (err) {
+              console.error('[Sprint Hook] Error syncing SprintVelocity:', err);
+            }
+          };
+
+          schema.post('save', syncSprintVelocity);
+          schema.post('findOneAndUpdate', syncSprintVelocity);
+        }
+
         // Middleware for Comments (Preserved from your code)
         if (modelName === 'Comment') {
           schema.post('save', async function (doc) {

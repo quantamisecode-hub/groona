@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Folder, Plus, Shield, AlertCircle, Info, RefreshCw } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 import WorkspaceCard from "../components/workspaces/WorkspaceCard";
 import CreateWorkspaceDialog from "../components/workspaces/CreateWorkspaceDialog";
@@ -290,20 +290,20 @@ export default function Workspaces() {
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="workspaces">
       <FeatureOnboarding currentUser={currentUser} featureArea="workspaces" userRole={userRole} />
-      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-7xl mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
+      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative min-h-screen">
+        <div className="max-w-8xl mx-auto w-full flex flex-col relative">
           {/* Sticky Header Section */}
           <div className="sticky top-0 z-30 bg-white border-b border-slate-200/60 pb-4 pt-6">
             <div className="px-4 md:px-6 lg:px-8 pt-0 pb-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <div className="flex flex-row justify-between items-start md:items-center gap-4 mb-4">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                      <Folder className="h-6 w-6 text-white" />
+                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                      <Folder className="h-5 w-5 md:h-6 md:w-6 text-white" />
                     </div>
                     <div>
-                      <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Workspaces</h1>
-                      <p className="text-slate-600">
+                      <h1 className="text-xl md:text-2xl font-bold text-slate-900">Workspaces</h1>
+                      <p className="text-lg md:text-lg text-slate-600 line-clamp-1 md:line-clamp-none">
                         Organize your projects into dedicated workspaces
                         {isRefetching && !isPageLoading && <span className="ml-2 text-xs text-blue-500 animate-pulse font-medium">Syncing...</span>}
                       </p>
@@ -313,18 +313,19 @@ export default function Workspaces() {
                 {canCreateWorkspace && currentUser?.custom_role !== 'project_manager' && (
                   <Button
                     onClick={() => setShowCreateDialog(true)}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-8 md:h-10 text-xs md:text-sm px-3 md:px-4 shrink-0"
                     disabled={isPageLoading}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Workspace
+                    <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
+                    <span className="hidden md:inline">Create Workspace</span>
+                    <span className="md:hidden">Workspace</span>
                   </Button>
                 )}
               </div>
 
-              <Alert className="border-blue-200 bg-blue-50">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-sm">
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-900 w-fit">
+                <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                <p className="text-sm">
                   <strong>About Workspaces:</strong> Organize projects by team, department, or client.
                   Each workspace can have its own members with specific roles.
                   {workspaceLimit && !isPageLoading && (
@@ -333,14 +334,14 @@ export default function Workspaces() {
                       ({currentCount}/{workspaceLimit} used).
                     </span>
                   )}
-                </AlertDescription>
-              </Alert>
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Scrollable Content */}
           <div className="flex-1">
-            <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+            <div className="px-3 pb-4 md:pb-6 lg:pb-8 pt-3">
               {/* SKELETON LOADING STATE */}
               {isPageLoading ? (
                 <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
@@ -501,4 +502,3 @@ export default function Workspaces() {
     </OnboardingProvider>
   );
 }
-

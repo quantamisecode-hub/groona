@@ -64,7 +64,10 @@
         "user_availability_update",
         "context_switching_alert",
         "rework_review_accepted",
-        "rework_review_declined"
+        "rework_review_declined",
+        "PM_VELOCITY_DROP",
+        "PM_CONSISTENT_VELOCITY_DROP",
+        "PM_DEADLINE_RISK"
       ],
       "description": "Type of notification"
     },

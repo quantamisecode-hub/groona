@@ -23,6 +23,8 @@ console.info(`[Scheduler] ⏰ Schedule: ${SCHEDULE} (${IS_PRODUCTION ? 'Every 8 
 console.log('=================================================');
 
 const SCRIPTS = [
+    'sync_user_timesheets.js',
+    'sync_sprint_velocity.js',
     'generate_alarm.js',
     'generate_alerts.js',
     'generate_low_workload_alert.js',
@@ -34,6 +36,9 @@ const SCRIPTS = [
     'alert_low_logged_hours.js',
     'alert_availability_update.js',
     'generate_context_switching_alert.js',
+    'check_low_velocity_alerts.js',
+    'pm_consistent_velocity_drop.js',
+    'check_deadline_risk.js',
 ];
 
 const runScript = (scriptName) => {

@@ -2,12 +2,12 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  ArrowRight, 
-  Sparkles, 
-  CheckCircle, 
-  Users, 
-  Briefcase, 
+import {
+  ArrowRight,
+  Sparkles,
+  CheckCircle,
+  Users,
+  Briefcase,
   Target,
   Clock,
   Shield,
@@ -77,7 +77,7 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6">
         <div className="max-w-7xl mx-auto">
-          <motion.div 
+          <motion.div
             className="text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -111,7 +111,7 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="relative"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -119,9 +119,9 @@ export default function LandingPage() {
           >
             <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-3xl blur-3xl" />
             <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-2xl">
-              <img 
-                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/6d5176b54_DashboardOverview.png" 
-                alt="Dashboard Overview" 
+              <img
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/groonabackend-prod/public/6910343c60b8b79479bc50a6/6d5176b54_DashboardOverview.png"
+                alt="Dashboard Overview"
                 className="w-full"
               />
             </div>
@@ -141,7 +141,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="grid md:grid-cols-3 gap-8"
             variants={staggerContainer}
             initial="initial"
@@ -203,7 +203,7 @@ export default function LandingPage() {
 
           <div className="space-y-24">
             {/* USP 1 */}
-            <motion.div 
+            <motion.div
               className="grid md:grid-cols-2 gap-12 items-center"
               {...fadeInUp}
             >
@@ -240,7 +240,7 @@ export default function LandingPage() {
             </motion.div>
 
             {/* USP 2 */}
-            <motion.div 
+            <motion.div
               className="grid md:grid-cols-2 gap-12 items-center"
               {...fadeInUp}
             >
@@ -277,7 +277,7 @@ export default function LandingPage() {
             </motion.div>
 
             {/* USP 3 */}
-            <motion.div 
+            <motion.div
               className="grid md:grid-cols-2 gap-12 items-center"
               {...fadeInUp}
             >
@@ -314,14 +314,14 @@ export default function LandingPage() {
             </motion.div>
 
             {/* USP 4 */}
-            <motion.div 
+            <motion.div
               className="grid md:grid-cols-2 gap-12 items-center"
               {...fadeInUp}
             >
               <div className="order-2 md:order-1 relative">
                 <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl blur-2xl" />
                 <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-xl">
-                  <img src="/api/placeholder/600/400" alt="Client Dashboard" className="w-full" />
+                  <img src="https://placehold.co/600x400" alt="Client Dashboard" className="w-full" />
                 </div>
               </div>
               <div className="order-1 md:order-2">
@@ -365,7 +365,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="grid md:grid-cols-4 gap-8"
             variants={staggerContainer}
             initial="initial"
@@ -409,7 +409,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="grid md:grid-cols-2 gap-8 mb-16"
             variants={staggerContainer}
             initial="initial"
@@ -497,7 +497,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="grid md:grid-cols-3 gap-8"
             variants={staggerContainer}
             initial="initial"
@@ -633,7 +633,7 @@ export default function LandingPage() {
       {/* Statistics Section */}
       <section className="py-20 px-6 bg-gradient-to-r from-blue-600 to-purple-600">
         <div className="max-w-7xl mx-auto">
-          <motion.div 
+          <motion.div
             className="grid md:grid-cols-4 gap-8 text-center"
             variants={staggerContainer}
             initial="initial"
@@ -766,4 +766,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

@@ -65,20 +65,21 @@ export default function CommentsSection({
       queryClient.invalidateQueries(['comments', entityId]);
       queryClient.invalidateQueries([entityType, entityId]);
 
-      if (variables.mentions && variables.mentions.length > 0) {
-        await notificationService.notifyComment({
-          comment: {
-            author_name: currentUser.full_name,
-            author_email: currentUser.email
-          },
-          mentions: variables.mentions,
-          entityType,
-          entityId,
-          entityName,
-          tenantId: currentUser.tenant_id || currentUser.active_tenant_id,
-          commentContent: variables.content // Pass the comment content for preview
-        });
-      }
+      // ALWAYS trigger notification service - it handles logic for mentions vs assignees
+      await notificationService.notifyComment({
+        comment: {
+          id: data.id, // Pass ID for deep linking
+          author_name: currentUser.full_name,
+          author_email: currentUser.email,
+          content: variables.content
+        },
+        mentions: variables.mentions || [], // Pass mentions if any
+        entityType,
+        entityId,
+        entityName,
+        tenantId: currentUser.tenant_id || currentUser.active_tenant_id,
+        commentContent: variables.content
+      });
 
       if (onAddComment) onAddComment(data);
       toast.success("Comment posted successfully");
@@ -408,4 +409,3 @@ export default function CommentsSection({
     </Card>
   );
 }
-

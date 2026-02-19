@@ -18,8 +18,8 @@ const runChecks = async () => {
 
         const users = await User.find({
             status: { $ne: 'inactive' },
-            role: 'member',
-            custom_role: { $nin: ['project_manager', 'owner', 'client'] }
+            role: { $in: ['member', 'employee', 'user'], $nin: ['admin', 'project_manager', 'owner'] },
+            custom_role: { $nin: ['project_manager', 'owner', 'client', 'admin'] }
         });
         console.log(`Checking ${users.length} active users...`);
 

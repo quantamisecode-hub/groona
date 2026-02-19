@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const SchemaDefinitions = require('../models/SchemaDefinitions');
 
 // --- 1. CONFIGURATION ---
@@ -136,7 +137,7 @@ const runChecks = async () => {
         // Let's re-fetch standard members.
 
         const memberUsers = await User.find({
-            role: { $in: ['member', 'employee', 'user'] },
+            role: { $in: ['member', 'employee', 'user'], $nin: ['admin', 'project_manager', 'owner'] },
             custom_role: { $nin: ['project_manager', 'owner', 'client', 'admin'] },
             status: 'active'
         });

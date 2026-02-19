@@ -11,24 +11,7 @@ const pdf = require('html-pdf-node');
 const allocateIndividualLeave = require('../handlers/allocateIndividualLeave');
 const updateLeaveStatus = require('../handlers/updateLeaveStatus');
 
-// Helper: Send Email using Resend
-async function sendEmail(to, subject, html) {
-  if (!process.env.RESEND_API_KEY) {
-    console.log("Mock Email:", { to, subject });
-    return;
-  }
-
-  const { Resend } = require('resend');
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.MAIL_FROM || 'Groona <no-reply@quantumisecode.com>';
-
-  await resend.emails.send({
-    from: from,
-    to: Array.isArray(to) ? to : [to],
-    subject: subject,
-    html: html
-  });
-}
+const { sendEmail } = require('../services/emailService');
 
 // Default template
 const getDefaultTemplate = (otp) => `<p>Your code is: <b>${otp}</b></p>`;
@@ -351,99 +334,54 @@ const functionHandlers = {
     }
   },
 
+  // 17. Ops: Resolve Lockout Appeal (Reset Ignored Count)
   resolveLockoutAppeal: async (data) => {
-    const { notificationId } = data;
-    const Notification = Models.Notification;
-    const User = Models.User;
+    const { notificationId, /* status, resolvedBy */ } = data;
+    // 1. Resolve the Notification
+    await Models.Notification.updateOne(
+      { _id: notificationId },
+      {
+        status: 'RESOLVED',
+        read: true,
+        resolved_at: new Date(),
+        resolved_by: data.resolvedBy
+      }
+    );
 
-    const notif = await Notification.findById(notificationId);
-    if (!notif) throw new Error("Notification not found");
+    // 2. Find the notification to get the user
+    // (Or we could pass userId/email from frontend, but fetching is safer)
+    const notif = await Models.Notification.findById(notificationId);
+    if (notif && notif.user_id) {
+      // 3. Reset the ignored_alert_count on the LATEST activity log
+      // We assume the open alarm corresponds to the latest/current activity block.
+      const latestLog = await Models.UserActivityLog.findOne({ user_id: notif.user_id })
+        .sort({ timestamp: -1 });
 
-    await Notification.findByIdAndUpdate(notificationId, { status: 'RESOLVED', read: true });
-
-    if (notif.recipient_email) {
-      const user = await User.findOne({ email: notif.recipient_email });
-      if (user) {
-        await User.findOneAndUpdate({ email: notif.recipient_email }, { ignored_alert_count: 0 });
+      if (latestLog) {
+        latestLog.ignored_alert_count = 0;
+        await latestLog.save();
         console.log(`[resolveLockoutAppeal] Reset ignored_alert_count for user ${notif.recipient_email}`);
       }
     }
     return { success: true };
   },
 
-  getMissingTimesheetDay: async (data) => {
-    const { userEmail } = data;
-    const User = Models.User;
-    const user = await User.findOne({ email: userEmail });
-    if (!user) throw new Error("User not found");
+  // 18. Notifications: Send Email
+  sendNotificationEmail: async (data) => {
+    const { to, subject, html, templateType, templateData } = data;
+    console.log(`[function:sendNotificationEmail] Triggered for ${to}`);
 
-    // Strictly limit to:
-    // 1. role='member' AND custom_role='viewer'
-    // 2. role='admin' AND custom_role='project_manager'
-    const isAllowed = (user.role === 'member' && user.custom_role === 'viewer') ||
-      (user.role === 'admin' && user.custom_role === 'project_manager');
+    // Use the robust emailService
+    // It handles: SMTP vs Resend fallback, templates, etc.
+    const result = await sendEmail({
+      to,
+      subject,
+      html, // Can be direct HTML
+      templateType, // OR a template name
+      data: templateData // Data for the template
+    });
 
-    if (!isAllowed) {
-      return { missingDate: null };
-    }
-
-    const UserTimesheets = Models.User_timesheets;
-    if (!UserTimesheets) throw new Error("User_timesheets model not found");
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    const today = now.getDate();
-    const currentHour = now.getHours();
-
-    // Start checking from today ONLY if it's 6 PM (18:00) or later
-    let checkDate = new Date(year, month, today);
-    if (currentHour < 18) {
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-    checkDate.setHours(0, 0, 0, 0);
-
-    const firstOfMonth = new Date(year, month, 1);
-    firstOfMonth.setHours(0, 0, 0, 0);
-
-    const REQUIRED_MINUTES = 480;
-
-    while (checkDate >= firstOfMonth) {
-      // 1. Skip Sundays (0 = Sunday)
-      if (checkDate.getDay() === 0) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        continue;
-      }
-
-      // 2. Format manually to YYYY-MM-DD to avoid timezone shift
-      const y = checkDate.getFullYear();
-      const m = String(checkDate.getMonth() + 1).padStart(2, '0');
-      const d = String(checkDate.getDate()).padStart(2, '0');
-      const dateStr = `${y}-${m}-${d}`;
-
-      const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-      const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
-
-      const dayRecord = await UserTimesheets.findOne({
-        user_email: userEmail,
-        timesheet_date: { $gte: startOfDay, $lte: endOfDay }
-      }).sort({ total_time_submitted_in_day: -1 });
-
-      const totalMinutes = dayRecord ? dayRecord.total_time_submitted_in_day : 0;
-      const dailyStatus = dayRecord ? dayRecord.status : null;
-
-      if (totalMinutes < REQUIRED_MINUTES) {
-        return {
-          missingDate: dateStr,
-          dailyTotal: totalMinutes,
-          dailyStatus: dailyStatus
-        };
-      }
-
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-
-    return { missingDate: null };
+    return result;
   }
 };
 

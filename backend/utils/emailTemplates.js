@@ -112,6 +112,10 @@ function getEmailTemplate(templateType, data = {}) {
       return getReworkAlarmTemplate(data, true);
     case 'rework_alert':
       return getReworkGeneralAlertTemplate(data);
+    case 'trial_ending':
+      return getTrialEndingTemplate(data);
+    case 'subscription_expired':
+      return getSubscriptionExpiredTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -1031,6 +1035,84 @@ function getReworkGeneralAlertTemplate(data) {
       content
     ),
     defaultSubject: `Notice: Rework time logged (${reworkPercent}%)`
+  };
+}
+
+/**
+ * Trial Ending Template
+ */
+function getTrialEndingTemplate(data) {
+  const { userName, userEmail, trialEndDate, upgradeUrl } = data;
+
+  const content = `
+    <p style="${styles.text}">Your free trial of Groona is ending soon on <strong>${new Date(trialEndDate).toLocaleDateString()}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Plan:</span>
+        <span style="${styles.value}">Premium Trial</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Ends On:</span>
+        <span style="${styles.value}">${new Date(trialEndDate).toLocaleDateString()}</span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">Don't lose access to your projects and team collaboration features. Upgrade your plan now to ensure a seamless transition.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${upgradeUrl || '#'}" style="${styles.primaryBtn}">Upgrade Now</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Trial Ending Soon',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: 'Action Required: Your Groona Trial is Ending Soon'
+  };
+}
+
+/**
+ * Subscription Expired / Past Due Template
+ */
+function getSubscriptionExpiredTemplate(data) {
+  const { userName, userEmail, planName, expiryDate, renewalUrl } = data;
+
+  const content = `
+    <p style="${styles.text}">Your <strong>${planName || 'Groona'}</strong> subscription has expired.</p>
+    
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Account:</span>
+        <span style="${styles.value}">${userEmail}</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Expired On:</span>
+        <span style="${styles.value}">${new Date(expiryDate).toLocaleDateString()}</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: #ef4444;">PAST DUE</strong></span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">To regain full access to all features, please renew your subscription or update your payment details.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${renewalUrl || '#'}" style="${styles.primaryBtn}">Renew Subscription</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Subscription Expired',
+      `Hello, ${userName || userEmail}`,
+      content
+    ),
+    defaultSubject: '🚨 Your Groona Subscription Has Expired'
   };
 }
 

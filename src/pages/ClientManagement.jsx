@@ -285,21 +285,21 @@ export default function ClientManagement() {
     const isPending = createClientMutation.isPending || updateClientMutation.isPending;
 
     return (
-        <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-x-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-            <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full overflow-x-hidden relative" style={{ maxWidth: '100%' }}>
+        <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+            <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full relative" style={{ maxWidth: '100%' }}>
                 {/* Sticky Header Section */}
-                <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm">
+                <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0">
                     <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
                         {/* Header */}
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                        <div className="flex flex-row justify-between items-start gap-4 mb-4">
                             <div>
                                 <div className="flex items-center gap-3 mb-2">
-                                    <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20">
-                                        <Briefcase className="h-6 w-6 text-white" />
+                                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20 flex-shrink-0">
+                                        <Briefcase className="h-5 w-5 md:h-6 md:w-6 text-white" />
                                     </div>
                                     <div>
-                                        <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Client Management</h1>
-                                        <p className="text-slate-600">
+                                        <h1 className="text-2xl md:text-4xl font-bold text-slate-900">Client Management</h1>
+                                        <p className="text-xs md:text-base text-slate-600 hidden sm:block">
                                             Manage client organizations, billing details, and contacts.
                                         </p>
                                     </div>
@@ -307,29 +307,29 @@ export default function ClientManagement() {
                             </div>
                             <Button
                                 onClick={() => setIsDialogOpen(true)}
-                                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg"
+                                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg flex-shrink-0"
                             >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Client
+                                <Plus className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Add Client</span>
                             </Button>
                         </div>
 
                         {/* Search Bar - Full Width for now since no tabs */}
                         <div className="relative max-w-md ml-auto">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <Input
                                 placeholder="Search clients..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-10 bg-white/80 backdrop-blur-xl h-9"
                             />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 ßw-4 text-slate-400" />
                         </div>
                     </div>
                 </div>
 
                 {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                    <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+                <div className="flex-1 overflow-y-auto min-h-0">
+                    <div className="px-3 pb-24 md:pb-32 pt-3">
 
                         {/* Client List */}
                         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm">
@@ -339,92 +339,94 @@ export default function ClientManagement() {
                                     Registered Clients ({filteredClients.length})
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent border-slate-200">
-                                            <TableHead className="font-semibold text-slate-700">Organization</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Location</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Contact Person</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">GST / Tax ID</TableHead>
-                                            <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {isLoading ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="h-24 text-center">
-                                                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" />
-                                                </TableCell>
+                            <CardContent className="p-0 sm:p-6">
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="hover:bg-transparent border-slate-200">
+                                                <TableHead className="font-semibold text-slate-700 min-w-[200px]">Organization</TableHead>
+                                                <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                                                <TableHead className="font-semibold text-slate-700 min-w-[150px]">Location</TableHead>
+                                                <TableHead className="font-semibold text-slate-700 min-w-[180px]">Contact Person</TableHead>
+                                                <TableHead className="font-semibold text-slate-700 min-w-[120px]">GST / Tax ID</TableHead>
+                                                <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
                                             </TableRow>
-                                        ) : filteredClients.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="h-32 text-center text-slate-500">
-                                                    <div className="flex flex-col items-center justify-center gap-2">
-                                                        <Building2 className="h-8 w-8 text-slate-300" />
-                                                        <p>No clients found. Add one to get started.</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredClients.map((client) => (
-                                                <TableRow key={client.id} className="hover:bg-slate-50/80 transition-colors border-slate-100">
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-3">
-                                                            <Avatar className="h-10 w-10 border border-slate-200 bg-white shadow-sm">
-                                                                <AvatarImage src={client.logo_url} className="object-contain p-1" />
-                                                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
-                                                                    {client.name ? client.name.substring(0, 2).toUpperCase() : 'CO'}
-                                                                </AvatarFallback>
-                                                            </Avatar>
-                                                            <div>
-                                                                <div className="font-semibold text-slate-900">{client.name}</div>
-                                                                <div className="text-xs text-slate-500 font-mono">ID: {client.id ? client.id.slice(-6) : 'N/A'}</div>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={client.status === 'inactive' ? "secondary" : "default"} className={`${client.status === 'inactive' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'} capitalize shadow-none border-none`}>
-                                                            {client.status || 'Active'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col gap-1 text-sm text-slate-600">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                                                                {client.address?.city || 'N/A'}, {client.address?.country || 'N/A'}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col gap-1 text-sm">
-                                                            <div className="font-medium text-slate-900">{client.contact_person?.name || 'N/A'}</div>
-                                                            <div className="text-slate-500 flex items-center gap-1.5 text-xs">
-                                                                <Mail className="h-3 w-3" /> {client.contact_person?.email || '-'}
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-600 font-mono text-sm">
-                                                        <span className="bg-slate-100 px-2 py-1 rounded text-slate-700 border border-slate-200">
-                                                            {client.gst_number || '-'}
-                                                        </span>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="hover:text-blue-600 hover:bg-blue-50"
-                                                            onClick={() => handleEdit(client)}
-                                                        >
-                                                            <Edit2 className="h-4 w-4 mr-1" /> Edit
-                                                        </Button>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {isLoading ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="h-24 text-center">
+                                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-500" />
                                                     </TableCell>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            ) : filteredClients.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                                                        <div className="flex flex-col items-center justify-center gap-2">
+                                                            <Building2 className="h-8 w-8 text-slate-300" />
+                                                            <p>No clients found. Add one to get started.</p>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                filteredClients.map((client) => (
+                                                    <TableRow key={client.id} className="hover:bg-slate-50/80 transition-colors border-slate-100">
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-3">
+                                                                <Avatar className="h-10 w-10 border border-slate-200 bg-white shadow-sm">
+                                                                    <AvatarImage src={client.logo_url} className="object-contain p-1" />
+                                                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
+                                                                        {client.name ? client.name.substring(0, 2).toUpperCase() : 'CO'}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div>
+                                                                    <div className="font-semibold text-slate-900">{client.name}</div>
+                                                                    <div className="text-xs text-slate-500 font-mono">ID: {client.id ? client.id.slice(-6) : 'N/A'}</div>
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant={client.status === 'inactive' ? "secondary" : "default"} className={`${client.status === 'inactive' ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'} capitalize shadow-none border-none`}>
+                                                                {client.status || 'Active'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col gap-1 text-sm text-slate-600">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                                                                    {client.address?.city || 'N/A'}, {client.address?.country || 'N/A'}
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col gap-1 text-sm">
+                                                                <div className="font-medium text-slate-900">{client.contact_person?.name || 'N/A'}</div>
+                                                                <div className="text-slate-500 flex items-center gap-1.5 text-xs">
+                                                                    <Mail className="h-3 w-3" /> {client.contact_person?.email || '-'}
+                                                                </div>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-600 font-mono text-sm">
+                                                            <span className="bg-slate-100 px-2 py-1 rounded text-slate-700 border border-slate-200">
+                                                                {client.gst_number || '-'}
+                                                            </span>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="hover:text-blue-600 hover:bg-blue-50"
+                                                                onClick={() => handleEdit(client)}
+                                                            >
+                                                                <Edit2 className="h-4 w-4 mr-1" /> Edit
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                     </div>
@@ -642,4 +644,3 @@ export default function ClientManagement() {
         </div>
     );
 }
-

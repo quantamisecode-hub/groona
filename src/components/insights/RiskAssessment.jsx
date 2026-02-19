@@ -2,7 +2,7 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertTriangle, AlertCircle, CheckCircle2, Clock, Users, TrendingDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, AlertCircle, CheckCircle2, Clock, Users, TrendingDown, ChevronRight, Activity, ShieldAlert } from "lucide-react";
 
 export default function RiskAssessment({ project, tasks, compact = false }) {
   const assessRisks = () => {
@@ -20,7 +20,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
       const progress = project.progress || 0;
       const expectedProgress = 100 - ((daysUntilDeadline / 90) * 100); // Assuming 90 day project
       const progressGap = Math.max(0, expectedProgress - progress);
-      
+
       if (daysUntilDeadline < 0 && project.status !== 'completed') {
         riskScore += 30;
         riskFactors.push({ factor: 'Overdue deadline', impact: 30 });
@@ -62,10 +62,10 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
     // 2. Task Health Risk (0-25 points)
     const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
     const totalTasks = tasks.length;
-    
+
     if (totalTasks > 0) {
       const completionRate = ((totalTasks - pendingTasks) / totalTasks) * 100;
-      
+
       if (completionRate < 25 && totalTasks > 10) {
         riskScore += 20;
         riskFactors.push({ factor: 'Low completion rate', impact: 20 });
@@ -106,7 +106,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
     // 4. Workflow Bottleneck Risk (0-15 points)
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const reviewTasks = tasks.filter(t => t.status === 'review');
-    
+
     if (inProgressTasks.length > totalTasks * 0.4) {
       riskScore += 10;
       riskFactors.push({ factor: 'Too many in-progress tasks', impact: 10 });
@@ -158,7 +158,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
   const mediumRisks = risks.filter(r => r.level === 'medium').length;
 
   const overallRiskLevel = riskScore >= 60 ? 'critical' : riskScore >= 40 ? 'high' : riskScore >= 20 ? 'medium' : 'low';
-  
+
   const riskColors = {
     critical: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200', icon: AlertCircle },
     high: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200', icon: AlertTriangle },
@@ -193,18 +193,18 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
             <Progress value={riskScore} className="h-2" />
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
             <div className="text-center">
-              <p className="text-2xl font-bold text-red-600">{criticalRisks}</p>
-              <p className="text-xs text-slate-600">Critical</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{criticalRisks}</p>
+              <p className="text-[10px] sm:text-xs text-slate-600">Critical</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-600">{highRisks}</p>
-              <p className="text-xs text-slate-600">High</p>
+              <p className="text-xl sm:text-2xl font-bold text-orange-600">{highRisks}</p>
+              <p className="text-[10px] sm:text-xs text-slate-600">High</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-bold text-amber-600">{mediumRisks}</p>
-              <p className="text-xs text-slate-600">Medium</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">{mediumRisks}</p>
+              <p className="text-[10px] sm:text-xs text-slate-600">Medium</p>
             </div>
           </div>
         </CardContent>
@@ -213,109 +213,150 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
   }
 
   return (
-    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-600" />
-          Advanced Risk Assessment: {project.name}
-        </CardTitle>
+    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 transition-all duration-300 hover:shadow-md">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <span className="truncate">Risk Assessment: {project.name}</span>
+          </CardTitle>
+          <Badge variant="outline" className={`${text} ${bg} border-${riskColors[overallRiskLevel].border} px-3 py-1 text-sm capitalize`}>
+            {overallRiskLevel} Risk Level
+          </Badge>
+        </div>
       </CardHeader>
+
       <CardContent className="space-y-6">
-        <div className={`p-6 rounded-xl ${bg} border-2 ${border}`}>
-          <div className="flex items-center gap-4 mb-4">
-            <Icon className={`h-12 w-12 ${text}`} />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-600">Overall Risk Assessment</p>
-              <p className={`text-3xl font-bold ${text} capitalize mb-2`}>{overallRiskLevel} Risk</p>
-              <Progress value={riskScore} className="h-3" />
+        {/* Top Section: Score & Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+
+          {/* 1. Main Score Card */}
+          <div className={`md:col-span-5 lg:col-span-4 p-6 rounded-xl ${bg} border ${border} flex flex-col justify-center items-center text-center relative overflow-hidden`}>
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+              <Icon className="h-24 w-24" />
             </div>
-            <div className="text-right">
-              <p className="text-sm text-slate-600 mb-1">Risk Score</p>
-              <p className={`text-4xl font-bold ${text}`}>{riskScore}</p>
-              <p className="text-xs text-slate-600">out of 100</p>
+
+            <div className="relative z-10 w-full">
+              <p className="text-sm font-medium text-slate-600 mb-1 uppercase tracking-wider">Risk Score</p>
+              <div className="flex items-baseline justify-center gap-1 mb-2">
+                <span className={`text-5xl font-bold ${text}`}>{riskScore}</span>
+                <span className="text-slate-500 font-medium">/100</span>
+              </div>
+
+              <Progress value={riskScore} className="h-2 w-full max-w-[160px] mx-auto bg-white/50 mb-4" />
+
+              <div className="flex items-center justify-center gap-2 text-sm font-medium bg-white/40 p-2 rounded-lg backdrop-blur-sm">
+                <Icon className={`h-4 w-4 ${text}`} />
+                <span className="capitalize text-slate-700">{overallRiskLevel} Risk Detected</span>
+              </div>
             </div>
           </div>
-          
-          <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-200">
-            <div>
-              <p className="text-sm text-slate-600 mb-1">Critical Risks</p>
-              <p className="text-2xl font-bold text-red-600">{criticalRisks}</p>
+
+          {/* 2. Detail Metrics Grid */}
+          <div className="md:col-span-7 lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Critical */}
+            <div className="bg-red-50/50 border border-red-100 p-4 rounded-xl flex flex-col items-center justify-center text-center hover:bg-red-50 transition-colors cursor-default">
+              <p className="text-3xl font-bold text-red-600 mb-1">{criticalRisks}</p>
+              <p className="text-xs font-semibold text-red-800 uppercase tracking-wide">Critical Risks</p>
             </div>
-            <div>
-              <p className="text-sm text-slate-600 mb-1">High Risks</p>
-              <p className="text-2xl font-bold text-orange-600">{highRisks}</p>
+
+            {/* High */}
+            <div className="bg-orange-50/50 border border-orange-100 p-4 rounded-xl flex flex-col items-center justify-center text-center hover:bg-orange-50 transition-colors cursor-default">
+              <p className="text-3xl font-bold text-orange-600 mb-1">{highRisks}</p>
+              <p className="text-xs font-semibold text-orange-800 uppercase tracking-wide">High Risks</p>
             </div>
-            <div>
-              <p className="text-sm text-slate-600 mb-1">Medium Risks</p>
-              <p className="text-2xl font-bold text-amber-600">{mediumRisks}</p>
+
+            {/* Medium */}
+            <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-xl flex flex-col items-center justify-center text-center hover:bg-amber-50 transition-colors cursor-default">
+              <p className="text-3xl font-bold text-amber-600 mb-1">{mediumRisks}</p>
+              <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Medium Risks</p>
+            </div>
+
+            {/* Risk Factors Breakdown - Spans Full Width of this sub-grid */}
+            <div className="sm:col-span-3 bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
+              <h4 className="flex items-center gap-2 font-semibold text-slate-800 text-sm mb-3">
+                <Activity className="h-4 w-4 text-slate-500" />
+                Risk Contribution Factors
+              </h4>
+              {riskFactors.length > 0 ? (
+                <div className="space-y-3">
+                  {riskFactors.slice(0, 3).map((factor, index) => (
+                    <div key={index} className="flex items-center gap-3 text-sm">
+                      <span className="text-slate-600 flex-1 truncate">{factor.factor}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-blue-400 to-purple-500 rounded-full"
+                            style={{ width: `${Math.min(100, (factor.impact / 30) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="font-mono font-medium text-slate-700 text-xs w-6 text-right">+{factor.impact}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {riskFactors.length > 3 && (
+                    <p className="text-xs text-center text-slate-400 pt-1">+{riskFactors.length - 3} more factors</p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-2 text-slate-400 text-sm italic">
+                  No negative risk factors currently affecting score.
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Risk Factors Breakdown */}
-        {riskFactors.length > 0 && (
-          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-            <h4 className="font-semibold text-slate-900 mb-3">Risk Factors Contribution</h4>
-            <div className="space-y-2">
-              {riskFactors.map((factor, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <span className="text-slate-700">{factor.factor}</span>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-amber-500 to-red-500 h-2 rounded-full"
-                        style={{ width: `${(factor.impact / 30) * 100}%` }}
-                      />
+        {/* Detailed Risks List */}
+        {risks.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-slate-500" />
+              Identified Risks & Mitigation
+            </h3>
+            <div className="grid grid-cols-1 gap-3">
+              {risks.map((risk, index) => {
+                const riskStyle = riskColors[risk.level];
+                return (
+                  <div key={index} className={`relative p-4 rounded-xl border ${riskStyle.border} ${riskStyle.bg} flex flex-col sm:flex-row gap-4 transition-all hover:shadow-sm`}>
+                    {/* Left Stripe */}
+                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl ${riskStyle.text.replace('text', 'bg').replace('700', '500')}`}></div>
+
+                    <div className="flex-1 pl-2">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <Badge className={`uppercase text-[10px] font-bold tracking-wider border-0 ${riskStyle.bg} ${riskStyle.text}`}>
+                          {risk.level}
+                        </Badge>
+                        <span className="text-xs font-medium text-slate-500 bg-white/50 px-2 py-0.5 rounded-full border border-slate-200/50">
+                          {risk.category}
+                        </span>
+                      </div>
+                      <h4 className="font-semibold text-slate-900 text-base mb-1">{risk.title}</h4>
+                      <p className="text-sm text-slate-700 leading-relaxed">{risk.description}</p>
                     </div>
-                    <span className="font-semibold text-slate-900 w-8 text-right">+{factor.impact.toFixed(0)}</span>
+
+                    {/* Action Section */}
+                    <div className="sm:w-1/3 min-w-[250px] bg-white/60 rounded-lg p-3 border border-slate-200/50 backdrop-blur-sm self-start">
+                      <div className="flex items-start gap-2">
+                        <ChevronRight className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-0.5">Recommended Action</p>
+                          <p className="text-xs md:text-sm font-medium text-slate-800 leading-snug">{risk.mitigation}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {risks.length === 0 ? (
-          <div className="text-center py-8">
-            <CheckCircle2 className="h-16 w-16 mx-auto mb-3 text-green-500" />
-            <p className="text-lg font-semibold text-slate-900 mb-2">No Significant Risks Identified</p>
-            <p className="text-slate-600">Project is on track with no major concerns</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <h3 className="font-semibold text-slate-900">Identified Risks & Mitigation Strategies</h3>
-            {risks.map((risk, index) => {
-              const riskStyle = riskColors[risk.level];
-              return (
-                <div key={index} className={`p-5 rounded-xl border-2 ${riskStyle.border} ${riskStyle.bg}`}>
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className={`${riskStyle.bg} ${riskStyle.text} ${riskStyle.border} border`}>
-                          {risk.category}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Impact: {risk.impact}
-                        </Badge>
-                      </div>
-                      <h4 className="font-semibold text-slate-900 text-lg mb-2">{risk.title}</h4>
-                      <p className="text-sm text-slate-700 mb-3">{risk.description}</p>
-                    </div>
-                    <riskStyle.icon className={`h-7 w-7 ${riskStyle.text} flex-shrink-0`} />
-                  </div>
-                  
-                  <div className={`p-3 rounded-lg bg-white/60 border ${riskStyle.border}`}>
-                    <div className="flex items-start gap-2">
-                      <ChevronRight className="h-4 w-4 text-slate-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700 mb-1">Recommended Action:</p>
-                        <p className="text-sm text-slate-900">{risk.mitigation}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+        {risks.length === 0 && (
+          <div className="text-center py-10 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-green-500 opacity-80" />
+            <p className="font-medium text-slate-900">No Significant Risks Identified</p>
+            <p className="text-sm text-slate-500">Project is on track with no major concerns</p>
           </div>
         )}
       </CardContent>

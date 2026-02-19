@@ -208,24 +208,24 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-x-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-      <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full overflow-x-hidden relative" style={{ maxWidth: '100%' }}>
+    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+      <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full relative" style={{ maxWidth: '100%' }}>
         {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm">
+        <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0">
           <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div className="flex flex-row justify-between items-start gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <div className={`h-12 w-12 rounded-xl flex items-center justify-center shadow-lg ${isInPlatformMode
+                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${isInPlatformMode
                     ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
                     : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20'
                     }`}>
-                    <Users className="h-6 w-6 text-white" />
+                    <Users className="h-5 w-5 md:h-6 md:w-6 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-3xl md:text-4xl font-bold text-slate-900">User Management</h1>
-                    <p className="text-slate-600">
+                    <h1 className="text-2xl md:text-4xl font-bold text-slate-900">User Management</h1>
+                    <p className="text-xs md:text-base text-slate-600 hidden sm:block">
                       {isInPlatformMode
                         ? 'Manage users across all tenants'
                         : 'Manage users, roles, and permissions for your organization'
@@ -237,10 +237,10 @@ export default function UserManagement() {
               {(currentUser.is_super_admin || (currentUser.role === 'admin' && currentUser.custom_role !== 'project_manager')) && (
                 <Button
                   onClick={() => setShowInviteDialog(true)}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg"
+                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg flex-shrink-0"
                 >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Invite User
+                  <UserPlus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Invite User</span>
                 </Button>
               )}
             </div>
@@ -258,16 +258,16 @@ export default function UserManagement() {
             {/* Tabs with Search Bar */}
             <div className="flex items-center justify-between gap-4">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-                <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200">
-                  <TabsTrigger value="users" className="gap-2">
+                <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 inline-flex justify-start overflow-x-auto h-auto gap-1 hide-scrollbar snap-x p-1 w-fit">
+                  <TabsTrigger value="users" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
                     <Users className="h-4 w-4" />
                     Users ({filteredUsers.length})
                   </TabsTrigger>
-                  <TabsTrigger value="groups" className="gap-2">
+                  <TabsTrigger value="groups" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
                     <Shield className="h-4 w-4" />
                     Groups ({groups.length})
                   </TabsTrigger>
-                  <TabsTrigger value="clients" className="gap-2">
+                  <TabsTrigger value="clients" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
                     <UserPlus className="h-4 w-4" />
                     Client Users
                   </TabsTrigger>
@@ -276,13 +276,13 @@ export default function UserManagement() {
               {/* Search Bar - Beside Clients button */}
               {activeTab === 'users' && (
                 <div className="relative flex-1 max-w-md ml-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search users by name, email, or role..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-10 bg-white/80 backdrop-blur-xl h-9"
                   />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
               )}
             </div>
@@ -290,8 +290,8 @@ export default function UserManagement() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="px-3 pb-24 md:pb-32 pt-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
 
               {/* Users Tab */}
@@ -542,7 +542,7 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
   const displayName = user.full_name || 'Unknown User';
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-all">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-all gap-4">
       <div className="flex items-center gap-4 flex-1">
         <div className="relative">
           <Avatar className="h-12 w-12 border-2 border-slate-200">
@@ -649,7 +649,7 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
       </div>
 
       {canModify && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
 
           {/* Admin Toggle Button - Only for owners/super admins, not for project managers */}
           {canChangeRole && !isSuperAdmin && (
@@ -662,7 +662,7 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
                 title="Remove Admin Rights"
               >
                 <ShieldOff className="h-4 w-4" />
-                <span className="text-xs font-medium">Remove Admin</span>
+                <span className="text-xs font-medium hidden sm:inline">Remove Admin</span>
               </Button>
             ) : user.custom_role !== 'owner' && user.custom_role !== 'client' ? (
               <Button
@@ -673,7 +673,7 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
                 title="Promote to Admin"
               >
                 <Shield className="h-4 w-4" />
-                <span className="text-xs font-medium">Make Admin</span>
+                <span className="text-xs font-medium hidden sm:inline">Make Admin</span>
               </Button>
             ) : null
           )}
@@ -721,4 +721,3 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
     </div>
   );
 }
-

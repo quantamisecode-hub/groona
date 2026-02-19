@@ -115,84 +115,93 @@ export default function ActivityFeed({ activities, loading }) {
   }
 
   return (
-    <Card className="bg-white/90 backdrop-blur-xl border-slate-200/60 shadow-lg overflow-hidden">
-      <CardHeader className="border-b border-slate-100/80 bg-gradient-to-r from-blue-50/50 to-purple-50/50 pb-3 sm:pb-4 px-3 sm:px-6 space-y-3">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="h-7 w-7 sm:h-9 sm:w-9 flex-shrink-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
-              <Activity className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+    <Card className="bg-white/90 backdrop-blur-xl border-slate-200/60 shadow-lg overflow-hidden mr-2">
+      <CardHeader className="border-b border-slate-100/80 bg-gradient-to-r from-blue-50/50 to-purple-50/50 p-4 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3 overflow-hidden">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 flex-shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Activity className="h-4.5 w-4.5 text-white" />
             </div>
-            <CardTitle className="text-sm sm:text-lg font-bold text-slate-900 truncate">Activity Feed</CardTitle>
+            <CardTitle className="text-base sm:text-lg font-bold text-slate-900 truncate tracking-tight">Activity Feed</CardTitle>
           </div>
-          <Badge variant="outline" className="text-[10px] sm:text-xs flex-shrink-0 whitespace-nowrap px-1.5 sm:px-2 py-0.5 sm:py-1 bg-white/80">
+          <Badge variant="outline" className="text-[10px] font-bold whitespace-nowrap px-2 py-0.5 bg-white/80 border-slate-200 text-slate-600 shrink-0">
             {filteredActivities.length} / {activities.length}
           </Badge>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Filter className="h-3.5 w-3.5 text-slate-600" />
-            <span className="text-xs font-medium text-slate-600 hidden sm:inline">Filters:</span>
+        {/* Filters Section - Flexible layout */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0 opacity-80">
+            <Filter className="h-3 w-3 text-slate-600" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Quick Filters</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 flex-1">
-            <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="h-7 w-full text-xs">
-                <SelectValue placeholder="Action" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Actions</SelectItem>
-                {uniqueActions.map((action, idx) => (
-                  <SelectItem key={action || `action-${idx}`} value={action} className="capitalize">{action}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
 
-            <Select value={entityFilter} onValueChange={setEntityFilter}>
-              <SelectTrigger className="h-7 w-full text-xs">
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {uniqueEntityTypes.map((type, idx) => (
-                  <SelectItem key={type || `type-${idx}`} value={type} className="capitalize">{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap gap-1.5">
+            <div className="flex-1 min-w-[100px] max-w-full">
+              <Select value={actionFilter} onValueChange={setActionFilter}>
+                <SelectTrigger className="h-7 w-full text-[10px] px-2 bg-white/50 border-slate-200">
+                  <SelectValue placeholder="Action" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Actions</SelectItem>
+                  {uniqueActions.map((action, idx) => (
+                    <SelectItem key={action || `action-${idx}`} value={action} className="capitalize text-[10px]">{action}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-7 w-full text-xs">
-                <SelectValue placeholder="User" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {uniqueUsers.map((user, idx) => (
-                  <SelectItem key={user || `user-${idx}`} value={user}>{user}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex-1 min-w-[100px] max-w-full">
+              <Select value={entityFilter} onValueChange={setEntityFilter}>
+                <SelectTrigger className="h-7 w-full text-[10px] px-2 bg-white/50 border-slate-200">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {uniqueEntityTypes.map((type, idx) => (
+                    <SelectItem key={type || `type-${idx}`} value={type} className="capitalize text-[10px]">{type}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="h-7 w-full text-xs">
-                <SelectValue placeholder="Date" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Last 24h</SelectItem>
-                <SelectItem value="week">Last Week</SelectItem>
-                <SelectItem value="month">Last Month</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex-1 min-w-[100px] max-w-full">
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger className="h-7 w-full text-[10px] px-2 bg-white/50 border-slate-200">
+                  <SelectValue placeholder="User" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {uniqueUsers.map((user, idx) => (
+                    <SelectItem key={user || `user-${idx}`} value={user} className="text-[10px]">{user}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[110px] max-w-full">
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="h-8 w-full text-[10px] px-3 bg-white/60 border-slate-200 hover:bg-white transition-colors">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today" className="text-[10px]">Last 24h</SelectItem>
+                  <SelectItem value="week" className="text-[10px]">Last Week</SelectItem>
+                  <SelectItem value="month" className="text-[10px]">Last Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearFilters}
-                className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900"
+                className="h-7 px-2 text-[10px] text-slate-500 hover:text-red-600 hover:bg-red-50"
               >
                 <X className="h-3 w-3 mr-1" />
-                Clear
+                Reset
               </Button>
             )}
           </div>
@@ -201,14 +210,14 @@ export default function ActivityFeed({ activities, loading }) {
       <CardContent className="p-0">
         <ScrollArea className="h-[500px] sm:h-[600px]">
           {filteredActivities.length === 0 ? (
-            <div className="p-6 sm:p-12 text-center">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                <FileText className="h-5 w-5 sm:h-8 sm:w-8 text-slate-400" />
+            <div className="p-8 sm:p-14 text-center">
+              <div className="h-14 w-14 sm:h-18 sm:w-18 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center mx-auto mb-4 border border-slate-200/50">
+                <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-slate-300" />
               </div>
-              <p className="text-slate-600 font-semibold text-sm sm:text-base">
+              <p className="text-slate-600 font-bold text-sm sm:text-base tracking-tight">
                 {activities.length === 0 ? 'No activity yet' : 'No matching activities'}
               </p>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+              <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-[200px] mx-auto">
                 {activities.length === 0 ? 'Activity will appear here as work progresses' : 'Try adjusting your filters'}
               </p>
               {hasActiveFilters && (
@@ -216,16 +225,16 @@ export default function ActivityFeed({ activities, loading }) {
                   variant="outline"
                   size="sm"
                   onClick={clearFilters}
-                  className="mt-3 text-xs"
+                  className="mt-5 text-xs h-8 px-4 rounded-lg"
                 >
                   Clear Filters
                 </Button>
               )}
             </div>
           ) : (
-            <div className="relative px-2 sm:px-6 py-3 sm:py-4">
-              {/* Timeline line - precisely centered for all screens */}
-              <div className="absolute left-[12px] sm:left-[32px] lg:left-[34px] top-6 bottom-4 w-[1.5px] bg-gradient-to-b from-slate-200 via-slate-200/50 to-transparent" />
+            <div className="relative p-4 pr-10 sm:p-6 sm:pr-12 lg:p-8 lg:pr-16">
+              {/* Timeline line - centrally aligned with the icon center */}
+              <div className="absolute left-[36px] sm:left-[46px] lg:left-[54px] top-8 bottom-6 w-[1px] bg-gradient-to-b from-slate-200 via-slate-200/50 to-transparent" />
 
               <div className="space-y-2 sm:space-y-3">
                 {filteredActivities.map((activity, index) => {
@@ -234,38 +243,42 @@ export default function ActivityFeed({ activities, loading }) {
                   const badgeColor = activityBadgeColors[activity.entity_type] || "bg-slate-100 text-slate-700";
 
                   return (
-                    <div key={activity.id} className="relative flex gap-2 sm:gap-3 group">
-                      {/* Icon */}
+                    <div key={activity.id} className="relative flex gap-3 sm:gap-4 lg:gap-6 group mb-4 last:mb-0">
+                      {/* Icon Container */}
                       <div className="relative z-10 flex-shrink-0">
-                        <div className={`h-7 w-7 sm:h-9 sm:w-9 lg:h-10 lg:w-10 rounded-full flex items-center justify-center border-2 shadow-sm transition-all duration-200 group-hover:scale-110 group-hover:shadow-lg ${colorClass}`}>
-                          <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 lg:h-5 lg:w-5" />
+                        <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center border-2 shadow-sm transition-all duration-200 group-hover:scale-105 group-hover:shadow-lg ${colorClass}`}>
+                          <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                         </div>
                       </div>
 
                       {/* Content Card */}
                       <div className="flex-1 min-w-0 pb-2 sm:pb-3">
                         <div className="bg-gradient-to-br from-white to-slate-50/50 rounded-xl lg:rounded-2xl border border-slate-200/80 p-3 sm:p-4 shadow-sm hover:shadow-md transition-all duration-200 group-hover:border-blue-300/50 group-hover:bg-white group-hover:-translate-y-0.5">
-                          {/* Header Row */}
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
-                            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
-                              <Avatar className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-white shadow-sm flex-shrink-0">
-                                <AvatarFallback className="text-[10px] sm:text-xs font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                                  {getInitials(activity.user_name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 min-w-0">
-                                <span className="font-bold text-[11px] sm:text-xs lg:text-sm text-slate-900 truncate max-w-[100px] sm:max-w-none">
-                                  {activity.user_name}
-                                </span>
-                                <span className="text-[10px] sm:text-xs text-slate-500 lowercase">{activity.action}</span>
-                                <Badge className={`${badgeColor} text-[9px] sm:text-[10px] px-2 py-0 sm:py-0.5 font-semibold rounded-full border-0 shadow-none`}>
-                                  {activity.entity_type}
-                                </Badge>
+                          {/* Header Row - Improved for narrow columns */}
+                          <div className="flex flex-col gap-2 mb-2">
+                            <div className="flex items-start justify-between gap-2 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Avatar className="h-6 w-6 border-2 border-white shadow-sm flex-shrink-0">
+                                  <AvatarFallback className="text-[10px] font-semibold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                    {getInitials(activity.user_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-bold text-xs text-slate-900 truncate">
+                                    {activity.user_name}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-[10px] text-slate-500 capitalize">{activity.action}</span>
+                                    <Badge className={`${badgeColor} text-[9px] px-1.5 py-0 font-semibold rounded-full border-0 shadow-none h-4`}>
+                                      {activity.entity_type}
+                                    </Badge>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs text-slate-400 flex-shrink-0">
-                              <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                              <span className="whitespace-nowrap">{formatDistanceToNow(new Date(activity.created_date), { addSuffix: true })}</span>
+                              <div className="flex items-center gap-1 text-[9px] text-slate-400 flex-shrink-0 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-100 uppercase tracking-tighter">
+                                <Clock className="h-2 w-2" />
+                                <span className="whitespace-nowrap font-medium">{formatDistanceToNow(new Date(activity.created_date), { addSuffix: true })}</span>
+                              </div>
                             </div>
                           </div>
 

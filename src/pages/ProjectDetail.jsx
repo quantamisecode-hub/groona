@@ -615,7 +615,7 @@ export default function ProjectDetail() {
                     />
                   </div>
 
-                  <div>
+                  <div className="pr-2 sm:pr-4 lg:pr-6">
                     <ActivityFeed activities={activities} loading={activitiesLoading} />
                   </div>
                 </div>

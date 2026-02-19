@@ -165,11 +165,11 @@ export default function PlannedLeavesPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-x-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-      <div className="max-w-7xl mx-auto w-full flex flex-col h-full overflow-x-hidden relative" style={{ maxWidth: '100%' }}>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+      <div className="max-w-10xl mx-auto w-full flex flex-col relative h-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           {/* Sticky Header Section */}
-          <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm">
+          <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0 pb-4">
             <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                 <div>
@@ -200,28 +200,28 @@ export default function PlannedLeavesPage() {
             </div>
 
             {/* Sticky Tabs Section */}
-            <div className="px-4 md:px-6 lg:px-8 pb-2">
-              <TabsList className="bg-white/80 backdrop-blur-xl w-full justify-start overflow-x-auto flex-nowrap h-auto scrollbar-hide py-1">
-                <TabsTrigger value="overview" className="flex items-center gap-2">
+            <div className="px-4 md:px-6 lg:px-8 pb-0">
+              <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 justify-start overflow-x-auto h-auto p-1 gap-1 hide-scrollbar snap-x">
+                <TabsTrigger value="overview" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                   <Calendar className="h-4 w-4" /> Overview
                 </TabsTrigger>
 
                 {(!isAdmin || isProjectManager) && (
                   <>
-                    <TabsTrigger value="my-leaves" className="flex items-center gap-2">
+                    <TabsTrigger value="my-leaves" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <Calendar className="h-4 w-4" /> My Leaves
                     </TabsTrigger>
-                    <TabsTrigger value="balances" className="flex items-center gap-2">
+                    <TabsTrigger value="balances" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <Calendar className="h-4 w-4" /> Balances
                     </TabsTrigger>
                   </>
                 )}
 
                 {(isAdmin || canApproveLeaves || isProjectManager) && (
-                  <TabsTrigger value="approvals" className="flex items-center gap-2">
+                  <TabsTrigger value="approvals" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                     <Users className="h-4 w-4" /> Approvals
                     {allLeaves.filter(l => l.status === 'submitted').length > 0 && (
-                      <Badge className="ml-1 bg-orange-500 text-white">
+                      <Badge className="ml-1 bg-orange-500 text-white h-5 px-1.5 min-w-[1.25rem]">
                         {allLeaves.filter(l => l.status === 'submitted').length}
                       </Badge>
                     )}
@@ -230,10 +230,10 @@ export default function PlannedLeavesPage() {
 
                 {(isAdmin || isProjectManager) && (
                   <>
-                    <TabsTrigger value="team-calendar" className="flex items-center gap-2">
+                    <TabsTrigger value="team-calendar" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <Calendar className="h-4 w-4" /> Team Calendar
                     </TabsTrigger>
-                    <TabsTrigger value="team-balances" className="flex items-center gap-2">
+                    <TabsTrigger value="team-balances" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <BarChart3 className="h-4 w-4" /> Team Balances
                     </TabsTrigger>
                   </>
@@ -241,10 +241,10 @@ export default function PlannedLeavesPage() {
 
                 {isAdmin && !isProjectManager && (
                   <>
-                    <TabsTrigger value="comp-off" className="flex items-center gap-2">
+                    <TabsTrigger value="comp-off" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <Calendar className="h-4 w-4" /> Comp Off
                     </TabsTrigger>
-                    <TabsTrigger value="config" className="flex items-center gap-2">
+                    <TabsTrigger value="config" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
                       <Settings className="h-4 w-4" /> Configuration
                     </TabsTrigger>
                   </>
@@ -254,8 +254,8 @@ export default function PlannedLeavesPage() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="px-4 md:px-6 lg:px-5 pb-24 md:pb-32 pt-4">
               <TabsContent value="overview" className="mt-4 space-y-6">
                 <LeaveOverviewDashboard currentUser={currentUser} tenantId={effectiveTenantId} onApplyLeave={() => setShowApplyDialog(true)} />
                 <LeaveGuide />
@@ -324,4 +324,3 @@ export default function PlannedLeavesPage() {
     </div>
   );
 }
-

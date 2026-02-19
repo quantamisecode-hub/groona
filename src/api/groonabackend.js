@@ -5,7 +5,8 @@ import { queryClient } from '@/queryClient';
 // Base URL is configured in .env file
 // For local development: VITE_API_BASE=http://localhost:5000
 // For production: VITE_API_BASE=https://aivorabackend.quantemisecode.com
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE_RAW = import.meta.env.VITE_API_BASE;
+const API_BASE = API_BASE_RAW ? API_BASE_RAW.replace(/\/$/, '') : '';
 
 if (!API_BASE) {
   throw new Error(

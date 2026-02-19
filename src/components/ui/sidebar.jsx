@@ -16,7 +16,7 @@ export function useSidebar() {
 export function SidebarProvider({ children, defaultOpen = true, open: openProp, onOpenChange: setOpenProp }) {
   const [openState, setOpenState] = useState(defaultOpen);
   const [openMobile, setOpenMobile] = useState(false);
-  
+
   // Use controlled or uncontrolled state
   const open = openProp !== undefined ? openProp : openState;
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
@@ -26,23 +26,23 @@ export function SidebarProvider({ children, defaultOpen = true, open: openProp, 
 
   // Mobile check
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile(); // Check immediately
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   return (
-    <SidebarContext.Provider value={{ 
-      state: open ? "expanded" : "collapsed", 
-      open, 
-      setOpen, 
-      openMobile, 
-      setOpenMobile, 
-      isMobile, 
-      toggleSidebar 
+    <SidebarContext.Provider value={{
+      state: open ? "expanded" : "collapsed",
+      open,
+      setOpen,
+      openMobile,
+      setOpenMobile,
+      isMobile,
+      toggleSidebar
     }}>
       <div className="group/sidebar-wrapper flex min-h-screen w-full bg-slate-50/50">
         {children}
@@ -58,30 +58,30 @@ export function Sidebar({ className, children, side = "left", ...props }) {
   if (isMobile) {
     return (
       <>
-        <div 
+        <div
           className={cn(
-            "fixed inset-0 z-50 bg-black/80 transition-opacity duration-300 ease-in-out",
+            "fixed inset-0 z-[100] bg-black/80 transition-opacity duration-300 ease-in-out",
             openMobile ? "opacity-100" : "opacity-0 pointer-events-none"
           )}
           onClick={() => setOpenMobile(false)}
         />
         <div
           className={cn(
-            "fixed inset-y-0 left-0 z-50 w-[280px] bg-white shadow-lg transition-transform duration-300 ease-in-out",
+            "fixed inset-y-0 left-0 z-[100] w-[280px] bg-white shadow-lg transition-transform duration-300 ease-in-out",
             openMobile ? "translate-x-0" : "-translate-x-full",
             className
           )}
           {...props}
         >
-           <div className="absolute right-4 top-4 opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpenMobile(false)}>
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </Button>
-           </div>
-           <div className="flex flex-col h-full">
+          <div className="absolute right-4 top-4 opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpenMobile(false)}>
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </Button>
+          </div>
+          <div className="flex flex-col h-full">
             {children}
-           </div>
+          </div>
         </div>
       </>
     );
@@ -92,7 +92,7 @@ export function Sidebar({ className, children, side = "left", ...props }) {
     <aside
       className={cn(
         "fixed left-0 top-0 h-screen z-30 bg-white border-r transition-all duration-300 ease-in-out flex flex-col",
-        open ? "w-[280px]" : "w-[0px] overflow-hidden border-none", 
+        open ? "w-[280px]" : "w-[0px] overflow-hidden border-none",
         className
       )}
       {...props}
@@ -174,14 +174,14 @@ export function SidebarMenuItem({ className, ...props }) {
   return <li className={cn("group/menu-item relative", className)} {...props} />;
 }
 
-export function SidebarMenuButton({ 
-  asChild = false, 
-  isActive = false, 
-  variant = "default", 
-  size = "default", 
-  tooltip, 
-  className, 
-  ...props 
+export function SidebarMenuButton({
+  asChild = false,
+  isActive = false,
+  variant = "default",
+  size = "default",
+  tooltip,
+  className,
+  ...props
 }) {
   const Comp = asChild ? React.Fragment : "button";
 

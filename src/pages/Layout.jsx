@@ -1256,6 +1256,10 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                       {!user.is_super_admin && user.role === 'admin' && user.custom_role !== 'owner' && user.custom_role !== 'project_manager' && (
                         <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Admin</span>
                       )}
+                      {/* Regular Member: Show Member badge for viewers */}
+                      {!user.is_super_admin && user.role === 'member' && user.custom_role === 'viewer' && (
+                        <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded">Member</span>
+                      )}
                       {isViewingAsTenant && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Viewing</span>}
                     </p>
                     <p className="text-xs text-slate-500 truncate">{user.email}</p>
@@ -1586,7 +1590,13 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
             </AnimatePresence>
           </div>
 
-          {/* Account Lockout Overlay - Blocks main content ONLY */}
+          {/* Mandatory Timesheet Alert/Alarm Overlay - Blocks main content ONLY */}
+          <MandatoryTimesheetModal
+            currentUser={user}
+            effectiveTenantId={effectiveTenantId}
+          />
+
+          {/* Account Lockout Overlay - Blocks main content ONLY - Highest Priority */}
           {isAccountLocked && (
             <AccountLockedOverlay
               currentUser={user}
@@ -1594,12 +1604,6 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
               onBackfillSuccess={() => refetchNotifications()}
             />
           )}
-
-          {/* Mandatory Timesheet Alert/Alarm Overlay - Blocks main content ONLY */}
-          <MandatoryTimesheetModal
-            currentUser={user}
-            effectiveTenantId={effectiveTenantId}
-          />
           <ReportBugDialog open={showReportBug} onClose={() => setShowReportBug(false)} onSuccess={() => toast.success('Bug report submitted successfully!')} />
         </main>
       </div>
@@ -1614,4 +1618,3 @@ export default function Layout({ children, currentPageName }) {
     </UserProvider>
   );
 }
-

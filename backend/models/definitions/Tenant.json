@@ -29,7 +29,8 @@
         "suspended",
         "trial",
         "cancelled",
-        "pending"
+        "pending",
+        "past_due"
       ],
       "default": "pending",
       "description": "Tenant account status"

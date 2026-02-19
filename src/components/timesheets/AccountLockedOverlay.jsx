@@ -35,7 +35,7 @@ export default function AccountLockedOverlay({ currentUser, timesheetAlerts, onB
     };
 
     return (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-[200] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
             <div className="bg-white max-w-md w-full rounded-xl shadow-2xl overflow-hidden border border-red-200">
                 <div className="p-6 bg-red-50 border-b border-red-100 text-center">
                     <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
