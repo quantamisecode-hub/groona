@@ -41,6 +41,9 @@ const SCRIPTS = [
     'check_deadline_risk.js',
     'generate_utilization_alerts.js',
     'alert_pending_timesheets.js',
+    'check_team_utilization.js',
+    'check_user_overload.js',
+
 ];
 
 const runScript = (scriptName) => {
