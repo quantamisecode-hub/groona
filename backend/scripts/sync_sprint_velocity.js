@@ -3,7 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // Load environment variables
-const envPath = path.resolve(__dirname, '../../.env');
+const envPath = path.resolve(__dirname, '../.env');
 dotenv.config({ path: envPath });
 
 const Models = require('../models/SchemaDefinitions');

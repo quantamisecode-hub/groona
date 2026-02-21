@@ -73,7 +73,12 @@
         "PM_CONSISTENT_VELOCITY_DROP",
         "PM_DEADLINE_RISK",
         "pending_timesheet_alert",
-        "pending_pm_summary"
+        "pending_timesheet_alert",
+        "pending_pm_summary",
+        "timesheet_lock",
+        "profile_incomplete",
+        "USER_CONSISTENT",
+        "rework_improvement"
       ],
       "description": "Type of notification"
     },

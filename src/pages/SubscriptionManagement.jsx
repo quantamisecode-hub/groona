@@ -205,7 +205,7 @@ export default function SubscriptionManagement() {
           <p className="text-slate-600 max-w-md mb-8">
             Only workspace owners can view and manage subscription plans. Please contact your administrator if you need to upgrade.
           </p>
-          <Button onClick={() => window.location.href = '/'}>
+          <Button onClick={() => navigate('/Dashboard')}>
             Go Back to Dashboard
           </Button>
         </div>

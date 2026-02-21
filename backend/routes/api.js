@@ -7,6 +7,9 @@ const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // === CURRENCY CONVERSION ENDPOINT ===
+// === CURRENCY CONVERSION ENDPOINT ===
+// === CURRENCY CONVERSION ENDPOINT ===
+
 router.get('/currency/convert', async (req, res) => {
   const { from, to, amount } = req.query;
 
@@ -774,6 +777,16 @@ router.post('/entities/:entity/create', async (req, res) => {
         const user = await User.findOne({ email: userEmail });
 
         // Only enforce if the user is currently locked
+        // ALLOW "draft" status even if locked (so they can save work)
+        const isDraft = req.body.status === 'draft';
+
+        if (user && user.is_timesheet_locked && !isDraft) {
+          return res.status(403).json({
+            error: 'Your timesheet access is temporarily locked. Please contact your manager.'
+          });
+        }
+
+        // Existing logic for missing days check (only if locked)
         if (user && user.is_timesheet_locked) {
           const UserTimesheets = Models.User_timesheets;
 
@@ -1334,7 +1347,7 @@ router.post('/entities/:entity/create', async (req, res) => {
               entity_type: 'impediment',
               entity_id: savedItem._id,
               project_id: projectId,
-              deep_link: deepLink,
+              link: deepLink,
               sender_name: reporterName,
               read: false,
               created_date: createdDate
@@ -1625,7 +1638,8 @@ router.post('/entities/:entity/update', async (req, res) => {
                 message: 'A time entry was rejected. Please correct and resubmit.',
                 entity_type: 'timesheet',
                 entity_id: updatedDoc._id,
-                deep_link: `/Timesheets?tab=my-timesheets&editId=${updatedDoc._id}`,
+                project_id: updatedDoc.project_id || data.project_id,
+                link: `/Timesheets?tab=my-timesheets&editId=${updatedDoc._id}`,
                 sender_name: req.user.full_name || 'System',
                 read: false,
                 created_date: new Date()
@@ -2473,4 +2487,70 @@ router.post('/email/send-template', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// === AUDIT LOCK ENDPOINT ===
+router.post('/audit-lock/toggle', async (req, res) => {
+  try {
+    const { userIds, locked, tenantId } = req.body;
+    // Ensure emailService is available
+    const emailService = require('../services/emailService');
+
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ error: 'Invalid userIds' });
+    }
+
+    // Update users
+    await Models.User.updateMany(
+      { _id: { $in: userIds } },
+      { $set: { is_timesheet_locked: locked } }
+    );
+
+    // Send Notifications & Emails
+    const users = await Models.User.find({ _id: { $in: userIds } });
+
+    for (const user of users) {
+      // In-App Notification
+      await Models.Notification.create({
+        tenant_id: tenantId,
+        recipient_email: user.email,
+        user_id: user._id,
+        type: 'timesheet_lock',
+        category: 'alert',
+        title: locked ? 'Timesheet Access Locked' : 'Timesheet Access Unlocked',
+        message: locked
+          ? 'Your timesheet access is temporarily locked. Please contact your manager.'
+          : 'Your timesheet access has been restored.',
+        entity_type: 'user',
+        entity_id: user._id,
+        sender_name: 'System',
+        read: false,
+        created_date: new Date()
+      });
+
+      // Email
+      try {
+        const managerName = "Manager";
+
+        await emailService.sendEmail({
+          to: user.email,
+          templateType: 'audit_lock_toggle',
+          data: {
+            userName: user.full_name,
+            userEmail: user.email,
+            locked: locked,
+            managerName: managerName
+          }
+        });
+      } catch (e) {
+        console.error(`Failed to send lock/unlock email to ${user.email}`, e);
+      }
+    }
+
+    res.json({ success: true, message: `Updated lock status for ${userIds.length} users.` });
+
+  } catch (error) {
+    console.error('Audit lock toggle error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

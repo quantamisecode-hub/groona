@@ -116,7 +116,10 @@ export default function NotificationCenter({ currentUser }) {
       await updateStatusMutation.mutateAsync({ id: notification.id, status: 'ACKNOWLEDGED' });
 
       // Navigate to relevant context
-      if (notification.project_id) {
+      if (notification.deep_link || notification.link) {
+        navigate(notification.deep_link || notification.link);
+        setOpen(false);
+      } else if (notification.project_id) {
         let targetUrl = `/ProjectDetail?id=${notification.project_id}`;
 
         // Include entity details if available
@@ -178,11 +181,11 @@ export default function NotificationCenter({ currentUser }) {
         if (shouldShow) alerts.push(n);
       }
       // 1. Critical Alarms -> ALARMS (Red)
-      else if (n.category === 'alarm' || n.category === 'critical' || n.type.includes('critical') || n.type.includes('failure') || n.type.includes('security')) {
+      if (n.category === 'alarm' || n.category === 'critical' || n.type.includes('critical') || n.type.includes('failure') || n.type.includes('security')) {
         if (shouldShow) alarms.push(n);
       }
       // 2. Warnings/Advisories -> ALERTS (Yellow)
-      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.category === 'action_request' || n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable')) {
+      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.category === 'action_request' || (n.category !== 'general' && (n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable') || n.type === 'profile_incomplete'))) {
         if (shouldShow) alerts.push(n);
       }
       // 3. Fallback -> GENERAL
@@ -343,12 +346,13 @@ export default function NotificationCenter({ currentUser }) {
       case 'task_assigned': return <UserPlus className="h-5 w-5 text-purple-600" />;
       case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case 'comment_added':
-      case 'mentiones': return <MessageSquare className="h-5 w-5 text-blue-600" />; // Typo in original? No, "mention"
       case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
       case 'timesheet_submission':
       case 'timesheet_approval_needed':
       case 'timesheet_status':
       case 'timesheet_reminder': return <Clock className="h-5 w-5 text-amber-600" />;
+      case 'idle_time_alert': return <Clock className="h-5 w-5 text-amber-500" />;
+      case 'under_utilization_alert': return <BatteryLow className="h-5 w-5 text-amber-600" />;
       case 'impediment_reported':
       case 'impediment_alert': return <AlertTriangle className="h-5 w-5 text-red-500" />;
       default: return <Bell className="h-5 w-5 text-slate-600" />;
@@ -357,12 +361,45 @@ export default function NotificationCenter({ currentUser }) {
 
   const renderMessage = (text) => {
     if (!text) return null;
-    const parts = text.split(/(\*\*[\s\S]*?\*\*)/);
-    return parts.map((part, i) => {
-      if (part && part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i} className="font-bold text-slate-900">{part.slice(2, -2)}</strong>;
+
+    // Split into lines first to handle multi-line lists correctly
+    const lines = text.split('\n');
+
+    return lines.map((line, lineIdx) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return <div key={`br-${lineIdx}`} className="h-2" />;
+
+      // Handle list items starting with "- "
+      if (trimmedLine.startsWith('- ')) {
+        const lineText = trimmedLine.slice(2);
+        const parts = lineText.split(/(\*\*[\s\S]*?\*\*)/);
+        return (
+          <div key={lineIdx} className="flex items-start gap-1.5 mt-1.5 ml-1 group animate-in slide-in-from-left-2 duration-300">
+            <Lightbulb className="h-3.5 w-3.5 text-amber-500 mt-1 shrink-0 group-hover:animate-pulse transition-all" />
+            <span className="flex-1 italic text-slate-700">
+              {parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={i} className="font-extrabold text-slate-900 not-italic">{part.slice(2, -2)}</strong>;
+                }
+                return part;
+              })}
+            </span>
+          </div>
+        );
       }
-      return part;
+
+      // Handle normal lines with bold support
+      const parts = line.split(/(\*\*[\s\S]*?\*\*)/);
+      return (
+        <div key={lineIdx} className="mb-1 last:mb-0">
+          {parts.map((part, i) => {
+            if (part && part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={i} className="font-extrabold text-slate-900">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </div>
+      );
     });
   };
 
@@ -442,8 +479,8 @@ export default function NotificationCenter({ currentUser }) {
                         <div className="flex-shrink-0 mt-1">{getIcon(notification.type)}</div>
                         <div className="flex-1 min-w-0">
                           {/* Only show title if it exists, else rely on message */}
-                          {notification.title && <p className="text-sm font-medium text-slate-900">{notification.title}</p>}
-                          <p className="text-sm text-slate-600 mt-0.5 line-clamp-2">{renderMessage(notification.message)}</p>
+                          {notification.title && <p className="text-sm font-semibold text-slate-900 mb-1">{notification.title}</p>}
+                          <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{renderMessage(notification.message)}</div>
                           <p className="text-xs text-slate-400 mt-1">{formatDistanceToNow(safeDate(notification.timestamp || notification.created_date), { addSuffix: true })}</p>
                         </div>
                         {!notification.read && <div className="h-2 w-2 rounded-full bg-blue-600 mt-2 shrink-0" />}
@@ -469,38 +506,16 @@ export default function NotificationCenter({ currentUser }) {
                   {categorized.alerts.map(alert => {
                     const isActioned = alert.status === 'ACKNOWLEDGED' || alert.status === 'RESOLVED';
                     return (
-                      <div key={alert.id} className={`p-4 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors ${isActioned ? 'opacity-60' : ''}`}>
+                      <div
+                        key={alert.id}
+                        onClick={() => handleNotificationClick(alert)}
+                        className={`p-4 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors ${isActioned ? 'opacity-60' : ''} ${(alert.link || alert.deep_link) ? 'cursor-pointer' : ''}`}
+                      >
                         <div className="flex gap-3">
                           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
                           <div>
                             <h5 className="text-sm font-bold text-amber-800 mb-1">Warning</h5>
-                            <p className="text-sm text-amber-900">{alert.message.replace(/\*\*/g, '')}</p>
-                            <div className="flex gap-2 mt-2">
-                              <Button
-                                onClick={() => handleReview(alert)}
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs border-amber-300 text-amber-700 bg-white hover:bg-amber-50"
-                                disabled={loadingState.id === alert.id && loadingState.action === 'review'}
-                              >
-                                {loadingState.id === alert.id && loadingState.action === 'review' ? (
-                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
-                                ) : (
-                                  alert.type === 'rework_alert' ? <strong>Peer Review requested</strong> : 'Review'
-                                )}
-                              </Button>
-                              <Button
-                                onClick={() => handleDismiss(alert)}
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 text-xs text-amber-600 hover:text-amber-800 hover:bg-amber-200/50"
-                                disabled={loadingState.id === alert.id && loadingState.action === 'dismiss'}
-                              >
-                                {loadingState.id === alert.id && loadingState.action === 'dismiss' ? (
-                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
-                                ) : 'Dismiss'}
-                              </Button>
-                            </div>
+                            <div className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{renderMessage(alert.message)}</div>
                           </div>
                         </div>
                       </div>

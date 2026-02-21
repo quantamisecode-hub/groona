@@ -74,6 +74,7 @@ const createEntityHandler = (entityName) => ({
 
 // --- MAIN CLIENT OBJECT ---
 export const groonabackend = {
+  apiBaseUrl: API_URL,
   auth: {
     me: async () => {
       const res = await api.get(`${AUTH_URL}/me`);

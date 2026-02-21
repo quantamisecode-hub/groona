@@ -242,7 +242,7 @@ export const notificationService = {
         project_name: projectName,
         sender_name: comment.author_name,
         comment_id: comment.id,
-        deep_link: deepLink, // <--- NEW DEEP LINK
+        link: deepLink, // <--- NEW LINK
         read: false,
         created_date: new Date().toISOString()
       });
@@ -262,7 +262,7 @@ export const notificationService = {
         project_name: projectName,
         sender_name: comment.author_name,
         comment_id: comment.id,
-        deep_link: deepLink, // <--- NEW DEEP LINK
+        link: deepLink, // <--- NEW LINK
         read: false,
         created_date: new Date().toISOString()
       });

@@ -221,7 +221,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
           message: notificationMessage,
           entity_type: 'timesheet',
           entity_id: timesheetId,
-          deep_link: `/Timesheets?tab=my-timesheets&editId=${timesheetId}`,
+          link: `/Timesheets?tab=my-timesheets&editId=${timesheetId}`,
           sender_name: currentUser.full_name
         });
 

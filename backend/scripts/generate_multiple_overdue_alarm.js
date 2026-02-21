@@ -94,7 +94,7 @@ const runChecks = async () => {
                             entity_id: mostOverdueTask._id.toString(),
                             read: false,
                             hide_action: isViewOnlyMember,
-                            deep_link: `/ProjectDetail?id=${mostOverdueTask.project_id}&taskId=${mostOverdueTask._id.toString()}`,
+                            link: `/ProjectDetail?id=${mostOverdueTask.project_id}&taskId=${mostOverdueTask._id.toString()}`,
                             created_date: new Date(),
                             last_email_sent: new Date()
                         });
@@ -117,6 +117,7 @@ const runChecks = async () => {
                                     created_date: new Date(),
                                     hide_action: isViewOnlyMember,
                                     read: false,
+                                    link: `/ProjectDetail?id=${mostOverdueTask.project_id}&taskId=${mostOverdueTask._id.toString()}`,
                                     ...(shouldSendEmail ? { last_email_sent: new Date() } : {})
                                 }
                             }
@@ -240,7 +241,7 @@ const runChecks = async () => {
                                         entity_type: 'task',
                                         entity_id: mostOverdueTask._id.toString(),
                                         read: false,
-                                        deep_link: `/ProjectDetail?id=${projectId}&taskId=${mostOverdueTask._id.toString()}`,
+                                        link: `/ProjectDetail?id=${projectId}&taskId=${mostOverdueTask._id.toString()}`,
                                         created_date: new Date()
                                     });
                                     console.log(`      -> Sent Manager Escalation to ${manager.email}`);
@@ -252,7 +253,8 @@ const runChecks = async () => {
                                                 title: escalationTitle,
                                                 message: escalationMessage,
                                                 created_date: new Date(),
-                                                read: false
+                                                read: false,
+                                                link: `/ProjectDetail?id=${projectId}&taskId=${mostOverdueTask._id.toString()}`
                                             }
                                         }
                                     );

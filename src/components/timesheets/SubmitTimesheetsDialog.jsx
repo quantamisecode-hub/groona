@@ -15,9 +15,11 @@ import { Loader2, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react
 import { toast } from "sonner";
 import { groonabackend } from "@/api/groonabackend";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useUser } from "../shared/UserContext";
 
 export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, onSuccess }) {
   const queryClient = useQueryClient();
+  const { user } = useUser();
   const [selectedIds, setSelectedIds] = useState([]);
 
   const submitMutation = useMutation({
@@ -191,6 +193,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
   const finalHours = totalHours + Math.floor(totalMinutes / 60);
   const finalMinutes = totalMinutes % 60;
 
+  const isLocked = user?.is_timesheet_locked;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -200,6 +204,13 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
             Select the draft entries you want to submit. Once submitted, they will be locked until approved or rejected.
           </DialogDescription>
         </DialogHeader>
+
+        {isLocked && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Audit locked by Manager--</strong>
+            <span className="block sm:inline"> You cannot submit timesheets at this time.</span>
+          </div>
+        )}
 
         {draftEntries.length === 0 ? (
           <div className="py-12 text-center">
@@ -213,7 +224,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || isLocked}
               >
                 {selectedIds.length === draftEntries.length ? 'Deselect All' : 'Select All'}
               </Button>
@@ -227,8 +238,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                 <Card
                   key={entry.id}
                   className={`cursor-pointer transition-colors ${selectedIds.includes(entry.id) ? 'bg-blue-50 border-blue-200' : ''
-                    }`}
-                  onClick={() => handleToggle(entry.id)}
+                    } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => !isLocked && handleToggle(entry.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -236,7 +247,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                         <Checkbox
                           checked={selectedIds.includes(entry.id)}
                           onCheckedChange={() => handleToggle(entry.id)}
-                          disabled={submitMutation.isPending}
+                          disabled={submitMutation.isPending || isLocked}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -294,7 +305,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitMutation.isPending || selectedIds.length === 0}
+            disabled={submitMutation.isPending || selectedIds.length === 0 || isLocked}
+            className={isLocked ? "bg-gray-400 cursor-not-allowed" : ""}
           >
             {submitMutation.isPending ? (
               <>
@@ -310,4 +322,3 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
     </Dialog>
   );
 }
-

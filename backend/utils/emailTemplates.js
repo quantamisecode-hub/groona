@@ -122,6 +122,8 @@ function getEmailTemplate(templateType, data = {}) {
       return getPeerReviewDeclinedTemplate(data);
     case 'under_utilization_alert':
       return getUnderUtilizationAlertTemplate(data);
+    case 'audit_lock_toggle':
+      return getAuditLockToggleTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -1236,6 +1238,61 @@ function getUnderUtilizationAlertTemplate(data) {
       content
     ),
     defaultSubject: `Capacity Utilization Alert: Action Required`
+  };
+}
+
+
+/**
+ * Audit Lock Toggle Template
+ */
+function getAuditLockToggleTemplate(data) {
+  const { userName, userEmail, locked, managerName } = data;
+
+  const subject = locked
+    ? 'Action Required: Timesheet Access Locked'
+    : 'Update: Timesheet Access Unlocked';
+
+  const title = locked ? 'Timesheet Access Temporarily Locked' : 'Timesheet Access Unlocked';
+  const titleColor = locked ? '#dc2626' : '#10b981';
+
+  const content = `
+    <h2 style="color: ${titleColor}; margin-top: 0;">${title}</h2>
+    
+    <p style="${styles.text}">
+      ${locked
+      ? 'Your timesheet submission access has been temporarily <strong>LOCKED</strong> by your manager explicity for an audit or review.'
+      : 'Your timesheet submission access has been <strong>UNLOCKED</strong>.'
+    }
+    </p>
+      
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Status:</span>
+        <span style="${styles.value}"><strong style="color: ${titleColor};">${locked ? 'LOCKED' : 'ACTIVE'}</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Action By:</span>
+        <span style="${styles.value}">${managerName || 'Manager'}</span>
+      </div>
+    </div>
+
+    <p style="${styles.text}">
+      ${locked
+      ? '<strong>Note:</strong> You can still save your timesheets as <strong>Drafts</strong>, but you will not be able to submit them until the lock is lifted.'
+      : 'You can now resume submitting your timesheets as normal.'
+    }
+    </p>
+      
+    <p style="${styles.text}">Please contact your manager for more details.</p>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      title,
+      `Hello, ${userName || userEmail || 'User'}`,
+      content
+    ),
+    defaultSubject: subject
   };
 }
 
