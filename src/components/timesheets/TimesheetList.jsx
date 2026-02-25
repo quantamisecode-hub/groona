@@ -14,7 +14,8 @@ import {
   FileText,
   History,
   User,
-  CalendarCheck
+  CalendarCheck,
+  Lock
 } from "lucide-react";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -29,7 +30,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { groonabackend } from "@/api/groonabackend";
+import { useQuery } from "@tanstack/react-query";
 
 export default function TimesheetList({
   timesheets,
@@ -40,9 +43,53 @@ export default function TimesheetList({
   groupByDate = true,
   canEditLocked = false,
   currentUser, // Added currentUser prop
-  highlightedId
+  highlightedId,
+  effectiveTenantId // Added tenant id for fetches
 }) {
   const itemRefs = useRef({});
+
+  // 1. Fetch relevant projects to check status
+  const projectIds = useMemo(() => {
+    return [...new Set(timesheets.map(t => t.project_id).filter(Boolean))];
+  }, [timesheets]);
+
+  const { data: projectsMap = {} } = useQuery({
+    queryKey: ['projects-lock-map', projectIds],
+    queryFn: async () => {
+      if (projectIds.length === 0) return {};
+      const results = {};
+      await Promise.all(projectIds.map(async pid => {
+        let projects = await groonabackend.entities.Project.filter({ _id: pid });
+        if (!projects || projects.length === 0) {
+          projects = await groonabackend.entities.Project.filter({ id: pid });
+        }
+        if (projects[0]) results[pid] = projects[0];
+      }));
+      return results;
+    },
+    enabled: projectIds.length > 0,
+    staleTime: 60000
+  });
+
+  // 2. Fetch relevant milestones to check status
+  const milestoneIds = useMemo(() => {
+    return [...new Set(timesheets.map(t => t.milestone_id).filter(Boolean))];
+  }, [timesheets]);
+
+  const { data: milestonesMap = {} } = useQuery({
+    queryKey: ['milestones-lock-map', milestoneIds],
+    queryFn: async () => {
+      if (milestoneIds.length === 0) return {};
+      const results = {};
+      await Promise.all(milestoneIds.map(async mid => {
+        const milestone = await groonabackend.entities.Milestone.get(mid);
+        if (milestone) results[mid] = milestone;
+      }));
+      return results;
+    },
+    enabled: milestoneIds.length > 0,
+    staleTime: 60000
+  });
 
   // --- HIGHLIGHT & SCROLL LOGIC ---
   useEffect(() => {
@@ -199,6 +246,23 @@ export default function TimesheetList({
                               </span>
                             </Badge>
                           )}
+                          {/* Settled Badge */}
+                          {(() => {
+                            const project = projectsMap[entry.project_id];
+                            const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
+
+                            const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
+
+                            if (isSettled) {
+                              return (
+                                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 gap-1.5 opacity-80">
+                                  <Lock className="h-3 w-3" />
+                                  Settled
+                                </Badge>
+                              );
+                            }
+                            return null;
+                          })()}
                           {/* Edited Badge */}
                           {entry.last_modified_by_name && (
                             <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 gap-1">
@@ -331,35 +395,41 @@ export default function TimesheetList({
                     </div>
                   </div>
 
-                  {/* Actions Logic: Show only if allowed */}
-                  {showActions && (!entry.is_locked || canEditLocked) && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEdit(entry)}
-                        className="h-8 w-8"
-                        title="Edit timesheet"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setDeleteConfirmation({
-                            isOpen: true,
-                            timesheetId: entry.id,
-                            isApproved: entry.status === 'approved'
-                          });
-                        }}
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Delete timesheet"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
+                  {/* Actions Logic: Show only if allowed and NOT settled */}
+                  {(() => {
+                    const project = projectsMap[entry.project_id];
+                    const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
+                    const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
+
+                    return showActions && (!entry.is_locked || canEditLocked) && !isSettled && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onEdit(entry)}
+                          className="h-8 w-8"
+                          title="Edit timesheet"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setDeleteConfirmation({
+                              isOpen: true,
+                              timesheetId: entry.id,
+                              isApproved: entry.status === 'approved'
+                            });
+                          }}
+                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Delete timesheet"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </CardContent>
             </Card>

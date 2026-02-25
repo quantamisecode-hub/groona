@@ -38,6 +38,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
     retainer_period: "month",
     retainer_amount: 0,
     default_bill_rate_per_hour: 0,
+    expense_budget: 0,
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -113,6 +114,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
         retainer_period: project.retainer_period || "month",
         retainer_amount: project.retainer_amount || 0,
         default_bill_rate_per_hour: project.default_bill_rate_per_hour || 0,
+        expense_budget: project.expense_budget || 0,
       });
     }
   }, [project]);
@@ -506,7 +508,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
               {formData.billing_model === 'fixed_price' && (
                 <>
                   <div className="space-y-2">
-                    <Label>Fixed Price Amount</Label>
+                    <Label>Contract Amount</Label>
                     <Input type="number" value={formData.budget} onChange={e => setFormData({ ...formData, budget: e.target.value })} placeholder="Amount" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -584,6 +586,26 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
                   <Input value={formData.non_billable_reason} onChange={e => setFormData({ ...formData, non_billable_reason: e.target.value })} placeholder="e.g. Internal Training" />
                 </div>
               )}
+
+              {/* Expense Budget – visible for all billing models */}
+              <div className="space-y-2">
+                <Label htmlFor="edit_expense_budget">Expense Budget</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+                    {formData.currency === 'INR' ? '₹' : formData.currency === 'USD' ? '$' : formData.currency === 'EUR' ? '€' : formData.currency === 'GBP' ? '£' : formData.currency}
+                  </span>
+                  <Input
+                    id="edit_expense_budget"
+                    type="number"
+                    min="0"
+                    value={formData.expense_budget}
+                    onChange={(e) => setFormData({ ...formData, expense_budget: e.target.value })}
+                    placeholder="0.00"
+                    className="pl-8"
+                  />
+                </div>
+                <p className="text-xs text-slate-500">Total budgeted amount for project expenses</p>
+              </div>
             </div>
           )}
 

@@ -197,7 +197,7 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
                     <div className="space-y-2 lg:min-w-[150px]">
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <DollarSign className="h-4 w-4" />
-                        <span>Fixed Price Amount</span>
+                        <span>Contract Amount</span>
                       </div>
                       <p className="text-2xl font-bold text-green-600">
                         {getCurrencySymbol(project.currency || 'USD')}{Number(project.contract_amount || project.budget || project.budget_amount || 0).toLocaleString()}
@@ -368,6 +368,19 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
                 );
             }
           })()}
+
+          {/* Expense Budget — shown when financial tracking is enabled */}
+          {project.expense_budget > 0 && (
+            <div className="space-y-2 lg:min-w-[150px]">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <DollarSign className="h-4 w-4" />
+                <span>Expense Budget</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">
+                {getCurrencySymbol(project.currency || 'USD')}{Number(project.expense_budget).toLocaleString()}
+              </p>
+            </div>
+          )}
 
         </div>
       </div>

@@ -53,6 +53,7 @@ export default function CreateProjectDialog({
     non_billable_reason: "",
     retainer_period: "month",
     retainer_amount: 0,
+    expense_budget: 0,
   });
   const [showFinancialFields, setShowFinancialFields] = useState(false);
 
@@ -151,6 +152,7 @@ export default function CreateProjectDialog({
           non_billable_reason: "",
           retainer_period: "month",
           retainer_amount: 0,
+          expense_budget: 0,
         });
         setShowFinancialFields(!!(selectedTemplate.billing_model || selectedTemplate.contract_amount || selectedTemplate.budget_hours));
       } else {
@@ -175,6 +177,7 @@ export default function CreateProjectDialog({
           non_billable_reason: "",
           retainer_period: "month",
           retainer_amount: 0,
+          expense_budget: 0,
         });
         setShowFinancialFields(false);
       }
@@ -201,6 +204,7 @@ export default function CreateProjectDialog({
         non_billable_reason: "",
         retainer_period: "month",
         retainer_amount: 0,
+        expense_budget: 0,
       });
       setShowFinancialFields(false);
       setValidationErrors({});
@@ -428,6 +432,7 @@ export default function CreateProjectDialog({
       ...(showFinancialFields ? {
         billing_model: formData.billing_model,
         currency: formData.currency,
+        expense_budget: Number(formData.expense_budget) || 0,
         ...billingFields
       } : {}),
     };
@@ -858,7 +863,7 @@ export default function CreateProjectDialog({
                   {formData.billing_model === 'fixed_price' && (
                     <>
                       <div className="space-y-2">
-                        <Label htmlFor="contract_amount">Fixed Price Amount</Label>
+                        <Label htmlFor="contract_amount">Contract Amount</Label>
                         <Input
                           id="contract_amount"
                           type="number"
@@ -945,6 +950,30 @@ export default function CreateProjectDialog({
                       </div>
                     </>
                   )}
+
+                  {/* Expense Budget – visible for all billing models */}
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="expense_budget">Expense Budget</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-medium">
+                        {(() => {
+                          const symbols = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$', SGD: 'S$', AED: 'dh' };
+                          return symbols[formData.currency] || formData.currency;
+                        })()}
+                      </span>
+                      <Input
+                        id="expense_budget"
+                        type="number"
+                        min="0"
+                        value={formData.expense_budget}
+                        onChange={(e) => setFormData({ ...formData, expense_budget: e.target.value })}
+                        placeholder="0.00"
+                        className="pl-8"
+                        disabled={loading}
+                      />
+                    </div>
+                    <p className="text-xs text-slate-500">Set the total budgeted amount for project expenses</p>
+                  </div>
 
                   {/* Non-Billable Fields */}
                   {formData.billing_model === 'non_billable' && (

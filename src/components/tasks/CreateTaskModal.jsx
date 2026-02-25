@@ -132,7 +132,8 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     subtasks: [],
     custom_fields: {},
     ai_generated: false,
-    ai_metadata: {}
+    ai_metadata: {},
+    milestone_id: ""
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -209,7 +210,8 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         subtasks: [],
         custom_fields: {},
         ai_generated: false,
-        ai_metadata: {}
+        ai_metadata: {},
+        milestone_id: ""
       });
       setValidationErrors({});
       setIsDraft(false);
@@ -567,7 +569,8 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         subtasks: Array.isArray(data.subtasks) ? data.subtasks : [],
         custom_fields: (data.custom_fields && typeof data.custom_fields === 'object') ? data.custom_fields : {},
         ai_generated: Boolean(data.ai_generated),
-        ai_metadata: (data.ai_metadata && typeof data.ai_metadata === 'object') ? data.ai_metadata : {}
+        ai_metadata: (data.ai_metadata && typeof data.ai_metadata === 'object') ? data.ai_metadata : {},
+        milestone_id: (data.milestone_id && data.milestone_id !== "unassigned" && data.milestone_id.trim() !== "") ? data.milestone_id : null,
       };
 
       const newTask = await groonabackend.entities.Task.create(cleanData);

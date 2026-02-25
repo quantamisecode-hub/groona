@@ -20,12 +20,24 @@
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "approved", "rejected"],
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
       "default": "pending"
     },
     "category": {
       "type": "string"
+    },
+    "milestone_id": {
+      "type": "string",
+      "description": "Associated milestone ID"
     }
   },
-  "required": ["tenant_id", "project_id", "amount"]
+  "required": [
+    "tenant_id",
+    "project_id",
+    "amount"
+  ]
 }

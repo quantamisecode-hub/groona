@@ -161,6 +161,10 @@
       "default": false,
       "description": "Whether this task was AI-generated"
     },
+    "milestone_id": {
+      "type": "string",
+      "description": "ID of the associated milestone (optional)"
+    },
     "ai_metadata": {
       "type": "object",
       "properties": {

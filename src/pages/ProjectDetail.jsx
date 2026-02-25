@@ -680,7 +680,7 @@ export default function ProjectDetail() {
               )}
 
               <TabsContent value="milestones">
-                <MilestonesList projectId={projectId} />
+                <MilestonesList projectId={projectId} project={project} />
               </TabsContent>
 
               {/* Hide Budget & Expenses content for viewer and project_manager */}

@@ -25,8 +25,7 @@ const CURRENCIES = ['USD', 'INR', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED', 'JPY
 
 export default function ProjectProfitabilityTable({ projects, users, timesheets, tasks = [], sprints = [], onRefresh }) {
   const navigate = useNavigate();
-  const [fromDate, setFromDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-  const [toDate, setToDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  // const [expandedProjects, setExpandedProjects] = useState({}); // Removed expand logic
   // const [expandedProjects, setExpandedProjects] = useState({}); // Removed expand logic
   const [selectedProject, setSelectedProject] = useState('all');
   const [targetCurrency, setTargetCurrency] = useState('INR');
@@ -164,30 +163,18 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
   const processedData = useMemo(() => {
     if (!projects.length || !timesheets.length) return { rows: [], aggregates: {} };
 
-    // Filter timesheets by date range
+    // Filter timesheets by project
     const filteredTimesheets = timesheets.filter(t => {
-      const tDate = t.date?.$date ? t.date.$date : t.date;
-      const dateStr = format(new Date(tDate), 'yyyy-MM-dd');
-      const dateWait = dateStr >= fromDate && dateStr <= toDate;
-
       const projectId = typeof t.project_id === 'object' ? t.project_id.id : t.project_id;
-      const projectWait = selectedProject === 'all' || projectId === selectedProject;
-
-      return dateWait && projectWait;
+      return selectedProject === 'all' || projectId === selectedProject;
     });
 
-    // Filter Expenses by date range and selected project
     const filteredExpenses = allExpenses.filter(e => {
-      // Consider only Approved expenses for profitability
-      if (e.status !== 'approved') return false;
-
-      const eDate = e.date; // Format is usually YYYY-MM-DD string
-      const dateWait = eDate >= fromDate && eDate <= toDate;
-
-      const pId = typeof e.project_id === 'object' ? e.project_id.id : e.project_id;
-      const projectWait = selectedProject === 'all' || pId === selectedProject;
-
-      return dateWait && projectWait;
+      if (e.status === 'rejected') return false;
+      const ep = e.project_id || e.project || e.projectId;
+      const pId = typeof ep === 'object' ? (ep.id || ep._id) : ep;
+      const projectWait = selectedProject === 'all' || String(pId) === String(selectedProject);
+      return projectWait;
     });
 
     const projectGroups = {};
@@ -195,10 +182,9 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
     // Group Expenses by Project
     filteredExpenses.forEach(e => {
-      const pId = typeof e.project_id === 'object' ? e.project_id.id : e.project_id;
-      if (!expenseGroups[pId]) {
-        expenseGroups[pId] = 0;
-      }
+      const ep = e.project_id || e.project || e.projectId;
+      const pId = typeof ep === 'object' ? (ep.id || ep._id) : ep;
+      if (!pId) return;
       // Expense amount is in its own currency, needs conversion logic if we want to sum accurately relative to project currency?
       // Actually, best to store raw amount and currency and convert later, OR assuming we convert to Project Currency first?
       // The table displays row in Project Currency or Target Currency.
@@ -231,7 +217,7 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
         // Calculate Revenue / Budget based on Billing Model
         let revenueAmount = 0;
-        let revenueLabel = "Budget/Revenue";
+        let revenueLabel = "Contract Amount";
 
         switch (project.billing_model) {
           case 'fixed_price':
@@ -239,25 +225,22 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
             revenueLabel = "Fixed Price";
             break;
           case 'retainer':
-            revenueAmount = Number(project.retainer_amount || 0);
+            revenueAmount = Number(project.retainer_amount || project.contract_amount || project.budget || 0);
             revenueLabel = "Retainer Amt";
             break;
-          case 'time_and_materials':
-            // For T&M, revenue is technically "Potential Revenue" based on estimation or "Actual" based on hours
-            // User likely wants to see the "Estimated Contract Value" here if available
-            // estimated_duration * default_bill_rate_per_hour
+          case 'time_and_materials': {
             const duration = Number(project.estimated_duration || 0);
             const rate = Number(project.default_bill_rate_per_hour || 0);
             revenueAmount = duration * rate;
             revenueLabel = "Est. T&M Value";
             break;
+          }
           case 'non_billable':
             revenueAmount = 0;
             revenueLabel = "Non-Billable";
             break;
           default:
-            // Fallback
-            revenueAmount = Number(project.budget || project.contract_amount || 0);
+            revenueAmount = Number(project.contract_amount || project.budget || 0);
         }
 
         projectGroups[projectId] = {
@@ -267,7 +250,8 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
           details: {}, // Grouped by User+Sprint+Task
           totalLoggedMinutes: 0,
           totalApprovedBillableMinutes: 0,
-          totalCtcSpent: 0,
+          totalCtcSpent: 0, // Approved Billable Cost
+          totalLoggedLaborCost: 0, // All hours cost
         };
       }
 
@@ -331,6 +315,10 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
         dGroup.totalBillableMinutes += (t.total_minutes || 0);
         dGroup.totalBillableCost += ((t.total_minutes || 0) / 60) * effectiveRateProjectCurrency;
       }
+
+      // Calculate ALL labor cost for leakage tracking
+      const costForLeakage = ((t.total_minutes || 0) / 60) * effectiveRateProjectCurrency;
+      pGroup.totalLoggedLaborCost += costForLeakage;
 
       // Cost and Approved Hours Logic: Strictly Approved AND Billable
       if (t.status === 'approved' && t.is_billable) {
@@ -424,13 +412,47 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
         return sum + getConvertedAmount(e.amount, e.currency);
       }, 0);
 
-      const totalLaborCost = group.totalCtcSpent; // In Project Currency (assuming rates are in project currency)
+      const totalLaborCost = group.totalCtcSpent;
       const totalCost = totalLaborCost + totalNonLaborCostProjectCurrency;
+
+      // Expense Budget (multiplied by estimated duration for T&M)
+      const rawExpenseBudget = Number(group.projectObj.expense_budget || 0);
+      const expenseBudgetValue = group.projectObj.billing_model === 'time_and_materials'
+        ? rawExpenseBudget * Number(group.projectObj.estimated_duration || 0)
+        : rawExpenseBudget;
+      const budgetUsedPercent = expenseBudgetValue > 0 ? (totalCost / expenseBudgetValue) * 100 : null;
+
+      // Profit Leakage Calculation by Model
+      let laborLeakage = Math.max(0, group.totalLoggedLaborCost - group.totalCtcSpent);
+      let expenseOverrun = Math.max(0, totalNonLaborCostProjectCurrency - expenseBudgetValue);
+      let projectLeakage = 0;
+
+      switch (group.projectObj.billing_model) {
+        case 'fixed_price':
+          // Leakage = Overrun (Cost > Revenue) + Unapproved/Unbillable labor
+          projectLeakage = Math.max(0, totalCost - group.revenueAmount) + laborLeakage;
+          break;
+        case 'retainer':
+          // Leakage = Over-service (Cost > Retainer)
+          projectLeakage = Math.max(0, totalCost - group.revenueAmount);
+          break;
+        case 'time_and_materials':
+          // Leakage = Every unbillable/unapproved hour cost
+          projectLeakage = laborLeakage;
+          break;
+        case 'non_billable':
+          // Leakage = 100% of spending (Bench Cost)
+          projectLeakage = totalCost;
+          break;
+        default:
+          projectLeakage = laborLeakage;
+      }
 
       return {
         id: group.projectObj.id,
         projectName: group.projectObj.name,
         currency: group.projectObj.currency || 'INR',
+        billing_model: group.projectObj.billing_model,
         allocatedBudget: group.revenueAmount,
         revenueLabel: group.revenueLabel,
         totalLoggedHours: group.totalLoggedMinutes / 60,
@@ -439,6 +461,12 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
         totalNonLaborCost: totalNonLaborCostProjectCurrency,
         totalNonLaborCostConverted: totalNonLaborCostConverted,
         totalCost: totalCost,
+        expenseBudgetValue,
+        budgetUsedPercent,
+        projectLeakage,
+        milestoneCoverage: tasks.filter(tsk => tsk.project_id === group.projectObj.id).length > 0
+          ? (tasks.filter(tsk => tsk.project_id === group.projectObj.id && tsk.milestone_id).length / tasks.filter(tsk => tsk.project_id === group.projectObj.id).length) * 100
+          : 0,
         details: detailRows
       };
     });
@@ -473,22 +501,82 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
         return sum + getConvertedAmount(e.amount, e.currency);
       }, 0);
 
+      const rawExpenseBudget2 = Number(project.expense_budget || 0);
+      const expenseBudgetValue2 = project.billing_model === 'time_and_materials'
+        ? rawExpenseBudget2 * Number(project.estimated_duration || 0)
+        : rawExpenseBudget2;
+      const budgetUsedPercent2 = expenseBudgetValue2 > 0
+        ? (totalNonLaborCostProjectCurrency / expenseBudgetValue2) * 100
+        : null;
+
+      // Calculate revenue correctly based on billing model (same as timesheet path)
+      let revenueAmount2 = 0;
+      switch (project.billing_model) {
+        case 'fixed_price':
+          revenueAmount2 = Number(project.contract_amount || project.budget || 0);
+          break;
+        case 'retainer':
+          revenueAmount2 = Number(project.retainer_amount || project.contract_amount || project.budget || 0);
+          break;
+        case 'time_and_materials': {
+          const dur = Number(project.estimated_duration || 0);
+          const rt = Number(project.default_bill_rate_per_hour || 0);
+          revenueAmount2 = dur * rt;
+          break;
+        }
+        case 'non_billable':
+          revenueAmount2 = 0;
+          break;
+        default:
+          revenueAmount2 = Number(project.contract_amount || project.budget || 0);
+      }
+
+      const revenueLabelMap = {
+        fixed_price: 'Fixed Price',
+        retainer: 'Retainer Amt',
+        time_and_materials: 'Est. T&M Value',
+        non_billable: 'Non-Billable',
+      };
+
+      // Profit Leakage for Expense-Only projects
+      let projectLeakage2 = 0;
+      if (project.billing_model === 'non_billable') {
+        projectLeakage2 = totalNonLaborCostProjectCurrency;
+      } else if (project.billing_model === 'fixed_price' || project.billing_model === 'retainer') {
+        projectLeakage2 = Math.max(0, totalNonLaborCostProjectCurrency - revenueAmount2);
+      } else {
+        // T&M mostly has expense overruns as leakage if billable
+        projectLeakage2 = Math.max(0, totalNonLaborCostProjectCurrency - expenseBudgetValue2);
+      }
+
       finalRows.push({
         id: project.id,
         projectName: project.name,
         currency: projectCurrency,
-        allocatedBudget: project.budget || 0,
+        billing_model: project.billing_model,
+        revenueLabel: revenueLabelMap[project.billing_model] || 'Budget',
+        allocatedBudget: revenueAmount2,
         totalLoggedHours: 0,
         totalApprovedHours: 0,
         totalLaborCost: 0,
         totalNonLaborCost: totalNonLaborCostProjectCurrency,
         totalNonLaborCostConverted: totalNonLaborCostConverted,
         totalCost: totalNonLaborCostProjectCurrency,
+        expenseBudgetValue: expenseBudgetValue2,
+        budgetUsedPercent: budgetUsedPercent2,
+        projectLeakage: projectLeakage2,
         details: []
       });
+
     });
 
+    // Remove rows for unresolvable projects (no matching project record in the data)
+    const knownRows = finalRows.filter(r => r.projectName !== 'Unknown Project');
+    finalRows.length = 0;
+    knownRows.forEach(r => finalRows.push(r));
+
     // Aggregates for summary cards
+
     // Revenue: Based on Allocated Budget of visible projects
     const totalRevenue = finalRows.reduce((sum, r) => sum + (r.allocatedBudget || 0), 0);
     // Calculated based on Converted Target Currency to ensure apples-to-apples summary
@@ -505,24 +593,33 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
     const totalCostConverted = totalLaborCostConverted + totalNonLaborCostConverted;
     const totalProfitConverted = totalRevenueConverted - totalCostConverted;
+    const totalLeakageConverted = finalRows.reduce((sum, r) => sum + getConvertedAmount(r.projectLeakage || 0, r.currency), 0);
 
     // For "Original" aggregates (mixed currencies), we just sum them for display "Orig" (often meaningless but requested)
     const totalCost = finalRows.reduce((sum, r) => sum + r.totalCost, 0);
     const totalProfit = totalRevenue - totalCost; // Mixed currency profit
 
     const overallMargin = totalRevenueConverted > 0 ? (totalProfitConverted / totalRevenueConverted) * 100 : 0;
+    const overallLeakagePercent = totalRevenueConverted > 0 ? (totalLeakageConverted / totalRevenueConverted) * 100 : 0;
 
-
-
+    // Expense Budget aggregates (converted to target)
+    const totalExpenseBudgetConverted = finalRows.reduce((sum, r) => {
+      return sum + getConvertedAmount(r.expenseBudgetValue || 0, r.currency);
+    }, 0);
+    const overallBudgetUsedPercent = totalExpenseBudgetConverted > 0
+      ? (totalCostConverted / totalExpenseBudgetConverted) * 100
+      : null;
 
     return {
       rows: finalRows,
       aggregates: {
         totalRevenue, totalCost, totalProfit, overallMargin,
-        totalRevenueConverted, totalLaborCostConverted, totalNonLaborCostConverted, totalCostConverted, totalProfitConverted
+        totalRevenueConverted, totalLaborCostConverted, totalNonLaborCostConverted, totalCostConverted, totalProfitConverted,
+        totalExpenseBudgetConverted, overallBudgetUsedPercent, totalLeakageConverted, overallLeakagePercent,
+        overallMilestoneCoverage: tasks.length > 0 ? (tasks.filter(t => t.milestone_id).length / tasks.length) * 100 : 0
       }
     };
-  }, [timesheets, projects, users, tasks, sprints, fromDate, toDate, conversionRates, targetCurrency, selectedProject]);
+  }, [timesheets, projects, users, tasks, sprints, conversionRates, targetCurrency, selectedProject]);
 
   const getStatusColor = (margin) => {
     if (margin > 20) return "text-green-600 bg-green-100";
@@ -562,24 +659,6 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">From Date</label>
-          <Input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="bg-white"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">To Date</label>
-          <Input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            className="bg-white"
-          />
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Currency</label>
@@ -657,41 +736,55 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
         </div>
       </div>
 
-      {/* Summary Cards Grid - Adjusted to 5 columns for new card */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {/* Labor Cost */}
+      {/* Summary Cards Grid - 9 columns */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-3 mb-8">
+
+        {/* Contract Amount */}
         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1 min-h-[40px] flex items-center">Total Labor Cost ({targetCurrency})</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold text-slate-900">
-                    {formatCurrency(processedData.aggregates.totalLaborCostConverted, targetCurrency)}
-                  </h3>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Contract Amount ({targetCurrency})</p>
+                <h3 className="text-lg font-bold text-green-700 truncate">
+                  {formatCurrency(processedData.aggregates.totalRevenueConverted, targetCurrency)}
+                </h3>
               </div>
-              <div title="Sum of Employee Costs" className="p-2 bg-blue-50 rounded-lg cursor-help">
-                <Banknote className="h-5 w-5 text-blue-600 opacity-80" />
+              <div title="Sum of all project contract/retainer/T&M budgets" className="p-1.5 bg-green-50 rounded-lg cursor-help ml-2 shrink-0">
+                <Banknote className="h-4 w-4 text-green-600 opacity-80" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Non-Labor Cost (NEW) */}
+        {/* Labor Cost */}
         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1 min-h-[40px] flex items-center">Total Non-Labor Cost ({targetCurrency})</p>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-bold text-slate-900">
-                    {formatCurrency(processedData.aggregates.totalNonLaborCostConverted, targetCurrency)}
-                  </h3>
-                </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Labor Cost ({targetCurrency})</p>
+                <h3 className="text-lg font-bold text-slate-900 truncate">
+                  {formatCurrency(processedData.aggregates.totalLaborCostConverted, targetCurrency)}
+                </h3>
               </div>
-              <div title="Sum of Expenses" className="p-2 bg-amber-50 rounded-lg cursor-help">
-                <Banknote className="h-5 w-5 text-amber-600 opacity-80" />
+              <div title="Sum of Employee Costs" className="p-1.5 bg-blue-50 rounded-lg cursor-help ml-2 shrink-0">
+                <Banknote className="h-4 w-4 text-blue-600 opacity-80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Non-Labor Cost */}
+        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Non-Labor ({targetCurrency})</p>
+                <h3 className="text-lg font-bold text-slate-900 truncate">
+                  {formatCurrency(processedData.aggregates.totalNonLaborCostConverted, targetCurrency)}
+                </h3>
+              </div>
+              <div title="Sum of Expenses" className="p-1.5 bg-amber-50 rounded-lg cursor-help ml-2 shrink-0">
+                <Banknote className="h-4 w-4 text-amber-600 opacity-80" />
               </div>
             </div>
           </CardContent>
@@ -699,19 +792,16 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
         {/* Project Profit / Loss */}
         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <p className="text-sm font-medium text-slate-600 min-h-[40px] flex items-center">Total Profit / Loss ({targetCurrency})</p>
-                </div>
-
-                <h3 className={`text-2xl font-bold ${processedData.aggregates.totalProfitConverted >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Profit / Loss ({targetCurrency})</p>
+                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalProfitConverted >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(processedData.aggregates.totalProfitConverted, targetCurrency)}
                 </h3>
               </div>
-              <div title="Revenue - Cost" className={`ml-3 p-2 rounded-lg cursor-help ${processedData.aggregates.totalProfit >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                <TrendingUp className={`h-5 w-5 ${processedData.aggregates.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+              <div title="Revenue - Cost" className={`ml-2 p-1.5 rounded-lg cursor-help shrink-0 ${processedData.aggregates.totalProfit >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                <TrendingUp className={`h-4 w-4 ${processedData.aggregates.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
               </div>
             </div>
           </CardContent>
@@ -719,18 +809,97 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
         {/* Profit Margin % */}
         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1 min-h-[40px] flex items-center">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">
                   {processedData.aggregates.overallMargin < 0 ? 'Profit Leakage %' : 'Profit Margin %'}
                 </p>
-                <h3 className={`text-2xl font-bold ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`}>
-                  {formatPercent(processedData.aggregates.overallMargin / 100)}
+                <h3 className={`text-lg font-bold ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`}>
+                  {formatPercent(processedData.aggregates.overallMargin)}
                 </h3>
               </div>
-              <div title="(Profit / Revenue) * 100" className="p-2 bg-purple-50 rounded-lg cursor-help">
-                <AlertCircle className="h-5 w-5 text-purple-600 opacity-80" />
+              <div title="(Profit / Revenue) * 100" className="p-1.5 bg-purple-50 rounded-lg cursor-help ml-2 shrink-0">
+                <AlertCircle className="h-4 w-4 text-purple-600 opacity-80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Profit Leakage */}
+        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight text-red-600">Profit Leakage ({targetCurrency})</p>
+                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalLeakageConverted > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                  {formatCurrency(processedData.aggregates.totalLeakageConverted, targetCurrency)}
+                </h3>
+                {processedData.aggregates.totalLeakageConverted > 0 && (
+                  <p className="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">
+                    {processedData.aggregates.overallLeakagePercent.toFixed(1)}% of Revenue
+                  </p>
+                )}
+              </div>
+              <div title="Unbillable hours, bench cost, or budget overruns" className="p-1.5 bg-red-50 rounded-lg cursor-help ml-2 shrink-0">
+                <TrendingDown className="h-4 w-4 text-red-500 opacity-80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expense Budget */}
+        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Expense Budget ({targetCurrency})</p>
+                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalExpenseBudgetConverted > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
+                  {processedData.aggregates.totalExpenseBudgetConverted > 0
+                    ? formatCurrency(processedData.aggregates.totalExpenseBudgetConverted, targetCurrency)
+                    : '—'}
+                </h3>
+              </div>
+              <div className="p-1.5 bg-blue-50 rounded-lg ml-2 shrink-0">
+                <Banknote className="h-4 w-4 text-blue-500 opacity-80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Budget Used % */}
+        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Budget Used %</p>
+                {processedData.aggregates.overallBudgetUsedPercent != null ? (
+                  <div className="flex flex-col">
+                    <h3 className={`text-lg font-bold ${processedData.aggregates.overallBudgetUsedPercent > 100 ? 'text-red-600' :
+                      processedData.aggregates.overallBudgetUsedPercent > 80 ? 'text-amber-600' :
+                        'text-green-600'
+                      }`}>
+                      {processedData.aggregates.overallBudgetUsedPercent.toFixed(1)}%
+                    </h3>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                      {formatCurrency(processedData.aggregates.totalCostConverted, targetCurrency)} of {formatCurrency(processedData.aggregates.totalExpenseBudgetConverted, targetCurrency)}
+                    </p>
+                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full ${processedData.aggregates.overallBudgetUsedPercent > 100 ? 'bg-red-500' :
+                          processedData.aggregates.overallBudgetUsedPercent > 80 ? 'bg-amber-500' :
+                            'bg-green-500'
+                          }`}
+                        style={{ width: `${Math.min(100, processedData.aggregates.overallBudgetUsedPercent)}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <h3 className="text-lg font-bold text-slate-400">—</h3>
+                )}
+              </div>
+              <div className="p-1.5 bg-indigo-50 rounded-lg ml-2 shrink-0">
+                <AlertCircle className="h-4 w-4 text-indigo-500 opacity-80" />
               </div>
             </div>
           </CardContent>
@@ -738,16 +907,16 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
 
         {/* Status */}
         <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex justify-between items-start">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1 min-h-[40px] flex items-center">Status</p>
-                <Badge className={`mt-1 text-sm font-medium px-2.5 py-0.5 ${getStatusColor(processedData.aggregates.overallMargin)} border-none shadow-none`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Status</p>
+                <Badge className={`mt-0.5 text-xs font-medium px-2 py-0.5 ${getStatusColor(processedData.aggregates.overallMargin)} border-none shadow-none`}>
                   {getStatusLabel(processedData.aggregates.overallMargin)}
                 </Badge>
               </div>
-              <div className={`p-2 rounded-lg ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[1].replace('100', '50')}`}>
-                <TrendingUp className={`h-5 w-5 ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`} />
+              <div className={`p-1.5 rounded-lg shrink-0 ml-2 ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[1].replace('100', '50')}`}>
+                <TrendingUp className={`h-4 w-4 ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`} />
               </div>
             </div>
           </CardContent>
@@ -772,14 +941,17 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
                 <TableRow className="border-b border-slate-200 hover:bg-transparent">
                   <TableHead className="w-[50px]"></TableHead>
                   <TableHead className="font-bold text-slate-900 text-center">Project</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Revenue / Budget</TableHead>
+                  <TableHead className="text-center font-bold text-slate-900">Contract Amount</TableHead>
                   <TableHead className="text-center font-bold text-blue-700">Converted ({targetCurrency})</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Total Logged</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Approved Billable</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Labor Cost</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Non-Labor Exp</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Total Cost</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Converted Total Cost ({targetCurrency})</TableHead>
+                  <TableHead className="text-center font-bold text-blue-700">Converted Cost ({targetCurrency})</TableHead>
+                  <TableHead className="text-center font-bold text-red-700">Leakage</TableHead>
+                  <TableHead className="text-center font-bold text-blue-700">Expense Budget</TableHead>
+                  <TableHead className="text-center font-bold text-blue-700">Budget Used %</TableHead>
                   <TableHead className="text-center font-bold text-slate-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -803,7 +975,12 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
                         </TableCell>
                         <TableCell className="font-medium text-slate-900 text-center">{project.projectName}</TableCell>
                         <TableCell className="text-center font-medium text-slate-600">
-                          {formatCurrency(project.allocatedBudget, project.currency)}
+                          <div className="flex flex-col items-center gap-0.5">
+                            <span>{formatCurrency(project.allocatedBudget, project.currency)}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium uppercase tracking-wide">
+                              {project.revenueLabel || project.billing_model || 'Budget'}
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center font-medium text-blue-600">
                           {formatCurrency(getConvertedAmount(project.allocatedBudget, project.currency), targetCurrency)}
@@ -825,6 +1002,33 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
                             getConvertedAmount(project.totalLaborCost, project.currency) + project.totalNonLaborCostConverted,
                             targetCurrency
                           )}
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-red-600">
+                          {project.projectLeakage > 0 ? formatCurrency(project.projectLeakage, project.currency) : '—'}
+                        </TableCell>
+                        <TableCell className="text-center font-medium text-blue-600">
+                          {project.expenseBudgetValue > 0 ? (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span>{formatCurrency(project.expenseBudgetValue, project.currency)}</span>
+                              {project.billing_model === 'time_and_materials' && (
+                                <span className="text-[10px] text-slate-400">exp_budget × duration</span>
+                              )}
+                            </div>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell className="text-center font-bold">
+                          {project.budgetUsedPercent != null
+                            ? (
+                              <span className={
+                                project.budgetUsedPercent > 100 ? 'text-red-600' :
+                                  project.budgetUsedPercent > 80 ? 'text-amber-600' :
+                                    'text-green-600'
+                              }>
+                                {project.budgetUsedPercent.toFixed(1)}%
+                              </span>
+                            )
+                            : <span className="text-slate-400">—</span>
+                          }
                         </TableCell>
                         <TableCell className="text-center">
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/ProjectProfitabilityDetail?projectId=${project.id}`); }}>
