@@ -130,6 +130,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
     attachments: [],
     dependencies: [],
     subtasks: [],
+    acceptance_criteria: "",
     custom_fields: {},
     ai_generated: false,
     ai_metadata: {}
@@ -207,6 +208,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         attachments: [],
         dependencies: [],
         subtasks: [],
+        acceptance_criteria: "",
         custom_fields: {},
         ai_generated: false,
         ai_metadata: {}
@@ -1051,7 +1053,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         <Label className="text-sm font-semibold">Task Type</Label>
         <Select
           value={taskData.task_type}
-          onValueChange={(value) => setTaskData({ ...taskData, task_type: value })}
+          onValueChange={(value) => setTaskData(prev => ({ ...prev, task_type: value }))}
         >
           <SelectTrigger>
             <SelectValue />
@@ -1250,6 +1252,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
             id="epic-due-date"
             type="date"
             value={epicData.due_date}
+            min={new Date().toISOString().split('T')[0]}
             onChange={(e) => setEpicData({ ...epicData, due_date: e.target.value })}
           />
         </div>
@@ -1457,7 +1460,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
         <Label className="text-sm font-semibold">Task Type</Label>
         <Select
           value={taskData.task_type}
-          onValueChange={(value) => setTaskData({ ...taskData, task_type: value })}
+          onValueChange={(value) => setTaskData(prev => ({ ...prev, task_type: value }))}
         >
           <SelectTrigger>
             <SelectValue />
@@ -1693,6 +1696,7 @@ export default function CreateTaskModal({ open, onClose, projectId, onSuccess })
             id="story-due-date"
             type="date"
             value={storyData.due_date}
+            min={new Date().toISOString().split('T')[0]}
             onChange={(e) => setStoryData({ ...storyData, due_date: e.target.value })}
           />
         </div>

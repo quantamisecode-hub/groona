@@ -78,6 +78,8 @@ function getEmailTemplate(templateType, data = {}) {
       return getTaskAssignedTemplate(data);
     case 'task_unassigned':
       return getTaskUnassignedTemplate(data);
+    case 'task_status_changed':
+      return getTaskStatusChangedTemplate(data);
     case 'failed_login_attempts':
       return getFailedLoginAttemptsTemplate(data);
     case 'leave_approved':
@@ -369,6 +371,108 @@ function getTaskUnassignedTemplate(data) {
       content
     ),
     defaultSubject: `Task Unassigned: ${taskTitle}`
+  };
+}
+
+/**
+ * Task Status Changed Template
+ */
+function getTaskStatusChangedTemplate(data) {
+  const {
+    recipientName,
+    recipientEmail,
+    taskTitle,
+    projectName,
+    oldStatus,
+    newStatus,
+    changedBy,
+    taskUrl,
+    isReverted
+  } = data;
+
+  const statusColors = {
+    'todo': '#64748b', // Slate 500
+    'in_progress': '#3b82f6', // Blue 500
+    'review': '#eab308', // Yellow 500
+    'done': '#10b981' // Emerald 500
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      'todo': 'To Do',
+      'in_progress': 'In Progress',
+      'review': 'Review',
+      'done': 'Done'
+    };
+    return labels[status?.toLowerCase()] || status;
+  };
+
+  const oldStatusColor = statusColors[oldStatus?.toLowerCase()] || '#64748b';
+  const newStatusColor = statusColors[newStatus?.toLowerCase()] || '#64748b';
+
+  const actionText = isReverted
+    ? `<strong style="color: #ef4444;">reverted</strong>`
+    : `moved`;
+
+  const content = `
+    <p style="${styles.text}">A task has been ${actionText} on the Kanban board in project <strong>${projectName}</strong>.</p>
+    
+    ${isReverted ? `
+      <div style="background-color: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 6px; margin-bottom: 24px;">
+        <p style="margin: 0; color: #b91c1c; font-size: 14px;">
+          <strong>Alert:</strong> This task was moved backwards on the board.
+        </p>
+      </div>
+    ` : ''}
+
+    <div style="${styles.infoBox}">
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Task:</span>
+        <span style="${styles.value}"><strong>${taskTitle}</strong></span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Project:</span>
+        <span style="${styles.value}">${projectName}</span>
+      </div>
+      <div style="${styles.infoRow}">
+        <span style="${styles.label}">Changed By:</span>
+        <span style="${styles.value}">${changedBy || 'A team member'}</span>
+      </div>
+      <div style="margin-top: 16px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <div style="text-align: center;">
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">From</div>
+          <span style="${styles.statusBadge}; background-color: ${oldStatusColor}15; color: ${oldStatusColor}; border: 1px solid ${oldStatusColor}30;">
+            ${getStatusLabel(oldStatus)}
+          </span>
+        </div>
+        
+        <div style="margin: 0 16px; color: #94a3b8; font-weight: bold;">➔</div>
+        
+        <div style="text-align: center;">
+          <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">To</div>
+          <span style="${styles.statusBadge}; background-color: ${newStatusColor}15; color: ${newStatusColor}; border: 1px solid ${newStatusColor}30;">
+            ${getStatusLabel(newStatus)}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    ${taskUrl ? `
+      <div style="${styles.buttonGroup}">
+        <a href="${taskUrl}" style="${styles.primaryBtn}">View on Board</a>
+      </div>
+    ` : ''}
+  `;
+
+  const subjectPrefix = isReverted ? '[Reverted] ' : '';
+
+  return {
+    html: getBaseTemplate(
+      'Task Status Update',
+      `Hello, ${recipientName || recipientEmail}`,
+      content
+    ),
+    defaultSubject: `${subjectPrefix}Task Update: ${taskTitle} moved to ${getStatusLabel(newStatus)}`
   };
 }
 

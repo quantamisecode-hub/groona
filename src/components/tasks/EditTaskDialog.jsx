@@ -1094,6 +1094,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
               <Input
                 type="date"
                 value={formData.due_date}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                 disabled={updateTaskMutation.isPending}
               />

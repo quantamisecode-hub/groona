@@ -1,0 +1,33 @@
+Utils Folder Documentation (src/utils)
+
+Overview
+--------
+The `src/utils` folder contains general‑purpose utility functions and static data (like email templates) that are used across the frontend application. These are lightweight helpers that do not typically maintain state.
+
+Files
+-----
+### 1. index.ts
+Contains general utility functions for the application.
+- **`createPageUrl(pageName: string)`**:
+  - Purpose: Generates a URL‑friendly slug from a page name.
+  - Returns: A lowercase string prefixed with `/` where spaces are replaced by hyphens.
+  - Example: `createPageUrl("Project Detail")` returns `"/project-detail"`.
+
+### 2. emailTemplates.js
+Provides HTML/CSS templates for system‑generated emails handled by the frontend (often passed to the backend for delivery).
+- **`getOtpEmailTemplate(otpPlaceholder)`**:
+  - Purpose: Returns a responsive HTML string for OTP (One‑Time Password) verification.
+  - Styles: Includes embedded CSS for branding, consistent with the Groona design system (blue/purple gradients).
+  - Dynamic Data: Accepts a placeholder (defaults to `{{OTP}}`) and injects the current year for the copyright footer.
+
+Tree Structure
+--------------
+src/utils
+├─ emailTemplates.js
+└─ index.ts
+
+Developer Notes
+---------------
+- Utility functions should be kept pure whenever possible.
+- If a utility grows complex or requires API interaction, consider moving it to `src/services`.
+- TypeScript (`.ts`) is preferred for new utility functions to ensure type safety.

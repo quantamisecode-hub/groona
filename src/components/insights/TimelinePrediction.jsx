@@ -3,17 +3,24 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Clock, TrendingUp, Calendar, Activity, Target, Zap } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format, addDays, differenceInDays, startOfDay } from "date-fns";
 
-export default function TimelinePrediction({ project, tasks, activities = [], compact = false }) {
+export default function TimelinePrediction({ project, tasks, stories = [], activities = [], compact = false }) {
   const predictTimeline = () => {
     const now = startOfDay(new Date());
-    const progress = project.progress || 0;
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const totalTasks = tasks.length;
-    
+
+    // Calculate progress using Story Points for consistency
+    const totalPoints = stories.reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const completedPoints = stories
+      .filter(s => s.status === 'done')
+      .reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const progress = totalPoints > 0 ? (completedPoints / totalPoints) * 100 : 0;
+    const completedTasks = completedPoints; // Using points as the "completed" metric for velocity
+    const totalTasks = totalPoints;
+
     // Calculate completion velocity using multiple methods
-    
+
     // Method 1: Recent velocity (last 30 days)
     const last30Days = activities.filter(a => {
       const activityDate = new Date(a.created_date);
@@ -29,10 +36,10 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
 
     // Method 3: Progress-based velocity
     const progressRate = progress / daysInProject; // % per day
-    
+
     // Weighted average velocity (favor recent performance)
     const velocity = (recentVelocity * 0.5) + (overallVelocity * 0.3) + (progressRate * 0.2);
-    
+
     // Calculate remaining work
     const remainingTasks = totalTasks - completedTasks;
     const remainingProgress = 100 - progress;
@@ -40,7 +47,7 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
     // Predictions using different methods
     const taskBasedDays = velocity > 0 ? Math.ceil(remainingTasks / velocity) : remainingTasks * 2;
     const progressBasedDays = progressRate > 0 ? Math.ceil(remainingProgress / progressRate) : 60;
-    
+
     // Smart weighted prediction (consider both task count and progress)
     let estimatedDays;
     if (remainingTasks === 0 && progress >= 100) {
@@ -58,11 +65,11 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
     }
 
     const predictedDate = addDays(now, estimatedDays);
-    
+
     // Calculate confidence level
     let confidence = 'low';
     let confidenceScore = 0;
-    
+
     if (last30Days.length >= 10) {
       confidence = 'high';
       confidenceScore = 90;
@@ -78,12 +85,12 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
     let status = 'on-track';
     let message = 'Project is progressing well';
     let daysBuffer = 0;
-    
+
     if (project.deadline) {
       const deadline = new Date(project.deadline);
       const daysUntilDeadline = differenceInDays(deadline, now);
       daysBuffer = daysUntilDeadline - estimatedDays;
-      
+
       if (daysBuffer < -7) {
         status = 'critical';
         message = `Predicted to finish ${Math.abs(daysBuffer)} days after deadline - immediate action required`;
@@ -108,7 +115,7 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
       const daysDiff = differenceInDays(now, activityDate);
       return daysDiff <= 7 && a.action === 'completed' && a.entity_type === 'task';
     });
-    
+
     const last14To7Days = activities.filter(a => {
       const activityDate = new Date(a.created_date);
       const daysDiff = differenceInDays(now, activityDate);
@@ -118,7 +125,7 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
     const recentWeekVelocity = last7Days.length;
     const previousWeekVelocity = last14To7Days.length;
     let velocityTrend = 'stable';
-    
+
     if (recentWeekVelocity > previousWeekVelocity * 1.2) {
       velocityTrend = 'accelerating';
     } else if (recentWeekVelocity < previousWeekVelocity * 0.8) {
@@ -195,8 +202,13 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
   return (
     <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-blue-600" />
+        <CardTitle className="flex items-center gap-3">
+          <Avatar className="h-8 w-8 border border-slate-200">
+            <AvatarImage src={project.logo_url} />
+            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
+              {project.name.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
           Advanced Timeline Prediction: {project.name}
         </CardTitle>
       </CardHeader>
@@ -238,11 +250,10 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
             <p className="text-2xl font-bold text-blue-600">{prediction.velocity}</p>
             <p className="text-xs text-slate-600">tasks per day (weighted avg)</p>
             <div className="mt-2 pt-2 border-t border-blue-200">
-              <p className="text-xs text-slate-600">Trend: 
-                <span className={`font-semibold ml-1 ${
-                  prediction.velocityTrend === 'accelerating' ? 'text-green-600' : 
+              <p className="text-xs text-slate-600">Trend:
+                <span className={`font-semibold ml-1 ${prediction.velocityTrend === 'accelerating' ? 'text-green-600' :
                   prediction.velocityTrend === 'decelerating' ? 'text-red-600' : 'text-blue-600'
-                }`}>
+                  }`}>
                   {prediction.velocityTrend}
                 </span>
               </p>
@@ -299,9 +310,9 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-slate-700">Current Progress</span>
-            <span className="text-sm font-bold text-slate-900">{project.progress || 0}%</span>
+            <span className="text-sm font-bold text-slate-900">{prediction.completionRate}%</span>
           </div>
-          <Progress value={project.progress || 0} className="h-3" />
+          <Progress value={parseInt(prediction.completionRate)} className="h-3" />
         </div>
 
         {project.deadline && (
@@ -318,10 +329,9 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-700 mb-1">Schedule Buffer</p>
-                <p className={`font-semibold text-lg ${
-                  prediction.daysBuffer < 0 ? 'text-red-600' : 
+                <p className={`font-semibold text-lg ${prediction.daysBuffer < 0 ? 'text-red-600' :
                   prediction.daysBuffer < 7 ? 'text-amber-600' : 'text-green-600'
-                }`}>
+                  }`}>
                   {prediction.daysBuffer >= 0 ? '+' : ''}{prediction.daysBuffer} days
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
@@ -346,11 +356,11 @@ export default function TimelinePrediction({ project, tasks, activities = [], co
                 <li>• Progress rate (20%) - percentage completion per day</li>
               </ul>
               <p className="text-xs text-slate-600 mt-3">
-                {prediction.confidence === 'high' 
-                  ? 'High confidence due to consistent recent activity and sufficient data points.' 
+                {prediction.confidence === 'high'
+                  ? 'High confidence due to consistent recent activity and sufficient data points.'
                   : prediction.confidence === 'medium'
-                  ? 'Medium confidence - some recent activity but limited historical data.'
-                  : 'Low confidence - limited activity data. Increase team activity for more accurate predictions.'}
+                    ? 'Medium confidence - some recent activity but limited historical data.'
+                    : 'Low confidence - limited activity data. Increase team activity for more accurate predictions.'}
               </p>
             </div>
           </div>

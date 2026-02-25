@@ -29,13 +29,13 @@ const getCompressedLogo = (src, width = 100, quality = 0.8) => {
 // ... (Keep existing generateBrandedDocumentPDF code) ...
 export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
     // ... (Keep existing implementation) ...
-    const { 
-        logoUrl, 
-        companyName, 
-        title, 
-        author, 
-        createdDate, 
-        category 
+    const {
+        logoUrl,
+        companyName,
+        title,
+        author,
+        createdDate,
+        category
     } = metadata;
 
     const doc = new jsPDF();
@@ -48,7 +48,7 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
         try {
             const logo = await getCompressedLogo(logoUrl, 150);
             if (logo) {
-                const pdfLogoWidth = 20; 
+                const pdfLogoWidth = 20;
                 const pdfLogoHeight = logo.ratio * pdfLogoWidth;
                 doc.addImage(logo.dataUrl, 'JPEG', margin, y, pdfLogoWidth, pdfLogoHeight);
             }
@@ -61,7 +61,7 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
     doc.setFontSize(16);
     doc.setTextColor(50, 50, 50);
     doc.text(companyName || 'Organization', pageWidth - margin, y + 8, { align: 'right' });
-    
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
@@ -75,8 +75,8 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
-    doc.setTextColor(0, 0, 0); 
-    
+    doc.setTextColor(0, 0, 0);
+
     const titleLines = doc.splitTextToSize(title, contentWidth);
     doc.text(titleLines, margin, y);
     y += (titleLines.length * 8);
@@ -116,7 +116,7 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
             const lines = doc.splitTextToSize(textContent, contentWidth);
             doc.text(lines, margin, y);
             y += (lines.length * 7) + 2;
-        } 
+        }
         else if (node.nodeName === 'H3' || node.nodeName === 'H4') {
             checkPageBreak(12);
             y += 3;
@@ -140,15 +140,15 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
             items.forEach((li, i) => {
                 const liText = li.textContent.trim();
                 if (!liText) return;
-                
+
                 checkPageBreak(8);
                 doc.setFontSize(11);
-                
+
                 const bullet = node.nodeName === 'OL' ? `${i + 1}.` : '•';
                 const indent = 8;
-                
+
                 doc.text(bullet, margin + 2, y);
-                
+
                 const lines = doc.splitTextToSize(liText, contentWidth - indent);
                 doc.text(lines, margin + indent, y);
                 y += (lines.length * 5) + 2;
@@ -160,12 +160,12 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
             doc.setFont("helvetica", "italic");
             doc.setTextColor(80, 80, 80);
             const lines = doc.splitTextToSize(textContent, contentWidth - 10);
-            
+
             const height = (lines.length * 5);
             doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(1);
             doc.line(margin, y, margin, y + height);
-            
+
             doc.text(lines, margin + 5, y + 4);
             y += height + 8;
         }
@@ -198,7 +198,7 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(50, 50, 50);
-        
+
         let x = margin + 2;
         doc.text("Date", x, y + 5); x += 25;
         doc.text("Project", x, y + 5); x += 40;
@@ -225,7 +225,7 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
 
     const totalHours = timesheets.reduce((acc, t) => acc + (t.total_minutes || 0), 0) / 60;
     const billableHours = timesheets.filter(t => t.is_billable).reduce((acc, t) => acc + (t.total_minutes || 0), 0) / 60;
-    
+
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.1);
     doc.line(margin, y, pageWidth - margin, y);
@@ -267,16 +267,16 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
         doc.text(truncate(user, 20), x, y); x += 35;
         doc.text(truncate(task, 25), x, y); x += 45;
         doc.text(hours, x, y); x += 15;
-        
+
         if (status === 'approved') doc.setTextColor(22, 163, 74);
         else if (status === 'rejected') doc.setTextColor(220, 38, 38);
         else doc.setTextColor(202, 138, 4);
-        
+
         doc.text(status.charAt(0).toUpperCase() + status.slice(1), x, y);
         doc.setTextColor(0, 0, 0);
 
         y += 7;
-        
+
         if ((index + 1) % 5 === 0) {
             doc.setDrawColor(240, 240, 240);
             doc.line(margin, y - 4, pageWidth - margin, y - 4);
@@ -320,12 +320,12 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text(`${label}:`, margin + xOffset, y);
-        
+
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
         const valStr = value !== undefined && value !== null ? String(value) : "N/A";
         doc.text(valStr, margin + xOffset + 35, y);
-        
+
         if (!isInline) y += 6;
     };
 
@@ -334,7 +334,7 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
     doc.setTextColor(79, 70, 229);
     doc.text("Project Summary Report", margin, y);
     y += 10;
-    
+
     doc.setFontSize(16);
     doc.setTextColor(50, 50, 50);
     doc.text(project.name, margin, y);
@@ -350,11 +350,11 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
     y += 5;
 
     addTitle("Key Metrics");
-    
+
     addField("Completed", analytics.completedTasks.length, 0, true);
     addField("In Progress", analytics.tasksByStatus.in_progress, 80, true);
     y += 8;
-    
+
     addField("Pending", analytics.tasksByStatus.todo, 0, true);
     addField("Overdue", analytics.overdueTasks.length, 80, true);
     y += 12;
@@ -364,12 +364,12 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-        
+
         const teamNames = analytics.assignedUsers.map(email => {
             const profile = userMap[email];
             return profile ? `${profile.name} (${profile.title})` : email;
         }).join(", ");
-        
+
         const splitTeam = doc.splitTextToSize(teamNames, contentWidth);
         checkPageBreak(splitTeam.length * 5);
         doc.text(splitTeam, margin, y);
@@ -388,12 +388,12 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         analytics.recentActivities.slice(0, 8).forEach(activity => {
             checkPageBreak(12);
             const dateStr = format(new Date(activity.created_date), 'MMM d, HH:mm');
-            
+
             doc.setFont("helvetica", "bold");
             doc.setTextColor(50, 50, 50);
             doc.text(`•  ${activity.user_name} ${activity.action} ${activity.entity_type}`, margin, y);
             y += 4;
-            
+
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
             const detail = activity.entity_name || "";
@@ -410,7 +410,7 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
     if (aiReport) {
         doc.addPage();
         y = 20;
-        
+
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.setTextColor(79, 70, 229);
@@ -429,15 +429,35 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
             .replace(/#\s?/g, "")
             .replace(/^\s*-\s/gm, "•  ");
 
+        const shouldBoldPDFLine = (text) => {
+            if (!text) return false;
+            const datePatterns = [
+                /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/,
+                /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i,
+                /\b\d{4}-\d{2}-\d{2}\b/,
+            ];
+            if (datePatterns.some(pattern => pattern.test(text))) return true;
+
+            if (project.name && new RegExp(`\\b${project.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) return true;
+
+            for (const email in userMap) {
+                const name = typeof userMap[email] === 'object' ? userMap[email].name : userMap[email];
+                if (name && typeof name === 'string' && name.length > 2) {
+                    if (new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) return true;
+                }
+            }
+            return false;
+        };
+
         const splitReport = doc.splitTextToSize(cleanReport, contentWidth);
 
         splitReport.forEach(line => {
             checkPageBreak(5);
-            
+
             const trimmed = line.trim();
             const isHeader = trimmed.length > 0 && trimmed.length < 60 && (trimmed.endsWith(':') || /^[A-Z\s]+$/.test(trimmed));
-            
-            if (isHeader) {
+
+            if (isHeader || shouldBoldPDFLine(line)) {
                 y += 2;
                 doc.setFont("helvetica", "bold");
                 doc.text(line, margin, y);
@@ -486,14 +506,14 @@ export const generateSprintReportPDF = (sprint, tasks, project) => {
     doc.setTextColor(100, 100, 100);
     doc.text(`Project: ${project?.name || 'Unknown'}`, margin, y);
     y += 6;
-    
+
     if (sprint.start_date && sprint.end_date) {
         const start = format(new Date(sprint.start_date), 'MMM d');
         const end = format(new Date(sprint.end_date), 'MMM d, yyyy');
         doc.text(`Duration: ${start} - ${end}`, margin, y);
         y += 6;
     }
-    
+
     doc.text(`Generated on: ${format(new Date(), 'MMM d, yyyy HH:mm')}`, margin, y);
     y += 12;
 
@@ -544,22 +564,22 @@ export const generateSprintReportPDF = (sprint, tasks, project) => {
             doc.setFont("helvetica", "bold");
             doc.setFontSize(10);
             doc.setTextColor(50, 50, 50);
-            
+
             // Task Title
             const titleText = `•  ${task.title}`;
             doc.text(titleText, margin, y);
-            
+
             // Metadata (Assignee, Priority)
             doc.setFont("helvetica", "normal");
             doc.setFontSize(9);
             doc.setTextColor(100, 100, 100);
-            
+
             const assignee = task.assigned_to_name || task.assigned_to || 'Unassigned';
             const priority = task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Normal';
-            
+
             const meta = `   Assignee: ${assignee}  |  Priority: ${priority}`;
             doc.text(meta, margin, y + 5);
-            
+
             y += 12;
         });
         y += 5;

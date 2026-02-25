@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { groonabackend } from "@/api/groonabackend";
+import { groonabackend, API_URL } from "@/api/groonabackend";
+import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export default function SubscriptionManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [deletingPlan, setDeletingPlan] = useState(null);
+  const [planToUpgrade, setPlanToUpgrade] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -93,69 +95,116 @@ export default function SubscriptionManagement() {
       tenant.subscription_plan?.toLowerCase() === plan.name.toLowerCase();
   };
 
-  const upgradeMutation = useMutation({
-    mutationFn: async (plan) => {
-      if (!tenant?.id) throw new Error("Tenant ID not found");
+  // --- RAZORPAY INTEGRATION ---
+  useEffect(() => {
+    // Dynamically load Razorpay SDK
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
 
-      // 1. Update Tenant
-      await groonabackend.entities.Tenant.update(tenant.id, {
-        subscription_plan_id: plan.id,
-        subscription_plan: plan.name,
-        subscription_status: 'active',
-        // Sync features to tenant root for easy access if needed, though mostly stored in subscription now
-        max_users: plan.features?.max_users,
-        max_projects: plan.features?.max_projects,
-        max_workspaces: plan.features?.max_workspaces,
-        max_storage_gb: plan.features?.max_storage_gb
-      });
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
-      // 2. Update/Create Subscription Record (Mocking payment success)
-      const now = new Date();
-      const nextMonth = new Date(now);
-      nextMonth.setMonth(now.getMonth() + 1);
-
-      const subData = {
-        tenant_id: tenant.id,
-        subscription_plan_id: plan.id,
-        plan_name: plan.name,
-        subscription_type: 'monthly',
-        payment_status: 'active',
-        start_date: now.toISOString(),
-        end_date: nextMonth.toISOString(),
-        trial_ends_at: null, // Clear trial if upgrading
-        ...plan.features
-      };
-
-      // Check if sub exists
-      if (currentSubscription) {
-        await groonabackend.entities.TenantSubscription.update(currentSubscription.id, subData);
-      } else {
-        await groonabackend.entities.TenantSubscription.create(subData);
-      }
-
-      return plan;
-    },
-    onSuccess: (plan) => {
-      queryClient.invalidateQueries({ queryKey: ['tenant-subscription'] });
-      queryClient.invalidateQueries({ queryKey: ['current-tenant-status'] }); // Make sure to match the key in UserContext
-
-      toast.success(`Successfully upgraded to ${plan.name}!`, {
-        description: "Your workspace features have been updated."
-      });
-
-      // Reload page after short delay to refresh all contexts adequately
-      setTimeout(() => window.location.reload(), 1500);
-    },
-    onError: (err) => {
-      console.error(err);
-      toast.error("Upgrade failed", { description: err.message });
-    }
-  });
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const handleUpgrade = (plan) => {
-    // For now, directly call mock upgrade. In future, replace with Stripe Checkout.
-    if (confirm(`Confirm upgrade to ${plan.name} for $${plan.monthly_price}/month?`)) {
-      upgradeMutation.mutate(plan);
+    if (!tenant?.id) {
+      toast.error("Tenant information is missing.");
+      return;
+    }
+    setPlanToUpgrade(plan);
+  };
+
+  const executePayment = async (plan) => {
+    if (!plan) return;
+    setPlanToUpgrade(null);
+    setIsProcessingPayment(true);
+    const loadingToast = toast.loading("Initiating secure checkout...");
+
+    try {
+      // 1. Create order on backend
+      const orderResponse = await axios.post(`${API_URL}/integrations/razorpay/create-order`, {
+        amount: plan.monthly_price,
+        plan_id: plan.id,
+        currency: plan.currency || 'USD'
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+
+      const { order_id, amount, currency, key_id } = orderResponse.data;
+
+      toast.dismiss(loadingToast);
+
+      // 2. Initialize Razorpay Checkout
+      const options = {
+        key: key_id,
+        amount: amount,
+        currency: currency,
+        name: "Groona Platform",
+        description: `Subscription: ${plan.name}`,
+        order_id: order_id,
+        handler: async function (response) {
+          // 3. Verify Payment on Success
+          const verifyToast = toast.loading("Verifying payment...");
+          try {
+            const verifyResponse = await axios.post(`${API_URL}/integrations/razorpay/verify-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              plan_id: plan.id,
+              tenant_id: tenant.id
+            }, {
+              headers: { Authorization: `Bearer ${localStorage.getItem('auth_token')}` }
+            });
+
+            if (verifyResponse.data.success) {
+              toast.success("Payment Successful!", { description: `You are now on the ${plan.name} plan.` });
+              queryClient.invalidateQueries({ queryKey: ['tenant-subscription'] });
+              queryClient.invalidateQueries({ queryKey: ['current-tenant-status'] });
+              setTimeout(() => window.location.reload(), 1500);
+            } else {
+              toast.error("Verification Failed", { description: "Please contact support." });
+            }
+          } catch (verifyError) {
+            console.error("Verification Error:", verifyError);
+            toast.error("Payment Verification Failed", { description: verifyError.response?.data?.message || "An error occurred" });
+          } finally {
+            toast.dismiss(verifyToast);
+            setIsProcessingPayment(false);
+          }
+        },
+        prefill: {
+          name: user?.full_name || user?.name || "User",
+          email: user?.email || ""
+        },
+        theme: {
+          color: "#4f46e5" // Indigo-600 to match Groona
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessingPayment(false);
+            toast.info("Checkout cancelled.");
+          }
+        }
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        setIsProcessingPayment(false);
+        toast.error("Payment Failed", { description: response.error.description });
+      });
+      rzp.open();
+
+    } catch (error) {
+      console.error("Order Creation Error:", error);
+      toast.dismiss(loadingToast);
+      setIsProcessingPayment(false);
+      toast.error("Failed to initiate checkout", {
+        description: error.response?.data?.error || "Please try again later or contact support if the issue persists."
+      });
     }
   };
 
@@ -310,14 +359,13 @@ export default function SubscriptionManagement() {
                   <CardDescription className="text-slate-500 line-clamp-2 min-h-[40px] leading-relaxed">
                     {plan.description}
                   </CardDescription>
-
-                  {/* Subscription Status Block */}
-                  {subDetails}
                 </CardHeader>
 
                 <CardContent className="flex-1 space-y-6 pt-4">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-bold text-slate-900">${plan.monthly_price}</span>
+                    <span className="text-4xl font-bold text-slate-900">
+                      {new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency || 'USD', minimumFractionDigits: 0 }).format(plan.monthly_price)}
+                    </span>
                     <span className="text-slate-500 font-medium">/month</span>
                   </div>
 
@@ -348,7 +396,7 @@ export default function SubscriptionManagement() {
                     })}
                   </div>
                 </CardContent>
-                <CardFooter className="pt-6 border-t border-slate-100">
+                <CardFooter className="pt-6 border-t border-slate-100 flex-col items-stretch gap-4">
                   {isCurrent ? (
                     <Button disabled className="w-full bg-slate-50 text-slate-400 border border-slate-100 cursor-not-allowed font-medium">
                       Current Plan
@@ -362,24 +410,68 @@ export default function SubscriptionManagement() {
                           : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 hover:bg-slate-100"
                       )}
                       onClick={() => handleUpgrade(plan)}
-                      disabled={!isOwner || upgradeMutation.isPending}
+                      disabled={!isOwner || isProcessingPayment}
                       title={!isOwner ? "Only the workspace owner can upgrade" : ""}
                     >
-                      {upgradeMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      {isProcessingPayment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
 
-                      {!isOwner && !upgradeMutation.isPending && <ShieldAlert className="w-4 h-4 mr-2" />}
+                      {!isOwner && !isProcessingPayment && <ShieldAlert className="w-4 h-4 mr-2" />}
 
                       {isOwner
-                        ? (upgradeMutation.isPending ? "Upgrading..." : "Upgrade to " + plan.name)
+                        ? (isProcessingPayment ? "Upgrading..." : "Upgrade to " + plan.name)
                         : "Upgrade (Owner Only)"
                       }
                     </Button>
                   )}
+                  {/* Subscription Status Block moved here */}
+                  {subDetails}
                 </CardFooter>
               </Card>
             );
           })}
         </div>
+
+        {/* Payment Confirmation Dialog */}
+        <AlertDialog open={!!planToUpgrade} onOpenChange={() => setPlanToUpgrade(null)}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <div className="mx-auto w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                <Zap className="h-6 w-6 text-indigo-600" />
+              </div>
+              <AlertDialogTitle className="text-center text-xl">Confirm Upgrade</AlertDialogTitle>
+              <AlertDialogDescription className="text-center space-y-3">
+                <p>
+                  You are about to upgrade your workspace to the <span className="font-bold text-slate-900">{planToUpgrade?.name}</span> plan.
+                </p>
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500">Plan Price</span>
+                    <span className="font-bold text-slate-900">
+                      {planToUpgrade && new Intl.NumberFormat('en-US', { style: 'currency', currency: planToUpgrade.currency || 'USD', minimumFractionDigits: 0 }).format(planToUpgrade.monthly_price)} / month
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 italic">
+                    <span>Checkout will be handled securely via Razorpay</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed pt-2">
+                  Clicking confirm will open the payment gateway where you can complete your transaction securely.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="sm:flex-col gap-2">
+              <AlertDialogAction
+                onClick={() => executePayment(planToUpgrade)}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold"
+              >
+                Confirm & Pay
+              </AlertDialogAction>
+              <AlertDialogCancel className="w-full border-slate-200 text-slate-600 hover:bg-slate-50">
+                Cancel
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -443,12 +535,12 @@ export default function SubscriptionManagement() {
                 {/* Pricing */}
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-slate-900">
-                    ${plan.monthly_price}
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency || 'USD', minimumFractionDigits: 0 }).format(plan.monthly_price)}
                   </span>
                   <span className="text-slate-500">/month</span>
                 </div>
                 <div className="text-sm text-slate-600">
-                  ${plan.annual_price}/year (annual billing)
+                  {new Intl.NumberFormat('en-US', { style: 'currency', currency: plan.currency || 'USD', minimumFractionDigits: 0 }).format(plan.annual_price)}/year (annual billing)
                 </div>
                 <div className="text-xs text-slate-500 mt-1">
                   Valid for {plan.validity_days || 30} days
@@ -536,6 +628,48 @@ export default function SubscriptionManagement() {
         }}
         loading={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* Payment Confirmation Dialog */}
+      <AlertDialog open={!!planToUpgrade} onOpenChange={() => setPlanToUpgrade(null)}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+              <Zap className="h-6 w-6 text-indigo-600" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl">Confirm Upgrade</AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-3">
+              <p>
+                You are about to upgrade your workspace to the <span className="font-bold text-slate-900">{planToUpgrade?.name}</span> plan.
+              </p>
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-500">Plan Price</span>
+                  <span className="font-bold text-slate-900">
+                    {planToUpgrade && new Intl.NumberFormat('en-US', { style: 'currency', currency: planToUpgrade.currency || 'USD', minimumFractionDigits: 0 }).format(planToUpgrade.monthly_price)} / month
+                  </span>
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 italic">
+                  <span>Checkout will be handled securely via Razorpay</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed pt-2">
+                Clicking confirm will open the payment gateway where you can complete your transaction securely.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:flex-col gap-2">
+            <AlertDialogAction
+              onClick={() => executePayment(planToUpgrade)}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold"
+            >
+              Confirm & Pay
+            </AlertDialogAction>
+            <AlertDialogCancel className="w-full border-slate-200 text-slate-600 hover:bg-slate-50">
+              Cancel
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deletingPlan} onOpenChange={() => setDeletingPlan(null)}>

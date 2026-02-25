@@ -18,13 +18,15 @@ import {
   Loader2,
   Sparkles,
   History,
-  Trash2
+  Trash2,
+  Image as ImageIcon
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import ReactMarkdown from 'react-markdown';
 import { toast } from "sonner";
 
-export default function ProjectReport({ project, tasks, activities }) {
+export default function ProjectReport({ project, tasks, stories = [], activities }) {
   const { user: currentUser, effectiveTenantId } = useUser();
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,6 +37,8 @@ export default function ProjectReport({ project, tasks, activities }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const reportRef = useRef(null);
   const reportContainerRef = useRef(null);
+  const scrollAnchorRef = useRef(null);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Fetch user profiles to map emails to names and titles
   const { data: userProfiles = [] } = useQuery({
@@ -57,6 +61,70 @@ export default function ProjectReport({ project, tasks, activities }) {
     return map;
   }, [userProfiles]);
 
+  // Memoized list of names to bold
+  const boldTargets = useMemo(() => {
+    const names = new Set();
+    if (project?.name) names.add(project.name);
+    tasks.forEach(t => { if (t.title) names.add(t.title); });
+    userProfiles.forEach(p => {
+      if (p.full_name) names.add(p.full_name);
+      if (p.name) names.add(p.name);
+    });
+    return Array.from(names).filter(n => n && n.length > 2).sort((a, b) => b.length - a.length); // Longest first, ignore very short names
+  }, [project, tasks, userProfiles]);
+
+  // Preprocess markdown to bold identifiers and quotes
+  const preprocessMarkdown = (text) => {
+    if (!text) return "";
+    let processed = text;
+
+    // 1. Bold explicit targets (projects, tasks, and team members)
+    boldTargets.forEach(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use case-insensitive regex ('gi') and negative lookbehind/lookahead to avoid double-bolding
+      const regex = new RegExp(`(?<!\\*\\*)\\b${escapedName}\\b(?!\\*\\*)`, 'gi');
+      processed = processed.replace(regex, (match) => `**${match}**`);
+    });
+
+    // 2. Bold dates
+    const datePatterns = [
+      /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/gi,
+      /\b\d{4}-\d{2}-\d{2}\b/g
+    ];
+    datePatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
+
+    // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
+    processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
+
+    return processed;
+  };
+
+  // Scroll detection to pause auto-scroll if user scrolls up
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!isStreaming) return;
+
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // If user is more than 150px from the bottom, they've scrolled up
+      if (documentHeight - (scrollY + windowHeight) > 150) {
+        if (!userHasScrolledUp) setUserHasScrolledUp(true);
+      } else {
+        if (userHasScrolledUp) setUserHasScrolledUp(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isStreaming, userHasScrolledUp]);
+
+  // Fetch reports logic follows...
+
   const generateAnalytics = () => {
     const completedTasks = tasks.filter(t => t.status === 'completed');
     const pendingTasks = tasks.filter(t => t.status !== 'completed');
@@ -71,6 +139,13 @@ export default function ProjectReport({ project, tasks, activities }) {
       review: tasks.filter(t => t.status === 'review').length,
       completed: completedTasks.length,
     };
+
+    // Calculate completion rate using Story Points for consistency with main project view
+    const totalPoints = stories.reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const donePoints = stories
+      .filter(s => s.status === 'done')
+      .reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const completionRate = totalPoints > 0 ? ((donePoints / totalPoints) * 100).toFixed(0) : 0;
 
     // Fix: Correctly flatten and deduplicate assigned users
     const allAssignees = tasks.flatMap(t => {
@@ -90,7 +165,7 @@ export default function ProjectReport({ project, tasks, activities }) {
       tasksByStatus,
       assignedUsers,
       recentActivities,
-      completionRate: tasks.length > 0 ? ((completedTasks.length / tasks.length) * 100).toFixed(0) : 0,
+      completionRate,
     };
   };
 
@@ -147,26 +222,25 @@ export default function ProjectReport({ project, tasks, activities }) {
           setDisplayedReport(text.substring(0, index + 1));
           index++;
 
-          // Auto-scroll to bottom while typing (every 50 characters for performance)
-          if (index % 50 === 0 && reportContainerRef.current) {
-            setTimeout(() => {
-              reportContainerRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'end'
-              });
-            }, 0);
+          // Auto-scroll to bottom while typing if user hasn't scrolled up manually
+          // Scroll more frequently (every 5 chars) for "word-by-word" feel
+          if (index % 5 === 0 && !userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
+              behavior: 'auto',
+              block: 'end'
+            });
           }
 
           setTimeout(type, speed);
         } else {
           setIsStreaming(false);
-          // Final scroll
-          setTimeout(() => {
-            reportContainerRef.current?.scrollIntoView({
+          // Final scroll if not manually scrolled up
+          if (!userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
               behavior: 'smooth',
               block: 'end'
             });
-          }, 100);
+          }
           resolve();
         }
       };
@@ -177,22 +251,13 @@ export default function ProjectReport({ project, tasks, activities }) {
 
   // Auto-scroll effect when report changes or while streaming
   useEffect(() => {
-    if ((displayedReport || aiReport) && reportContainerRef.current) {
-      const scrollToBottom = () => {
-        if (reportContainerRef.current) {
-          reportContainerRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end'
-          });
-        }
-      };
-
-      scrollToBottom();
-      const timeout = setTimeout(scrollToBottom, 200);
-
-      return () => clearTimeout(timeout);
+    if ((displayedReport || aiReport) && isStreaming && !userHasScrolledUp) {
+      scrollAnchorRef.current?.scrollIntoView({
+        behavior: 'auto',
+        block: 'end'
+      });
     }
-  }, [displayedReport, aiReport, isStreaming]);
+  }, [displayedReport, aiReport, isStreaming, userHasScrolledUp]);
 
   const generateAIReport = async () => {
     setIsGenerating(true);
@@ -211,7 +276,7 @@ export default function ProjectReport({ project, tasks, activities }) {
 Project Name: ${project.name}
 Description: ${project.description || 'No description'}
 Status: ${project.status}
-Progress: ${project.progress || 0}%
+Progress: ${analytics.completionRate}%
 Deadline: ${project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Not set'}
 Priority: ${project.priority || 'Not set'}
 
@@ -438,15 +503,23 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     }
   };
 
-  // Helper function to check if text contains dates
-  const containsDate = (text) => {
+  // Helper function to check if text contains dates or bold targets for PDF bolding
+  const shouldBoldPDFLine = (text) => {
+    if (!text) return false;
     const datePatterns = [
       /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/,
       /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i,
       /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\b/i,
       /\b\d{4}-\d{2}-\d{2}\b/,
     ];
-    return datePatterns.some(pattern => pattern.test(text));
+    if (datePatterns.some(pattern => pattern.test(text))) return true;
+
+    // Check for bold targets in the line
+    return boldTargets.some(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedName}\\b`, 'i');
+      return regex.test(text);
+    });
   };
 
   // Helper function to add text with formatting (handles bold markers and dates) - compressed
@@ -508,7 +581,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                 doc.addPage();
                 currentY = 15;
               }
-              if (containsDate(line)) {
+              if (shouldBoldPDFLine(line)) {
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(20, 20, 20);
               } else {
@@ -527,7 +600,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
               doc.addPage();
               currentY = 15;
             }
-            if (containsDate(line)) {
+            if (shouldBoldPDFLine(line)) {
               doc.setFont("helvetica", "bold");
               doc.setTextColor(20, 20, 20);
             } else {
@@ -556,7 +629,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
         currentY = 15;
       }
 
-      const lineShouldBeBold = shouldBeBold || containsDate(line);
+      const lineShouldBeBold = shouldBeBold || shouldBoldPDFLine(line);
 
       if (lineShouldBeBold) {
         doc.setFont("helvetica", "bold");
@@ -689,8 +762,13 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-purple-600" />
+          <CardTitle className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border border-slate-200">
+              <AvatarImage src={project.logo_url} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
+                {project.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             Project Summary Report: {project.name}
           </CardTitle>
           <div className="flex gap-2">
@@ -739,7 +817,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
               </div>
               <div>
                 <p className="text-sm text-slate-600 mb-1">Progress</p>
-                <p className="text-2xl font-bold text-slate-900">{project.progress || 0}%</p>
+                <p className="text-2xl font-bold text-slate-900">{analytics.completionRate}%</p>
               </div>
               {project.deadline && (
                 <div>
@@ -1016,7 +1094,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                           ul: ({ children }) => <ul className="list-disc list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ol>,
                           li: ({ children }) => <li className="text-slate-700 pl-1">{children}</li>,
-                          strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                          strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
                           em: ({ children }) => <em className="italic text-slate-600">{children}</em>,
                           blockquote: ({ children }) => (
                             <blockquote className="border-l-4 border-purple-400 pl-4 italic text-slate-700 my-4 bg-white/50 py-2">
@@ -1025,11 +1103,13 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                           ),
                         }}
                       >
-                        {displayedReport || aiReport || ""}
+                        {preprocessMarkdown(displayedReport || aiReport || "")}
                       </ReactMarkdown>
                       {isStreaming && (
                         <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
                       )}
+                      {/* Precise scroll anchor */}
+                      <div ref={scrollAnchorRef} className="h-px w-full" />
                     </div>
                   </div>
                 ) : (

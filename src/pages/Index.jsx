@@ -32,6 +32,7 @@ import TestAIChat from "./TestAIChat";
 import AdminBIDashboard from "./AdminBIDashboard";
 import SupportDashboard from "./SupportDashboard";
 import SubscriptionManagement from "./SubscriptionManagement";
+import PaymentGateways from "./PaymentGateways"; // New Page
 import SystemNotificationManager from "./SystemNotificationManager";
 import ProjectFinancials from "./ProjectFinancials";
 import Chat from "./Chat";
@@ -58,6 +59,7 @@ import ResetPassword from "./ResetPassword";
 import AcceptInvitation from "./AcceptInvitation";
 // IMPORT THE NEW PAGE
 import ClientChangePassword from "./ClientChangePassword";
+import PaymentsHistory from "./PaymentsHistory";
 
 import ProjectProfitabilityDetail from "./ProjectProfitabilityDetail"; // New Page
 
@@ -98,6 +100,7 @@ const PAGES = {
     AdminBIDashboard: AdminBIDashboard,
     SupportDashboard: SupportDashboard,
     SubscriptionManagement: SubscriptionManagement,
+    PaymentGateways: PaymentGateways, // Added here
     SystemNotificationManager: SystemNotificationManager,
     ProjectFinancials: ProjectFinancials,
     Chat: Chat,
@@ -123,6 +126,7 @@ const PAGES = {
     ResetPassword: ResetPassword,
     AcceptInvitation: AcceptInvitation,
     ClientChangePassword: ClientChangePassword, // Added here
+    PaymentsHistory: PaymentsHistory,
 }
 
 function _getCurrentPage(url) {
@@ -240,6 +244,7 @@ function PagesContent() {
                 <Route path="/SystemNotificationManager" element={<SystemNotificationManager />} />
                 <Route path="/ProjectFinancials" element={<ProjectFinancials />} />
                 <Route path="/ProjectProfitabilityDetail" element={<ProjectProfitabilityDetail />} />
+                <Route path="/PaymentGateways" element={<PaymentGateways />} />
                 <Route path="/Chat" element={<Chat />} />
                 <Route path="/PlannedLeaves" element={<PlannedLeaves />} />
                 <Route path="/SprintPlanningPage" element={<SprintPlanningPage />} />
@@ -251,6 +256,7 @@ function PagesContent() {
                 <Route path="/ClientDashboard" element={<ClientDashboard />} />
                 <Route path="/ClientManagement" element={<ClientManagement />} />
                 <Route path="/Reports" element={<Reports />} />
+                <Route path="/PaymentsHistory" element={<PaymentsHistory />} />
             </Routes>
         </Layout>
     );

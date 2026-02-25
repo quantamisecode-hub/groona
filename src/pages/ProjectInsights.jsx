@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -8,19 +8,49 @@ import {
   TrendingUp,
   AlertTriangle,
   Clock,
-  FileText,
-  Sparkles
+  Sparkles,
+  Search,
+  CheckCircle2,
+  Target,
+  Activity,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  Filter,
+  AlertCircle
 } from "lucide-react";
+import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "../components/shared/UserContext"; // Import UserContext
 import RiskAssessment from "../components/insights/RiskAssessment";
 import TimelinePrediction from "../components/insights/TimelinePrediction";
 import ProjectReport from "../components/insights/ProjectReport";
 import AskAIInsights from "../components/insights/AskAIInsights";
+import ProjectDataTable from "../components/insights/ProjectDataTable";
+import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
+import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 
 export default function ProjectInsights() {
   const { user: currentUser, effectiveTenantId } = useUser();
-  const [selectedProjectId, setSelectedProjectId] = useState(null);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || "overview"; // Changed from "project_list" to "overview" to match existing tab
+  const initialProjectId = searchParams.get('projectId') || null;
+
+  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectId);
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // State for Overview Modal
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
+  const [overviewModalType, setOverviewModalType] = useState(null); // 'projects', 'critical', 'high', 'medium', 'pending', 'done'
+  const [overviewModalPage, setOverviewModalPage] = useState(1);
+  const overviewModalItemsPerPage = 5;
+
+  // State for Inline Task Detail Modal
+  const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
 
@@ -36,7 +66,7 @@ export default function ProjectInsights() {
   });
 
   // 2. Fetch Projects scoped to Tenant (Matches Dashboard Logic & StaleTime)
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [] } = useQuery({
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return groonabackend.entities.Project.list('-updated_date');
@@ -47,7 +77,7 @@ export default function ProjectInsights() {
   });
 
   // 3. Fetch Tasks scoped to Tenant (Matches Dashboard Logic & StaleTime)
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
+  const { data: tasks = [] } = useQuery({
     queryKey: ['tasks', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return groonabackend.entities.Task.list('-updated_date');
@@ -102,6 +132,58 @@ export default function ProjectInsights() {
   const selectedProject = accessibleProjects.find(p => p.id === selectedProjectId);
   const selectedProjectTasks = accessibleTasks.filter(t => t.project_id === selectedProjectId);
 
+  // New Overview Modal Analytics Logic
+  const activeProjectIdSet = new Set(accessibleProjects.filter(p => p.status === 'active').map(p => p.id));
+  const activeProjectsTasks = accessibleTasks.filter(t => activeProjectIdSet.has(t.project_id));
+
+  const analyticsSummary = useMemo(() => {
+    return {
+      activeProjects: activeProjectIdSet.size,
+      critical: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent').length,
+      high: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length,
+      medium: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'medium').length,
+      pendingTasks: activeProjectsTasks.filter(t => t.status === 'todo').length,
+      doneTasks: activeProjectsTasks.filter(t => t.status === 'completed').length,
+      velocity: Math.round(activeProjectsTasks.filter(t => t.status === 'completed').length / 7) || 0,
+      bottlenecks: activeProjectsTasks.filter(t => t.status === 'review').length
+    };
+  }, [activeProjectIdSet.size, activeProjectsTasks]);
+
+  const handleOpenOverviewModal = (type) => {
+    setOverviewModalType(type);
+    setOverviewModalPage(1);
+    setIsOverviewModalOpen(true);
+  };
+
+  const getOverviewModalData = () => {
+    if (overviewModalType === 'projects') {
+      return accessibleProjects.filter(p => p.status === 'active').map(p => {
+        const pTasks = accessibleTasks.filter(t => t.project_id === p.id);
+        const pendingCount = pTasks.filter(t => t.status !== 'completed').length;
+        const criticalCount = pTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent').length;
+        return { ...p, pendingCount, criticalCount };
+      });
+    }
+
+    let filtered = [];
+    if (overviewModalType === 'critical') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent');
+    else if (overviewModalType === 'high') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'high');
+    else if (overviewModalType === 'medium') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'medium');
+    else if (overviewModalType === 'pending') filtered = activeProjectsTasks.filter(t => t.status === 'todo');
+    else if (overviewModalType === 'done') filtered = activeProjectsTasks.filter(t => t.status === 'completed');
+
+    return filtered.map(task => {
+      const p = accessibleProjects.find(pr => pr.id === task.project_id);
+      return { ...task, projectName: p ? p.name : 'Unknown' };
+    });
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const overviewModalData = useMemo(() => getOverviewModalData(), [overviewModalType, accessibleTasks, accessibleProjects, activeProjectsTasks]);
+  const overviewModalTotalPages = Math.ceil(overviewModalData.length / overviewModalItemsPerPage);
+  const overviewModalStartIndex = (overviewModalPage - 1) * overviewModalItemsPerPage;
+  const paginatedOverviewData = overviewModalData.slice(overviewModalStartIndex, overviewModalStartIndex + overviewModalItemsPerPage);
+
   return (
     <div className="p-6 md:p-8 space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -118,60 +200,153 @@ export default function ProjectInsights() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-4 gap-6">
-        <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="h-5 w-5 text-green-600" />
-            <h3 className="font-semibold text-slate-900">Active Projects</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Metric Card 1: Active Projects */}
+        <Card
+          onClick={() => analyticsSummary.activeProjects > 0 && handleOpenOverviewModal('projects')}
+          className={cn("p-5 bg-gradient-to-br from-indigo-500 to-blue-600 text-white border-0 shadow-lg flex items-center gap-5", analyticsSummary.activeProjects > 0 && "cursor-pointer hover:scale-105 hover:shadow-indigo-500/50 transition-all active:scale-95")}
+        >
+          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
+            <TrendingUp className="h-7 w-7 text-white" />
           </div>
-          <p className="text-3xl font-bold text-slate-900">
-            {accessibleProjects.filter(p => p.status === 'active').length}
-          </p>
+          <div>
+            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Active Projects</h3>
+            <p className="text-4xl font-black">{analyticsSummary.activeProjects}</p>
+          </div>
         </Card>
 
-        <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <h3 className="font-semibold text-slate-900">At Risk</h3>
+        {/* Metric Card 2: Velocity */}
+        <Card className="p-5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0 shadow-lg flex items-center gap-5">
+          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
+            <Activity className="h-7 w-7 text-white" />
           </div>
-          <p className="text-3xl font-bold text-slate-900">
-            {accessibleProjects.filter(p => {
-              const deadline = p.deadline ? new Date(p.deadline) : null;
-              return deadline && deadline < new Date() && p.status !== 'completed';
-            }).length}
-          </p>
+          <div>
+            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Weekly Velocity</h3>
+            <p className="text-4xl font-black text-white">{analyticsSummary.velocity} <span className="text-sm font-medium opacity-80">tasks/day</span></p>
+          </div>
         </Card>
 
-        <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-3 mb-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            <h3 className="font-semibold text-slate-900">Pending Tasks</h3>
+        {/* Metric Card 3: Bottlenecks */}
+        <Card className="p-5 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-lg flex items-center gap-5">
+          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
+            <AlertTriangle className="h-7 w-7 text-white" />
           </div>
-          <p className="text-3xl font-bold text-slate-900">
-            {/* Using 'todo' status to match Dashboard Pending count */}
-            {accessibleTasks.filter(t => t.status === 'todo').length}
-          </p>
-        </Card>
-
-        <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 flex flex-col items-center justify-center">
-          <div className="flex items-center gap-3 mb-2">
-            <FileText className="h-5 w-5 text-purple-600" />
-            <h3 className="font-semibold text-slate-900">Completed</h3>
+          <div>
+            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Bottlenecks</h3>
+            <p className="text-4xl font-black text-white">{analyticsSummary.bottlenecks} <span className="text-sm font-medium opacity-80">in review</span></p>
           </div>
-          <p className="text-3xl font-bold text-slate-900">
-            {accessibleTasks.filter(t => t.status === 'completed').length}
-          </p>
         </Card>
       </div>
 
+      {/* Unified Task Overview Card */}
+      <Card className="p-6 bg-white/40 backdrop-blur-2xl border-slate-200/40 shadow-xl overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-8 opacity-10 -mr-4 -mt-4 transition-transform group-hover:scale-110">
+          <Target className="h-24 w-24 text-slate-400" />
+        </div>
+
+        <div className="relative">
+          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <Filter className="h-5 w-5 text-indigo-500" />
+            Task Details Overall
+          </h3>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <Card
+              onClick={() => analyticsSummary.critical > 0 && handleOpenOverviewModal('critical')}
+              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.critical > 0 ? "cursor-pointer hover:shadow-md hover:border-red-200" : "opacity-75")}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-1.5"><AlertTriangle className="h-3 w-3" /> Critical</span>
+                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.critical > 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500")}>
+                  {analyticsSummary.critical}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
+                <div className={cn("h-full transition-all duration-1000", analyticsSummary.critical > 0 ? "bg-red-500 group-hover:bg-red-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.critical / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
+              </div>
+            </Card>
+
+            <Card
+              onClick={() => analyticsSummary.high > 0 && handleOpenOverviewModal('high')}
+              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.high > 0 ? "cursor-pointer hover:shadow-md hover:border-orange-200" : "opacity-75")}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> High</span>
+                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.high > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500")}>
+                  {analyticsSummary.high}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
+                <div className={cn("h-full transition-all duration-1000", analyticsSummary.high > 0 ? "bg-orange-500 group-hover:bg-orange-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.high / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
+              </div>
+            </Card>
+
+            <Card
+              onClick={() => analyticsSummary.medium > 0 && handleOpenOverviewModal('medium')}
+              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.medium > 0 ? "cursor-pointer hover:shadow-md hover:border-amber-200" : "opacity-75")}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1.5"><Activity className="h-3 w-3" /> Medium</span>
+                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.medium > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500")}>
+                  {analyticsSummary.medium}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
+                <div className={cn("h-full transition-all duration-1000", analyticsSummary.medium > 0 ? "bg-amber-500 group-hover:bg-amber-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.medium / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
+              </div>
+            </Card>
+
+            <Card
+              onClick={() => analyticsSummary.pendingTasks > 0 && handleOpenOverviewModal('pending')}
+              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.pendingTasks > 0 ? "cursor-pointer hover:shadow-md hover:border-blue-200" : "opacity-75")}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="h-3 w-3" /> Pending</span>
+                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.pendingTasks > 0 ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500")}>
+                  {analyticsSummary.pendingTasks}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
+                <div className={cn("h-full transition-all duration-1000", analyticsSummary.pendingTasks > 0 ? "bg-blue-500 group-hover:bg-blue-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.pendingTasks / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
+              </div>
+            </Card>
+
+            <Card
+              onClick={() => analyticsSummary.doneTasks > 0 && handleOpenOverviewModal('done')}
+              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.doneTasks > 0 ? "cursor-pointer hover:shadow-md hover:border-emerald-200" : "opacity-75")}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Done</span>
+                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.doneTasks > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>
+                  {analyticsSummary.doneTasks}
+                </div>
+              </div>
+              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
+                <div className={cn("h-full transition-all duration-1000", analyticsSummary.doneTasks > 0 ? "bg-emerald-500 group-hover:bg-emerald-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.doneTasks / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
+              </div>
+            </Card>
+          </div>
+        </div>
+      </Card>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-white/60 backdrop-blur-xl border border-slate-200/60">
+          <TabsTrigger value="project_list">Project List</TabsTrigger>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="risk">Risk Assessment</TabsTrigger>
           <TabsTrigger value="timeline">Timeline Prediction</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="ai">Ask AI</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="project_list" className="space-y-6">
+          <ProjectDataTable
+            projects={accessibleProjects}
+            tasks={accessibleTasks}
+            stories={[]}
+            getProjectRisks={() => { }}
+          />
+        </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
           <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
@@ -182,8 +357,8 @@ export default function ProjectInsights() {
                   key={project.id}
                   onClick={() => setSelectedProjectId(project.id)}
                   className={`p-4 rounded-xl border-2 transition-all text-left ${selectedProjectId === project.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-slate-200 hover:border-slate-300 bg-white'
                     }`}
                 >
                   <h3 className="font-semibold text-slate-900 mb-1">{project.name}</h3>
@@ -297,6 +472,146 @@ export default function ProjectInsights() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* Overview Modal Dialog */}
+      <Dialog open={isOverviewModalOpen} onOpenChange={setIsOverviewModalOpen}>
+        <DialogContent className="sm:max-w-[750px] max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-4 pb-3 border-b border-slate-100 bg-slate-50/50">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              {overviewModalType === 'projects' ? (
+                <span className="capitalize text-slate-800">Active Projects Overall</span>
+              ) : (
+                <>
+                  <span className="capitalize text-slate-800">{overviewModalType} Tasks</span>
+                  <span className="text-slate-400 font-normal text-sm">Overall</span>
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 p-4 overflow-y-auto">
+            {paginatedOverviewData.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 flex flex-col items-center">
+                <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                  <Search className="h-5 w-5 text-slate-400" />
+                </div>
+                <p>No data found in this category.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {overviewModalType === 'projects' ? (
+                  paginatedOverviewData.map((project) => (
+                    <div key={project.id} className="p-3 rounded-xl border border-slate-200 bg-white hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
+                            <AvatarImage src={project.logo_url} />
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold">
+                              {project.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <h4 className="font-bold text-slate-800">{project.name}</h4>
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200/50 mt-1">Active</Badge>
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          <div className="text-center">
+                            <p className="text-xs font-bold text-slate-500 uppercase mb-0.5">Pending</p>
+                            <p className="font-black text-slate-800">{project.pendingCount}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs font-bold text-red-500 uppercase mb-0.5">Critical</p>
+                            <p className="font-black text-red-600">{project.criticalCount}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  paginatedOverviewData.map((task) => (
+                    <div
+                      key={task.id}
+                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                      onClick={() => setSelectedTaskId(task.id)}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1.5 relative pr-4 w-full">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase font-bold text-indigo-600 tracking-wider bg-indigo-50 px-2.5 py-0.5 rounded-md">{task.projectName}</span>
+                            {task.priority && (
+                              <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                                {task.priority === 'urgent' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
+                                {task.priority === 'high' && <AlertCircle className="h-3.5 w-3.5 text-orange-500" />}
+                                {task.priority === 'medium' && <Activity className="h-3.5 w-3.5 text-amber-500" />}
+                                <span className="text-xs font-semibold capitalize text-slate-600">{task.priority}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <h4 className="font-bold text-slate-800 text-sm leading-snug break-words group-hover:text-indigo-600 transition-colors flex items-start gap-2 pt-0.5">
+                            <Target className="h-4 w-4 mt-0.5 text-slate-400 group-hover:text-indigo-500 shrink-0" />
+                            {task.title}
+                          </h4>
+
+                          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
+                            <Badge
+                              variant="secondary"
+                              className={`capitalize font-semibold border-0 ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                  task.status === 'review' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-slate-100 text-slate-700'
+                                }`}
+                            >
+                              {task.status.replace('_', ' ')}
+                            </Badge>
+
+                            {task.due_date && (
+                              <div className="flex items-center gap-1.5 font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
+                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                {format(new Date(task.due_date), 'MMM d, yyyy')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </ScrollArea>
+
+          {/* Modal Pagination */}
+          {overviewModalTotalPages > 1 && (
+            <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <p className="text-xs text-slate-500 font-medium">
+                Showing {overviewModalStartIndex + 1} to {Math.min(overviewModalStartIndex + overviewModalItemsPerPage, overviewModalData.length)} of {overviewModalData.length} items
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8 border-slate-200 text-slate-600" onClick={() => setOverviewModalPage(p => Math.max(1, p - 1))} disabled={overviewModalPage === 1}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+                </Button>
+                <div className="text-xs font-semibold text-slate-700 px-2 border border-slate-200 bg-white h-8 flex items-center justify-center rounded-md min-w-[32px]">
+                  {overviewModalPage}
+                </div>
+                <Button variant="outline" size="sm" className="h-8 border-slate-200 text-slate-600" onClick={() => setOverviewModalPage(p => Math.min(overviewModalTotalPages, p + 1))} disabled={overviewModalPage === overviewModalTotalPages}>
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline Task Detail Modal */}
+      {selectedTaskId && (
+        <TaskDetailDialog
+          open={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          taskId={selectedTaskId}
+        />
+      )}
     </div>
   );
 }

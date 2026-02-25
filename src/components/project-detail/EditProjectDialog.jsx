@@ -465,6 +465,7 @@ export default function EditProjectDialog({ open, onClose, onSubmit, project, lo
               id="deadline"
               type="date"
               value={formData.deadline}
+              min={new Date().toISOString().split('T')[0]}
               onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
             />
           </div>

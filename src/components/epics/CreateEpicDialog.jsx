@@ -294,6 +294,7 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
                 id="start_date"
                 type="date"
                 value={formData.start_date}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
               />
             </div>
@@ -307,6 +308,7 @@ export default function CreateEpicDialog({ open, onClose, projectId, epic, onSuc
                 id="due_date"
                 type="date"
                 value={formData.due_date}
+                min={formData.start_date || new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
               />
             </div>

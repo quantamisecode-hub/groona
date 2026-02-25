@@ -35,6 +35,8 @@ export default function AskAIInsights({ projects, tasks, activities }) {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const answerRef = useRef(null);
   const answerContainerRef = useRef(null);
+  const scrollAnchorRef = useRef(null);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Fetch users to map emails to names
   const { data: allUsers = [] } = useQuery({
@@ -65,7 +67,70 @@ export default function AskAIInsights({ projects, tasks, activities }) {
     return map;
   }, [projects]);
 
-  // Fetch previous reports
+  // Memoized list of names to bold
+  const boldTargets = useMemo(() => {
+    const names = new Set();
+    projects.forEach(p => { if (p.name) names.add(p.name); });
+    tasks.forEach(t => { if (t.title) names.add(t.title); });
+    allUsers.forEach(u => {
+      if (u.full_name) names.add(u.full_name);
+      if (u.name) names.add(u.name);
+      if (u.username) names.add(u.username);
+    });
+    return Array.from(names).filter(n => n && n.length > 2).sort((a, b) => b.length - a.length); // Longest first, ignore very short names
+  }, [projects, tasks, allUsers]);
+
+  // Preprocess markdown to bold identifiers and quotes
+  const preprocessMarkdown = (text) => {
+    if (!text) return "";
+    let processed = text;
+
+    // 1. Bold explicit targets (projects, tasks, and team members)
+    boldTargets.forEach(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use case-insensitive regex ('gi') and negative lookbehind/lookahead to avoid double-bolding
+      const regex = new RegExp(`(?<!\\*\\*)\\b${escapedName}\\b(?!\\*\\*)`, 'gi');
+      processed = processed.replace(regex, (match) => `**${match}**`);
+    });
+
+    // 2. Bold dates
+    const datePatterns = [
+      /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/gi,
+      /\b\d{4}-\d{2}-\d{2}\b/g
+    ];
+    datePatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
+
+    // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
+    processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
+
+    return processed;
+  };
+
+  // Scroll detection to pause auto-scroll if user scrolls up
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!isStreaming) return;
+
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // If user is more than 150px from the bottom, they've scrolled up
+      if (documentHeight - (scrollY + windowHeight) > 150) {
+        if (!userHasScrolledUp) setUserHasScrolledUp(true);
+      } else {
+        if (userHasScrolledUp) setUserHasScrolledUp(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isStreaming, userHasScrolledUp]);
+
+  // Fetch reports logic follows...
   const { data: previousReports = [], refetch: refetchReports } = useQuery({
     queryKey: ['ai-insights-reports', effectiveTenantId],
     queryFn: async () => {
@@ -111,49 +176,57 @@ export default function AskAIInsights({ projects, tasks, activities }) {
       let index = 0;
       setDisplayedAnswer("");
       setIsStreaming(true);
+      setUserHasScrolledUp(false); // Reset scroll state when starting new typing
 
       const type = () => {
         if (index < text.length) {
           setDisplayedAnswer(text.substring(0, index + 1));
           index++;
-          
-          // Auto-scroll to bottom while typing (every 50 characters for performance)
-          if (index % 50 === 0 && answerContainerRef.current) {
-            setTimeout(() => {
-              answerContainerRef.current?.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'end' 
-              });
-            }, 0);
+
+          // Auto-scroll to bottom while typing if user hasn't scrolled up manually
+          // Scroll more frequently (every 5 chars) for "word-by-word" feel
+          if (index % 5 === 0 && !userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
+              behavior: 'auto',
+              block: 'end'
+            });
           }
-          
+
           setTimeout(type, speed);
         } else {
           setIsStreaming(false);
-          // Final scroll
-          setTimeout(() => {
-            answerContainerRef.current?.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'end' 
+          // Final scroll if not manually scrolled up
+          if (!userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'end'
             });
-          }, 100);
+          }
           resolve();
         }
       };
-      
+
       type();
     });
   };
 
-  // Helper function to check if text contains dates (only dates should be bold in regular text)
-  const containsDate = (text) => {
+  // Helper function to check if text contains dates or bold targets for PDF bolding
+  const shouldBoldPDFLine = (text) => {
+    if (!text) return false;
     const datePatterns = [
       /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/, // Dates like 12/25/2024
       /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i, // Date formats like Jan 15, 2024
       /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\b/i, // Date formats like 15 Jan 2024
       /\b\d{4}-\d{2}-\d{2}\b/, // ISO dates like 2024-01-15
     ];
-    return datePatterns.some(pattern => pattern.test(text));
+    if (datePatterns.some(pattern => pattern.test(text))) return true;
+
+    // Check for bold targets in the line
+    return boldTargets.some(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedName}\\b`, 'i');
+      return regex.test(text);
+    });
   };
 
   // Helper function to add text with formatting (handles bold markers and dates) - compressed
@@ -161,20 +234,20 @@ export default function AskAIInsights({ projects, tasks, activities }) {
     // Remove markdown bold markers - extract bold text
     let processedText = text;
     const hasBoldMarkers = /\*\*.*?\*\*/.test(text);
-    
+
     // Remove bold markers but keep the text
     processedText = processedText.replace(/\*\*(.*?)\*\*/g, '$1');
-    
+
     // For list items, check if there's a colon - only bold the part before colon
     if (isListItem && processedText.includes(':')) {
       const colonIndex = processedText.indexOf(':');
       const beforeColon = processedText.substring(0, colonIndex + 1); // Include the colon
       const afterColon = processedText.substring(colonIndex + 1).trim();
-      
+
       let currentY = y;
       const lineHeight = fontSize * 0.4; // Reduced line height for compression
       doc.setFontSize(fontSize);
-      
+
       // Calculate width of bold part to know where to start normal text
       doc.setFont("helvetica", "bold");
       const boldLines = doc.splitTextToSize(beforeColon, maxWidth);
@@ -182,11 +255,11 @@ export default function AskAIInsights({ projects, tasks, activities }) {
       if (boldLines.length > 0) {
         lastBoldLineWidth = doc.getTextWidth(boldLines[boldLines.length - 1]);
       }
-      
+
       // Render the bold part (before colon)
       doc.setFont("helvetica", "bold");
       doc.setTextColor(20, 20, 20);
-      
+
       boldLines.forEach((line, index) => {
         if (currentY > doc.internal.pageSize.getHeight() - 20) {
           doc.addPage();
@@ -199,18 +272,18 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         }
         currentY += lineHeight;
       });
-      
+
       // Render the normal part (after colon) if it exists
       if (afterColon) {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
-        
+
         // If the bold part didn't wrap, continue on same line
         if (boldLines.length === 1 && lastBoldLineWidth < maxWidth - 5) {
           // Continue on same line
           const remainingWidth = maxWidth - lastBoldLineWidth;
           const normalLines = doc.splitTextToSize(afterColon, remainingWidth);
-          
+
           normalLines.forEach((line, index) => {
             if (index === 0) {
               // First line continues on same line as bold text
@@ -232,14 +305,14 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         } else {
           // Bold part wrapped, so normal text starts on new line
           const normalLines = doc.splitTextToSize(afterColon, maxWidth);
-          
+
           normalLines.forEach((line) => {
             if (currentY > doc.internal.pageSize.getHeight() - 20) {
               doc.addPage();
               currentY = 15;
             }
             // Check if line contains dates - make dates bold
-            if (containsDate(line)) {
+            if (shouldBoldPDFLine(line)) {
               doc.setFont("helvetica", "bold");
               doc.setTextColor(20, 20, 20);
             } else {
@@ -251,28 +324,28 @@ export default function AskAIInsights({ projects, tasks, activities }) {
           });
         }
       }
-      
+
       return currentY;
     }
-    
+
     // For non-list items or list items without colon, use original logic
     const shouldBeBold = forceBold || hasBoldMarkers;
-    
+
     // Split into lines for wrapping
     doc.setFontSize(fontSize);
     const lines = doc.splitTextToSize(processedText, maxWidth);
     let currentY = y;
     const lineHeight = fontSize * 0.45;
-    
+
     lines.forEach((line) => {
       if (currentY > doc.internal.pageSize.getHeight() - 20) {
         doc.addPage();
         currentY = 15;
       }
-      
+
       // Check if this specific line should be bold (forceBold, has bold markers, or contains dates)
-      const lineShouldBeBold = shouldBeBold || containsDate(line);
-      
+      const lineShouldBeBold = shouldBeBold || shouldBoldPDFLine(line);
+
       // Render the line with appropriate formatting
       if (lineShouldBeBold) {
         doc.setFont("helvetica", "bold");
@@ -281,11 +354,11 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
       }
-      
+
       doc.text(line, x, currentY);
       currentY += lineHeight;
     });
-    
+
     return currentY;
   };
 
@@ -293,7 +366,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
   const downloadPDF = async (report) => {
     try {
       toast.info('Generating PDF...');
-      
+
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -334,8 +407,8 @@ export default function AskAIInsights({ projects, tasks, activities }) {
       const content = report.report_content || "";
       // Truncate content if too long to fit on one page
       const maxChars = 1500; // Approximate max for one page
-      const truncatedContent = content.length > maxChars 
-        ? content.substring(0, maxChars) + '...' 
+      const truncatedContent = content.length > maxChars
+        ? content.substring(0, maxChars) + '...'
         : content;
       const lines = truncatedContent.split('\n');
       const lineHeight = 4; // Reduced line height
@@ -349,7 +422,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         }
 
         const trimmedLine = line.trim();
-        
+
         // Check if we're running out of space - stop if near bottom
         if (yPos > pageHeight - margin - 20) {
           break; // Stop adding content if we're near the bottom
@@ -377,13 +450,13 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         } else if (trimmedLine.match(/^[-*+]\s+/)) {
           const bulletText = trimmedLine.replace(/^[-*+]\s+/, '');
           const bulletX = margin + bulletIndent;
-          
+
           // Draw bullet - compressed
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(50, 50, 50);
           doc.text('•', margin, yPos);
-          
+
           // Render bullet text with formatting - compressed font
           yPos = addFormattedText(doc, bulletText, bulletX, yPos, contentWidth - bulletIndent, 8, false, true);
           yPos += 1.5;
@@ -394,13 +467,13 @@ export default function AskAIInsights({ projects, tasks, activities }) {
             const number = match[1];
             const listText = match[2];
             const listX = margin + bulletIndent;
-            
+
             // Draw number
             doc.setFontSize(8);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(50, 50, 50);
             doc.text(`${number}.`, margin, yPos);
-            
+
             // Render list text with formatting - compressed
             yPos = addFormattedText(doc, listText, listX, yPos, contentWidth - bulletIndent, 8, false, true);
             yPos += 1.5;
@@ -417,7 +490,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
 
       // Compress and save
       const pdfBlob = doc.output('blob');
-      
+
       // Create download link
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -428,7 +501,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
       a.click();
       window.URL.revokeObjectURL(url);
       a.remove();
-      
+
       toast.success('PDF downloaded successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -438,23 +511,13 @@ export default function AskAIInsights({ projects, tasks, activities }) {
 
   // Auto-scroll effect when answer changes or while streaming
   useEffect(() => {
-    if ((displayedAnswer || answer) && answerContainerRef.current) {
-      const scrollToBottom = () => {
-        if (answerContainerRef.current) {
-          answerContainerRef.current.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'end' 
-          });
-        }
-      };
-      
-      // Scroll immediately and also after a short delay for better UX
-      scrollToBottom();
-      const timeout = setTimeout(scrollToBottom, 200);
-      
-      return () => clearTimeout(timeout);
+    if ((displayedAnswer || answer) && isStreaming && !userHasScrolledUp) {
+      scrollAnchorRef.current?.scrollIntoView({
+        behavior: 'auto',
+        block: 'end'
+      });
     }
-  }, [displayedAnswer, answer, isStreaming]);
+  }, [displayedAnswer, answer, isStreaming, userHasScrolledUp]);
 
   const handleAsk = async (customQuestion = null) => {
     const queryQuestion = customQuestion || question;
@@ -491,10 +554,10 @@ export default function AskAIInsights({ projects, tasks, activities }) {
             .filter(Boolean)
             .map(email => userMap[email] || email.split('@')[0])
             .filter(Boolean);
-          
+
           // Map project_id to project name
           const projectName = projectMap[t.project_id] || 'Unknown Project';
-          
+
           return {
             title: t.title,
             status: t.status,
@@ -548,10 +611,10 @@ Keep it extremely brief and focused.`;
 
       setAnswer(result);
       setCurrentQuestion(queryQuestion);
-      
+
       // Start typewriter effect - faster speed
       await typewriterEffect(result, 5);
-      
+
       if (!customQuestion) {
         setQuestion("");
       }
@@ -563,7 +626,7 @@ Keep it extremely brief and focused.`;
           const maxReportLength = 800000; // 800KB limit
           let reportContentToSave = result;
           let wasTruncated = false;
-          
+
           if (result.length > maxReportLength) {
             reportContentToSave = result.substring(0, maxReportLength) + '\n\n---\n\n**Note:** This report was truncated due to size limitations. The full report content is available in the AI report display above.';
             wasTruncated = true;
@@ -591,13 +654,13 @@ Keep it extremely brief and focused.`;
             is_truncated: wasTruncated,
             original_length: wasTruncated ? result.length : undefined
           });
-          
+
           console.log('[AskAIInsights] Report saved successfully:', savedReport);
-          
+
           // Invalidate and refetch reports
           await queryClient.invalidateQueries({ queryKey: ['ai-insights-reports', effectiveTenantId] });
           await refetchReports();
-          
+
           if (wasTruncated) {
             toast.success('Report generated and saved (truncated due to size). Full report displayed above.');
           } else {
@@ -611,17 +674,17 @@ Keep it extremely brief and focused.`;
             statusText: error.response?.statusText,
             response: error.response?.data
           });
-          
+
           // If still getting 413, try with even smaller content
           if (error.response?.status === 413) {
             try {
               const smallerLimit = 500000;
               const smallerContent = result.substring(0, smallerLimit) + '\n\n---\n\n**Note:** This report was significantly truncated due to size limitations. The full report content is available in the AI report display above.';
-              
+
               console.log('[AskAIInsights] Retrying with smaller content:', {
                 content_length: smallerContent.length
               });
-              
+
               const savedReport = await groonabackend.entities.AIInsightsReport.create({
                 tenant_id: effectiveTenantId,
                 question: queryQuestion,
@@ -632,10 +695,10 @@ Keep it extremely brief and focused.`;
                 is_truncated: true,
                 original_length: result.length
               });
-              
+
               await queryClient.invalidateQueries({ queryKey: ['ai-insights-reports', effectiveTenantId] });
               await refetchReports();
-              
+
               toast.success('Report generated and saved (truncated). Full report displayed above.');
             } catch (retryError) {
               console.error('[AskAIInsights] Retry also failed:', retryError);
@@ -752,19 +815,21 @@ Keep it extremely brief and focused.`;
                       h1: ({ children }) => <h1 className="text-xl font-bold text-slate-900 mt-4 mb-2">{children}</h1>,
                       h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-900 mt-3 mb-2">{children}</h2>,
                       h3: ({ children }) => <h3 className="text-base font-semibold text-slate-900 mt-2 mb-1">{children}</h3>,
-                      p: ({ children }) => <p className="text-slate-700 mb-2">{children}</p>,
+                      p: ({ children }) => <p className="text-slate-700 mb-2 leading-relaxed">{children}</p>,
                       ul: ({ children }) => <ul className="list-disc list-inside text-slate-700 space-y-1 mb-2">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal list-inside text-slate-700 space-y-1 mb-2">{children}</ol>,
                       li: ({ children }) => <li className="text-slate-700">{children}</li>,
-                      strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
-                      code: ({ children }) => <code className="px-1 py-0.5 rounded bg-slate-200 text-slate-800 text-sm">{children}</code>,
+                      strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
+                      code: ({ children }) => <code className="px-1 py-0.5 rounded bg-slate-200 text-slate-800 text-sm font-mono">{children}</code>,
                     }}
                   >
-                    {displayedAnswer || answer || ""}
+                    {preprocessMarkdown(displayedAnswer || answer || "")}
                   </ReactMarkdown>
                   {isStreaming && (
                     <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
                   )}
+                  {/* Precise scroll anchor */}
+                  <div ref={scrollAnchorRef} className="h-px w-full" />
                 </div>
               </CardContent>
             </Card>
@@ -809,11 +874,10 @@ Keep it extremely brief and focused.`;
                           setDisplayedAnswer(report.report_content);
                           setCurrentQuestion(report.question);
                         }}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                          (selectedReport?.id === report.id || selectedReport?._id === report._id)
-                            ? 'bg-purple-100 border-purple-400 shadow-md'
-                            : 'bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                        }`}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all ${(selectedReport?.id === report.id || selectedReport?._id === report._id)
+                          ? 'bg-purple-100 border-purple-400 shadow-md'
+                          : 'bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                          }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">

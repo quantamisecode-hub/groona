@@ -239,13 +239,16 @@ export default function TaskDetailsTab({
     try {
       const prompt = `You are a senior project manager. Based on the task title "${taskData.title}" and any initial description provided ("${taskData.description || ''}"), generate a professional task overview.
       
-      Output strictly in JSON format with these fields:
-      1. description: A clear, concise overview of the task in a single paragraph. Do NOT include Key Requirements or Scope sections. Just provide a neat overview.
-      2. priority: One of [low, medium, high, urgent] based on implied importance.
-      3. story_points: Estimate complexity using Fibonacci (1, 2, 3, 5, 8, 13).
-      4. labels: Array of 3-5 relevant short tags (strings).
-      5. acceptance_criteria: A string of clear bullet points. DO NOT use markdown stars or bolding. Use standard bullets (-) or numbering.
-      6. subtasks: Array of strings representing actionable steps.
+      1. title: A concise, refined task title based on the user's input
+      2. description: A clear, concise overview of the task in a single paragraph. Do NOT include Key Requirements or Scope sections. Just provide a neat overview.
+      3. priority: One of [low, medium, high, urgent] based on implied importance.
+      4. story_points: Estimate complexity using Fibonacci (1, 2, 3, 5, 8, 13).
+      5. due_date: (YYYY-MM-DD format, estimate a reasonable deadline if not obvious)
+      6. labels: Array of 3-5 relevant short tags (strings).
+      7. acceptance_criteria: A string of clear bullet points. DO NOT use markdown stars or bolding. Use standard bullets (-) or numbering.
+      8. subtasks: Array of strings representing actionable steps.
+      
+      CRITICAL: Return ONLY valid JSON. Do NOT wrap the response in \`\`\`json blocks or any other markdown.
       
       Context: Software development environment.`;
 
@@ -254,13 +257,16 @@ export default function TaskDetailsTab({
         response_json_schema: {
           type: "object",
           properties: {
+            title: { type: "string" },
             description: { type: "string" },
             priority: { type: "string" },
             story_points: { type: "number" },
+            due_date: { type: "string" },
             labels: { type: "array", items: { type: "string" } },
             acceptance_criteria: { type: "string" },
             subtasks: { type: "array", items: { type: "string" } }
-          }
+          },
+          required: ["title", "description", "priority", "story_points", "due_date", "labels", "acceptance_criteria", "subtasks"]
         }
       });
 
@@ -268,20 +274,27 @@ export default function TaskDetailsTab({
       const suggestedPoints = typeof response.story_points === 'number' ? response.story_points : (taskData.story_points || 1);
       const calculatedHours = getHoursFromPoints(suggestedPoints);
 
-      setTaskData(prev => ({
-        ...prev,
-        description: response.description || prev.description,
-        priority: ['low', 'medium', 'high', 'urgent'].includes(response.priority?.toLowerCase()) ? response.priority.toLowerCase() : prev.priority,
-        story_points: suggestedPoints,
-        estimated_hours: calculatedHours,
-        labels: [...new Set([...(prev.labels || []), ...(response.labels || [])])],
-        acceptance_criteria: response.acceptance_criteria || prev.acceptance_criteria,
-        subtasks: [
-          ...(prev.subtasks || []),
-          ...(response.subtasks || []).map(title => ({ title, completed: false }))
-        ],
-        ai_generated: true,
-      }));
+      setTaskData(prev => {
+        const priorityVal = response.priority?.toLowerCase();
+        const validPriority = ['low', 'medium', 'high', 'urgent'].includes(priorityVal) ? priorityVal : prev.priority;
+
+        return {
+          ...prev,
+          title: response.title || prev.title,
+          description: response.description || prev.description,
+          priority: validPriority,
+          story_points: suggestedPoints,
+          estimated_hours: calculatedHours,
+          due_date: response.due_date || prev.due_date,
+          labels: [...new Set([...(prev.labels || []), ...(response.labels || [])])],
+          acceptance_criteria: response.acceptance_criteria || prev.acceptance_criteria,
+          subtasks: [
+            ...(prev.subtasks || []),
+            ...(response.subtasks || []).map(title => ({ title, completed: false }))
+          ],
+          ai_generated: true,
+        };
+      });
 
       toast.success("Task details auto-generated successfully!");
     } catch (error) {
@@ -300,7 +313,7 @@ export default function TaskDetailsTab({
         {false && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold flex items-center gap-2">
+              <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
                 <FolderKanban className="h-4 w-4 text-purple-500" />
                 Project
               </Label>
@@ -328,13 +341,13 @@ export default function TaskDetailsTab({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Task Title */}
         <div className="md:col-span-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <ClipboardList className="h-4 w-4 text-blue-500" />
             Task Title *
           </Label>
           <Input
             value={taskData.title}
-            onChange={(e) => setTaskData({ ...taskData, title: e.target.value })}
+            onChange={(e) => setTaskData(prev => ({ ...prev, title: e.target.value }))}
             placeholder="e.g., Implement User Login with Google Auth"
             className={validationErrors.title ? 'border-red-500' : ''}
           />
@@ -345,11 +358,11 @@ export default function TaskDetailsTab({
 
         {/* Task Type */}
         <div>
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <Tag className="h-4 w-4 text-purple-500" />
             Task Type
           </Label>
-          <Select value={taskData.task_type} onValueChange={(value) => setTaskData({ ...taskData, task_type: value })}>
+          <Select value={taskData.task_type} onValueChange={(value) => setTaskData(prev => ({ ...prev, task_type: value }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -367,11 +380,11 @@ export default function TaskDetailsTab({
 
         {/* Priority */}
         <div>
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <Flag className="h-4 w-4 text-red-500" />
             Priority
           </Label>
-          <Select value={taskData.priority} onValueChange={(value) => setTaskData({ ...taskData, priority: value })}>
+          <Select value={taskData.priority} onValueChange={(value) => setTaskData(prev => ({ ...prev, priority: value }))}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -389,7 +402,7 @@ export default function TaskDetailsTab({
 
         {/* Story - Moved Above Assignees */}
         <div className="md:col-span-2 space-y-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <BookOpen className="h-4 w-4 text-green-500" />
             Story *
           </Label>
@@ -494,152 +507,154 @@ export default function TaskDetailsTab({
         {/* Assignees and Reference URL - Side by Side */}
         <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-2">
           {/* Assignees */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-2">
+          <div className="space-y-2 flex flex-col justify-start h-full">
+            <Label className="text-sm font-semibold flex items-center gap-2 mb-2 shrink-0">
               <Users className="h-4 w-4 text-indigo-500" />
               Assignees
             </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className="w-full justify-between h-10 px-3 py-1.5"
-                >
-                  {taskData.assigned_to && taskData.assigned_to.length > 0
-                    ? <div className="flex flex-wrap gap-1 overflow-hidden">
-                      {taskData.assigned_to.map(assigneeEmail => {
-                        const user = users.find(u => u.email === assigneeEmail);
-                        const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
-                        return (
-                          <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
-                            <Avatar className="h-4 w-4">
-                              <AvatarImage src={user?.profile_image_url} />
-                              <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
-                            </Avatar>
-                            <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
-                            <X
-                              className="h-3 w-3 cursor-pointer hover:text-red-500"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTaskData(prev => ({
-                                  ...prev,
-                                  assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
-                                }));
+            <div className="flex-1">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between h-10 px-3 py-1.5"
+                  >
+                    {taskData.assigned_to && taskData.assigned_to.length > 0
+                      ? <div className="flex flex-wrap gap-1 overflow-hidden">
+                        {taskData.assigned_to.map(assigneeEmail => {
+                          const user = users.find(u => u.email === assigneeEmail);
+                          const initials = user?.full_name ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : assigneeEmail.slice(0, 2).toUpperCase();
+                          return (
+                            <Badge key={assigneeEmail} variant="secondary" className="flex items-center gap-1 pr-1 text-xs">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={user?.profile_image_url} />
+                                <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate max-w-[80px]">{user?.full_name || assigneeEmail.split('@')[0]}</span>
+                              <X
+                                className="h-3 w-3 cursor-pointer hover:text-red-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setTaskData(prev => ({
+                                    ...prev,
+                                    assigned_to: prev.assigned_to.filter(email => email !== assigneeEmail)
+                                  }));
+                                }}
+                              />
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                      : <span className="text-slate-500">Select assignees...</span>}
+                    <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search users..." />
+                    <CommandList className="max-h-[300px] overflow-y-auto">
+                      <CommandEmpty>No user found.</CommandEmpty>
+                      <CommandGroup className="overflow-visible">
+                        {filteredUsers.map((user) => {
+                          const isSelected = Array.isArray(taskData.assigned_to) && taskData.assigned_to.includes(user.email);
+                          const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                          return (
+                            <CommandItem
+                              key={user.id}
+                              value={user.email}
+                              onSelect={() => {
+                                if (user.is_overdue_blocked && !isSelected) {
+                                  const msg = "Cannot assign task: User has multiple overdue tasks.";
+                                  toast.error(msg);
+                                  setLocalError(msg);
+                                  return;
+                                }
+
+                                const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
+                                if (hasReworkAlarm && !isSelected) {
+                                  const msg = "Cannot assign task: User has too many rework tasks.";
+                                  toast.error(msg);
+                                  setLocalError(msg);
+                                  return;
+                                }
+
+                                const currentAssignees = Array.isArray(taskData.assigned_to) ? taskData.assigned_to : [];
+                                const newAssignees = isSelected
+                                  ? currentAssignees.filter((email) => email !== user.email)
+                                  : [...currentAssignees, user.email];
+
+                                setLocalError(""); // Clear error on valid selection
+                                setTaskData(prev => ({ ...prev, assigned_to: newAssignees }));
                               }}
-                            />
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                    : <span className="text-slate-500">Select assignees...</span>}
-                  <Users className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search users..." />
-                  <CommandList className="max-h-[300px] overflow-y-auto">
-                    <CommandEmpty>No user found.</CommandEmpty>
-                    <CommandGroup className="overflow-visible">
-                      {filteredUsers.map((user) => {
-                        const isSelected = Array.isArray(taskData.assigned_to) && taskData.assigned_to.includes(user.email);
-                        const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                        return (
-                          <CommandItem
-                            key={user.id}
-                            value={user.email}
-                            onSelect={() => {
-                              if (user.is_overdue_blocked && !isSelected) {
-                                const msg = "Cannot assign task: User has multiple overdue tasks.";
-                                toast.error(msg);
-                                setLocalError(msg);
-                                return;
-                              }
-
-                              const hasReworkAlarm = reworkAlarms.some(alarm => alarm.recipient_email === user.email);
-                              if (hasReworkAlarm && !isSelected) {
-                                const msg = "Cannot assign task: User has too many rework tasks.";
-                                toast.error(msg);
-                                setLocalError(msg);
-                                return;
-                              }
-
-                              const currentAssignees = Array.isArray(taskData.assigned_to) ? taskData.assigned_to : [];
-                              const newAssignees = isSelected
-                                ? currentAssignees.filter((email) => email !== user.email)
-                                : [...currentAssignees, user.email];
-
-                              setLocalError(""); // Clear error on valid selection
-                              setTaskData(prev => ({ ...prev, assigned_to: newAssignees }));
-                            }}
-                          >
-                            <div className={cn(
-                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                              isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
-                            )}>
-                              <Check className={cn("h-4 w-4")} />
-                            </div>
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarImage src={user.profile_image_url} />
-                              <AvatarFallback className="text-xs">
-                                {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded || user.is_overdue_blocked) && "text-slate-400 line-through")}>{user.full_name}</span>
-                            {user.is_overloaded && (
-                              <Badge variant="outline" className="ml-auto text-[8px] border-orange-200 bg-orange-50 text-orange-600 gap-1 animate-pulse">
-                                <Siren className="h-2 w-2" />
-                                OVERLOADED
-                              </Badge>
-                            )}
-                            {user.is_overdue_blocked && (
-                              <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
-                                <Siren className="h-2 w-2" />
-                                OVERDUE
-                              </Badge>
-                            )}
-                            {hasReworkAlarm && (
-                              <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
-                                <Siren className="h-2 w-2" />
-                                FROZEN
-                              </Badge>
-                            )}
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            {taskData.assigned_to.some(email => reworkAlarms.some(a => a.recipient_email === email)) && (
-              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
-                <Siren className="h-3.5 w-3.5" />
-                One or more selected users have their assignments frozen.
-              </div>
-            )}
-            {(validationErrors.assigned_to || localError) && (
-              <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
-                <Siren className="h-3.5 w-3.5" />
-                {validationErrors.assigned_to || localError}
-              </div>
-            )}
+                            >
+                              <div className={cn(
+                                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                              )}>
+                                <Check className={cn("h-4 w-4")} />
+                              </div>
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarImage src={user.profile_image_url} />
+                                <AvatarFallback className="text-xs">
+                                  {user.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className={cn("truncate flex-1", (hasReworkAlarm || user.is_overloaded || user.is_overdue_blocked) && "text-slate-400 line-through")}>{user.full_name}</span>
+                              {user.is_overloaded && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-orange-200 bg-orange-50 text-orange-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  OVERLOADED
+                                </Badge>
+                              )}
+                              {user.is_overdue_blocked && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  OVERDUE
+                                </Badge>
+                              )}
+                              {hasReworkAlarm && (
+                                <Badge variant="outline" className="ml-auto text-[8px] border-red-200 bg-red-50 text-red-600 gap-1 animate-pulse">
+                                  <Siren className="h-2 w-2" />
+                                  FROZEN
+                                </Badge>
+                              )}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {taskData.assigned_to.some(email => reworkAlarms.some(a => a.recipient_email === email)) && (
+                <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
+                  <Siren className="h-3.5 w-3.5" />
+                  One or more selected users have their assignments frozen.
+                </div>
+              )}
+              {(validationErrors.assigned_to || localError) && (
+                <div className="mt-2 flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-[10px] font-bold animate-pulse">
+                  <Siren className="h-3.5 w-3.5" />
+                  {validationErrors.assigned_to || localError}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Reference URL */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-2">
+          <div className="space-y-2 flex flex-col justify-start h-full">
+            <Label className="text-sm font-semibold flex items-center gap-2 mb-2 shrink-0">
               <Link2 className="h-4 w-4 text-cyan-500" />
               Reference URL / Image Link
             </Label>
-            <div className="flex gap-2">
+            <div className="flex-1">
               <Input
                 type="url"
                 value={taskData.reference_url || ""}
-                onChange={(e) => setTaskData({ ...taskData, reference_url: e.target.value })}
+                onChange={(e) => setTaskData(prev => ({ ...prev, reference_url: e.target.value }))}
                 placeholder="https://example.com/mockup-design"
-                className="flex-1 h-10"
+                className="w-full h-10"
               />
             </div>
           </div>
@@ -647,7 +662,7 @@ export default function TaskDetailsTab({
 
         {/* Story Points */}
         <div>
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <Target className="h-4 w-4 text-orange-500" />
             Story Points
           </Label>
@@ -656,11 +671,11 @@ export default function TaskDetailsTab({
             onValueChange={(value) => {
               const points = parseInt(value);
               const calculatedHours = getHoursFromPoints(points);
-              setTaskData({
-                ...taskData,
+              setTaskData(prev => ({
+                ...prev,
                 story_points: points,
                 estimated_hours: calculatedHours
-              });
+              }));
             }}
           >
             <SelectTrigger>
@@ -678,7 +693,7 @@ export default function TaskDetailsTab({
 
         {/* Due Date */}
         <div>
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <CalendarIcon className="h-4 w-4 text-pink-500" />
             Due Date
           </Label>
@@ -689,7 +704,7 @@ export default function TaskDetailsTab({
                 {taskData.due_date ? format(new Date(taskData.due_date), 'PPP') : 'Pick a date'}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
+            <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
                 selected={taskData.due_date ? new Date(taskData.due_date) : undefined}
@@ -697,11 +712,17 @@ export default function TaskDetailsTab({
                   if (date) {
                     const adjustedDate = new Date(date);
                     adjustedDate.setHours(12, 0, 0, 0);
-                    setTaskData({ ...taskData, due_date: adjustedDate.toISOString().split('T')[0] });
+                    setTaskData(prev => ({ ...prev, due_date: adjustedDate.toISOString().split('T')[0] }));
                   } else {
-                    setTaskData({ ...taskData, due_date: '' });
+                    setTaskData(prev => ({ ...prev, due_date: '' }));
                   }
                 }}
+                disabled={(date) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return date < today;
+                }}
+                initialFocus
               />
             </PopoverContent>
           </Popover>
@@ -712,7 +733,7 @@ export default function TaskDetailsTab({
       {/* Description with Draft with AI Button */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
             <AlignLeft className="h-4 w-4 text-slate-600" />
             Description
           </Label>
@@ -742,7 +763,11 @@ export default function TaskDetailsTab({
             <ReactQuill
               theme="snow"
               value={taskData.description || ""}
-              onChange={(value) => setTaskData({ ...taskData, description: value })}
+              onChange={(value) => setTaskData(prev => {
+                // Only update if the value is actually different to prevent stale state overwrites from ReactQuill
+                if (prev.description === value) return prev;
+                return { ...prev, description: value };
+              })}
               placeholder="Describe your task here (use 'Draft with AI' to generate a structured description)..."
               modules={{
                 toolbar: [
@@ -766,9 +791,42 @@ export default function TaskDetailsTab({
         </p>
       </div>
 
+      {/* Acceptance Criteria */}
+      <div>
+        <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
+          <Target className="h-4 w-4 text-green-600" />
+          Acceptance Criteria
+        </Label>
+        <div className="border rounded-lg overflow-hidden resize-y min-h-[120px] max-h-[400px] flex flex-col relative">
+          <div className="flex-1 overflow-y-auto">
+            <ReactQuill
+              theme="snow"
+              value={taskData.acceptance_criteria || ""}
+              onChange={(value) => setTaskData(prev => {
+                // Only update if the value is actually different to prevent stale state overwrites from ReactQuill
+                if (prev.acceptance_criteria === value) return prev;
+                return { ...prev, acceptance_criteria: value };
+              })}
+              placeholder="List the conditions that must be met for this task to be considered complete..."
+              modules={{
+                toolbar: [
+                  ["bold", "italic", "underline"],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                  ["clean"],
+                ],
+              }}
+              style={{ minHeight: "120px", border: "none" }}
+            />
+          </div>
+          <div className="h-2 bg-slate-100 cursor-ns-resize hover:bg-slate-200 transition-colors flex items-center justify-center border-t border-slate-200">
+            <div className="w-12 h-1 bg-slate-300 rounded"></div>
+          </div>
+        </div>
+      </div>
+
       {/* Labels/Tags */}
       <div>
-        <Label className="text-sm font-semibold flex items-center gap-2">
+        <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
           <Hash className="h-4 w-4 text-violet-500" />
           Labels/Tags
         </Label>
@@ -924,7 +982,7 @@ export default function TaskDetailsTab({
         {isReportImpediment && (
           <div className="space-y-4 bg-red-50 border border-red-200 rounded-lg p-4">
             <div>
-              <Label className="text-sm font-semibold flex items-center gap-2">
+              <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
                 <Link2 className="h-4 w-4 text-amber-500" />
                 Link to Existing Impediment
               </Label>
@@ -951,7 +1009,7 @@ export default function TaskDetailsTab({
             {selectedImpedimentId === "" && (
               <>
                 <div>
-                  <Label htmlFor="impediment-title" className="text-sm font-semibold flex items-center gap-2">
+                  <Label htmlFor="impediment-title" className="text-sm font-semibold flex items-center gap-2 mb-2">
                     <AlertTriangle className="h-4 w-4 text-red-600" />
                     Impediment Title *
                   </Label>
@@ -966,7 +1024,7 @@ export default function TaskDetailsTab({
                 </div>
 
                 <div>
-                  <Label htmlFor="impediment-description" className="text-sm font-semibold flex items-center gap-2">
+                  <Label htmlFor="impediment-description" className="text-sm font-semibold flex items-center gap-2 mb-2">
                     <AlignLeft className="h-4 w-4 text-red-600" />
                     Description
                   </Label>
@@ -981,7 +1039,7 @@ export default function TaskDetailsTab({
                 </div>
 
                 <div>
-                  <Label htmlFor="impediment-severity" className="text-sm font-semibold flex items-center gap-2">
+                  <Label htmlFor="impediment-severity" className="text-sm font-semibold flex items-center gap-2 mb-2">
                     <AlertTriangle className="h-4 w-4 text-red-600" />
                     Severity
                   </Label>

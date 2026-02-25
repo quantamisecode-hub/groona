@@ -109,6 +109,16 @@ export default function Dashboard() {
     staleTime: 1 * 60 * 1000,
   });
 
+  const { data: stories = [] } = useQuery({
+    queryKey: ['stories', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Story.list();
+      return groonabackend.entities.Story.filter({ tenant_id: effectiveTenantId });
+    },
+    enabled: !!currentUser,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set();
     tasks.forEach(task => {
@@ -284,7 +294,13 @@ export default function Dashboard() {
 
             {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
             {canViewInsights && (
-              <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
+              <DashboardInsights
+                projects={filteredProjects}
+                tasks={filteredTasks}
+                stories={stories}
+                activities={activities}
+                loading={projectsLoading || tasksLoading}
+              />
             )}
 
             <div className="grid lg:grid-cols-3 gap-6">

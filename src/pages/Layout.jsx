@@ -490,6 +490,7 @@ function LayoutContent({ children, currentPageName }) {
     { title: "AI Subscription Manager", url: createPageUrl("AISubscriptionManagement"), icon: Sparkles, show: true },
     { title: "Deep Analytics", url: createPageUrl("AIAnalyticsDashboard"), icon: BarChart3, show: true },
     { title: "Subscription Plans", url: createPageUrl("SubscriptionManagement"), icon: CreditCard, show: true },
+    { title: "Payment Gateways", url: createPageUrl("PaymentGateways"), icon: CreditCard, show: true },
     { title: "System Notifications", url: createPageUrl("SystemNotificationManager"), icon: Bell, show: true },
   ];
 
@@ -593,6 +594,7 @@ function LayoutContent({ children, currentPageName }) {
     { title: "Productivity Dashboard", url: createPageUrl("AdminBIDashboard"), icon: BarChart3, show: true },
     { title: "Client Management", url: createPageUrl("ClientManagement"), icon: Briefcase, show: true },
     { title: "User Management", url: createPageUrl("UserManagement"), icon: Users, show: true },
+    { title: "Payments", url: createPageUrl("PaymentsHistory"), icon: CreditCard, show: true },
   ].filter(item => item.show) : [];
 
   const getInitials = (name) => {
@@ -1112,96 +1114,97 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
           <SidebarFooter className="border-t border-slate-200/60 p-4 space-y-2">
 
             {/* Subscription Progress Bar - For Tenants (Viewing as Tenant or Actual Tenant) */}
-            {((isViewingAsTenant && viewingTenant?.status === 'trial') || (!isInPlatformMode && !isViewingAsTenant && currentTenant?.status === 'trial')) && (
-              <div className="mb-4 px-2 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm">
-                {(() => {
-                  const tenant = isViewingAsTenant ? viewingTenant : currentTenant;
-                  if (!tenant?.trial_ends_at) return null;
+            {(() => {
+              const tenant = isViewingAsTenant ? viewingTenant : currentTenant;
+              // Show for trial OR active status
+              if (!tenant || !['trial', 'active'].includes(tenant.status)) return null;
 
-                  const trialEnd = new Date(tenant.trial_ends_at);
-                  const now = new Date();
+              // Use subscription_ends_at for paid plans, fallback to trial_ends_at
+              const endDateStr = tenant.subscription_ends_at || tenant.trial_ends_at;
+              if (!endDateStr) return null;
 
-                  // Find start date: subscription_start_date > created_at > (trialEnd - 14 days)
-                  let startDate = new Date(tenant.created_at);
-                  if (tenant.subscription_start_date) {
-                    startDate = new Date(tenant.subscription_start_date);
-                  } else if (isNaN(startDate.getTime())) {
-                    // Fallback if created_at is missing or invalid
-                    startDate = new Date(trialEnd);
-                    startDate.setDate(startDate.getDate() - 14); // Default 14 days
-                  }
+              const endDate = new Date(endDateStr);
+              const now = new Date();
 
-                  // Calculate total duration in ms
-                  const totalDuration = trialEnd - startDate;
-                  // Calculate elapsed time
-                  const elapsed = now - startDate;
+              // Find start date for progress calculation
+              let startDate = tenant.subscription_start_date ? new Date(tenant.subscription_start_date) : new Date(tenant.created_at);
+              if (isNaN(startDate.getTime())) {
+                startDate = new Date(endDate);
+                startDate.setDate(startDate.getDate() - 30); // Default 30 day window for progress
+              }
 
-                  // Calculate days left for display
-                  const diffTime = trialEnd - now;
-                  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              const totalDuration = endDate - startDate;
+              const elapsed = now - startDate;
+              const diffTime = endDate - now;
+              const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                  // Percentage of time elapsed (0 to 100)
-                  let progress = 0;
-                  if (totalDuration > 0) {
-                    progress = (elapsed / totalDuration) * 100;
-                  }
+              let progress = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
+              progress = Math.min(100, Math.max(0, progress));
 
-                  // Clamp
-                  progress = Math.min(100, Math.max(0, progress));
+              // Urgency colors
+              let progressColor = "bg-emerald-500";
+              let textColor = "text-emerald-700";
+              let barBg = "bg-emerald-100";
 
-                  // Color Logic based on Days Left (Urgency)
-                  let progressColor = "bg-emerald-500";
-                  let textColor = "text-emerald-700";
-                  let barBg = "bg-emerald-100";
+              if (daysLeft <= 3) {
+                progressColor = "bg-rose-500";
+                textColor = "text-rose-700";
+                barBg = "bg-rose-100";
+              } else if (daysLeft <= 7) {
+                progressColor = "bg-amber-500";
+                textColor = "text-amber-700";
+                barBg = "bg-amber-100";
+              }
 
-                  if (daysLeft <= 3) {
-                    progressColor = "bg-rose-500";
-                    textColor = "text-rose-700";
-                    barBg = "bg-rose-100";
-                  } else if (daysLeft <= 7) {
-                    progressColor = "bg-amber-500";
-                    textColor = "text-amber-700";
-                    barBg = "bg-amber-100";
-                  }
+              if (daysLeft <= 0) return (
+                <div className="mb-4 px-2 p-3 bg-rose-50 rounded-lg border border-rose-100 shadow-sm text-center">
+                  <span className="text-xs font-bold text-rose-600">Plan/Trial Expired</span>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-[11px] text-indigo-600 hover:text-indigo-700 font-medium block mt-1"
+                    onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
+                  >
+                    Renew Now &rarr;
+                  </Button>
+                </div>
+              );
 
-                  if (daysLeft <= 0) return (
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-rose-600">Trial Expired</span>
-                    </div>
-                  );
+              const planName = tenant.subscription_plan
+                ? tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)
+                : 'Premium';
 
-                  const planName = tenant.subscription_plan
-                    ? tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)
-                    : 'Premium';
+              const isTrial = tenant.status === 'trial';
 
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs font-semibold">
-                        <span className="text-slate-700 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-indigo-500" />
-                          {planName} Trial
-                        </span>
-                        <span className={textColor}>{daysLeft} days left</span>
-                      </div>
-                      <div className={`h-2 w-full ${barBg} rounded-full overflow-hidden`}>
-                        <div
-                          className={`h-full ${progressColor} transition-all duration-1000 ease-out rounded-full`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-[10px] text-indigo-600 hover:text-indigo-700 w-full justify-center"
-                        onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
-                      >
-                        Upgrade Plan &rarr;
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+              return (
+                <div className="mb-4 px-2 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm space-y-1.5">
+                  <div className="flex justify-end">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0 text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
+                      onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
+                    >
+                      Upgrade Plan &rarr;
+                    </Button>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-slate-700 flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-indigo-500" />
+                      {planName} {isTrial ? 'Trial' : ''}
+                    </span>
+                    <span className={textColor}>{daysLeft} days left</span>
+                  </div>
+                  <div className={`h-2 w-full ${barBg} rounded-full overflow-hidden`}>
+                    <div
+                      className={`h-full ${progressColor} transition-all duration-1000 ease-out rounded-full`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Support Button - Sticky above profile */}
             <SidebarMenuButton

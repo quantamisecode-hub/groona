@@ -92,7 +92,7 @@ export default function SubscriptionPlanDialog({ open, onClose, plan, onSubmit, 
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{plan ? "Edit Subscription Plan" : "Create Subscription Plan"}</DialogTitle>
         </DialogHeader>
@@ -125,10 +125,29 @@ export default function SubscriptionPlanDialog({ open, onClose, plan, onSubmit, 
 
           {/* Pricing */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-slate-900">Pricing</h3>
+            <h3 className="font-semibold text-slate-900">Pricing & Currency</h3>
+
+            <div>
+              <Label htmlFor="currency">Currency *</Label>
+              <select
+                id="currency"
+                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.currency}
+                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                required
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="AUD">AUD (A$)</option>
+                <option value="CAD">CAD (C$)</option>
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="monthly_price">Monthly Price ($) *</Label>
+                <Label htmlFor="monthly_price">Monthly Price ({formData.currency}) *</Label>
                 <Input
                   id="monthly_price"
                   type="number"
@@ -140,7 +159,7 @@ export default function SubscriptionPlanDialog({ open, onClose, plan, onSubmit, 
                 />
               </div>
               <div>
-                <Label htmlFor="annual_price">Annual Price ($) *</Label>
+                <Label htmlFor="annual_price">Annual Price ({formData.currency}) *</Label>
                 <Input
                   id="annual_price"
                   type="number"

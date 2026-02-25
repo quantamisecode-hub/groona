@@ -4,16 +4,16 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import TaskCard from "@/components/shared/TaskCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Plus, 
-  Settings2, 
-  Trash2, 
-  ArrowUp, 
-  ArrowDown, 
-  Edit2, 
-  Check, 
+import {
+  Plus,
+  Settings2,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  Edit2,
+  Check,
   X,
-  RefreshCw 
+  RefreshCw
 } from "lucide-react";
 import UserAvailabilityIndicator from "./UserAvailabilityIndicator";
 import {
@@ -40,12 +40,12 @@ const DEFAULT_COLUMNS = [
   { id: "completed", title: "Done" },
 ];
 
-export default function SprintKanbanBoard({ 
-  sprint, 
-  tasks = [], 
-  allTasks = [], 
-  onUpdate, 
-  onDelete, 
+export default function SprintKanbanBoard({
+  sprint,
+  tasks = [],
+  allTasks = [],
+  onUpdate,
+  onDelete,
   showAvailability = false,
   onTaskClick,
   onEditSprint = null
@@ -54,7 +54,7 @@ export default function SprintKanbanBoard({
   const queryClient = useQueryClient();
   const [localTasks, setLocalTasks] = useState(tasks);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
-  
+
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -64,8 +64,8 @@ export default function SprintKanbanBoard({
 
   const isSameTenant = useMemo(() => {
     if (!user || !sprint) return false;
-    return user.tenant_id === sprint.tenant_id || 
-           (user.is_super_admin && user.active_tenant_id === sprint.tenant_id);
+    return user.tenant_id === sprint.tenant_id ||
+      (user.is_super_admin && user.active_tenant_id === sprint.tenant_id);
   }, [user, sprint]);
 
   const isTenantAdmin = useMemo(() => {
@@ -80,7 +80,30 @@ export default function SprintKanbanBoard({
       setColumns(DEFAULT_COLUMNS);
     }
   }, [sprint, isSameTenant]);
-  
+
+  const isDragDisabled = (task) => {
+    if (user?.role === 'member' && user?.custom_role === 'viewer') {
+      const assignees = Array.isArray(task.assigned_to) ? task.assigned_to : (task.assigned_to ? [task.assigned_to] : []);
+      const userEmail = user?.email?.toLowerCase();
+      const userId = user?.id;
+
+      const isAssigned = assignees.some(assignee => {
+        const assigneeVal = (typeof assignee === 'object' && assignee !== null)
+          ? (assignee.email || assignee.id || '')
+          : String(assignee || '');
+
+        const normalizedAssignee = assigneeVal.toLowerCase().trim();
+        const normalizedEmail = String(userEmail || '').toLowerCase().trim();
+        const normalizedId = String(userId || '').toLowerCase().trim();
+
+        return normalizedAssignee === normalizedEmail || normalizedAssignee === normalizedId;
+      });
+
+      return !isAssigned;
+    }
+    return false;
+  };
+
   const pendingUpdates = useRef({});
 
   useEffect(() => {
@@ -109,8 +132,8 @@ export default function SprintKanbanBoard({
     const newStatus = destination.droppableId;
     pendingUpdates.current[draggableId] = newStatus;
 
-    setLocalTasks((prev) => 
-      prev.map((t) => 
+    setLocalTasks((prev) =>
+      prev.map((t) =>
         t.id === draggableId ? { ...t, status: newStatus } : t
       )
     );
@@ -125,10 +148,10 @@ export default function SprintKanbanBoard({
   // --- NEW: Handle Local Content Updates (Real-time) ---
   const handleLocalTaskUpdate = (taskId, newData) => {
     // 1. Immediately update local state for instant feedback
-    setLocalTasks(prev => prev.map(t => 
+    setLocalTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, ...newData } : t
     ));
-    
+
     // 2. Propagate to parent (which handles API call if needed, though EditTaskDialog usually handles it)
     // If onUpdate is strictly for status/drag-drop, this might duplicate, but usually it's safe.
     // However, EditTaskDialog handles the API update itself. 
@@ -142,7 +165,7 @@ export default function SprintKanbanBoard({
     try {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
       if (sprint?.id) {
-         await queryClient.invalidateQueries({ queryKey: ["sprint-tasks", sprint.id] });
+        await queryClient.invalidateQueries({ queryKey: ["sprint-tasks", sprint.id] });
       }
       await new Promise(resolve => setTimeout(resolve, 500));
       toast.success("Board refreshed");
@@ -228,7 +251,7 @@ export default function SprintKanbanBoard({
       handleCancelRename();
       return;
     }
-    const newColumns = columns.map(c => 
+    const newColumns = columns.map(c =>
       c.id === editingColumnId ? { ...c, title: editColumnName.trim() } : c
     );
     await saveColumnsToBackend(newColumns);
@@ -239,7 +262,7 @@ export default function SprintKanbanBoard({
     <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
       <div className="mb-4 flex items-center justify-between flex-shrink-0 px-1">
         <h3 className="text-lg font-bold text-slate-900">{sprint.name} Board</h3>
-        
+
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -267,9 +290,9 @@ export default function SprintKanbanBoard({
           )}
 
           {isTenantAdmin && (
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => setIsManageColumnsOpen(true)}
               className="flex items-center gap-2 h-9 bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all"
             >
@@ -284,14 +307,14 @@ export default function SprintKanbanBoard({
           </Badge>
         </div>
       </div>
-      
+
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 min-w-0 w-full relative h-[calc(100vh-250px)] min-h-[500px]">
           <div className="absolute inset-0 overflow-x-auto overflow-y-hidden pb-4">
             <div className="inline-flex gap-4 h-full px-1 align-top">
               {columns.map((col) => {
                 const columnTasks = localTasks.filter((t) => t.status === col.id);
-                
+
                 return (
                   <div key={col.id} className="flex-shrink-0 w-80 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200/50 max-h-full shadow-sm">
                     <div className="p-3 font-semibold text-slate-700 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-white/50 rounded-t-xl backdrop-blur-sm">
@@ -306,15 +329,15 @@ export default function SprintKanbanBoard({
                         <div
                           {...provided.droppableProps}
                           ref={provided.innerRef}
-                          className={`flex-1 overflow-y-auto min-h-0 p-2 flex flex-col gap-3 transition-colors ${
-                            snapshot.isDraggingOver ? "bg-slate-200/50" : ""
-                          }`}
+                          className={`flex-1 overflow-y-auto min-h-0 p-2 flex flex-col gap-3 transition-colors ${snapshot.isDraggingOver ? "bg-slate-200/50" : ""
+                            }`}
                         >
                           {columnTasks.map((task, index) => (
-                            <Draggable 
-                              key={task.id} 
-                              draggableId={task.id} 
+                            <Draggable
+                              key={task.id}
+                              draggableId={task.id}
                               index={index}
+                              isDragDisabled={isDragDisabled(task)}
                             >
                               {(provided, snapshot) => {
                                 const component = (
@@ -329,11 +352,11 @@ export default function SprintKanbanBoard({
                                       margin: 0,
                                       transform: snapshot.isDragging ? provided.draggableProps.style.transform : undefined
                                     }}
-                                    className="group w-full outline-none" 
+                                    className="group w-full outline-none"
                                   >
                                     <div className={snapshot.isDragging ? "" : "hover:scale-[1.02] transition-transform duration-200"}>
-                                      <TaskCard 
-                                        task={task} 
+                                      <TaskCard
+                                        task={task}
                                         allTasks={allTasks}
                                         // Pass local update handler
                                         onUpdateTask={(newData) => handleLocalTaskUpdate(task.id, newData)}
@@ -359,13 +382,13 @@ export default function SprintKanbanBoard({
                                 if (snapshot.isDragging) {
                                   return createPortal(component, document.body);
                                 }
-                                
+
                                 return component;
                               }}
                             </Draggable>
                           ))}
                           {provided.placeholder}
-                          
+
                           {columnTasks.length === 0 && !snapshot.isDraggingOver && (
                             <div className="flex items-center justify-center h-24 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
                               No tasks
@@ -387,7 +410,7 @@ export default function SprintKanbanBoard({
       {isTenantAdmin && (
         <Dialog open={isManageColumnsOpen} onOpenChange={setIsManageColumnsOpen}>
           {/* ... Dialog Content (Same as previous, omitted for brevity but logic is preserved above) ... */}
-           <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
+          <DialogContent className="sm:max-w-[500px] max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Edit Board Columns</DialogTitle>
               <DialogDescription>
@@ -413,47 +436,47 @@ export default function SprintKanbanBoard({
               </div>
               <Separator />
               <div className="flex-1 min-h-0 flex flex-col">
-                 <div className="flex items-center justify-between mb-2 px-1">
-                   <Label className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Column Order</Label>
-                   <span className="text-[10px] text-slate-400">First → Last</span>
-                 </div>
-                 <ScrollArea className="h-[250px] pr-4 -mr-4">
-                   <div className="space-y-2 pr-4">
-                     {columns.map((col, index) => (
-                       <div key={col.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg group hover:border-blue-200 hover:shadow-sm transition-all">
-                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                           <div className="flex flex-col gap-0.5 shrink-0">
-                              <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:text-blue-600 hover:bg-blue-50" disabled={index === 0} onClick={() => handleMoveColumn(index, 'up')} title="Move Left/Up"><ArrowUp className="h-3 w-3" /></Button>
-                              <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:text-blue-600 hover:bg-blue-50" disabled={index === columns.length - 1} onClick={() => handleMoveColumn(index, 'down')} title="Move Right/Down"><ArrowDown className="h-3 w-3" /></Button>
-                           </div>
-                           <div className="flex-1 min-w-0">
-                             {editingColumnId === col.id ? (
-                               <div className="flex items-center gap-1">
-                                 <Input value={editColumnName} onChange={(e) => setEditColumnName(e.target.value)} className="h-7 text-sm" autoFocus onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRename(); if (e.key === 'Escape') handleCancelRename(); }} />
-                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0" onClick={handleSaveRename}><Check className="h-4 w-4" /></Button>
-                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={handleCancelRename}><X className="h-4 w-4" /></Button>
-                               </div>
-                             ) : (
-                               <div>
-                                 <p className="font-medium text-slate-900 text-sm truncate" title={col.title}>{col.title}</p>
-                                 <p className="text-[10px] text-slate-400 font-mono hidden group-hover:block transition-all truncate">ID: {col.id}</p>
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                         <div className="flex items-center gap-1 shrink-0 ml-2">
-                           {editingColumnId !== col.id && (
-                             <>
-                               <Badge variant="secondary" className="text-[10px] font-mono text-slate-500 bg-white border border-slate-100 hidden sm:inline-flex">#{index + 1}</Badge>
-                               <Button variant="ghost" size="icon" onClick={() => handleStartRename(col)} className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Rename Column"><Edit2 className="h-3.5 w-3.5" /></Button>
-                               <Button variant="ghost" size="icon" onClick={() => handleDeleteColumn(col.id)} className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Delete Column"><Trash2 className="h-4 w-4" /></Button>
-                             </>
-                           )}
-                         </div>
-                       </div>
-                     ))}
-                   </div>
-                 </ScrollArea>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <Label className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Column Order</Label>
+                  <span className="text-[10px] text-slate-400">First → Last</span>
+                </div>
+                <ScrollArea className="h-[250px] pr-4 -mr-4">
+                  <div className="space-y-2 pr-4">
+                    {columns.map((col, index) => (
+                      <div key={col.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg group hover:border-blue-200 hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="flex flex-col gap-0.5 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:text-blue-600 hover:bg-blue-50" disabled={index === 0} onClick={() => handleMoveColumn(index, 'up')} title="Move Left/Up"><ArrowUp className="h-3 w-3" /></Button>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 text-slate-400 hover:text-blue-600 hover:bg-blue-50" disabled={index === columns.length - 1} onClick={() => handleMoveColumn(index, 'down')} title="Move Right/Down"><ArrowDown className="h-3 w-3" /></Button>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {editingColumnId === col.id ? (
+                              <div className="flex items-center gap-1">
+                                <Input value={editColumnName} onChange={(e) => setEditColumnName(e.target.value)} className="h-7 text-sm" autoFocus onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRename(); if (e.key === 'Escape') handleCancelRename(); }} />
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0" onClick={handleSaveRename}><Check className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 shrink-0" onClick={handleCancelRename}><X className="h-4 w-4" /></Button>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="font-medium text-slate-900 text-sm truncate" title={col.title}>{col.title}</p>
+                                <p className="text-[10px] text-slate-400 font-mono hidden group-hover:block transition-all truncate">ID: {col.id}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          {editingColumnId !== col.id && (
+                            <>
+                              <Badge variant="secondary" className="text-[10px] font-mono text-slate-500 bg-white border border-slate-100 hidden sm:inline-flex">#{index + 1}</Badge>
+                              <Button variant="ghost" size="icon" onClick={() => handleStartRename(col)} className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Rename Column"><Edit2 className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteColumn(col.id)} className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Delete Column"><Trash2 className="h-4 w-4" /></Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             </div>
             <DialogFooter>

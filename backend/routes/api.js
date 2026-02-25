@@ -6,6 +6,104 @@ const emailService = require('../services/emailService');
 const axios = require('axios');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+// === SUPER ADMIN ENDPOINTS ===
+
+// GET razorpay config explicitly from .env
+router.get('/admin/razorpay-config', async (req, res) => {
+  try {
+    // Only super admin Check (assuming req.user comes from token verify, if applicable)
+    // Note: If you need stronger protection, ensure your auth middleware sets req.user.is_super_admin
+    const envPath = path.resolve(__dirname, '../.env');
+    let razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
+    let razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
+
+    // If you want to mask the secret before sending to frontend:
+    if (razorpayKeySecret) {
+      razorpayKeySecret = '********' + razorpayKeySecret.slice(-4);
+    }
+
+    res.json({
+      RAZORPAY_KEY_ID: razorpayKeyId,
+      RAZORPAY_KEY_SECRET: razorpayKeySecret,
+    });
+  } catch (error) {
+    console.error('[Admin] Error fetching Razorpay config:', error);
+    res.status(500).json({ error: 'Failed to fetch config' });
+  }
+});
+
+// POST update razorpay config explicitly to .env
+router.post('/admin/razorpay-config', async (req, res) => {
+  try {
+    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = req.body;
+    const envPath = path.resolve(__dirname, '../.env');
+
+    if (!fs.existsSync(envPath)) {
+      return res.status(500).json({ error: '.env file not found on server' });
+    }
+
+    let envContent = fs.readFileSync(envPath, 'utf8');
+
+    const updateOrAddEnv = (key, value) => {
+      // If they send masked secret, do not overwrite the real one
+      if (key === 'RAZORPAY_KEY_SECRET' && value.startsWith('********')) return;
+
+      const regex = new RegExp(`^${key}=.*$`, 'm');
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `${key}=${value}`);
+      } else {
+        envContent += `\n${key}=${value}`;
+      }
+      process.env[key] = value; // Update running process
+    };
+
+    if (RAZORPAY_KEY_ID) updateOrAddEnv('RAZORPAY_KEY_ID', RAZORPAY_KEY_ID);
+    if (RAZORPAY_KEY_SECRET) updateOrAddEnv('RAZORPAY_KEY_SECRET', RAZORPAY_KEY_SECRET);
+
+    fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf8');
+
+    res.json({ success: true, message: 'Razorpay keys updated successfully.' });
+  } catch (error) {
+    console.error('[Admin] Error updating Razorpay config:', error);
+    res.status(500).json({ error: 'Failed to update config' });
+  }
+});
+
+
+// === GET SUBSCRIPTION HISTORY (SUPER ADMIN) ===
+router.get('/admin/subscriptions-history', async (req, res) => {
+  try {
+    const TenantSubscription = Models.TenantSubscription;
+    const Tenant = Models.Tenant;
+    const SubscriptionPlan = Models.SubscriptionPlan;
+
+    const subscriptions = await TenantSubscription.find({}).sort({ created_at: -1, created_date: -1 }).lean();
+    const tenants = await Tenant.find({}).lean();
+    const plans = await SubscriptionPlan.find({}).lean();
+
+    const tenantMap = tenants.reduce((acc, t) => { acc[t._id.toString()] = t; return acc; }, {});
+    const planMap = plans.reduce((acc, p) => { acc[p._id.toString()] = p; return acc; }, {});
+
+    const enriched = subscriptions.map(sub => {
+      const t = tenantMap[sub.tenant_id?.toString()] || {};
+      const p = planMap[sub.subscription_plan_id?.toString()] || {};
+      return {
+        ...sub,
+        tenant_name: t.company_name || 'Unknown Tenant',
+        contact_email: t.contact_email || '',
+        plan_name: p.name || sub.plan_name || 'Unknown Plan',
+        monthly_price: p.monthly_price || 0,
+        currency: p.currency || 'USD'
+      };
+    });
+
+    res.json(enriched);
+  } catch (error) {
+    console.error('[Admin] Error fetching subscriptions history:', error);
+    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+  }
+});
+
 // === CURRENCY CONVERSION ENDPOINT ===
 // === CURRENCY CONVERSION ENDPOINT ===
 // === CURRENCY CONVERSION ENDPOINT ===
@@ -2141,6 +2239,152 @@ router.post('/entities/:entity/update', async (req, res) => {
       });
     }
 
+    // --- TASK STATUS CHANGE NOTIFICATIONS ---
+    if (entityName === 'Task' && data.status && oldDoc.status !== data.status) {
+      setImmediate(async () => {
+        try {
+          const emailService = require('../services/emailService');
+          const frontendUrl = process.env.FRONTEND_URL;
+          if (!frontendUrl) {
+            console.warn('FRONTEND_URL not set in environment variables');
+            return;
+          }
+
+          const newStatus = data.status.toLowerCase();
+          const oldStatus = oldDoc.status.toLowerCase();
+
+          // Define relevant transitions
+          const isStarted = oldStatus === 'todo' && newStatus === 'in_progress';
+          const isReview = oldStatus === 'in_progress' && newStatus === 'review';
+          const isReverted = oldStatus === 'in_progress' && newStatus === 'todo';
+
+          if (isStarted || isReview || isReverted) {
+            // Get Project to find Project Managers
+            const Project = Models.Project;
+            const project = await Project.findById(updatedDoc.project_id);
+            if (!project) return;
+
+            const projectName = project.name;
+            const projectId = project._id;
+            const taskTitle = updatedDoc.title;
+            const taskUrl = `${frontendUrl}/projects/${projectId}?tab=board`;
+
+            // Identify PMs
+            const pmEmails = new Set();
+            const User = Models.User;
+            const ProjectUserRole = Models.ProjectUserRole;
+
+            // 1. Project Owner
+            if (project.owner) {
+              if (project.owner.includes('@')) {
+                pmEmails.add(project.owner);
+              } else {
+                const ownerUser = await User.findById(project.owner);
+                if (ownerUser && ownerUser.email) pmEmails.add(ownerUser.email);
+              }
+            }
+
+            // 2. Team Members with PM role
+            if (project.team_members && Array.isArray(project.team_members)) {
+              for (const member of project.team_members) {
+                if (member.role === 'project_manager' || member.custom_role === 'project_manager') {
+                  if (member.email) pmEmails.add(member.email);
+                  else if (member.user_id) {
+                    const u = await User.findById(member.user_id);
+                    if (u && u.email) pmEmails.add(u.email);
+                  }
+                }
+              }
+            }
+
+            // 3. ProjectUserRole
+            const pmRoles = await ProjectUserRole.find({ project_id: projectId, role: 'project_manager' });
+            for (const role of pmRoles) {
+              if (role.user_id) {
+                const u = await User.findById(role.user_id);
+                if (u && u.email) pmEmails.add(u.email);
+              }
+            }
+
+            // Get user who made the change
+            let changedByName = 'A team member';
+            let changedByEmail = 'System';
+            let userId = null;
+
+            if (req.user) {
+              changedByName = req.user.full_name || req.user.name || 'A team member';
+              changedByEmail = req.user.email || 'System';
+            } else if (req.headers && req.headers.authorization) {
+              const token = req.headers.authorization.split(' ')[1];
+              if (token) {
+                const jwt = require('jsonwebtoken');
+                try {
+                  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                  if (decoded.user && decoded.user.id) {
+                    userId = decoded.user.id;
+                  } else if (decoded.id) {
+                    userId = decoded.id;
+                  }
+                } catch (e) {
+                  console.error('[TaskStatusEmail] Token verification error:', e.message);
+                }
+              }
+            }
+
+            if (userId) {
+              const changedByUser = await User.findById(userId);
+              if (changedByUser) {
+                changedByName = changedByUser.full_name || changedByUser.name || 'A team member';
+                changedByEmail = changedByUser.email || 'System';
+              }
+            } else if (changedByEmail && changedByEmail !== 'System') {
+              const changedByUser = await User.findOne({ email: changedByEmail });
+              if (changedByUser) {
+                changedByName = changedByUser.full_name || changedByUser.name || 'A team member';
+              }
+            }
+
+            // Fallback to "A team member" to avoid showing an email address
+            if (!changedByName || changedByName.includes('@')) {
+              changedByName = 'A team member';
+            }
+
+            // Send Emails
+            for (const pmEmail of pmEmails) {
+              // Don't send email to the person who made the change themselves
+              if (pmEmail === changedByEmail) continue;
+
+              try {
+                const pmUser = await User.findOne({ email: pmEmail });
+                const pmName = pmUser?.full_name || pmEmail;
+
+                await emailService.sendEmail({
+                  to: pmEmail,
+                  templateType: 'task_status_changed',
+                  data: {
+                    recipientName: pmName,
+                    recipientEmail: pmEmail,
+                    taskTitle,
+                    projectName,
+                    oldStatus,
+                    newStatus,
+                    changedBy: changedByName,
+                    taskUrl,
+                    isReverted
+                  }
+                });
+                console.log(`[TaskStatusEmail] Sent status change email to PM ${pmEmail} for task ${taskTitle} (${oldStatus} -> ${newStatus})`);
+              } catch (err) {
+                console.error(`[TaskStatusEmail] Failed to send to ${pmEmail}:`, err);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[TaskStatusEmail] Error processing task status change emails:', error);
+        }
+      });
+    }
+
     // --- PEER REVIEW DECLINE NOTIFICATIONS ---
     if (entityName === 'PeerReviewRequest' && updatedDoc.status === 'DECLINED' && oldDoc.status !== 'DECLINED') {
       setImmediate(async () => {
@@ -2387,7 +2631,10 @@ router.post('/integrations/llm', async (req, res) => {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const generationConfig = response_json_schema ? { responseMimeType: "application/json" } : {};
+    const generationConfig = response_json_schema ? {
+      responseMimeType: "application/json",
+      responseSchema: response_json_schema
+    } : {};
 
     const fileParts = await processFilesForGemini(file_urls, req);
 
@@ -2410,8 +2657,18 @@ router.post('/integrations/llm', async (req, res) => {
 
     if (response_json_schema) {
       // 3. Robust JSON Parsing & Fallback for Plain Text
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      let jsonStr = text;
+
+      // If it's wrapped in a code block, strip that out
+      if (text.includes('```json')) {
+        jsonStr = text.split('```json')[1].split('```')[0].trim();
+      } else if (text.includes('```')) {
+        jsonStr = text.split('```')[1].split('```')[0].trim();
+      } else {
+        // Fallback to a regex match if it's just raw text with json somewhere in it
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        jsonStr = jsonMatch ? jsonMatch[0] : text;
+      }
 
       try {
         const jsonObj = JSON.parse(jsonStr);
@@ -2423,9 +2680,12 @@ router.post('/integrations/llm', async (req, res) => {
         // If the user requested a description and we got text, assume the text IS the description
         if (response_json_schema?.properties?.description) {
           return res.json({
+            title: text.substring(0, 50).replace(/[*#]/g, ''), // Provide a fallback title
             description: text.replace(/[*#]/g, ''), // Strip markdown artifacts
             priority: "medium",
-            story_points: 1
+            story_points: 1,
+            labels: ["ai-generated"],
+            subtasks: []
           });
         }
 
@@ -2549,6 +2809,196 @@ router.post('/audit-lock/toggle', async (req, res) => {
 
   } catch (error) {
     console.error('Audit lock toggle error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// === RAZORPAY INTEGRATIONS ===
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
+
+router.post('/integrations/razorpay/create-order', async (req, res) => {
+  try {
+    const { amount, plan_id, currency } = req.body;
+
+    // Check if keys are configured
+    const key_id = process.env.RAZORPAY_KEY_ID;
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_id || !key_secret) {
+      console.warn('[Razorpay] Gateway credentials not found in environment.');
+      return res.status(500).json({ error: 'Payment gateway is not currently configured by the administrator.' });
+    }
+
+    const instance = new Razorpay({ key_id, key_secret });
+
+    // Amount usually in smallest currency unit (paise for INR)
+    // Here we assume amount is in dollars or standard units, so we multiply by 100 for Razorpay
+    const options = {
+      amount: Math.round(Number(amount) * 100),
+      currency: currency || "USD",
+      receipt: `receipt_order_${Date.now()}`
+    };
+
+    const order = await instance.orders.create(options);
+    if (!order) return res.status(500).send("Some error occured while creating razorpay order");
+
+    res.json({
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key_id: key_id
+    });
+
+  } catch (error) {
+    console.error("[Razorpay] Order Creation Error:", error);
+    res.status(500).json({ error: 'Failed to initiate payment gateway.' });
+  }
+});
+
+router.post('/integrations/razorpay/verify-payment', async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      plan_id,
+      tenant_id
+    } = req.body;
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+
+    // Creating hmac object
+    const hmac = crypto.createHmac('sha256', secret);
+
+    // Passing the data to be hashed
+    hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+
+    // Creating the hmac in the required format
+    const generated_signature = hmac.digest('hex');
+
+
+    let isSignatureValid = false;
+    try {
+      // Using crypto.timingSafeEqual for secure comparison
+      isSignatureValid = crypto.timingSafeEqual(
+        Buffer.from(generated_signature),
+        Buffer.from(razorpay_signature)
+      );
+    } catch (e) {
+      // Fallback string compare if timingSafeEqual fails due to length issues (very rare)
+      isSignatureValid = generated_signature === razorpay_signature;
+    }
+
+
+    if (isSignatureValid) {
+      // ==========================================
+      // PAYMENT SUCCESS: UPGRADE SUBSCRIPTION
+      // ==========================================
+
+      // 1. Fetch Plan Details
+      const SubscriptionPlan = Models.SubscriptionPlan;
+      const plan = await SubscriptionPlan.findById(plan_id);
+      if (!plan) throw new Error("Plan not found");
+
+      // 2. Update Tenant
+      const Tenant = Models.Tenant;
+      const tenant = await Tenant.findById(tenant_id);
+      if (!tenant) throw new Error("Tenant not found");
+
+      const TenantSubscription = Models.TenantSubscription;
+      const Payment = Models.Payment;
+      const now = new Date();
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(now.getMonth() + 1);
+
+      await Tenant.findByIdAndUpdate(tenant_id, {
+        subscription_plan_id: plan._id,
+        subscription_plan: plan.name,
+        subscription_status: 'active',
+        subscription_type: 'monthly', // Set by verify-payment logic
+        subscription_start_date: now.toISOString(),
+        subscription_ends_at: nextMonth.toISOString(),
+        trial_ends_at: nextMonth.toISOString(), // Match subscription end date as requested
+        status: 'active', // Dynamically lift suspension/past_due status
+        max_users: plan.features?.max_users,
+        max_projects: plan.features?.max_projects,
+        max_workspaces: plan.features?.max_workspaces,
+        max_storage_gb: plan.features?.max_storage_gb
+      });
+
+
+
+      // 3. Create Payment Transaction Record (History)
+      await Payment.create({
+        tenant_id: tenant._id,
+        tenant_name: tenant.name,
+        plan_id: plan._id,
+        plan_name: plan.name,
+        amount: plan.monthly_price, // Assuming monthly for now as per verify-payment logic
+        currency: plan.currency || 'USD',
+        razorpay_order_id: razorpay_order_id,
+        razorpay_payment_id: razorpay_payment_id,
+        payment_status: 'captured',
+        billing_cycle: 'monthly',
+        payment_date: now.toISOString()
+      });
+
+      // 4. Update/Create Tenant Subscription Record (Active State)
+      const subData = {
+        tenant_id: tenant._id,
+        subscription_plan_id: plan._id,
+        plan_name: plan.name,
+        subscription_type: 'monthly',
+        payment_status: 'active',
+        start_date: now.toISOString(),
+        end_date: nextMonth.toISOString(),
+        trial_ends_at: nextMonth.toISOString(), // Match subscription end date
+        max_users: plan.features?.max_users,
+        max_projects: plan.features?.max_projects,
+        max_workspaces: plan.features?.max_workspaces,
+        max_storage_gb: plan.features?.max_storage_gb
+      };
+
+      const existingSub = await TenantSubscription.findOne({ tenant_id: tenant._id });
+      if (existingSub) {
+        await TenantSubscription.findByIdAndUpdate(existingSub._id, subData);
+      } else {
+        await TenantSubscription.create(subData);
+      }
+
+      // Return Success Signal
+      return res.json({ success: true, message: "Payment verified successfully and subscription activated" });
+    } else {
+      return res.status(400).json({ success: false, message: "Payment verification failed: Invalid Signature" });
+    }
+  } catch (error) {
+    console.error("[Razorpay] Verification Error:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error during verification" });
+  }
+});
+
+// Admin: Get all payment history
+router.get('/admin/payments-history', async (req, res) => {
+  try {
+    const Payment = Models.Payment;
+    const history = await Payment.find().sort({ payment_date: -1 }).limit(100);
+    res.json(history);
+  } catch (error) {
+    console.error('[API] Admin Payment History error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tenant: Get my payment history
+router.get('/tenant/payments-history/:tenantId', async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const Payment = Models.Payment;
+    const history = await Payment.find({ tenant_id: tenantId }).sort({ payment_date: -1 }).limit(50);
+    res.json(history);
+  } catch (error) {
+    console.error('[API] Tenant Payment History error:', error);
     res.status(500).json({ error: error.message });
   }
 });
