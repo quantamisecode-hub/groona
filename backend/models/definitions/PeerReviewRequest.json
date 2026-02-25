@@ -1,0 +1,64 @@
+{
+    "name": "PeerReviewRequest",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "Tenant ID"
+        },
+        "requester_email": {
+            "type": "string",
+            "description": "Email of the user requesting review"
+        },
+        "requester_name": {
+            "type": "string",
+            "description": "Name of the user requesting review"
+        },
+        "reviewer_email": {
+            "type": "string",
+            "description": "Email of the user performing review"
+        },
+        "task_id": {
+            "type": "string",
+            "description": "ID of the specific task being reviewed (optional if global request)"
+        },
+        "task_title": {
+            "type": "string",
+            "description": "Title of the task"
+        },
+        "project_name": {
+            "type": "string",
+            "description": "Project associated with the task"
+        },
+        "task_due_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Due date of the task"
+        },
+        "message": {
+            "type": "string",
+            "description": "Focus area or instructions for the reviewer"
+        },
+        "status": {
+            "type": "string",
+            "enum": [
+                "PENDING",
+                "COMPLETED",
+                "DECLINED"
+            ],
+            "default": "PENDING",
+            "description": "Status of the review request"
+        },
+        "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the review was marked as done"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "requester_email",
+        "reviewer_email",
+        "status"
+    ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "ProjectExpense",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected"],
+      "default": "pending"
+    },
+    "category": {
+      "type": "string"
+    }
+  },
+  "required": ["tenant_id", "project_id", "amount"]
+}

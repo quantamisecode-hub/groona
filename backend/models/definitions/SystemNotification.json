@@ -1,0 +1,72 @@
+{
+  "name": "SystemNotification",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Main content of the notification"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "subscription",
+        "feature",
+        "system",
+        "alert",
+        "announcement"
+      ],
+      "default": "system"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["normal", "high", "critical"],
+      "default": "normal"
+    },
+    "target_audience": {
+      "type": "string",
+      "enum": [
+        "all",
+        "admins",
+        "users",
+        "specific_tenant"
+      ],
+      "default": "all"
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "If target_audience is specific_tenant, this is required"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "action_url": {
+      "type": "string",
+      "description": "Optional link for the notification"
+    },
+    "action_label": {
+      "type": "string",
+      "description": "Label for the action button"
+    },
+    "dismissed_by": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of user emails who have dismissed this notification"
+    }
+  },
+  "required": [
+    "title",
+    "message",
+    "category"
+  ]
+}

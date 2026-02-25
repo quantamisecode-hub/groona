@@ -1,0 +1,23 @@
+{
+  "name": "Milestone",
+  "properties": {
+    "project_id": { "type": "string" },
+    "tenant_id": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "start_date": { "type": "string", "format": "date" },
+    "due_date": { "type": "string", "format": "date" },
+    "status": { 
+      "type": "string", 
+      "enum": ["pending", "in_progress", "completed", "missed"],
+      "default": "pending"
+    },
+    "progress": { "type": "number", "default": 0 },
+    "color": { "type": "string", "default": "#3b82f6" },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["project_id", "name", "due_date"]
+}

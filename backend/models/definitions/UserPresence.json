@@ -1,0 +1,11 @@
+{
+  "name": "UserPresence",
+  "properties": {
+    "user_email": { "type": "string" },
+    "user_name": { "type": "string" },
+    "status": { "type": "string", "enum": ["online", "offline", "away"] },
+    "last_seen": { "type": "string", "format": "date-time" },
+    "current_chat_room": { "type": "string" },
+    "is_typing": { "type": "boolean", "default": false }
+  }
+}

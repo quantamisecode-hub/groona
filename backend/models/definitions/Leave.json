@@ -1,0 +1,22 @@
+{
+  "name": "Leave",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "user_email": { "type": "string" },
+    "user_name": { "type": "string" },
+    "leave_type_id": { "type": "string" },
+    "leave_type_name": { "type": "string" },
+    "start_date": { "type": "string", "format": "date" },
+    "end_date": { "type": "string", "format": "date" },
+    "duration": { "type": "string", "enum": ["full_day", "half_day"], "default": "full_day" },
+    "total_days": { "type": "number" },
+    "reason": { "type": "string" },
+    "status": { "type": "string", "enum": ["submitted", "approved", "rejected", "cancelled"], "default": "submitted" },
+    "rejection_reason": { "type": "string" },
+    "approved_by": { "type": "string" },
+    "applied_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["tenant_id", "user_id", "leave_type_id", "start_date", "end_date"]
+}

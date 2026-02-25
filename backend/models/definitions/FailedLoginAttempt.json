@@ -1,0 +1,17 @@
+{
+  "name": "FailedLoginAttempt",
+  "type": "object",
+  "properties": {
+    "email": { "type": "string", "description": "User email" },
+    "attempt_count": { "type": "number", "default": 1, "description": "Number of failed attempts" },
+    "last_attempt_time": { "type": "string", "format": "date-time", "description": "Last failed attempt timestamp" },
+    "ip_address": { "type": "string", "description": "IP address of the attempt" },
+    "location": { "type": "string", "description": "Geolocation based on IP address" },
+    "device_name": { "type": "string", "description": "Device name extracted from user agent" },
+    "user_agent": { "type": "string", "description": "User agent string" }
+  },
+  "required": ["email"],
+  "indexes": [
+    { "fields": ["email"], "unique": true }
+  ]
+}

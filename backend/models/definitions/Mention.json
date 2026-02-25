@@ -1,0 +1,54 @@
+{
+  "name": "Mention",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Email of the user being mentioned"
+    },
+    "sender_email": {
+      "type": "string",
+      "description": "Email of the user who mentioned"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Name of the user who mentioned"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": ["task", "project", "ticket", "comment"],
+      "description": "Type of entity where mention occurred"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "ID of the entity"
+    },
+    "entity_title": {
+      "type": "string",
+      "description": "Contextual title (e.g. Project : Sprint : Task)"
+    },
+    "comment_content": {
+      "type": "string",
+      "description": "Content of the comment"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "recipient_email",
+    "sender_email",
+    "entity_type",
+    "entity_id"
+  ]
+}

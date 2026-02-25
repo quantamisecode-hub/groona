@@ -1,0 +1,16 @@
+{
+  "name": "ProjectFile",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "project_id": { "type": "string" },
+    "file_name": { "type": "string" },
+    "file_url": { "type": "string" },
+    "file_type": { "type": "string" },
+    "file_size": { "type": "number" },
+    "uploaded_by": { "type": "string" },
+    "uploaded_by_name": { "type": "string" },
+    "uploaded_by_is_admin": { "type": "boolean" },
+    "category": { "type": "string", "default": "document" },
+    "description": { "type": "string" }
+  }
+}

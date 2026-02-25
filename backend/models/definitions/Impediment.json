@@ -1,0 +1,76 @@
+{
+  "name": "Impediment",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this impediment belongs to"
+    },
+    "workspace_id": {
+      "type": "string",
+      "description": "ID of the workspace"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the project"
+    },
+    "sprint_id": {
+      "type": "string",
+      "description": "ID of the sprint (optional)"
+    },
+    "epic_id": {
+      "type": "string",
+      "description": "ID of the epic (optional)"
+    },
+    "story_id": {
+      "type": "string",
+      "description": "ID of the story (optional)"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "ID of the task (optional)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title of the impediment"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of the impediment"
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "default": "medium",
+      "description": "Severity level of the impediment"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "in_progress", "resolved"],
+      "default": "open",
+      "description": "Current status of the impediment"
+    },
+    "reported_by": {
+      "type": "string",
+      "description": "Email of the user who reported the impediment"
+    },
+    "reported_by_name": {
+      "type": "string",
+      "description": "Name of the user who reported the impediment"
+    },
+    "created_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Date when the impediment was resolved"
+    }
+  },
+  "required": ["tenant_id", "project_id", "title", "reported_by"]
+}

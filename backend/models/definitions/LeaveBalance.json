@@ -1,0 +1,16 @@
+{
+  "name": "LeaveBalance",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "year": { "type": "number" },
+    "leave_type_id": { "type": "string" },
+    "leave_type_name": { "type": "string" },
+    "allocated": { "type": "number", "default": 0 }, 
+    "used": { "type": "number", "default": 0 },
+    "pending": { "type": "number", "default": 0 },
+    "remaining": { "type": "number", "default": 0 }
+  },
+  "required": ["tenant_id", "user_id", "leave_type_id", "year"]
+}

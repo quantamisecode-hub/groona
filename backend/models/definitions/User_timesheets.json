@@ -1,0 +1,82 @@
+{
+    "name": "User_timesheets",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "ID of the tenant"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "ID of the user"
+        },
+        "user_email": {
+            "type": "string",
+            "description": "Email of the user"
+        },
+        "timesheet_date": {
+            "type": "string",
+            "format": "date",
+            "description": "The date the work was performed"
+        },
+        "actual_date": {
+            "type": "string",
+            "format": "date",
+            "description": "The actual present day/date when submitted"
+        },
+        "work_type": {
+            "type": "string",
+            "description": "Type of work"
+        },
+        "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Start time"
+        },
+        "end_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "End time"
+        },
+        "location": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                }
+            },
+            "description": "Location data"
+        },
+        "status": {
+            "type": "string",
+            "enum": [
+                "draft",
+                "submitted"
+            ],
+            "description": "Daily status (highest submission milestone reached)"
+        },
+        "total_time_submitted_in_day": {
+            "type": "number",
+            "description": "Total minutes submitted by this user on this timesheet_date (cumulative)"
+        },
+        "rework_time_in_day": {
+            "type": "number",
+            "description": "Total rework minutes submitted by this user on this timesheet_date"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "user_id",
+        "timesheet_date"
+    ]
+}

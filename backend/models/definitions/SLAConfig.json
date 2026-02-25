@@ -1,0 +1,16 @@
+{
+  "name": "SLAConfig",
+  "type": "object",
+  "properties": {
+    "complexity": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH"],
+      "description": "Complexity level"
+    },
+    "hours": {
+      "type": "number",
+      "description": "Number of hours allowed for resolution"
+    }
+  },
+  "required": ["complexity", "hours"]
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Conversation",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "title": { "type": "string", "default": "New Chat" },
+    "model": { "type": "string" },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+          "content": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "file_urls": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "is_active": { "type": "boolean", "default": true }
+  },
+  "required": ["tenant_id", "user_id"]
+}

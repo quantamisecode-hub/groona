@@ -1,0 +1,89 @@
+On branch khuddus-dev
+Your branch is up to date with 'origin/khuddus-dev'.
+
+You have unmerged paths.
+  (fix conflicts and run "git commit")
+  (use "git merge --abort" to abort the merge)
+
+Changes to be committed:
+	new file:   backend/cron_scheduler.js.local_backup
+	modified:   backend/models/SchemaDefinitions.js
+	modified:   backend/routes/functions.js
+	new file:   backend/routes/notifications.js
+	new file:   backend/routes/sprintVelocity.js
+	new file:   backend/scripts/check_deadline_risk.js
+	new file:   backend/scripts/check_low_velocity_alerts.js
+	new file:   backend/scripts/check_subscription_status.js
+	deleted:    backend/scripts/debug_timesheets.js
+	new file:   backend/scripts/pm_consistent_velocity_drop.js
+	new file:   backend/scripts/sync_sprint_velocity.js
+	modified:   backend/server.js
+	modified:   backend/services/emailService.js
+	modified:   package-lock.json
+	modified:   package.json
+	modified:   src/api/groonabackend.js
+	modified:   src/components/insights/ProjectReport.jsx
+	modified:   src/components/insights/RiskAssessment.jsx
+	modified:   src/components/leaves/AllMemberBalances.jsx
+	modified:   src/components/leaves/LeaveGuide.jsx
+	modified:   src/components/project-detail/CommentsSection.jsx
+	modified:   src/components/projects/ResourceAllocation.jsx
+	modified:   src/components/shared/notificationService.jsx
+	modified:   src/components/sprint/VelocityTracker.jsx
+	new file:   src/components/timesheets/TimesheetFilters.jsx
+	modified:   src/components/ui/sidebar.jsx
+	modified:   src/index.css
+	modified:   src/pages/AboutUs.jsx
+	modified:   src/pages/AdminBIDashboard.jsx
+	modified:   src/pages/ClientManagement.jsx
+	modified:   src/pages/Collaboration.jsx
+	modified:   src/pages/Features.jsx
+	modified:   src/pages/LandingPage.jsx
+	modified:   src/pages/PlannedLeaves.jsx
+	modified:   src/pages/Projects.jsx
+	modified:   src/pages/ResourcePlanning.jsx
+	modified:   src/pages/Team.jsx
+	modified:   src/pages/UserManagement.jsx
+	modified:   src/pages/Workspaces.jsx
+	modified:   tailwind.config.js
+	new file:   vercel 2.json
+	new file:   vercel.json
+
+Unmerged paths:
+  (use "git add <file>..." to mark resolution)
+	both modified:   backend/cron_scheduler.js
+	both modified:   backend/models/definitions/Notification.json
+	both added:      backend/models/definitions/SprintVelocity.json
+	both modified:   backend/routes/api.js
+	both modified:   backend/utils/emailTemplates.js
+	both modified:   src/components/shared/NotificationCenter.jsx
+	both modified:   src/pages/Layout.jsx
+	both modified:   src/pages/SprintBoard.jsx
+	both modified:   src/pages/Timesheets.jsx
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    backend/cron_scheduler.js.local_backup
+	modified:   backend/models/definitions/Tenant.json
+	modified:   backend/scripts/check_deadline_risk.js
+	modified:   backend/scripts/check_low_velocity_alerts.js
+	modified:   backend/scripts/generate_alarm.js
+	modified:   backend/scripts/generate_alerts.js
+	modified:   backend/scripts/pm_consistent_velocity_drop.js
+	modified:   src/components/project-detail/ActivityFeed.jsx
+	modified:   src/components/timesheets/AccountLockedOverlay.jsx
+	modified:   src/components/timesheets/MandatoryTimesheetModal.jsx
+	modified:   src/components/ui/popover.jsx
+	modified:   src/components/ui/select.jsx
+	modified:   src/components/ui/sidebar.jsx
+	modified:   src/index.css
+	modified:   src/pages/ProjectDetail.jsx
+	modified:   tailwind.config.js
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git_status.txt
+	status_ascii.txt
+	status_dump.txt
+

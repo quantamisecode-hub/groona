@@ -1,0 +1,69 @@
+{
+  "name": "Ticket",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this ticket belongs to"
+    },
+    "ticket_number": {
+      "type": "string",
+      "description": "Unique ticket identifier (e.g., TKT-001)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Short summary of the bug or issue"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["OPEN", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED"],
+      "default": "OPEN",
+      "description": "Current status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      "default": "MEDIUM"
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH"],
+      "default": "MEDIUM",
+      "description": "Complexity level for SLA calculation"
+    },
+    "sla_deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Deadline for resolution based on SLA"
+    },
+    "sla_breached": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the SLA deadline has been missed"
+    },
+    "reporter_email": {
+      "type": "string"
+    },
+    "reporter_name": {
+      "type": "string"
+    },
+    "assigned_to_email": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "user_name": {
+      "type": "string"
+    },
+    "created_date": {
+        "type": "string",
+        "format": "date-time"
+    }
+  },
+  "required": ["tenant_id", "title", "description", "reporter_email"]
+}

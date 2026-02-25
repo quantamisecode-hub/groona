@@ -1,0 +1,212 @@
+{
+  "name": "Notification",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this notification belongs to"
+    },
+    "recipient_email": {
+      "type": "string",
+      "description": "Email of the notification recipient"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "task_assigned",
+        "task_completed",
+        "comment_added",
+        "project_updated",
+        "mention",
+        "deadline_reminder",
+        "timesheet_submission",
+        "timesheet_approval_needed",
+        "timesheet_status",
+        "non_billable_alert",
+        "budget_warning",
+        "security_alert",
+        "deadline_critical",
+        "compliance_advisory",
+        "productivity_alert",
+        "productivity_alarm",
+        "efficiency_alert",
+        "efficiency_alarm",
+        "rework_alert",
+        "rework_alarm",
+        "estimation_alert",
+        "budget_alarm",
+        "retainer_alert",
+        "velocity_alert",
+        "delivery_alarm",
+        "timesheet_missing_alert",
+        "timesheet_missing_alarm",
+        "timesheet_incomplete_alert",
+        "task_delay_alarm",
+        "task_overdue_alert",
+        "user_streak_escalation",
+        "timesheet_lockout_alarm",
+        "impediment_alert",
+        "impediment_reported",
+        "task_escalation_alert",
+        "multiple_overdue_alarm",
+        "multiple_overdue_escalation",
+        "low_workload_alert",
+        "overwork_alarm",
+        "rework_peer_review",
+        "rework_peer_review_declined",
+        "high_rework_alarm",
+        "leave_application",
+        "leave_approval",
+        "leave_rejection",
+        "leave_cancellation",
+        "timesheet_reminder",
+        "timesheet_late_submission",
+        "low_logged_hours",
+        "user_availability_update",
+        "context_switching_alert",
+        "rework_review_accepted",
+        "rework_review_declined",
+        "idle_time_alert",
+        "under_utilization_alert",
+        "timesheet_rejected",
+        "PM_VELOCITY_DROP",
+        "PM_CONSISTENT_VELOCITY_DROP",
+        "PM_DEADLINE_RISK",
+        "PM_OVERALLOCATION_RISK",
+        "PM_CRITICAL_UNDERUTILIZATION_ALERT",
+        "PM_HIGH_REWORK",
+        "PM_RUNAWAY_REWORK_ALARM",
+        "PM_CRITICAL_UNDERUTILIZATION_ALARM",
+        "pending_timesheet_alert",
+        "pending_pm_summary",
+        "PM_MULTIPLE_OVERDUE_TASKS",
+        "PM_PROJECT_HEALTH_RISK",
+        "PM_CRITICAL_PROJECT_HEALTH_RISK",
+        "blocker_assignment",
+        "subtask_assignment",
+        "PM_ACKNOWLEDGED_ALERT",
+        "PM_ALERT_REMINDER",
+        "PM_ALERT_ESCALATED"
+      ],
+      "description": "Type of notification"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "general",
+        "alert",
+        "alarm",
+        "advisory",
+        "action_request",
+        "info"
+      ],
+      "default": "general",
+      "description": "Category/Severity of the notification"
+    },
+    "title": {
+      "type": "string",
+      "description": "Notification title"
+    },
+    "message": {
+      "type": "string",
+      "description": "Notification message"
+    },
+    "entity_type": {
+      "type": "string",
+      "description": "Related entity type (task, project, etc.)"
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "Related entity ID"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the project (for routing)"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Name of the project (for display)"
+    },
+    "read": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether notification has been read"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Name of the user who triggered the notification"
+    },
+    "rule_id": {
+      "type": "string",
+      "description": "ID of the rule that generated this alert"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "user",
+        "project",
+        "tenant"
+      ],
+      "default": "user",
+      "description": "Scope of the alert"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID of the recipient user"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "ACKNOWLEDGED",
+        "APPEALED",
+        "RESOLVED"
+      ],
+      "default": "OPEN",
+      "description": "Lifecycle status of the alert/alarm"
+    },
+    "appeal_reason": {
+      "type": "string",
+      "description": "Reason provided by the user when appealing an alarm"
+    },
+    "appealed_at": {
+      "type": "string",
+      "description": "Timestamp when the appeal was made"
+    },
+    "link": {
+      "type": "string",
+      "description": "Optional deep link URL for navigation"
+    },
+    "acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "acknowledged_by": {
+      "type": "objectid",
+      "ref": "User"
+    },
+    "escalated_to_admin": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional unstructured data for the notification"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "recipient_email",
+    "type",
+    "title",
+    "message"
+  ]
+}

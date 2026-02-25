@@ -1,0 +1,44 @@
+{
+  "name": "Holiday",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this holiday belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the holiday (e.g., 'Republic Day', 'Independence Day')"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the holiday (YYYY-MM-DD)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["national", "regional", "custom", "weekly"],
+      "default": "custom",
+      "description": "Type of holiday: national (like Republic Day), regional, custom (admin-added), or weekly (Sundays)"
+    },
+    "is_recurring": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this holiday repeats annually"
+    },
+    "description": {
+      "type": "string",
+      "description": "Optional description of the holiday"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the user who created this holiday"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the holiday was created"
+    }
+  },
+  "required": ["tenant_id", "name", "date"]
+}

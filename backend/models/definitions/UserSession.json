@@ -1,0 +1,41 @@
+{
+  "name": "UserSession",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "ID of the user"
+    },
+    "token_hash": {
+      "type": "string",
+      "description": "Hash of the JWT token (optional)"
+    },
+    "device_type": {
+      "type": "string",
+      "enum": ["mobile", "tablet", "desktop", "unknown"],
+      "default": "desktop"
+    },
+    "browser": {
+      "type": "string"
+    },
+    "os": {
+      "type": "string"
+    },
+    "ip_address": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "last_active": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": false,
+      "description": "Helper flag for UI"
+    }
+  },
+  "required": ["user_id"]
+}

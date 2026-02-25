@@ -1,0 +1,27 @@
+{
+  "name": "Workspace",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "owner_id": { "type": "string" },
+    "owner_email": { "type": "string" },
+    "owner_name": { "type": "string" },
+    "color": { "type": "string" },
+    "status": { "type": "string", "default": "active" },
+    "members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "user_email": { "type": "string" },
+          "user_name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      }
+    },
+    "created_date": { "type": "string", "format": "date-time" }
+  },
+  "required": ["tenant_id", "name"]
+}

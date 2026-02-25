@@ -1,0 +1,86 @@
+{
+    "name": "MetricSnapshot",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "Tenant ID"
+        },
+        "user_email": {
+            "type": "string",
+            "description": "User email"
+        },
+        "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Snapshot date"
+        },
+        "metrics": {
+            "type": "object",
+            "properties": {
+                "logged_hours": {
+                    "type": "number",
+                    "default": 0
+                },
+                "billable_hours": {
+                    "type": "number",
+                    "default": 0
+                },
+                "non_billable_hours": {
+                    "type": "number",
+                    "default": 0
+                },
+                "rework_hours": {
+                    "type": "number",
+                    "default": 0
+                },
+                "expected_hours": {
+                    "type": "number",
+                    "default": 8
+                },
+                "billable_efficiency": {
+                    "type": "number",
+                    "description": "Billable / Total"
+                },
+                "rework_ratio": {
+                    "type": "number",
+                    "description": "Rework / Total"
+                },
+                "idle_days_count": {
+                    "type": "number",
+                    "description": "Consecutive idle days up to this date"
+                }
+            }
+        },
+        "project_metrics": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string"
+                    },
+                    "actual_hours": {
+                        "type": "number"
+                    },
+                    "estimated_hours": {
+                        "type": "number"
+                    },
+                    "budget_consumed_percent": {
+                        "type": "number"
+                    }
+                }
+            }
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "default": "now"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "user_email",
+        "date"
+    ]
+}

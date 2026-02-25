@@ -1,0 +1,44 @@
+{
+  "name": "ProjectClient",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the project"
+    },
+    "client_user_id": {
+      "type": "string",
+      "description": "User ID of the client"
+    },
+    "client_email": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "can_comment": {
+      "type": "boolean",
+      "default": true
+    },
+    "assigned_by": {
+      "type": "string"
+    },
+    "assigned_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "revoked": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "tenant_id",
+    "project_id",
+    "client_user_id"
+  ]
+}

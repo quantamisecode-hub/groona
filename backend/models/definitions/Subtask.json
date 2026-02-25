@@ -1,0 +1,23 @@
+{
+  "name": "Subtask",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the subtask"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Email address of the assigned user"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Due date for the subtask"
+    }
+  }
+}

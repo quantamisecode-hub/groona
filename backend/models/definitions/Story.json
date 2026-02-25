@@ -1,0 +1,103 @@
+{
+  "name": "Story",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this story belongs to"
+    },
+    "workspace_id": {
+      "type": "string",
+      "description": "ID of the workspace this story belongs to"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the parent project"
+    },
+    "epic_id": {
+      "type": "string",
+      "description": "ID of the parent epic (optional - stories can exist without epics)"
+    },
+    "title": {
+      "type": "string",
+      "description": "Story title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed story description"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "todo",
+        "in_progress",
+        "in_review",
+        "done",
+        "blocked",
+        "cancelled"
+      ],
+      "default": "todo",
+      "description": "Story status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Story priority"
+    },
+    "story_points": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Story points for effort estimation"
+    },
+    "assigned_to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Emails of assigned team members"
+    },
+    "reporter": {
+      "type": "string",
+      "description": "Email of user who created the story"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Story deadline"
+    },
+    "acceptance_criteria": {
+      "type": "string",
+      "description": "Acceptance criteria for story completion"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Story labels/tags"
+    },
+    "sprint_id": {
+      "type": "string",
+      "description": "ID of the sprint (optional)"
+    },
+    "custom_fields": {
+      "type": "object",
+      "description": "Custom fields for flexible story data"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether story is archived"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "title"
+  ]
+}

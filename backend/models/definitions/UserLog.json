@@ -1,0 +1,76 @@
+{
+    "name": "UserLog",
+    "type": "object",
+    "properties": {
+        "user_id": {
+            "type": "string",
+            "description": "ID of the user"
+        },
+        "email": {
+            "type": "string",
+            "description": "Email of the user"
+        },
+        "tenant_id": {
+            "type": "string",
+            "description": "Tenant ID"
+        },
+        "session_id": {
+            "type": "string",
+            "description": "Associated session ID"
+        },
+        "login_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of login"
+        },
+        "logout_time": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of logout"
+        },
+        "ip_address": {
+            "type": "string",
+            "description": "IP Address of the user"
+        },
+        "device_info": {
+            "type": "string",
+            "description": "Device information"
+        },
+        "scheduled_working_start": {
+            "type": "string",
+            "description": "Snapshot of working start time at login"
+        },
+        "scheduled_working_end": {
+            "type": "string",
+            "description": "Snapshot of working end time at login"
+        },
+        "scheduled_working_days": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Snapshot of working days at login"
+        },
+        "submitted_timesheets_count": {
+            "type": "integer",
+            "description": "Total count of all timesheets ever submitted by the user"
+        },
+        "total_assigned_tasks": {
+            "type": "integer",
+            "description": "Total tasks assigned to user"
+        },
+        "pending_log_count": {
+            "type": "integer",
+            "description": "Count of tasks pending timesheet for today"
+        },
+        "today_submitted_timesheets_count": {
+            "type": "integer",
+            "description": "Count of timesheets submitted today"
+        }
+    },
+    "required": [
+        "user_id",
+        "login_time",
+        "session_id"
+    ]
+}

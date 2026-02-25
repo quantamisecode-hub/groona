@@ -1,0 +1,31 @@
+{
+  "name": "ReportConfig",
+  "properties": {
+    "tenant_id": { "type": "string", "required": true },
+    "user_email": { "type": "string", "required": true },
+    "name": { "type": "string", "required": true },
+    "description": { "type": "string" },
+    "report_type": { "type": "string", "default": "custom" },
+    "is_favorite": { "type": "boolean", "default": false },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "date_range_start": { "type": "string" },
+        "date_range_end": { "type": "string" },
+        "project_ids": { "type": "array", "items": { "type": "string" } },
+        "user_emails": { "type": "array", "items": { "type": "string" } },
+        "task_types": { "type": "array", "items": { "type": "string" } },
+        "billable_status": { "type": "string" },
+        "approval_status": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "visualization": {
+      "type": "object",
+      "properties": {
+        "chart_type": { "type": "string" },
+        "group_by": { "type": "string" }
+      }
+    }
+  },
+  "required": ["tenant_id", "user_email", "name"]
+}

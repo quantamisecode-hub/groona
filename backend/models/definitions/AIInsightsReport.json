@@ -1,0 +1,41 @@
+{
+  "name": "AIInsightsReport",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "required": true,
+      "index": true,
+      "description": "ID of the tenant this report belongs to"
+    },
+    "question": {
+      "type": "string",
+      "required": true,
+      "description": "The question that was asked to generate the report"
+    },
+    "report_content": {
+      "type": "string",
+      "required": true,
+      "description": "The AI-generated report content"
+    },
+    "generated_by": {
+      "type": "string",
+      "required": true,
+      "description": "Email of the user who generated the report"
+    },
+    "generated_by_name": {
+      "type": "string",
+      "description": "Full name of the user who generated the report"
+    },
+    "context_data": {
+      "type": "object",
+      "description": "Context data used to generate the report (projects, tasks, activities summary)"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "question",
+    "report_content",
+    "generated_by"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "Retrospective",
+  "properties": {
+    "project_id": { "type": "string" },
+    "tenant_id": { "type": "string" },
+    "sprint_id": { "type": "string" },
+    "title": { "type": "string" },
+    "meeting_date": { "type": "string", "format": "date" },
+    "template_type": { "type": "string" },
+    "what_went_well": { "type": "string" },
+    "what_could_be_improved": { "type": "string" },
+    "ai_summary": { "type": "string" },
+    "ai_suggestions": { "type": "string" },
+    "feedback_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "category": { "type": "string" },
+          "content": { "type": "string" },
+          "votes": { "type": "number" },
+          "author": { "type": "string" }
+        }
+      }
+    },
+    "action_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "assigned_to": { "type": "string" },
+          "status": { "type": "string" },
+          "linked_task_id": { "type": "string" }
+        }
+      }
+    }
+  },
+  "required": ["project_id", "title"]
+}

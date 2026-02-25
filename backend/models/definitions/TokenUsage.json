@@ -1,0 +1,14 @@
+{
+  "name": "TokenUsage",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "user_id": { "type": "string" },
+    "model": { "type": "string" },
+    "prompt_tokens": { "type": "number" },
+    "completion_tokens": { "type": "number" },
+    "total_tokens": { "type": "number" },
+    "request_type": { "type": "string", "default": "chat" }
+  },
+  "required": ["tenant_id", "user_id", "total_tokens"]
+}

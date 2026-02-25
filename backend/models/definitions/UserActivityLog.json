@@ -1,0 +1,76 @@
+{
+    "name": "UserActivityLog",
+    "type": "object",
+    "properties": {
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "email": {
+            "type": "string",
+            "description": "User Email"
+        },
+        "tenant_id": {
+            "type": "string",
+            "description": "Tenant ID"
+        },
+        "event_type": {
+            "type": "string",
+            "enum": [
+                "login",
+                "timesheet_submission",
+                "task_assignment",
+                "task_update",
+                "rework_check"
+            ],
+            "description": "Event that triggered this log"
+        },
+        "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Time of event (IST)"
+        },
+        "scheduled_working_start": {
+            "type": "string"
+        },
+        "scheduled_working_end": {
+            "type": "string"
+        },
+        "scheduled_working_days": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "present_working_day": {
+            "type": "string"
+        },
+        "total_assigned_tasks": {
+            "type": "number",
+            "default": 0
+        },
+        "pending_log_count": {
+            "type": "number",
+            "default": 0
+        },
+        "submitted_timesheets_count": {
+            "type": "number",
+            "default": 0,
+            "description": "Total timesheets submitted today"
+        },
+        "ignored_alert_count": {
+            "type": "number",
+            "default": 0,
+            "description": "How many times the user ignored the missing timesheet alert"
+        },
+        "rework_percentage": {
+            "type": "number",
+            "default": 0,
+            "description": "Rework percentage calculated during check"
+        }
+    },
+    "required": [
+        "user_id",
+        "timestamp"
+    ]
+}

@@ -1,0 +1,45 @@
+{
+    "name": "ExchangeRate",
+    "type": "object",
+    "properties": {
+        "from_currency": {
+            "type": "string",
+            "description": "Source currency code (e.g., USD)"
+        },
+        "to_currency": {
+            "type": "string",
+            "description": "Target currency code (e.g., INR)"
+        },
+        "rate": {
+            "type": "number",
+            "description": "Exchange rate value"
+        },
+        "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when this rate was fetched"
+        },
+        "provider": {
+            "type": "string",
+            "default": "fixer.io",
+            "description": "Source of the rate data"
+        }
+    },
+    "required": [
+        "from_currency",
+        "to_currency",
+        "rate",
+        "fetched_at"
+    ],
+    "indexes": [
+        {
+            "fields": {
+                "from_currency": 1,
+                "to_currency": 1
+            },
+            "options": {
+                "unique": true
+            }
+        }
+    ]
+}

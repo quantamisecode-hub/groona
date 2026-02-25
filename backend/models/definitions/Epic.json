@@ -1,0 +1,94 @@
+{
+  "name": "Epic",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this epic belongs to"
+    },
+    "workspace_id": {
+      "type": "string",
+      "description": "ID of the workspace this epic belongs to"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the parent project"
+    },
+    "name": {
+      "type": "string",
+      "description": "Epic name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed epic description"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "in_progress",
+        "on_hold",
+        "completed",
+        "cancelled"
+      ],
+      "default": "planning",
+      "description": "Epic status"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium",
+      "description": "Epic priority"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Epic start date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Epic deadline"
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 0,
+      "description": "Epic progress percentage"
+    },
+    "color": {
+      "type": "string",
+      "description": "Color code for epic visualization"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Email of epic owner"
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Epic labels/tags"
+    },
+    "custom_fields": {
+      "type": "object",
+      "description": "Custom fields for flexible epic data"
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether epic is archived"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "name"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+    "name": "ProjectActivity",
+    "type": "object",
+    "properties": {
+        "project_id": {
+            "type": "string",
+            "description": "Associated project ID"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User who performed the action"
+        },
+        "type": {
+            "type": "string",
+            "description": "Type of activity"
+        },
+        "message": {
+            "type": "string",
+            "description": "Activity message"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "project_id",
+        "user_id",
+        "type",
+        "message"
+    ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "LeaveApproval",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "leave_id": { "type": "string" },
+    "approver_email": { "type": "string" },
+    "approver_name": { "type": "string" },
+    "approver_role": { "type": "string" },
+    "status": { "type": "string", "enum": ["approved", "rejected"] },
+    "comment": { "type": "string" },
+    "acted_at": { "type": "string", "format": "date-time" }
+  },
+  "required": ["tenant_id", "leave_id", "approver_email", "status"]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "LeaveType",
+  "type": "object",
+  "properties": {
+    "tenant_id": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "is_paid": { "type": "boolean", "default": true },
+    "requires_approval": { "type": "boolean", "default": true },
+    "is_active": { "type": "boolean", "default": true },
+    
+    "annual_allowance": { "type": "number", "default": 0 },
+    "days_allowed": { "type": "number", "default": 0 }, 
+    "carry_forward": { "type": "boolean", "default": false },
+    "max_carry_forward": { "type": "number", "default": 0 },
+    "color": { "type": "string", "default": "bg-blue-100 text-blue-800" },
+    "is_comp_off": { "type": "boolean", "default": false }
+  },
+  "required": ["tenant_id", "name"]
+}

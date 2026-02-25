@@ -1,0 +1,16 @@
+{
+  "name": "OTPVerification",
+  "properties": {
+    "email": { "type": "string" },
+    "otp": { "type": "string" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "created_date": { "type": "string", "format": "date-time" },
+    "purpose": { "type": "string", "default": "two_factor" },
+    "ip_address": { "type": "string" },
+    "attempts": { "type": "number", "default": 0 },
+    "verified": { "type": "boolean", "default": false },
+    "verifiedAt": { "type": "string", "format": "date-time" },
+    "verificationToken": { "type": "string" },
+    "createdAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "ProjectUserRole",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "ID of the user"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the project"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "project_manager",
+        "team_member"
+      ],
+      "description": "User's role in the project"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "user_id",
+    "project_id",
+    "role"
+  ]
+}

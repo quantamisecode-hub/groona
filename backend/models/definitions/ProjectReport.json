@@ -1,0 +1,41 @@
+{
+  "name": "ProjectReport",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string",
+      "description": "ID of the tenant this report belongs to"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "ID of the project this report is for"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Name of the project"
+    },
+    "report_content": {
+      "type": "string",
+      "description": "The AI-generated report content"
+    },
+    "generated_by": {
+      "type": "string",
+      "description": "Email of the user who generated the report"
+    },
+    "generated_by_name": {
+      "type": "string",
+      "description": "Full name of the user who generated the report"
+    },
+    "analytics_data": {
+      "type": "object",
+      "description": "Analytics data used to generate the report"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "project_id",
+    "project_name",
+    "report_content",
+    "generated_by"
+  ]
+}

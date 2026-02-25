@@ -1,0 +1,156 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "workspace_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "logo_url": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "active",
+        "on_hold",
+        "completed",
+        "cancelled"
+      ],
+      "default": "planning"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "urgent"
+      ],
+      "default": "medium"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 0
+    },
+    "color": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "client": {
+      "type": "string"
+    },
+    "client_user_id": {
+      "type": "string",
+      "description": "ID of the specific client user contact"
+    },
+    "budget": {
+      "type": "number"
+    },
+    "contract_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Contract value sent from frontend"
+    },
+    "billing_model": {
+      "type": "string",
+      "default": "time_and_materials"
+    },
+    "budget_hours": {
+      "type": "number",
+      "default": 0
+    },
+    "default_bill_rate_per_hour": {
+      "type": "number",
+      "default": 0
+    },
+    "actual_cost": {
+      "type": "number",
+      "default": 0
+    },
+    "currency": {
+      "type": "string",
+      "default": "INR"
+    },
+    "template_id": {
+      "type": "string"
+    },
+    "custom_fields": {
+      "type": "object"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "team_members": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "project_manager",
+              "team_member",
+              "member",
+              "viewer"
+            ]
+          }
+        }
+      }
+    },
+    "is_archived": {
+      "type": "boolean",
+      "default": false
+    },
+    "commitments_frozen": {
+      "type": "boolean",
+      "default": false
+    },
+    "health_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    }
+  },
+  "required": [
+    "tenant_id",
+    "name"
+  ]
+}

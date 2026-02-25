@@ -1,0 +1,25 @@
+{
+  "name": "UserPermission",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Reference to the User ID"
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "Reference to the Tenant ID (Security Context)"
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Dynamic object storing boolean permission flags (e.g., {'can_view_team': true})",
+      "default": {}
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp of the last permission update"
+    }
+  },
+  "required": ["user_id", "tenant_id"]
+}

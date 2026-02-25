@@ -1,0 +1,81 @@
+{
+  "name": "Sprint",
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "project_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "goal": {
+      "type": "string"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "planned",
+        "active",
+        "completed"
+      ],
+      "default": "draft"
+    },
+    "locked_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "committed_points": {
+      "type": "number"
+    },
+    "impediments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reported_by": {
+            "type": "string"
+          },
+          "created_date": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    },
+    "board_columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    }
+  }
+}
