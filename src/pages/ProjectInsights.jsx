@@ -20,6 +20,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +88,18 @@ export default function ProjectInsights() {
     staleTime: 2 * 60 * 1000, // Added to match Dashboard
   });
 
-  // 4. Fetch Activities scoped to Tenant
+  // 4. Fetch Stories scoped to Tenant (for accurate progress calculation)
+  const { data: stories = [] } = useQuery({
+    queryKey: ['stories', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Story.list();
+      return groonabackend.entities.Story.filter({ tenant_id: effectiveTenantId });
+    },
+    enabled: !!currentUser,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 5. Fetch Activities scoped to Tenant
   const { data: activities = [] } = useQuery({
     queryKey: ['all-activities', effectiveTenantId],
     queryFn: async () => {
@@ -129,8 +141,34 @@ export default function ProjectInsights() {
     return activities.filter(a => projectIds.has(a.project_id));
   }, [activities, accessibleProjects]);
 
+  // 8. Calculate live progress for each project (Story Point Based)
+  const projectProgressMap = useMemo(() => {
+    const map = {};
+    accessibleProjects.forEach(project => {
+      const projectStories = stories.filter(s => s.project_id === project.id);
+      const projectTasks = accessibleTasks.filter(t => t.project_id === project.id);
+
+      if (projectStories.length === 0) {
+        map[project.id] = project.progress || 0;
+        return;
+      }
+
+      const completedStoryPoints = projectStories
+        .filter(s => {
+          const status = (s.status || '').toLowerCase();
+          return status === 'done' || status === 'completed';
+        })
+        .reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+
+      const totalStoryPoints = projectStories.reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+      map[project.id] = totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
+    });
+    return map;
+  }, [accessibleProjects, stories, accessibleTasks]);
+
   const selectedProject = accessibleProjects.find(p => p.id === selectedProjectId);
   const selectedProjectTasks = accessibleTasks.filter(t => t.project_id === selectedProjectId);
+  const selectedProjectStories = useMemo(() => stories.filter(s => s.project_id === selectedProjectId), [stories, selectedProjectId]);
 
   // New Overview Modal Analytics Logic
   const activeProjectIdSet = new Set(accessibleProjects.filter(p => p.status === 'active').map(p => p.id));
@@ -343,31 +381,54 @@ export default function ProjectInsights() {
           <ProjectDataTable
             projects={accessibleProjects}
             tasks={accessibleTasks}
-            stories={[]}
-            getProjectRisks={() => { }}
+            onTaskClick={(taskId) => setSelectedTaskId(taskId)}
           />
         </TabsContent>
 
         <TabsContent value="overview" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Select a Project</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {accessibleProjects.map((project) => (
-                <button
-                  key={project.id}
-                  onClick={() => setSelectedProjectId(project.id)}
-                  className={`p-4 rounded-xl border-2 transition-all text-left ${selectedProjectId === project.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                >
-                  <h3 className="font-semibold text-slate-900 mb-1">{project.name}</h3>
-                  <p className="text-sm text-slate-600 capitalize">{project.status}</p>
-                  <div className="mt-2 text-xs text-slate-500">
-                    Progress: {project.progress || 0}%
-                  </div>
-                </button>
-              ))}
+          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">Project Overview</h2>
+                <p className="text-sm text-slate-500">Select a project to view detailed analytics and insights.</p>
+              </div>
+              <div className="w-full sm:w-[360px]">
+                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
+                    {accessibleProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
+                        <div className="flex items-center gap-3 w-full">
+                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
+                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
+                              {project.name.substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={cn(
+                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
+                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
+                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
+                                    "bg-slate-100 text-slate-600"
+                              )}>
+                                {project.status}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                • {projectProgressMap[project.id] || 0}% Progress
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </Card>
 
@@ -388,20 +449,50 @@ export default function ProjectInsights() {
         </TabsContent>
 
         <TabsContent value="risk" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Select a Project for Risk Assessment</h2>
-            <select
-              value={selectedProjectId || ''}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full p-3 rounded-lg border border-slate-200"
-            >
-              <option value="">Choose a project...</option>
-              {accessibleProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">Risk Assessment</h2>
+                <p className="text-sm text-slate-500">Select a project to view its risk profile and open issues.</p>
+              </div>
+              <div className="w-full sm:w-[360px]">
+                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
+                    {accessibleProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
+                        <div className="flex items-center gap-3 w-full">
+                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
+                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
+                              {project.name.substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={cn(
+                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
+                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
+                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
+                                    "bg-slate-100 text-slate-600"
+                              )}>
+                                {project.status}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                • {projectProgressMap[project.id] || 0}% Progress
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </Card>
 
           {selectedProject && (
@@ -413,20 +504,50 @@ export default function ProjectInsights() {
         </TabsContent>
 
         <TabsContent value="timeline" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Select a Project for Timeline Prediction</h2>
-            <select
-              value={selectedProjectId || ''}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full p-3 rounded-lg border border-slate-200"
-            >
-              <option value="">Choose a project...</option>
-              {accessibleProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">Timeline Prediction</h2>
+                <p className="text-sm text-slate-500">Select a project to forecast its estimated completion.</p>
+              </div>
+              <div className="w-full sm:w-[360px]">
+                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
+                    {accessibleProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
+                        <div className="flex items-center gap-3 w-full">
+                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
+                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
+                              {project.name.substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={cn(
+                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
+                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
+                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
+                                    "bg-slate-100 text-slate-600"
+                              )}>
+                                {project.status}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                • {projectProgressMap[project.id] || 0}% Progress
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </Card>
 
           {selectedProject && (
@@ -439,26 +560,57 @@ export default function ProjectInsights() {
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <h2 className="text-xl font-bold text-slate-900 mb-4">Select a Project for Report</h2>
-            <select
-              value={selectedProjectId || ''}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full p-3 rounded-lg border border-slate-200"
-            >
-              <option value="">Choose a project...</option>
-              {accessibleProjects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 mb-1">Project Reports</h2>
+                <p className="text-sm text-slate-500">Select a project to generate and download comprehensive reports.</p>
+              </div>
+              <div className="w-full sm:w-[360px]">
+                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
+                    {accessibleProjects.map((project) => (
+                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
+                        <div className="flex items-center gap-3 w-full">
+                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
+                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
+                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
+                              {project.name.substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={cn(
+                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
+                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
+                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
+                                    "bg-slate-100 text-slate-600"
+                              )}>
+                                {project.status}
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-medium">
+                                • {projectProgressMap[project.id] || 0}% Progress
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </Card>
 
           {selectedProject && (
             <ProjectReport
               project={selectedProject}
               tasks={selectedProjectTasks}
+              stories={selectedProjectStories}
               activities={accessibleActivities.filter(a => a.project_id === selectedProjectId)}
             />
           )}
@@ -501,30 +653,46 @@ export default function ProjectInsights() {
               <div className="space-y-3">
                 {overviewModalType === 'projects' ? (
                   paginatedOverviewData.map((project) => (
-                    <div key={project.id} className="p-3 rounded-xl border border-slate-200 bg-white hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border border-slate-200 shadow-sm">
-                            <AvatarImage src={project.logo_url} />
-                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold">
-                              {project.name.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-bold text-slate-800">{project.name}</h4>
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200/50 mt-1">Active</Badge>
+                    <div key={project.id} className="group p-4 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm group-hover:border-indigo-100 transition-colors">
+                          <AvatarImage src={project.logo_url} className="object-cover" />
+                          <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 font-bold tracking-wider">
+                            {project.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h4 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors text-base flex items-center gap-2">
+                            {project.name}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className={cn(
+                              "text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border-0",
+                              project.status === 'active' ? "bg-emerald-50 text-emerald-700" :
+                                project.status === 'completed' ? "bg-blue-50 text-blue-700" :
+                                  "bg-slate-50 text-slate-700"
+                            )}>
+                              {project.status === 'active' ? <Activity className="h-3 w-3 mr-1" /> : null}
+                              {project.status}
+                            </Badge>
+                            <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                              <Target className="h-3 w-3" />
+                              {projectProgressMap[project.id] || 0}% Done
+                            </span>
                           </div>
                         </div>
-                        <div className="flex gap-4">
-                          <div className="text-center">
-                            <p className="text-xs font-bold text-slate-500 uppercase mb-0.5">Pending</p>
-                            <p className="font-black text-slate-800">{project.pendingCount}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-xs font-bold text-red-500 uppercase mb-0.5">Critical</p>
-                            <p className="font-black text-red-600">{project.criticalCount}</p>
-                          </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center justify-center bg-slate-50 rounded-lg px-3 py-1.5 min-w-[70px] border border-slate-100/50">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Pending</span>
+                          <span className="font-black text-slate-700 text-sm">{project.pendingCount || 0}</span>
                         </div>
+                        <div className="flex flex-col items-center justify-center bg-red-50/50 rounded-lg px-3 py-1.5 min-w-[70px] border border-red-100/50">
+                          <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-0.5">Critical</span>
+                          <span className="font-black text-red-600 text-sm">{project.criticalCount || 0}</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-slate-300 group-hover:text-indigo-400 transition-colors ml-1" />
                       </div>
                     </div>
                   ))
@@ -532,48 +700,82 @@ export default function ProjectInsights() {
                   paginatedOverviewData.map((task) => (
                     <div
                       key={task.id}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                      className="group relative p-4 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer overflow-hidden"
                       onClick={() => setSelectedTaskId(task.id)}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-1.5 relative pr-4 w-full">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 tracking-wider bg-indigo-50 px-2.5 py-0.5 rounded-md">{task.projectName}</span>
+                      <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-indigo-400 transition-colors" />
+
+                      <div className="flex items-start justify-between gap-4 pl-2">
+                        <div className="space-y-2.5 w-full pr-6">
+
+                          {/* Top Row: Project Tag & Priority */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 border-indigo-100 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5">
+                                {task.projectName || "Unknown Project"}
+                              </Badge>
+                            </div>
+
                             {task.priority && (
-                              <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                                {task.priority === 'urgent' && <AlertTriangle className="h-3.5 w-3.5 text-red-500" />}
-                                {task.priority === 'high' && <AlertCircle className="h-3.5 w-3.5 text-orange-500" />}
-                                {task.priority === 'medium' && <Activity className="h-3.5 w-3.5 text-amber-500" />}
-                                <span className="text-xs font-semibold capitalize text-slate-600">{task.priority}</span>
+                              <div className={cn(
+                                "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide uppercase",
+                                task.priority === 'urgent' ? "bg-red-50 text-red-700" :
+                                  task.priority === 'high' ? "bg-orange-50 text-orange-700" :
+                                    task.priority === 'medium' ? "bg-amber-50 text-amber-700" :
+                                      "bg-slate-50 text-slate-600"
+                              )}>
+                                {task.priority === 'urgent' && <AlertTriangle className="h-3.5 w-3.5" />}
+                                {task.priority === 'high' && <AlertCircle className="h-3.5 w-3.5" />}
+                                {task.priority === 'medium' && <Activity className="h-3.5 w-3.5" />}
+                                {task.priority === 'low' && <Target className="h-3.5 w-3.5" />}
+                                {task.priority}
                               </div>
                             )}
                           </div>
 
-                          <h4 className="font-bold text-slate-800 text-sm leading-snug break-words group-hover:text-indigo-600 transition-colors flex items-start gap-2 pt-0.5">
-                            <Target className="h-4 w-4 mt-0.5 text-slate-400 group-hover:text-indigo-500 shrink-0" />
+                          {/* Title */}
+                          <h4 className="font-bold text-slate-900 text-base leading-snug group-hover:text-indigo-600 transition-colors">
                             {task.title}
                           </h4>
 
-                          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
+                          {/* Bottom Row: Status & Date */}
+                          <div className="flex items-center gap-3 pt-1">
                             <Badge
                               variant="secondary"
-                              className={`capitalize font-semibold border-0 ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                                  task.status === 'review' ? 'bg-purple-100 text-purple-700' :
-                                    'bg-slate-100 text-slate-700'
-                                }`}
+                              className={cn(
+                                "capitalize font-semibold text-xs border-0 px-2.5 py-0.5",
+                                task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                  task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                    task.status === 'review' ? 'bg-purple-100 text-purple-700' :
+                                      'bg-slate-100 text-slate-700'
+                              )}
                             >
+                              <div className={cn(
+                                "h-1.5 w-1.5 rounded-full mr-1.5 inline-block",
+                                task.status === 'completed' ? 'bg-emerald-500' :
+                                  task.status === 'in_progress' ? 'bg-blue-500' :
+                                    task.status === 'review' ? 'bg-purple-500' :
+                                      'bg-slate-400'
+                              )} />
                               {task.status.replace('_', ' ')}
                             </Badge>
 
                             {task.due_date && (
-                              <div className="flex items-center gap-1.5 font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
                                 <Calendar className="h-3.5 w-3.5 text-slate-400" />
                                 {format(new Date(task.due_date), 'MMM d, yyyy')}
                               </div>
                             )}
                           </div>
+
                         </div>
+
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                          <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center">
+                            <ChevronRight className="h-4 w-4 text-indigo-600" />
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   ))

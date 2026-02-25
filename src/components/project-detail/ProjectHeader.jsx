@@ -24,7 +24,7 @@ const priorityColors = {
   urgent: "bg-red-100 text-red-600",
 };
 
-export default function ProjectHeader({ project, tasksCount, projectTimesheets = [] }) {
+export default function ProjectHeader({ project, tasks = [], tasksCount, projectTimesheets = [] }) {
   const { user: currentUser } = useUser();
   // Fetch stories to calculate progress based on Story Points
   const { data: stories = [] } = useQuery({
@@ -40,13 +40,16 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
 
   const getProjectProgress = () => {
     if (!stories.length) return 0;
-    const totalPoints = stories.reduce((sum, story) => sum + (parseInt(story.story_points) || 0), 0);
-    const completedPoints = stories
-      .filter(s => s.status === 'done')
-      .reduce((sum, story) => sum + (parseInt(story.story_points) || 0), 0);
 
-    if (totalPoints === 0) return 0;
-    return Math.round((completedPoints / totalPoints) * 100);
+    const completedStoryPoints = stories
+      .filter(s => {
+        const status = (s.status || '').toLowerCase();
+        return status === 'done' || status === 'completed';
+      })
+      .reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+
+    const totalStoryPoints = stories.reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+    return totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
   };
 
   const projectProgress = getProjectProgress();

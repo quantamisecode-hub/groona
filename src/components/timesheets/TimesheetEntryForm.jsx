@@ -143,6 +143,40 @@ export default function TimesheetEntryForm({
       .filter(Boolean)
   ), [existingTimesheets]);
 
+  // Logic to calculate "filled" dates in the current month (>= 8 hours)
+  const filledDates = React.useMemo(() => {
+    const dailyMinutes = {};
+    existingTimesheets.forEach(t => {
+      // Use date string to avoid timezone issues for grouping
+      const dateStr = safeFormat(t.date, 'yyyy-MM-dd');
+      if (t.status !== 'rejected') {
+        dailyMinutes[dateStr] = (dailyMinutes[dateStr] || 0) + (t.total_minutes || 0);
+      }
+    });
+
+    return Object.keys(dailyMinutes).filter(date => dailyMinutes[date] >= 480);
+  }, [existingTimesheets]);
+
+  const isDateDisabled = (date) => {
+    if (!date) return false;
+    const now = new Date();
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // 1. Block future dates
+    if (date > now) return true;
+
+    // 2. Block previous months
+    if (date < startOfCurrentMonth) return true;
+
+    // 3. Block filled dates (8+ hours)
+    // EXCEPTION: if we are editing an initial entry, don't block its OWN date
+    const initialDateStr = initialData?.date ? safeFormat(initialData.date, 'yyyy-MM-dd') : null;
+    if (filledDates.includes(dateStr) && dateStr !== initialDateStr) return true;
+
+    return false;
+  };
+
   // Raw Stories and Tasks are now provided by the hierarchy query
   const rawTasks = myAssignedTasks;
 
@@ -282,6 +316,25 @@ export default function TimesheetEntryForm({
     }
   }, [preSelectedDate]);
 
+  // Auto-select the first available date in the current month if today is filled
+  useEffect(() => {
+    if (!initialData && !preSelectedDate && isDateDisabled(selectedDate)) {
+      const now = new Date();
+      const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // Find first non-disabled date from start of month to today
+      let candidate = new Date(startOfCurrentMonth);
+      while (candidate <= now && candidate <= endOfCurrentMonth) {
+        if (!isDateDisabled(candidate)) {
+          handleDateSelect(candidate);
+          break;
+        }
+        candidate.setDate(candidate.getDate() + 1);
+      }
+    }
+  }, [filledDates, initialData, preSelectedDate]);
+
   const handleDateSelect = (date) => {
     if (date && isValidDate(date)) {
       setSelectedDate(date);
@@ -304,6 +357,10 @@ export default function TimesheetEntryForm({
   const isRemarkMandatory = forceRemark || (formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime');
 
   const handleSubmit = (status = 'draft') => {
+    if (isDateDisabled(selectedDate)) {
+      toast.error("You cannot log time for this date (future, past month, or already filled).");
+      return;
+    }
     if (isRemarkMandatory && !formData.remark?.trim()) {
       toast.error(`Please provide a ${remarkLabel.toLowerCase()}`);
       return;
@@ -428,6 +485,7 @@ export default function TimesheetEntryForm({
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateSelect}
+                      disabled={isDateDisabled}
                       initialFocus
                     />
                   </PopoverContent>

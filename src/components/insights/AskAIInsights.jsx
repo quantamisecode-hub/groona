@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+/* eslint-disable react/prop-types */
+import { useState, useMemo, useRef, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,7 @@ const suggestedQuestions = [
   "Give me recommendations to speed up delivery",
 ];
 
-export default function AskAIInsights({ projects, tasks, activities }) {
+export default function AskAIInsights({ projects, tasks }) {
   const { user: currentUser, effectiveTenantId } = useUser();
   const queryClient = useQueryClient();
   const [question, setQuestion] = useState("");
@@ -77,7 +78,7 @@ export default function AskAIInsights({ projects, tasks, activities }) {
       if (u.name) names.add(u.name);
       if (u.username) names.add(u.username);
     });
-    return Array.from(names).filter(n => n && n.length > 2).sort((a, b) => b.length - a.length); // Longest first, ignore very short names
+    return Array.from(names).filter(n => n && n.trim().length > 1).sort((a, b) => b.length - a.length); // Longest first, ignore very short single character names
   }, [projects, tasks, allUsers]);
 
   // Preprocess markdown to bold identifiers and quotes
@@ -105,6 +106,16 @@ export default function AskAIInsights({ projects, tasks, activities }) {
 
     // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
     processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
+
+    // 4. Bold counts of tasks, projects, etc. (e.g., "11 overdue tasks", "4 active projects", "0%")
+    const countPatterns = [
+      /(?<!\*\*)\b(\d+)\s+(?:overdue\s+)?(tasks?|projects?|active projects?|team members?|issues?|risks?|members?|users?)\b(?!\*\*)/gi,
+      /(?<!\*\*)\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:overdue\s+)?(tasks?|projects?|active projects?|team members?|issues?|risks?|members?|users?)\b(?!\*\*)/gi,
+      /(?<!\*\*)\b\d+(?:\.\d+)?%(?!\*\*)/g // Percentages
+    ];
+    countPatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
 
     return processed;
   };
@@ -411,7 +422,6 @@ export default function AskAIInsights({ projects, tasks, activities }) {
         ? content.substring(0, maxChars) + '...'
         : content;
       const lines = truncatedContent.split('\n');
-      const lineHeight = 4; // Reduced line height
       const bulletIndent = 3;
 
       for (const line of lines) {
@@ -685,7 +695,7 @@ Keep it extremely brief and focused.`;
                 content_length: smallerContent.length
               });
 
-              const savedReport = await groonabackend.entities.AIInsightsReport.create({
+              await groonabackend.entities.AIInsightsReport.create({
                 tenant_id: effectiveTenantId,
                 question: queryQuestion,
                 report_content: smallerContent,

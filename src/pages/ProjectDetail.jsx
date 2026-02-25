@@ -462,6 +462,7 @@ export default function ProjectDetail() {
 
             <ProjectHeader
               project={project}
+              tasks={tasks}
               tasksCount={(() => {
                 // For viewers, only count assigned tasks
                 // For project managers of this project, show all tasks

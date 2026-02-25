@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+/* eslint-disable react/prop-types */
+import { useState, useMemo } from "react";
 import {
     Table,
     TableBody,
@@ -18,12 +19,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, ChevronRight, Search, Calendar, Clock, AlertTriangle, AlertCircle, Activity, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Calendar, AlertTriangle, AlertCircle, Activity, Target } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils/index";
 
-export default function ProjectDataTable({ projects, tasks, stories, getProjectRisks }) {
+export default function ProjectDataTable({ projects, tasks, onTaskClick }) {
     const navigate = useNavigate();
     const [currentPage, setCurrentPage] = useState(1);
     const [searchQuery, setSearchQuery] = useState("");
@@ -187,7 +188,7 @@ export default function ProjectDataTable({ projects, tasks, stories, getProjectR
                                                     {row.critical}
                                                 </button>
                                             ) : (
-                                                <span className="text-slate-300 font-bold">-</span>
+                                                <span className="inline-flex items-center justify-center bg-slate-100 text-slate-400 font-bold h-7 w-7 rounded-full text-xs shadow-sm opacity-60">0</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-center">
@@ -199,7 +200,7 @@ export default function ProjectDataTable({ projects, tasks, stories, getProjectR
                                                     {row.high}
                                                 </button>
                                             ) : (
-                                                <span className="text-slate-300 font-bold">-</span>
+                                                <span className="inline-flex items-center justify-center bg-slate-100 text-slate-400 font-bold h-7 w-7 rounded-full text-xs shadow-sm opacity-60">0</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-center">
@@ -211,25 +212,25 @@ export default function ProjectDataTable({ projects, tasks, stories, getProjectR
                                                     {row.medium}
                                                 </button>
                                             ) : (
-                                                <span className="text-slate-300 font-bold">-</span>
+                                                <span className="inline-flex items-center justify-center bg-slate-100 text-slate-400 font-bold h-7 w-7 rounded-full text-xs shadow-sm opacity-60">0</span>
                                             )}
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <button
                                                 onClick={() => handleOpenModal(row.id, row.name, 'pending')}
                                                 disabled={row.pendingTasks === 0}
-                                                className={`font-semibold hover:underline decoration-blue-500 underline-offset-4 ${row.pendingTasks > 0 ? 'text-blue-600 cursor-pointer' : 'text-slate-400 cursor-default'}`}
+                                                className={`font-semibold hover:underline decoration-blue-500 underline-offset-4 ${row.pendingTasks > 0 ? 'text-blue-600 cursor-pointer' : 'text-slate-400 cursor-default opacity-60'}`}
                                             >
-                                                {row.pendingTasks}
+                                                {row.pendingTasks > 0 ? row.pendingTasks : 0}
                                             </button>
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <button
                                                 onClick={() => handleOpenModal(row.id, row.name, 'done')}
                                                 disabled={row.doneTasks === 0}
-                                                className={`font-semibold hover:underline decoration-emerald-500 underline-offset-4 ${row.doneTasks > 0 ? 'text-emerald-600 cursor-pointer' : 'text-slate-400 cursor-default'}`}
+                                                className={`font-semibold hover:underline decoration-emerald-500 underline-offset-4 ${row.doneTasks > 0 ? 'text-emerald-600 cursor-pointer' : 'text-slate-400 cursor-default opacity-60'}`}
                                             >
-                                                {row.doneTasks}
+                                                {row.doneTasks > 0 ? row.doneTasks : 0}
                                             </button>
                                         </TableCell>
                                     </TableRow>
@@ -299,7 +300,13 @@ export default function ProjectDataTable({ projects, tasks, stories, getProjectR
                                     <div
                                         key={task.id}
                                         className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
-                                        onClick={() => navigate(`${createPageUrl("ProjectDetail")}?id=${task.project_id}&taskId=${task.id}`)}
+                                        onClick={() => {
+                                            if (onTaskClick) {
+                                                onTaskClick(task.id);
+                                            } else {
+                                                navigate(`${createPageUrl("ProjectDetail")}?id=${task.project_id}&taskId=${task.id}`);
+                                            }
+                                        }}
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="space-y-1.5 relative pr-4 w-full">
@@ -323,9 +330,9 @@ export default function ProjectDataTable({ projects, tasks, stories, getProjectR
                                                     <Badge
                                                         variant="secondary"
                                                         className={`capitalize font-semibold border-0 ${task.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                                                                    task.status === 'review' ? 'bg-purple-100 text-purple-700' :
-                                                                        'bg-slate-100 text-slate-700'
+                                                            task.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                                                                task.status === 'review' ? 'bg-purple-100 text-purple-700' :
+                                                                    'bg-slate-100 text-slate-700'
                                                             }`}
                                                     >
                                                         {task.status.replace('_', ' ')}

@@ -12,9 +12,10 @@ const styles = {
   greeting: "font-size: 20px; font-weight: 600; color: #1e293b; margin-bottom: 16px;",
   text: "font-size: 15px; line-height: 1.6; color: #475569; margin-bottom: 24px;",
   infoBox: "background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 20px; margin: 24px 0;",
-  infoRow: "margin: 8px 0; font-size: 14px; color: #475569;",
-  label: "font-weight: 600; color: #1e293b; display: inline-block; min-width: 120px;",
-  value: "color: #475569;",
+  infoTable: "width: 100%; border-collapse: collapse;",
+  infoTableRow: "",
+  labelCell: "padding: 8px 0; font-weight: 600; color: #1e293b; width: 120px; vertical-align: top;",
+  valueCell: "padding: 8px 0; color: #475569; vertical-align: top;",
   buttonGroup: "text-align: center; margin-top: 32px; margin-bottom: 16px;",
   primaryBtn: "display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);",
   statusBadge: "display: inline-block; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600;",
@@ -141,19 +142,21 @@ function getTimesheetLockoutAlarmTemplate(data) {
     <p style="${styles.text}"><strong>Action Required:</strong> Your account has been temporarily <strong>LOCKED</strong> due to repeated missing timesheets.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">LOCKED</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Missing Days:</span>
-        <span style="${styles.value}">${missingCount || 0} day(s)</span>
-      </div>
-      ${missingDates ? `
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Dates:</span>
-        <span style="${styles.value}">${missingDates}</span>
-      </div>` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">LOCKED</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Missing Days:</td>
+          <td style="${styles.valueCell}">${missingCount || 0} day(s)</td>
+        </tr>
+        ${missingDates ? `
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Dates:</td>
+          <td style="${styles.valueCell}">${missingDates}</td>
+        </tr>` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">You cannot submit new timesheets or perform certain actions until you fill in the missing days from the start of the month.</p>
@@ -185,19 +188,21 @@ function getTimesheetMissingAlertTemplate(data) {
     <p style="${styles.text}">The user has been <strong>LOCKED</strong> out of the system due to <strong>${missingCount}</strong> missing timesheets in the last week.</p>
 
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">User:</span>
-        <span style="${styles.value}"><strong>${userName || userEmail}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Missing Count:</span>
-        <span style="${styles.value}">${missingCount}</span>
-      </div>
-       ${missingDates ? `
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Dates:</span>
-        <span style="${styles.value}">${missingDates}</span>
-      </div>` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">User:</td>
+          <td style="${styles.valueCell}"><strong>${userName || userEmail}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Missing Count:</td>
+          <td style="${styles.valueCell}">${missingCount}</td>
+        </tr>
+        ${missingDates ? `
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Dates:</td>
+          <td style="${styles.valueCell}">${missingDates}</td>
+        </tr>` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Please follow up with the user to ensure they update their timesheets to regain access.</p>
@@ -230,18 +235,20 @@ function getProjectMemberAddedTemplate(data) {
     ${projectDescription ? `<p style="${styles.text}"><strong>Project Description:</strong> ${projectDescription}</p>` : ''}
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Added By:</span>
-        <span style="${styles.value}">${addedBy || 'System'}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Your Role:</span>
-        <span style="${styles.value}">Team Member</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Added By:</td>
+          <td style="${styles.valueCell}">${addedBy || 'System'}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Your Role:</td>
+          <td style="${styles.valueCell}">Team Member</td>
+        </tr>
+      </table>
     </div>
 
     ${projectUrl ? `
@@ -280,40 +287,42 @@ function getTaskAssignedTemplate(data) {
     <p style="${styles.text}">A new task has been assigned to you in the project <strong>${projectName}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Task:</span>
-        <span style="${styles.value}"><strong>${taskTitle}</strong></span>
-      </div>
-      ${taskDescription ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Description:</span>
-          <span style="${styles.value}">${taskDescription}</span>
-        </div>
-      ` : ''}
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Assigned By:</span>
-        <span style="${styles.value}">${assignedBy || 'System'}</span>
-      </div>
-      ${dueDate ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Due Date:</span>
-          <span style="${styles.value}">${new Date(dueDate).toLocaleDateString()}</span>
-        </div>
-      ` : ''}
-      ${priority ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Priority:</span>
-          <span style="${styles.value}">
-            <span style="${styles.statusBadge}; background-color: ${priorityColor}; color: #ffffff; text-transform: capitalize;">
-              ${priority}
-            </span>
-          </span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle}</strong></td>
+        </tr>
+        ${taskDescription ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Description:</td>
+            <td style="${styles.valueCell}">${taskDescription}</td>
+          </tr>
+        ` : ''}
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Assigned By:</td>
+          <td style="${styles.valueCell}">${assignedBy || 'System'}</td>
+        </tr>
+        ${dueDate ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Due Date:</td>
+            <td style="${styles.valueCell}">${new Date(dueDate).toLocaleDateString()}</td>
+          </tr>
+        ` : ''}
+        ${priority ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Priority:</td>
+            <td style="${styles.valueCell}">
+              <span style="${styles.statusBadge}; background-color: ${priorityColor}; color: #ffffff; text-transform: capitalize;">
+                ${priority}
+              </span>
+            </td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     ${taskUrl ? `
@@ -343,18 +352,20 @@ function getTaskUnassignedTemplate(data) {
     <p style="${styles.text}">You have been unassigned from the task <strong>${taskTitle}</strong> in project <strong>${projectName}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Task:</span>
-        <span style="${styles.value}"><strong>${taskTitle}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Unassigned By:</span>
-        <span style="${styles.value}">${unassignedBy || 'System'}</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Unassigned By:</td>
+          <td style="${styles.valueCell}">${unassignedBy || 'System'}</td>
+        </tr>
+      </table>
     </div>
 
     ${taskUrl ? `
@@ -426,18 +437,21 @@ function getTaskStatusChangedTemplate(data) {
     ` : ''}
 
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Task:</span>
-        <span style="${styles.value}"><strong>${taskTitle}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Changed By:</span>
-        <span style="${styles.value}">${changedBy || 'A team member'}</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Changed By:</td>
+          <td style="${styles.valueCell}">${changedBy || 'A team member'}</td>
+        </tr>
+      </table>
+      
       <div style="margin-top: 16px; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
         <div style="text-align: center;">
           <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;">From</div>
@@ -486,42 +500,44 @@ function getFailedLoginAttemptsTemplate(data) {
     <p style="${styles.text}">We detected <strong>${attemptCount} failed login attempts</strong> on your Groona account.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Account:</span>
-        <span style="${styles.value}">${userEmail}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Failed Attempts:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">${attemptCount}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Last Attempt:</span>
-        <span style="${styles.value}">${new Date(lastAttemptTime).toLocaleString()}</span>
-      </div>
-      ${ipAddress ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">IP Address:</span>
-          <span style="${styles.value}">${ipAddress}</span>
-        </div>
-      ` : ''}
-      ${location ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Location:</span>
-          <span style="${styles.value}">${location}</span>
-        </div>
-      ` : ''}
-      ${deviceName ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Device Name:</span>
-          <span style="${styles.value}">${deviceName}</span>
-        </div>
-      ` : ''}
-      ${userAgent ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">User Agent:</span>
-          <span style="${styles.value}">${userAgent}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Account:</td>
+          <td style="${styles.valueCell}">${userEmail}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Failed Attempts:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">${attemptCount}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Last Attempt:</td>
+          <td style="${styles.valueCell}">${new Date(lastAttemptTime).toLocaleString()}</td>
+        </tr>
+        ${ipAddress ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">IP Address:</td>
+            <td style="${styles.valueCell}">${ipAddress}</td>
+          </tr>
+        ` : ''}
+        ${location ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Location:</td>
+            <td style="${styles.valueCell}">${location}</td>
+          </tr>
+        ` : ''}
+        ${deviceName ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Device Name:</td>
+            <td style="${styles.valueCell}">${deviceName}</td>
+          </tr>
+        ` : ''}
+        ${userAgent ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">User Agent:</td>
+            <td style="${styles.valueCell}">${userAgent}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">
@@ -553,32 +569,34 @@ function getLeaveApprovedTemplate(data) {
   <p style="${styles.text}">Your leave application has been <strong style="color: #10b981;">approved</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Leave Type:</span>
-        <span style="${styles.value}">${leaveType}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Start Date:</span>
-        <span style="${styles.value}">${new Date(startDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">End Date:</span>
-        <span style="${styles.value}">${new Date(endDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Duration:</span>
-        <span style="${styles.value}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Approved By:</span>
-        <span style="${styles.value}">${approvedBy || 'Administrator'}</span>
-      </div>
-      ${description ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Message:</span>
-          <span style="${styles.value}">${description}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Leave Type:</td>
+          <td style="${styles.valueCell}">${leaveType}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Start Date:</td>
+          <td style="${styles.valueCell}">${new Date(startDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">End Date:</td>
+          <td style="${styles.valueCell}">${new Date(endDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Duration:</td>
+          <td style="${styles.valueCell}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Approved By:</td>
+          <td style="${styles.valueCell}">${approvedBy || 'Administrator'}</td>
+        </tr>
+        ${description ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Message:</td>
+            <td style="${styles.valueCell}">${description}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Your leave has been approved and your calendar has been updated accordingly.</p>
@@ -609,32 +627,34 @@ function getLeaveCancelledTemplate(data) {
   <p style="${styles.text}">Your leave application has been <strong style="color: #ef4444;">${statusText}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Leave Type:</span>
-        <span style="${styles.value}">${leaveType}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Start Date:</span>
-        <span style="${styles.value}">${new Date(startDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">End Date:</span>
-        <span style="${styles.value}">${new Date(endDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Duration:</span>
-        <span style="${styles.value}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">${isRejected ? 'Rejected' : 'Cancelled'} By:</span>
-        <span style="${styles.value}">${actionBy}</span>
-      </div>
-      ${reason || description ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Message:</span>
-          <span style="${styles.value}">${description || reason || 'No reason provided'}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Leave Type:</td>
+          <td style="${styles.valueCell}">${leaveType}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Start Date:</td>
+          <td style="${styles.valueCell}">${new Date(startDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">End Date:</td>
+          <td style="${styles.valueCell}">${new Date(endDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Duration:</td>
+          <td style="${styles.valueCell}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">${isRejected ? 'Rejected' : 'Cancelled'} By:</td>
+          <td style="${styles.valueCell}">${actionBy}</td>
+        </tr>
+        ${reason || description ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Message:</td>
+            <td style="${styles.valueCell}">${description || reason || 'No reason provided'}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Your leave balance has been restored. If you have any questions, please contact your administrator.</p>
@@ -660,20 +680,22 @@ function getTeamMemberRemovedTemplate(data) {
   <p style="${styles.text}">You have been removed from the project <strong>${projectName}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Removed By:</span>
-        <span style="${styles.value}">${removedBy || 'Administrator'}</span>
-      </div>
-      ${reason ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Reason:</span>
-          <span style="${styles.value}">${reason}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Removed By:</td>
+          <td style="${styles.valueCell}">${removedBy || 'Administrator'}</td>
+        </tr>
+        ${reason ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Reason:</td>
+            <td style="${styles.valueCell}">${reason}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">You will no longer have access to this project. If you believe this is an error, please contact your administrator.</p>
@@ -699,28 +721,30 @@ function getLeaveSubmittedTemplate(data) {
   <p style="${styles.text}">Your leave application has been <strong style="color: #3b82f6;">submitted successfully</strong> and is pending approval.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Leave Type:</span>
-        <span style="${styles.value}">${leaveType}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Start Date:</span>
-        <span style="${styles.value}">${new Date(startDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">End Date:</span>
-        <span style="${styles.value}">${new Date(endDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Duration:</span>
-        <span style="${styles.value}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</span>
-      </div>
-      ${reason ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Reason:</span>
-          <span style="${styles.value}">${reason}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Leave Type:</td>
+          <td style="${styles.valueCell}">${leaveType}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Start Date:</td>
+          <td style="${styles.valueCell}">${new Date(startDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">End Date:</td>
+          <td style="${styles.valueCell}">${new Date(endDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Duration:</td>
+          <td style="${styles.valueCell}">${totalDays} day(s) ${duration === 'half_day' ? '(Half Day)' : ''}</td>
+        </tr>
+        ${reason ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Reason:</td>
+            <td style="${styles.valueCell}">${reason}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">You will be notified once your leave request has been reviewed by your administrator.</p>
@@ -746,28 +770,30 @@ function getTimesheetApprovedTemplate(data) {
   <p style="${styles.text}">Your timesheet has been <strong style="color: #10b981;">approved</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Task:</span>
-        <span style="${styles.value}"><strong>${taskTitle || 'N/A'}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Date:</span>
-        <span style="${styles.value}">${new Date(date).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Hours:</span>
-        <span style="${styles.value}">${hours || 0} hours ${minutes || 0} minutes</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Approved By:</span>
-        <span style="${styles.value}">${approvedBy || 'Administrator'}</span>
-      </div>
-      ${comment ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Comment:</span>
-          <span style="${styles.value}">${comment}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle || 'N/A'}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Date:</td>
+          <td style="${styles.valueCell}">${new Date(date).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Hours:</td>
+          <td style="${styles.valueCell}">${hours || 0} hours ${minutes || 0} minutes</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Approved By:</td>
+          <td style="${styles.valueCell}">${approvedBy || 'Administrator'}</td>
+        </tr>
+        ${comment ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Comment:</td>
+            <td style="${styles.valueCell}">${comment}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Your timesheet has been approved and recorded in the system.</p>
@@ -793,28 +819,30 @@ function getTimesheetRejectedTemplate(data) {
   <p style="${styles.text}">Your timesheet has been <strong style="color: #ef4444;">rejected</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Task:</span>
-        <span style="${styles.value}"><strong>${taskTitle || 'N/A'}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Date:</span>
-        <span style="${styles.value}">${new Date(date).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Hours:</span>
-        <span style="${styles.value}">${hours || 0} hours ${minutes || 0} minutes</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Rejected By:</span>
-        <span style="${styles.value}">${rejectedBy || 'Administrator'}</span>
-      </div>
-      ${(comment || reason) ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Reason:</span>
-          <span style="${styles.value}">${comment || reason || 'No reason provided'}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle || 'N/A'}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Date:</td>
+          <td style="${styles.valueCell}">${new Date(date).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Hours:</td>
+          <td style="${styles.valueCell}">${hours || 0} hours ${minutes || 0} minutes</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Rejected By:</td>
+          <td style="${styles.valueCell}">${rejectedBy || 'Administrator'}</td>
+        </tr>
+        ${(comment || reason) ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Reason:</td>
+            <td style="${styles.valueCell}">${comment || reason || 'No reason provided'}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Please review the reason above and resubmit your timesheet if needed. If you have any questions, please contact your administrator.</p>
@@ -855,31 +883,33 @@ function getTimesheetSubmittedTemplate(data) {
     ` : ''}
 
     <div style="${styles.infoBox}">
+      <table style="${styles.infoTable}">
       ${entryCount > 1 ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Entries Submitted:</span>
-          <span style="${styles.value}"><strong>${entryCount} timesheet entries</strong></span>
-        </div>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Entries Submitted:</td>
+          <td style="${styles.valueCell}"><strong>${entryCount} timesheet entries</strong></td>
+        </tr>
       ` : `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Task:</span>
-          <span style="${styles.value}"><strong>${taskTitle || 'N/A'}</strong></span>
-        </div>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Task:</td>
+          <td style="${styles.valueCell}"><strong>${taskTitle || 'N/A'}</strong></td>
+        </tr>
         ${projectName ? `
-          <div style="${styles.infoRow}">
-            <span style="${styles.label}">Project:</span>
-            <span style="${styles.value}">${projectName}</span>
-          </div>
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Project:</td>
+            <td style="${styles.valueCell}">${projectName}</td>
+          </tr>
         ` : ''}
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Date:</span>
-          <span style="${styles.value}">${new Date(date).toLocaleDateString()}</span>
-        </div>
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Hours:</span>
-          <span style="${styles.value}">${hours || 0} hours ${minutes || 0} minutes</span>
-        </div>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Date:</td>
+          <td style="${styles.valueCell}">${new Date(date).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Hours:</td>
+          <td style="${styles.valueCell}">${hours || 0} hours ${minutes || 0} minutes</td>
+        </tr>
       `}
+      </table>
     </div>
 
     <p style="${styles.text}">You will be notified once your timesheet${entryCount > 1 ? 's have' : ' has'} been reviewed by your administrator.</p>
@@ -907,20 +937,22 @@ function getTimesheetReminderTemplate(data) {
     <p style="${styles.text}">You haven’t logged your time today. Please update your timesheet before day end.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong>Missing Today's Log</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Email:</span>
-        <span style="${styles.value}">${userEmail}</span>
-      </div>
-      ${scheduledEnd ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Working End:</span>
-          <span style="${styles.value}">${scheduledEnd}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong>Missing Today's Log</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Email:</td>
+          <td style="${styles.valueCell}">${userEmail}</td>
+        </tr>
+        ${scheduledEnd ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Working End:</td>
+            <td style="${styles.valueCell}">${scheduledEnd}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Keeping your timesheets up to date helps the team stay aligned and ensures accurate project tracking.</p>
@@ -950,14 +982,16 @@ function getLowLoggedHoursTemplate(data) {
     <p style="${styles.text}"><strong>Notification:</strong> Your logged hours have been consistently below your declared availability.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #f59e0b;">Low Hours Detected</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Observation:</span>
-        <span style="${styles.value}">${consecutiveDays} consecutive working days</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #f59e0b;">Low Hours Detected</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Observation:</td>
+          <td style="${styles.valueCell}">${consecutiveDays} consecutive working days</td>
+        </tr>
+      </table>
       <p style="font-size: 14px; color: #475569; margin-top: 12px; margin-bottom: 0;">
         <strong>Your logged hours are below your declared availability. Please review your workload.</strong>
       </p>
@@ -990,14 +1024,16 @@ function getOverworkAlarmTemplate(data) {
     <p style="${styles.text}"><strong>Alert:</strong> High workload detected.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">Overwork Alarm</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Planned Hours:</span>
-        <span style="${styles.value}">${totalHours.toFixed(1)} hours (this week)</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">Overwork Alarm</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Planned Hours:</td>
+          <td style="${styles.valueCell}">${totalHours.toFixed(1)} hours (this week)</td>
+        </tr>
+      </table>
       <p style="font-size: 14px; color: #475569; margin-top: 12px; margin-bottom: 0;">
         <strong>You’ve been working long hours consistently. Please discuss workload adjustment with your manager.</strong>
       </p>
@@ -1030,20 +1066,22 @@ function getMultipleOverdueAlarmTemplate(data) {
     <p style="${styles.text}"><strong>Critical Alert:</strong> You have <strong>${overdueCount} tasks</strong> that are currently overdue.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">Multiple Overdue Tasks</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Overdue Count:</span>
-        <span style="${styles.value}">${overdueCount} tasks</span>
-      </div>
-      ${taskTitles ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Recent Tasks:</span>
-          <span style="${styles.value}">${taskTitles}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">Multiple Overdue Tasks</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Overdue Count:</td>
+          <td style="${styles.valueCell}">${overdueCount} tasks</td>
+        </tr>
+        ${taskTitles ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Recent Tasks:</td>
+            <td style="${styles.valueCell}">${taskTitles}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Immediately consultation with your Project Manager is required to reprioritize these tasks and ensure project timelines are met.</p>
@@ -1075,14 +1113,16 @@ function getReworkAlarmTemplate(data, isHigh = false) {
     <p style="${styles.text}"><strong>${severity} Alert:</strong> High rework percentage detected.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: ${color};">${severity} Rework Alert</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Rework Ratio:</span>
-        <span style="${styles.value}"><strong>${reworkPercent}%</strong> (Threshold: ${threshold}%)</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: ${color};">${severity} Rework Alert</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Rework Ratio:</td>
+          <td style="${styles.valueCell}"><strong>${reworkPercent}%</strong> (Threshold: ${threshold}%)</td>
+        </tr>
+      </table>
       ${isHigh ? `
       <p style="font-size: 14px; color: #ef4444; margin-top: 12px; margin-bottom: 0;">
         <strong>Task assignments have been temporarily frozen. Immediate consultation with your manager/PM is required.</strong>
@@ -1120,14 +1160,16 @@ function getReworkGeneralAlertTemplate(data) {
     <p style="${styles.text}"><strong>Notice:</strong> Rework time has been logged in your recent timesheets.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}">Rework Detected</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Rework Ratio:</span>
-        <span style="${styles.value}"><strong>${reworkPercent}%</strong> of total time</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}">Rework Detected</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Rework Ratio:</td>
+          <td style="${styles.valueCell}"><strong>${reworkPercent}%</strong> of total time</td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">
@@ -1160,14 +1202,16 @@ function getTrialEndingTemplate(data) {
     <p style="${styles.text}">Your free trial of Groona is ending soon on <strong>${new Date(trialEndDate).toLocaleDateString()}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Plan:</span>
-        <span style="${styles.value}">Premium Trial</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Ends On:</span>
-        <span style="${styles.value}">${new Date(trialEndDate).toLocaleDateString()}</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Plan:</td>
+          <td style="${styles.valueCell}">Premium Trial</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Ends On:</td>
+          <td style="${styles.valueCell}">${new Date(trialEndDate).toLocaleDateString()}</td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">Don't lose access to your projects and team collaboration features. Upgrade your plan now to ensure a seamless transition.</p>
@@ -1197,18 +1241,20 @@ function getSubscriptionExpiredTemplate(data) {
     <p style="${styles.text}">Your <strong>${planName || 'Groona'}</strong> subscription has expired.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Account:</span>
-        <span style="${styles.value}">${userEmail}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Expired On:</span>
-        <span style="${styles.value}">${new Date(expiryDate).toLocaleDateString()}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">PAST DUE</strong></span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Account:</td>
+          <td style="${styles.valueCell}">${userEmail}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Expired On:</td>
+          <td style="${styles.valueCell}">${new Date(expiryDate).toLocaleDateString()}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">PAST DUE</strong></td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">To regain full access to all features, please renew your subscription or update your payment details.</p>
@@ -1238,20 +1284,22 @@ function getPeerReviewRequestedTemplate(data) {
     <p style="${styles.text}"><strong>${requesterName}</strong> has requested a peer review for the task: <strong>${taskTitle}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName || 'N/A'}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Requested By:</span>
-        <span style="${styles.value}">${requesterName}</span>
-      </div>
-      ${message ? `
-        <div style="${styles.infoRow}">
-          <span style="${styles.label}">Message:</span>
-          <span style="${styles.value}">${message}</span>
-        </div>
-      ` : ''}
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName || 'N/A'}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Requested By:</td>
+          <td style="${styles.valueCell}">${requesterName}</td>
+        </tr>
+        ${message ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Message:</td>
+            <td style="${styles.valueCell}">${message}</td>
+          </tr>
+        ` : ''}
+      </table>
     </div>
 
     <p style="${styles.text}">Peer reviews help maintain code quality and share knowledge across the team. Please take a moment to review the changes when you have a chance.</p>
@@ -1281,14 +1329,16 @@ function getPeerReviewDeclinedTemplate(data) {
     <p style="${styles.text}">Your peer review request for the task: <strong>${taskTitle}</strong> has been <strong>declined</strong> by <strong>${reviewerName}</strong>.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Project:</span>
-        <span style="${styles.value}">${projectName || 'N/A'}</span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">DECLINED</strong></span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName || 'N/A'}</td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">DECLINED</strong></td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">You may want to request a review from another team member to ensure your changes are verified.</p>
@@ -1318,14 +1368,16 @@ function getUnderUtilizationAlertTemplate(data) {
     <p style="${styles.text}">You appear to be <strong>under-utilized</strong> based on your logged hours over the past ${durationDays || 30} days.</p>
     
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Utilization:</span>
-        <span style="${styles.value}"><strong style="color: #ef4444;">${utilizationPercentage}%</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Target:</span>
-        <span style="${styles.value}">60% or higher</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Utilization:</td>
+          <td style="${styles.valueCell}"><strong style="color: #ef4444;">${utilizationPercentage}%</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Target:</td>
+          <td style="${styles.valueCell}">60% or higher</td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">Maintaining a healthy utilization rate ensures project goals are met and resources are balanced. Please discuss your task allocation and potential blockers with your manager.</p>
@@ -1370,14 +1422,16 @@ function getAuditLockToggleTemplate(data) {
     </p>
       
     <div style="${styles.infoBox}">
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Status:</span>
-        <span style="${styles.value}"><strong style="color: ${titleColor};">${locked ? 'LOCKED' : 'ACTIVE'}</strong></span>
-      </div>
-      <div style="${styles.infoRow}">
-        <span style="${styles.label}">Action By:</span>
-        <span style="${styles.value}">${managerName || 'Manager'}</span>
-      </div>
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}"><strong style="color: ${titleColor};">${locked ? 'LOCKED' : 'ACTIVE'}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Action By:</td>
+          <td style="${styles.valueCell}">${managerName || 'Manager'}</td>
+        </tr>
+      </table>
     </div>
 
     <p style="${styles.text}">
