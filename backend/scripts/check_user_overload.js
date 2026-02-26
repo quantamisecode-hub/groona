@@ -174,7 +174,7 @@ async function checkUserOverload() {
                         type: 'PM_OVERALLOCATION_RISK',
                         category: 'alert',
                         title: '⚠️ Critical Workload Alert',
-                        message: `⚠️ Resource overallocation detected. Burnout risk possible for ${user.full_name} (${utilization.toFixed(0)}% allocated).`,
+                        message: `⚠️ Resource overallocation **${user.full_name}**. Potential burnout risk. Review workload distribution.`,
                         entity_type: 'user',
                         entity_id: user._id,
                         sender_name: 'System',

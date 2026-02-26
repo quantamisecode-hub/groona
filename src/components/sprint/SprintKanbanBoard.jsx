@@ -54,7 +54,6 @@ export default function SprintKanbanBoard({
   const queryClient = useQueryClient();
   const [localTasks, setLocalTasks] = useState(tasks);
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
-
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isManageColumnsOpen, setIsManageColumnsOpen] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
@@ -262,7 +261,6 @@ export default function SprintKanbanBoard({
     <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
       <div className="mb-4 flex items-center justify-between flex-shrink-0 px-1">
         <h3 className="text-lg font-bold text-slate-900">{sprint.name} Board</h3>
-
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -307,14 +305,12 @@ export default function SprintKanbanBoard({
           </Badge>
         </div>
       </div>
-
       <DragDropContext onDragEnd={handleDragEnd}>
         <div className="flex-1 min-w-0 w-full relative h-[calc(100vh-250px)] min-h-[500px]">
           <div className="absolute inset-0 overflow-x-auto overflow-y-hidden pb-4">
             <div className="inline-flex gap-4 h-full px-1 align-top">
               {columns.map((col) => {
                 const columnTasks = localTasks.filter((t) => t.status === col.id);
-
                 return (
                   <div key={col.id} className="flex-shrink-0 w-80 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200/50 max-h-full shadow-sm">
                     <div className="p-3 font-semibold text-slate-700 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-white/50 rounded-t-xl backdrop-blur-sm">
@@ -382,13 +378,11 @@ export default function SprintKanbanBoard({
                                 if (snapshot.isDragging) {
                                   return createPortal(component, document.body);
                                 }
-
                                 return component;
                               }}
                             </Draggable>
                           ))}
                           {provided.placeholder}
-
                           {columnTasks.length === 0 && !snapshot.isDraggingOver && (
                             <div className="flex items-center justify-center h-24 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
                               No tasks

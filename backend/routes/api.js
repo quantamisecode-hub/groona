@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const WebSocket = require('ws');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Models = require('../models/SchemaDefinitions');
 const emailService = require('../services/emailService');
-const axios = require('axios');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const modelHelper = require('../helpers/geminiModelHelper');
 
 // === SUPER ADMIN ENDPOINTS ===
 
@@ -244,11 +248,6 @@ router.get('/currency/convert', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// nodemailer removed - using Resend SDK now
-const fs = require('fs');
-const path = require('path');
-const WebSocket = require('ws');
-const modelHelper = require('../helpers/geminiModelHelper');
 
 // --- CONFIGURATION ---
 // Use helper to get default model (gemini-2.5-flash-native-audio-dialog)
@@ -1332,8 +1331,8 @@ router.post('/entities/:entity/create', async (req, res) => {
                   dueDate: savedItem.due_date,
                   priority: savedItem.priority,
                   taskUrl: savedItem.project_id
-                    ? `${frontendUrl}/projects/${savedItem.project_id}/tasks/${savedItem._id}`
-                    : `${frontendUrl}/tasks/${savedItem._id}`
+                    ? `${frontendUrl}/ProjectDetail?id=${savedItem.project_id}&taskId=${savedItem._id}`
+                    : `${frontendUrl}/Dashboard?taskId=${savedItem._id}`
                 }
               });
             } catch (error) {
@@ -1472,10 +1471,9 @@ router.post('/entities/:entity/create', async (req, res) => {
               entity_type: 'impediment',
               entity_id: savedItem._id,
               project_id: projectId,
-              link: deepLink,
+              deep_link: deepLink,
               sender_name: reporterName,
               read: false,
-              created_date: createdDate
             });
           });
 
@@ -1921,7 +1919,7 @@ router.post('/entities/:entity/update', async (req, res) => {
                   projectName: updatedDoc.name,
                   projectDescription: updatedDoc.description,
                   addedBy: updaterName,
-                  projectUrl: `${frontendUrl}/projects/${updatedDoc._id}`
+                  projectUrl: `${frontendUrl}/ProjectDetail?id=${updatedDoc._id}`
                 }
               });
             } catch (error) {
@@ -2118,8 +2116,8 @@ router.post('/entities/:entity/update', async (req, res) => {
                       dueDate: updatedDoc.due_date,
                       priority: updatedDoc.priority,
                       taskUrl: updatedDoc.project_id
-                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
-                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                        ? `${frontendUrl}/ProjectDetail?id=${updatedDoc.project_id}&taskId=${updatedDoc._id}`
+                        : `${frontendUrl}/Dashboard?taskId=${updatedDoc._id}`
                     }
                   });
                 } catch (error) {
@@ -2159,8 +2157,8 @@ router.post('/entities/:entity/update', async (req, res) => {
                       projectName,
                       unassignedBy: unassignerName,
                       taskUrl: updatedDoc.project_id
-                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
-                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                        ? `${frontendUrl}/ProjectDetail?id=${updatedDoc.project_id}&taskId=${updatedDoc._id}`
+                        : `${frontendUrl}/Dashboard?taskId=${updatedDoc._id}`
                     }
                   });
                 } catch (error) {
@@ -2231,16 +2229,17 @@ router.post('/entities/:entity/update', async (req, res) => {
                       dueDate: newSt.due_date,
                       priority: 'Normal',
                       taskUrl: updatedDoc.project_id
-                        ? `${frontendUrl}/projects/${updatedDoc.project_id}/tasks/${updatedDoc._id}`
-                        : `${frontendUrl}/tasks/${updatedDoc._id}`
+                        ? `${frontendUrl}/ProjectDetail?id=${updatedDoc.project_id}&taskId=${updatedDoc._id}`
+                        : `${frontendUrl}/Dashboard?taskId=${updatedDoc._id}`
                     }
                   });
 
                   // B. Send In-App Notification
+                  const recipientEmail = assigneeEmail.toLowerCase().trim();
                   await Models.Notification.create({
                     tenant_id: updatedDoc.tenant_id,
-                    recipient_email: assigneeEmail,
-                    type: 'subtask_assignment', // New type
+                    recipient_email: recipientEmail,
+                    type: 'subtask_assignment',
                     title: 'Subtask Assigned',
                     message: `You have been assigned a subtask: "${newSt.title}" in task "${updatedDoc.title}"`,
                     entity_type: 'task',
@@ -2258,9 +2257,118 @@ router.post('/entities/:entity/update', async (req, res) => {
               }
             }
           }
+          // --- 3. BLOCKED BY ASSIGNMENT NOTIFICATIONS ---
+          console.log(`[DEBUG_BLOCKER] Checking blocked_by. Is Array?`, Array.isArray(updatedDoc.blocked_by));
+          if (updatedDoc.blocked_by && Array.isArray(updatedDoc.blocked_by)) {
+            const oldBlockedBy = Array.isArray(oldDoc.blocked_by) ? oldDoc.blocked_by : [];
+            const newBlockedBy = updatedDoc.blocked_by;
+            console.log(`[DEBUG_BLOCKER] old length: ${oldBlockedBy.length}, new length: ${newBlockedBy.length}`);
+
+            const oldBlockerMap = {};
+            oldBlockedBy.forEach(b => {
+              // Usually subtasks/blockers nested arrays get an _id from mongoose
+              if (b._id) oldBlockerMap[b._id.toString()] = b;
+              // Fallback to title if _id doesn't exist (though it should)
+              else if (b.title) oldBlockerMap[b.title] = b;
+            });
+
+            console.log(`[DEBUG_BLOCKER] oldBlockerMap keys:`, Object.keys(oldBlockerMap));
+
+            for (const newB of newBlockedBy) {
+              if (!newB.assigned_to) {
+                console.log(`[DEBUG_BLOCKER] Skipping blocker "${newB.title}" - no assignee.`);
+                continue; // Skip if no assignee
+              }
+
+              let isNewAssignment = false;
+              const identifier = newB._id ? newB._id.toString() : newB.title;
+              console.log(`[DEBUG_BLOCKER] Checking identifier: ${identifier} for assignee: ${newB.assigned_to}`);
+
+              if (identifier && oldBlockerMap[identifier]) {
+                const oldB = oldBlockerMap[identifier];
+                console.log(`[DEBUG_BLOCKER] Found old match! Old Assignee: ${oldB.assigned_to}`);
+                if (oldB.assigned_to !== newB.assigned_to) {
+                  console.log(`[DEBUG_BLOCKER] Assignee CHANGED! Marking as new.`);
+                  isNewAssignment = true;
+                }
+              } else {
+                // New blocker item altogether
+                console.log(`[DEBUG_BLOCKER] New Blocker entirely! Marking as new.`);
+                isNewAssignment = true;
+              }
+
+              if (isNewAssignment) {
+                const assigneeEmail = newB.assigned_to;
+                console.log(`[DEBUG_BLOCKER] Proceeding to notify: ${assigneeEmail}`);
+
+                let projectName = 'No Project';
+                if (updatedDoc.project_id) {
+                  const project = await Models.Project.findById(updatedDoc.project_id);
+                  if (project) projectName = project.name;
+                }
+
+                const assignerEmail = req.user?.email || updatedDoc.reporter || 'System';
+                const assigner = await Models.User.findOne({ email: assignerEmail });
+                const assignerName = assigner?.full_name || assignerEmail;
+
+                try {
+                  const assignee = await Models.User.findOne({ email: assigneeEmail });
+                  const assigneeName = assignee?.full_name || assigneeEmail;
+
+                  console.log(`[DEBUG_BLOCKER] Sending email to ${assigneeEmail}...`);
+                  // A. Send Premium Blocked By Email
+                  await emailService.sendEmail({
+                    to: assigneeEmail,
+                    templateType: 'blocked_by_assigned',
+                    data: {
+                      assigneeName,
+                      assigneeEmail,
+                      blockerTitle: newB.title,
+                      taskTitle: updatedDoc.title,
+                      projectName,
+                      assignedBy: assignerName,
+                      dueDate: newB.due_date,
+                      taskUrl: updatedDoc.project_id
+                        ? `${frontendUrl}/ProjectDetail?id=${updatedDoc.project_id}&taskId=${updatedDoc._id}`
+                        : `${frontendUrl}/Dashboard?taskId=${updatedDoc._id}`
+                    }
+                  });
+                  console.log(`[DEBUG_BLOCKER] Email successful to ${assigneeEmail}`);
+
+                  console.log(`[DEBUG_BLOCKER] Creating in-app notification...`);
+                  // B. Send In-App Notification
+                  const recipientEmail = assigneeEmail.toLowerCase().trim();
+                  const notification = await Models.Notification.create({
+                    tenant_id: updatedDoc.tenant_id,
+                    recipient_email: recipientEmail,
+                    type: 'blocker_assignment',
+                    title: 'Assigned to Blocker',
+                    message: `You have been assigned to resolve a blocker: "${newB.title}" in task "${updatedDoc.title}"`,
+                    entity_type: 'task',
+                    entity_id: updatedDoc._id,
+                    project_id: updatedDoc.project_id,
+                    category: 'general',
+                    read: false,
+                    sender_name: assignerName
+                  });
+                  console.log(`[DEBUG_BLOCKER] Notification created. Emitting socket...`);
+                  if (req.io) {
+                    req.io.to(updatedDoc.tenant_id).emit('new_notification', notification);
+                    console.log(`[DEBUG_BLOCKER] Socket emitted.`);
+                  } else {
+                    console.log(`[DEBUG_BLOCKER] Warning: req.io is undefined!`);
+                  }
+                  console.log(`[BlockerNotification] Sent to ${assigneeEmail}`);
+
+                } catch (blockErr) {
+                  console.error(`[DEBUG_BLOCKER] FATAL ERROR sending blocked_by notification to ${assigneeEmail}: `, blockErr);
+                }
+              }
+            }
+          }
 
         } catch (error) {
-          console.error('Failed to send task/subtask assignment emails:', error);
+          console.error('Failed to send task/subtask/blocker assignment emails:', error);
           // Email failure does not affect task assignment updates
         }
       });

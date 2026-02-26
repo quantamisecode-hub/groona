@@ -142,4 +142,113 @@ router.post('/trigger-velocity-alert', async (req, res) => {
     }
 });
 
+// POST /api/notifications/:id/acknowledge
+router.post('/:id/acknowledge', require('../middleware/auth'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`[Notification Acknowledge] Attempting to acknowledge: ${id}`);
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ error: 'Invalid notification ID format' });
+        }
+
+        const Notification = mongoose.model('Notification');
+        const ProjectActivity = mongoose.model('ProjectActivity');
+        const User = mongoose.model('User');
+        const Project = mongoose.model('Project');
+
+        const notification = await Notification.findById(id);
+        if (!notification) {
+            console.warn(`[Notification Acknowledge] Notification not found: ${id}`);
+            return res.status(404).json({ error: 'Notification not found' });
+        }
+
+        // 1. Mark notification as acknowledged
+        notification.acknowledged = true;
+        notification.acknowledged_at = new Date();
+        notification.acknowledged_by = req.user.id;
+        notification.read = true;
+        notification.status = 'ACKNOWLEDGED';
+        await notification.save();
+
+        // 2. Save audit activity
+        try {
+            await ProjectActivity.create({
+                project_id: notification.project_id,
+                user_id: req.user.id,
+                type: "alert_acknowledged",
+                message: "PM acknowledged rework alert",
+                created_at: new Date()
+            });
+        } catch (activityError) {
+            console.error('[Notification Acknowledge] Failed to log activity:', activityError.message);
+        }
+
+        // 3. Notify admins for this tenant
+        try {
+            const acknowledgingUser = await User.findById(req.user.id);
+            const isAcknowledgerAdmin = acknowledgingUser && ['admin', 'owner'].includes(acknowledgingUser.role);
+
+            console.log(`[Notification Acknowledge] Is Acknowledger Admin: ${isAcknowledgerAdmin}`);
+
+            // Requirement: If an admin (who is also a PM) acknowledges, don't notify any other PMs/Admins.
+            // Only notify admins when a regular PM (non-admin) acknowledges.
+            if (!isAcknowledgerAdmin) {
+                // Find admins or owners to notify (excluding the person who acknowledged AND the PM who owned the alert)
+                const adminQuery = {
+                    role: { $in: ['admin', 'owner'] },
+                    status: 'active',
+                    _id: { $nin: [req.user.id, notification.user_id] }
+                };
+
+                // Add tenant filter if present
+                if (notification.tenant_id) {
+                    adminQuery.tenant_id = notification.tenant_id;
+                }
+
+                const admins = await User.find(adminQuery);
+
+                console.log(`[Notification Acknowledge] Found ${admins.length} admins to notify. Tenant: ${notification.tenant_id}, Project: ${notification.project_id}`);
+
+                const project = await Project.findById(notification.project_id);
+                const pm = acknowledgingUser;
+
+                for (const admin of admins) {
+                    try {
+                        await Notification.create({
+                            tenant_id: notification.tenant_id,
+                            recipient_email: admin.email,
+                            user_id: admin._id,
+                            type: 'PM_ACKNOWLEDGED_ALERT',
+                            category: 'info',
+                            title: "PM acknowledged rework alert",
+                            message: `${pm?.full_name || pm?.name || pm?.email || 'A user'} acknowledged rework issue in ${project ? project.name : 'Unknown Project'}`,
+                            entity_type: 'project',
+                            entity_id: notification.project_id,
+                            project_id: notification.project_id,
+                            sender_name: pm?.full_name || 'System',
+                            read: false,
+                            created_date: new Date()
+                        });
+                        console.log(`[Notification Acknowledge] Created notification for admin: ${admin.email}`);
+                    } catch (noteError) {
+                        console.error(`[Notification Acknowledge] Failed to create note for ${admin.email}:`, noteError.message);
+                    }
+                }
+            }
+        } catch (notifyError) {
+            console.error('[Notification Acknowledge] Failed to notify admins:', notifyError.message);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Alert acknowledged successfully'
+        });
+
+    } catch (error) {
+        console.error('[Notification Acknowledge] CRITICAL Error:', error);
+        res.status(500).json({ error: 'Internal server error: ' + error.message });
+    }
+});
+
 module.exports = router;

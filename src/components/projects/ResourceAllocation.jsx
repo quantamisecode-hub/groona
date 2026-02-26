@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,9 +9,38 @@ import { Users, AlertTriangle, CheckCircle2, TrendingUp, Loader2 } from "lucide-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/components/shared/UserContext";
 
-export default function ResourceAllocation({ showSummaryOnly = false, showResourceListOnly = false }) {
+export default function ResourceAllocation({ showSummaryOnly = false, showResourceListOnly = false, highlightUserId = null }) {
   // Use global user context instead of local state to prevent loading spinner on every visit
   const { user: currentUser, effectiveTenantId } = useUser();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Temporary highlighting state
+  const [activeHighlightId, setActiveHighlightId] = useState(null);
+
+  useEffect(() => {
+    if (highlightUserId) {
+      setActiveHighlightId(highlightUserId);
+
+      // Scroll to the highlighted element quickly
+      setTimeout(() => {
+        const el = document.getElementById(`resource-card-${highlightUserId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+
+      // Remove highlighting after 8 seconds
+      const timer = setTimeout(() => {
+        setActiveHighlightId(null);
+        // Clean URL
+        const newParams = new URLSearchParams(searchParams);
+        if (newParams.has('highlightUser')) {
+          newParams.delete('highlightUser');
+          setSearchParams(newParams, { replace: true });
+        }
+      }, 8000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightUserId, searchParams, setSearchParams]);
 
   const { data: users = [] } = useQuery({
     queryKey: ['users', effectiveTenantId],
@@ -289,80 +319,97 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {resourceData.map((resource) => (
-                    <div
-                      key={resource.user.email}
-                      className="p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <Avatar className="h-10 w-10 flex-shrink-0">
-                            <AvatarImage src={resource.user.profile_image_url} />
-                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                              {getInitials(resource.user.full_name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-slate-900 truncate">{resource.user.full_name || 'Unknown User'}</p>
-                            <p className="text-sm text-slate-600 truncate">{resource.user.email}</p>
+                  {resourceData.map((resource) => {
+                    const isHighlighted = resource.user._id === activeHighlightId;
+                    const isCritical = isHighlighted && resource.rawWorkloadPercentage > 120;
+
+                    const cardClass = isCritical
+                      ? "p-4 rounded-lg border bg-red-50 hover:bg-red-100 border-red-200 transition-colors duration-1000 shadow-md"
+                      : isHighlighted
+                        ? "p-4 rounded-lg border bg-amber-100 hover:bg-amber-200 border-amber-300 transition-colors duration-1000 shadow-md"
+                        : "p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-shadow";
+
+                    return (
+                      <div
+                        key={resource.user.email}
+                        id={`resource-card-${resource.user._id}`}
+                        className={cardClass}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-10 w-10 flex-shrink-0 relative">
+                              {isHighlighted && (
+                                <div className="absolute -top-1 -right-1 z-10">
+                                  <AlertTriangle className={`h-4 w-4 animate-pulse ${isCritical ? 'text-red-600' : 'text-amber-600'}`} />
+                                </div>
+                              )}
+                              <AvatarImage src={resource.user.profile_image_url} />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                                {getInitials(resource.user.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900 truncate">{resource.user.full_name || 'Unknown User'}</p>
+                              <p className="text-sm text-slate-600 truncate">{resource.user.email}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                            <Badge variant="outline" className="whitespace-nowrap">
+                              {resource.activeTasks} Active Tasks
+                            </Badge>
+                            <Badge
+                              className={`${resource.workloadLevel === 'overloaded'
+                                ? 'bg-red-100 text-red-700 border-red-200'
+                                : resource.workloadLevel === 'high'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                  : resource.workloadLevel === 'underutilized'
+                                    ? 'bg-blue-100 text-blue-700 border-blue-200'
+                                    : 'bg-green-100 text-green-700 border-green-200'
+                                } border capitalize whitespace-nowrap`}
+                            >
+                              {resource.workloadLevel.replace('_', ' ')}
+                            </Badge>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                          <Badge variant="outline" className="whitespace-nowrap">
-                            {resource.activeTasks} Active Tasks
-                          </Badge>
-                          <Badge
-                            className={`${resource.workloadLevel === 'overloaded'
-                              ? 'bg-red-100 text-red-700 border-red-200'
-                              : resource.workloadLevel === 'high'
-                                ? 'bg-amber-100 text-amber-700 border-amber-200'
-                                : resource.workloadLevel === 'underutilized'
-                                  ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                  : 'bg-green-100 text-green-700 border-green-200'
-                              } border capitalize whitespace-nowrap`}
-                          >
-                            {resource.workloadLevel.replace('_', ' ')}
-                          </Badge>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-600">
+                              Workload Capacity ({resource.totalEstimatedHours.toFixed(1)}h / 40h)
+                            </span>
+                            <span className="font-semibold text-slate-900">
+                              {resource.rawWorkloadPercentage.toFixed(0)}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={resource.workloadPercentage}
+                            className="h-2"
+                            indicatorClassName={workloadColors[resource.workloadLevel]}
+                          />
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">
-                            Workload Capacity ({resource.totalEstimatedHours.toFixed(1)}h / 40h)
-                          </span>
-                          <span className="font-semibold text-slate-900">
-                            {resource.rawWorkloadPercentage.toFixed(0)}%
-                          </span>
-                        </div>
-                        <Progress
-                          value={resource.workloadPercentage}
-                          className="h-2"
-                          indicatorClassName={workloadColors[resource.workloadLevel]}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
-                        <div>
-                          <p className="text-xs text-slate-600">Active Tasks</p>
-                          <p className="text-lg font-bold text-slate-900">{resource.activeTasks}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-600">Completed</p>
-                          <p className="text-lg font-bold text-green-600">{resource.completedTasks}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-600">Projects</p>
-                          <p className="text-lg font-bold text-purple-600">{resource.projectCount}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-600">Sprints</p>
-                          <p className="text-lg font-bold text-indigo-600">{resource.sprintCount}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
+                          <div>
+                            <p className="text-xs text-slate-600">Active Tasks</p>
+                            <p className="text-lg font-bold text-slate-900">{resource.activeTasks}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600">Completed</p>
+                            <p className="text-lg font-bold text-green-600">{resource.completedTasks}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600">Projects</p>
+                            <p className="text-lg font-bold text-purple-600">{resource.projectCount}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600">Sprints</p>
+                            <p className="text-lg font-bold text-indigo-600">{resource.sprintCount}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

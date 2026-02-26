@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  TrendingUp, 
+import {
+  TrendingUp,
   TrendingDown,
   AlertCircle,
   CheckCircle2,
@@ -29,6 +29,19 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState("health_score");
   const [sortDirection, setSortDirection] = useState("desc");
+  const projectRefs = useRef({});
+
+  // Effect to handle deeplinking/scrolling to a specific project if highlightId is provided
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const highlightId = params.get('highlightId');
+
+    if (highlightId && projectRefs.current[highlightId]) {
+      setTimeout(() => {
+        projectRefs.current[highlightId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [projects]);
 
   // Calculate health score for each project
   const calculateHealthScore = (project) => {
@@ -65,14 +78,14 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
   // Calculate budget health
   const calculateBudgetHealth = (project) => {
     if (!project.budget || !project.actual_cost) return { status: 'unknown', variance: 0 };
-    
+
     const variance = ((project.actual_cost - project.budget) / project.budget) * 100;
     let status = 'good';
-    
+
     if (variance > 20) status = 'critical';
     else if (variance > 10) status = 'warning';
     else if (variance > 0) status = 'caution';
-    
+
     return { status, variance: variance.toFixed(1) };
   };
 
@@ -80,15 +93,15 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
   const enhancedProjects = projects.map(project => {
     const projectTasks = tasks.filter(t => t.project_id === project.id);
     const completedTasks = projectTasks.filter(t => t.status === 'completed').length;
-    const overdueTasks = projectTasks.filter(t => 
-      t.due_date && 
-      new Date(t.due_date) < new Date() && 
+    const overdueTasks = projectTasks.filter(t =>
+      t.due_date &&
+      new Date(t.due_date) < new Date() &&
       t.status !== 'completed'
     ).length;
-    
+
     const healthScore = calculateHealthScore(project);
     const budgetHealth = calculateBudgetHealth(project);
-    
+
     return {
       ...project,
       healthScore,
@@ -136,7 +149,7 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
   const criticalProjects = enhancedProjects.filter(p => p.healthScore < 40).length;
   const atRiskProjects = enhancedProjects.filter(p => p.healthScore >= 40 && p.healthScore < 60).length;
   const healthyProjects = enhancedProjects.filter(p => p.healthScore >= 80).length;
-  const budgetIssues = enhancedProjects.filter(p => 
+  const budgetIssues = enhancedProjects.filter(p =>
     p.budgetHealth.status === 'warning' || p.budgetHealth.status === 'critical'
   ).length;
 
@@ -291,8 +304,8 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
                       {project.deadline ? (
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="h-3 w-3 text-slate-400" />
-                          {new Date(project.deadline).toLocaleDateString('en-US', { 
-                            month: 'short', 
+                          {new Date(project.deadline).toLocaleDateString('en-US', {
+                            month: 'short',
                             day: 'numeric',
                             year: 'numeric'
                           })}
@@ -306,7 +319,7 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
               </TableBody>
             </Table>
           </div>
-          
+
           {filteredProjects.length === 0 && (
             <div className="text-center py-12">
               <Target className="h-12 w-12 text-slate-300 mx-auto mb-4" />

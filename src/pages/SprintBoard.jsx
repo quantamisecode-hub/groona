@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useUser } from "@/components/shared/UserContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ import {
 
 export default function SprintBoard() {
   const { user: currentUser, effectiveTenantId } = useUser();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedSprintId, setSelectedSprintId] = useState("");
@@ -78,6 +80,24 @@ export default function SprintBoard() {
   const [selectedMemberEmail, setSelectedMemberEmail] = useState("all");
   const queryClient = useQueryClient();
   const printRef = useRef(null); // You can keep this even if unused for now
+
+  const taskIdParam = searchParams.get('taskId');
+  const projectIdParam = searchParams.get('projectId');
+  const sprintIdParam = searchParams.get('sprintId');
+
+  // Deep Link Handling
+  React.useEffect(() => {
+    if (taskIdParam) setSelectedTaskId(taskIdParam);
+    if (projectIdParam && !selectedProjectId) setSelectedProjectId(projectIdParam);
+    if (sprintIdParam && !selectedSprintId) setSelectedSprintId(sprintIdParam);
+  }, [taskIdParam, projectIdParam, sprintIdParam, selectedProjectId, selectedSprintId]);
+
+  const handleCloseTaskDetail = () => {
+    setSelectedTaskId(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('taskId');
+    setSearchParams(newParams, { replace: true });
+  };
 
   const { tenant } = useUser();
 
@@ -2146,15 +2166,14 @@ export default function SprintBoard() {
             />
 
             {/* RENDER TASK DETAIL DIALOG WITH CALLBACK */}
-            <TaskDetailDialog
-              open={!!selectedTaskId}
-              onClose={() => setSelectedTaskId(null)}
-              taskId={selectedTaskId}
-              onTaskUpdate={() => {
-                refetchTasks();
-                refetchSprints();
-              }}
-            />
+            {(selectedTaskId || taskIdParam) && (
+              <TaskDetailDialog
+                open={!!selectedTaskId || !!taskIdParam}
+                onClose={handleCloseTaskDetail}
+                taskId={selectedTaskId || taskIdParam}
+                key="global-task-dialog-sprintboard"
+              />
+            )}
 
             {/* RENDER STORY DETAIL DIALOG */}
             <StoryDetailDialog
@@ -2280,10 +2299,10 @@ export default function SprintBoard() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </Tabs>
-        </div>
-      </div>
-    </OnboardingProvider>
+          </Tabs >
+        </div >
+      </div >
+    </OnboardingProvider >
   );
 }
 

@@ -78,7 +78,22 @@
         "timesheet_lock",
         "profile_incomplete",
         "USER_CONSISTENT",
-        "rework_improvement"
+        "rework_improvement",
+        "PM_OVERALLOCATION_RISK",
+        "PM_CRITICAL_UNDERUTILIZATION_ALERT",
+        "PM_HIGH_REWORK",
+        "PM_RUNAWAY_REWORK_ALARM",
+        "PM_CRITICAL_UNDERUTILIZATION_ALARM",
+        "pending_timesheet_alert",
+        "pending_pm_summary",
+        "PM_MULTIPLE_OVERDUE_TASKS",
+        "PM_PROJECT_HEALTH_RISK",
+        "PM_CRITICAL_PROJECT_HEALTH_RISK",
+        "blocker_assignment",
+        "subtask_assignment",
+        "PM_ACKNOWLEDGED_ALERT",
+        "PM_ALERT_REMINDER",
+        "PM_ALERT_ESCALATED"
       ],
       "description": "Type of notification"
     },
@@ -89,7 +104,8 @@
         "alert",
         "alarm",
         "advisory",
-        "action_request"
+        "action_request",
+        "info"
       ],
       "default": "general",
       "description": "Category/Severity of the notification"
@@ -167,6 +183,30 @@
     "link": {
       "type": "string",
       "description": "Optional deep link URL for navigation"
+    },
+    "acknowledged": {
+      "type": "boolean",
+      "default": false
+    },
+    "acknowledged_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "acknowledged_by": {
+      "type": "objectid",
+      "ref": "User"
+    },
+    "escalated_to_admin": {
+      "type": "boolean",
+      "default": false
+    },
+    "reminder_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional unstructured data for the notification"
     }
   },
   "required": [

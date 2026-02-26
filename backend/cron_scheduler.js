@@ -45,6 +45,7 @@ const SCRIPTS = [
     'check_team_utilization.js',
     'check_user_overload.js',
 
+    'rework_escalation_workflow.js'
 ];
 
 const runScript = (scriptName) => {

@@ -112,6 +112,20 @@ export default function Projects() {
     refetchInterval: 10000,
   });
 
+  const projectsRef = useRef({});
+
+  // Effect to handle deeplinking/scrolling to a specific project card
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const highlightId = params.get('highlightId');
+
+    if (highlightId && projectsRef.current[highlightId] && projects.length > 0) {
+      setTimeout(() => {
+        projectsRef.current[highlightId].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [projects.length, window.location.search]);
+
   const createProjectMutation = useMutation({
     mutationFn: async (projectData) => {
       const dataToCreate = {
@@ -399,14 +413,20 @@ export default function Projects() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-onboarding="projects-list">
-                  {filteredProjects.map(project => (
-                    <ProjectCard
-                      key={project.id}
-                      project={project}
-                      onDelete={() => handleDeleteProject(project)}
-                      termSingular={termSingular}
-                    />
-                  ))}
+                  {filteredProjects.map(project => {
+                    // Extract project ID safely
+                    const pId = project.id || project._id;
+                    return (
+                      <div key={pId} ref={el => projectsRef.current[pId] = el}>
+                        <ProjectCard
+                          project={project}
+                          onDelete={() => handleDeleteProject(project)}
+                          termSingular={termSingular}
+                          highlighted={new URLSearchParams(window.location.search).get('highlightId') === pId}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

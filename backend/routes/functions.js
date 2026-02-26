@@ -31,7 +31,7 @@ const functionHandlers = {
     );
 
     const emailHtml = emailTemplate ? emailTemplate.replace('{{OTP}}', otp) : getDefaultTemplate(otp);
-    await sendEmail(email, "Your Aivora Verification Code", emailHtml);
+    await sendEmail({ to: email, subject: "Your Aivora Verification Code", html: emailHtml });
     return { success: true, message: "OTP sent" };
   },
 

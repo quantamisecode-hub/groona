@@ -359,6 +359,9 @@ export default function SubscriptionManagement() {
                   <CardDescription className="text-slate-500 line-clamp-2 min-h-[40px] leading-relaxed">
                     {plan.description}
                   </CardDescription>
+
+                  {/* Subscription Status Block */}
+                  {subDetails}
                 </CardHeader>
 
                 <CardContent className="flex-1 space-y-6 pt-4">

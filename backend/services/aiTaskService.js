@@ -30,17 +30,17 @@ function extractTaskInfo(messages) {
   // Look through recent messages to extract information
   // ONLY extract from USER messages, not assistant messages (to avoid capturing AI questions)
   const recentMessages = messages.slice(-10).reverse().filter(msg => msg.role === 'user');
-  
+
   for (const msg of recentMessages) {
     const content = msg.content || '';
     const contentLower = content.toLowerCase();
-    
+
     // First, try to extract from parentheses format: "Create a task (project,sprint,title,assignee,due date,estimate)"
     const parenMatch = content.match(/create\s+(?:a\s+)?task\s*\(([^)]+)\)/i);
     if (parenMatch) {
       const parts = parenMatch[1].split(',').map(p => p.trim()).filter(p => p.length > 0);
       console.log('[Task Service] Extracted from parentheses:', parts);
-      
+
       // Order: project, sprint, title, assignee, due date, estimate
       if (parts.length >= 1 && !taskInfo.project_name) {
         taskInfo.project_name = parts[0];
@@ -72,7 +72,7 @@ function extractTaskInfo(messages) {
         }
       }
     }
-    
+
     // Also try format without parentheses: "Create a task project,sprint,title,assignee,due date,estimate"
     if ((!taskInfo.project_name || !taskInfo.title) && contentLower.includes('create') && contentLower.includes('task')) {
       const commaMatch = content.match(/create\s+(?:a\s+)?task\s+([^,\n\(\)]+?)\s*,\s*([^,\n\(\)]+?)\s*,\s*([^,\n\(\)]+?)(?:\s*[,\n]|$)/i);
@@ -82,7 +82,7 @@ function extractTaskInfo(messages) {
         if (!taskInfo.title) taskInfo.title = commaMatch[3].trim();
       }
     }
-    
+
     // Extract task title
     if (!taskInfo.title) {
       const titleMatch = content.match(/(?:task title|title|task name|name of the task|create.*task.*named?)\s*[:\-]?\s*["']?([^"'\n\(\)]+)["']?/i);
@@ -97,7 +97,7 @@ function extractTaskInfo(messages) {
         }
       }
     }
-    
+
     // Extract project
     if (!taskInfo.project_name) {
       const projectMatch = content.match(/(?:project|in project|for project|belong to project)\s*[:\-]?\s*["']?([^"'\n]+)["']?/i);
@@ -105,7 +105,7 @@ function extractTaskInfo(messages) {
         taskInfo.project_name = projectMatch[1].trim();
       }
     }
-    
+
     // Extract sprint
     if (!taskInfo.sprint_name) {
       const sprintMatch = content.match(/(?:sprint|in sprint|for sprint)\s*[:\-]?\s*["']?([^"'\n]+)["']?/i);
@@ -113,7 +113,7 @@ function extractTaskInfo(messages) {
         taskInfo.sprint_name = sprintMatch[1].trim();
       }
     }
-    
+
     // Extract assignee
     if (!taskInfo.assignee_email && !taskInfo.assignee_name) {
       const assigneeMatch = content.match(/(?:assign to|assignee|assign|assigned to|give to)\s*[:\-]?\s*["']?([^"'\n]+)["']?/i);
@@ -127,7 +127,7 @@ function extractTaskInfo(messages) {
         }
       }
     }
-    
+
     // Extract due date
     if (!taskInfo.due_date) {
       const datePatterns = [
@@ -135,7 +135,7 @@ function extractTaskInfo(messages) {
         /(?:due date|due|deadline|by|on)\s*[:\-]?\s*([A-Za-z]+\s+[0-9]{1,2}(?:st|nd|rd|th)?\s*,?\s*[0-9]{0,4})/i,
         /(?:due date|due|deadline|by|on)\s*[:\-]?\s*([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i
       ];
-      
+
       for (const pattern of datePatterns) {
         const dateMatch = content.match(pattern);
         if (dateMatch && dateMatch[1]) {
@@ -147,7 +147,7 @@ function extractTaskInfo(messages) {
         }
       }
     }
-    
+
     // Extract estimated hours
     if (!taskInfo.estimated_hours) {
       const hoursMatch = content.match(/(?:estimate|estimated|hours|hrs|h)\s*[:\-]?\s*(\d+(?:\.\d+)?)/i);
@@ -155,7 +155,7 @@ function extractTaskInfo(messages) {
         taskInfo.estimated_hours = parseFloat(hoursMatch[1]);
       }
     }
-    
+
     // Extract priority
     if (content.match(/\b(urgent|high|medium|low)\s+priority\b/i)) {
       const priorityMatch = content.match(/\b(urgent|high|medium|low)\s+priority\b/i);
@@ -175,11 +175,11 @@ function extractTaskInfo(messages) {
  */
 function parseDate(dateStr) {
   if (!dateStr) return null;
-  
+
   try {
     let cleanDate = dateStr.trim().toLowerCase();
     cleanDate = cleanDate.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-    
+
     const monthNames = {
       'jan': 0, 'january': 0, 'feb': 1, 'february': 1,
       'mar': 2, 'march': 2, 'apr': 3, 'april': 3,
@@ -188,11 +188,11 @@ function parseDate(dateStr) {
       'oct': 9, 'october': 9, 'nov': 10, 'november': 10,
       'dec': 11, 'december': 11
     };
-    
+
     for (const [monthName, monthIndex] of Object.entries(monthNames)) {
       const pattern1 = new RegExp(`(\\d+)\\s+${monthName}(?:\\s+(\\d{4}))?`, 'i');
       const pattern2 = new RegExp(`${monthName}\\s+(\\d+)(?:\\s+(\\d{4}))?`, 'i');
-      
+
       let match = cleanDate.match(pattern1);
       if (match) {
         const day = parseInt(match[1]);
@@ -202,7 +202,7 @@ function parseDate(dateStr) {
           return date.toISOString().split('T')[0];
         }
       }
-      
+
       match = cleanDate.match(pattern2);
       if (match) {
         const day = parseInt(match[1]);
@@ -213,12 +213,12 @@ function parseDate(dateStr) {
         }
       }
     }
-    
+
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
       return date.toISOString().split('T')[0];
     }
-    
+
     return null;
   } catch (e) {
     return null;
@@ -233,18 +233,18 @@ function parseDate(dateStr) {
  */
 function findProjectByName(projects, projectName) {
   if (!projectName || !projects || projects.length === 0) return null;
-  
+
   const normalized = projectName.toLowerCase().trim();
-  
+
   let found = projects.find(p => p.name.toLowerCase().trim() === normalized);
   if (found) return found;
-  
-  found = projects.find(p => 
-    p.name.toLowerCase().includes(normalized) || 
+
+  found = projects.find(p =>
+    p.name.toLowerCase().includes(normalized) ||
     normalized.includes(p.name.toLowerCase())
   );
   if (found) return found;
-  
+
   return null;
 }
 
@@ -256,18 +256,18 @@ function findProjectByName(projects, projectName) {
  */
 function findSprintByName(sprints, sprintName) {
   if (!sprintName || !sprints || sprints.length === 0) return null;
-  
+
   const normalized = sprintName.toLowerCase().trim();
-  
+
   let found = sprints.find(s => s.name.toLowerCase().trim() === normalized);
   if (found) return found;
-  
-  found = sprints.find(s => 
-    s.name.toLowerCase().includes(normalized) || 
+
+  found = sprints.find(s =>
+    s.name.toLowerCase().includes(normalized) ||
     normalized.includes(s.name.toLowerCase())
   );
   if (found) return found;
-  
+
   return null;
 }
 
@@ -279,20 +279,20 @@ function findSprintByName(sprints, sprintName) {
  */
 function findUserByIdentifier(users, identifier) {
   if (!identifier || !users || users.length === 0) return null;
-  
+
   const normalized = identifier.toLowerCase().trim();
-  
+
   // Try email first
   let found = users.find(u => u.email.toLowerCase() === normalized);
   if (found) return found;
-  
+
   // Try name
-  found = users.find(u => 
+  found = users.find(u =>
     u.full_name?.toLowerCase().includes(normalized) ||
     normalized.includes(u.full_name?.toLowerCase())
   );
   if (found) return found;
-  
+
   return null;
 }
 
@@ -317,7 +317,7 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
   // Find project
   let projectId = taskInfo.project_id;
   let workspaceId = null;
-  
+
   if (!projectId && taskInfo.project_name) {
     const projects = await Models.Project.find({ tenant_id: tenantId });
     const project = findProjectByName(projects, taskInfo.project_name);
@@ -354,32 +354,32 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
   if (taskInfo.assignee_name) {
     // Get all team members for this tenant
     const users = await Models.User.find({ tenant_id: tenantId });
-    
+
     // STRICT: Find user by name only (no email matching for privacy)
     const normalizedName = taskInfo.assignee_name.toLowerCase().trim();
     const user = users.find(u => {
       const fullName = u.full_name?.toLowerCase().trim();
-      return fullName === normalizedName || 
-             fullName?.includes(normalizedName) ||
-             normalizedName.includes(fullName);
+      return fullName === normalizedName ||
+        fullName?.includes(normalizedName) ||
+        normalizedName.includes(fullName);
     });
-    
+
     if (!user) {
       // STRICT: Reject if name doesn't match any team member
       throw new Error(`The name "${taskInfo.assignee_name}" is not a team member, or you entered the wrong name. Please provide the correct team member name.`);
     }
-    
+
     // Only assign if user is found
     assignedTo = [user.email];
   } else if (taskInfo.assignee_email) {
     // If email is provided directly, validate it's a team member
     const users = await Models.User.find({ tenant_id: tenantId });
     const user = users.find(u => u.email.toLowerCase() === taskInfo.assignee_email.toLowerCase());
-    
+
     if (!user) {
       throw new Error(`The email provided does not belong to a team member. Please provide a valid team member name instead.`);
     }
-    
+
     assignedTo = [user.email];
   }
 
@@ -458,7 +458,7 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
   // Return task immediately, then send emails asynchronously
   // This ensures task creation is not affected by email failures
   const taskToReturn = task;
-  
+
   // Send email to assigned team members asynchronously after task is returned
   if (assignedTo && assignedTo.length > 0) {
     setImmediate(async () => {
@@ -469,21 +469,21 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
           console.warn('FRONTEND_URL not set in environment variables, skipping email notification');
           return;
         }
-        
+
         // Get project info
         const project = await Models.Project.findById(projectId);
         const projectName = project?.name || 'Unknown Project';
-        
+
         // Get assigner info
         const assigner = await Models.User.findOne({ email: userEmail });
         const assignerName = assigner?.full_name || userEmail;
-        
+
         // Get assignee info and send email
         for (const assigneeEmail of assignedTo) {
           try {
             const assignee = await Models.User.findOne({ email: assigneeEmail });
             const assigneeName = assignee?.full_name || assigneeEmail;
-            
+
             await emailService.sendEmail({
               to: assigneeEmail,
               templateType: 'task_assigned',
@@ -496,7 +496,7 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
                 assignedBy: assignerName,
                 dueDate: taskToReturn.due_date,
                 priority: taskToReturn.priority,
-                taskUrl: `${frontendUrl}/projects/${projectId}/tasks/${taskToReturn._id}`
+                taskUrl: `${frontendUrl}/ProjectDetail?id=${projectId}&taskId=${taskToReturn._id}`
               }
             });
           } catch (error) {
@@ -520,12 +520,12 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
  */
 function isTaskCreationConversation(messages) {
   if (!messages || messages.length === 0) return false;
-  
+
   const recentMessages = messages.slice(-5);
   const combinedText = recentMessages
     .map(m => (m.content || '').toLowerCase())
     .join(' ');
-  
+
   const taskKeywords = [
     'create task',
     'new task',
@@ -534,7 +534,7 @@ function isTaskCreationConversation(messages) {
     'task creation',
     'create a task'
   ];
-  
+
   return taskKeywords.some(keyword => combinedText.includes(keyword));
 }
 
@@ -546,30 +546,30 @@ function isTaskCreationConversation(messages) {
  */
 function checkTaskInfoComplete(taskInfo, projects = []) {
   const missing = [];
-  
+
   // Check project first (required)
-  const hasProject = taskInfo.project_id || 
+  const hasProject = taskInfo.project_id ||
     (taskInfo.project_name && typeof taskInfo.project_name === 'string' && taskInfo.project_name.trim() !== '');
   if (!hasProject && projects.length > 0) {
     missing.push('project');
   }
-  
+
   // Check title (required)
   if (!taskInfo.title || (typeof taskInfo.title === 'string' && taskInfo.title.trim() === '')) {
     missing.push('task title');
   }
-  
+
   const result = {
     isComplete: missing.length === 0,
     missing: missing
   };
-  
+
   console.log('[Task Service] Completeness check:', {
     taskInfo,
     missing,
     isComplete: result.isComplete
   });
-  
+
   return result;
 }
 

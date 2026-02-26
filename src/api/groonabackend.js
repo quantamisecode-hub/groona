@@ -172,7 +172,14 @@ export const groonabackend = {
     Tenant: createEntityHandler('Tenant'),
     Workspace: createEntityHandler('Workspace'),
     Activity: createEntityHandler('Activity'),
-    Notification: createEntityHandler('Notification'),
+    Notification: {
+      ...createEntityHandler('Notification'),
+      acknowledge: async (id) => {
+        const res = await api.post(`/notifications/${id}/acknowledge`);
+        return res.data;
+      }
+    },
+    ProjectActivity: createEntityHandler('ProjectActivity'),
     Client: createEntityHandler('Client'),
     Timesheet: createEntityHandler('Timesheet'),
     Comment: createEntityHandler('Comment'),

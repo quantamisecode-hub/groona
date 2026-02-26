@@ -3,7 +3,16 @@ import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ArrowLeft, Plus, Edit, Folder, Users, Building2, Briefcase } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Folder, Users, Building2, Briefcase, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PermissionGuard from "../components/shared/PermissionGuard";
@@ -35,12 +44,65 @@ export default function ProjectDetail() {
 
   // Robust URL Parameter Handling
   const projectId = searchParams.get('id');
+  const tabParam = searchParams.get('tab') || 'overview';
   const taskIdParam = searchParams.get('taskId');
   const commentIdParam = searchParams.get('commentId');
+  const highlightSprintId = searchParams.get('highlightSprintId');
 
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [showTeamManagement, setShowTeamManagement] = useState(false);
+
+  // Rework Popup State
+  const [showReworkPopup, setShowReworkPopup] = useState(searchParams.get('showReworkPopup') === 'true');
+  const notificationId = searchParams.get('notificationId');
+
+  const { data: reworkNotification } = useQuery({
+    queryKey: ['notification', notificationId],
+    queryFn: () => groonabackend.entities.Notification.get(notificationId),
+    enabled: !!notificationId && showReworkPopup,
+  });
+
+  useEffect(() => {
+    if (searchParams.get('showReworkPopup') === 'true') {
+      setShowReworkPopup(true);
+    }
+  }, [searchParams]);
+
+  const acknowledgeReworkMutation = useMutation({
+    mutationFn: (id) => groonabackend.entities.Notification.acknowledge(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task-notifications'] });
+      toast.success('Alert acknowledged');
+      clearReworkPopup();
+      // Redirect to rework focus
+      navigate(`/ProjectDetail?id=${projectId}&tab=timesheets&focus=rework`, { replace: true });
+    },
+    onError: (error) => {
+      toast.error('Failed to acknowledge alert');
+      console.error(error);
+    }
+  });
+
+  const clearReworkPopup = () => {
+    setShowReworkPopup(false);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('showReworkPopup');
+    newParams.delete('notificationId');
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const handleAcknowledge = () => {
+    if (notificationId) {
+      acknowledgeReworkMutation.mutate(notificationId);
+    } else {
+      clearReworkPopup();
+    }
+  };
+
+  const closeReworkPopup = () => {
+    clearReworkPopup();
+  };
 
   // State for Deep Linked Task
   const [selectedTaskId, setSelectedTaskId] = useState(taskIdParam || null);
@@ -502,7 +564,11 @@ export default function ProjectDetail() {
               })()}
             />
 
-            <Tabs defaultValue="overview" className="space-y-6">
+            <Tabs value={tabParam} onValueChange={(value) => {
+              const newParams = new URLSearchParams(searchParams);
+              newParams.set('tab', value);
+              setSearchParams(newParams, { replace: true });
+            }} className="space-y-6">
               <div className="border-b border-slate-200/60 -mx-6 md:-mx-8 px-6 md:px-8 mb-6 pt-4">
                 <TabsList className="w-full justify-start border-none rounded-none h-auto p-0 bg-transparent gap-6">
                   <TabsTrigger
@@ -638,7 +704,6 @@ export default function ProjectDetail() {
                       onDelete={(id) => deleteTaskMutation.mutate(id)}
                       onTaskClick={(taskId) => {
                         setSelectedTaskId(taskId);
-                        setShowTaskDetail(true);
                       }}
                       onStoryClick={(storyId) => {
                         setSelectedStoryId(storyId);
@@ -662,6 +727,7 @@ export default function ProjectDetail() {
                       sprints={sprints}
                       tasks={tasks}
                       tenantId={effectiveTenantId}
+                      highlightSprintId={highlightSprintId}
                       onCreateSprint={(data) => createSprintMutation.mutate(data)}
                       onUpdateSprint={(id, data) => updateSprintMutation.mutate({ id, data })}
                       onDeleteSprint={(id) => deleteSprintMutation.mutate(id)}
@@ -695,6 +761,87 @@ export default function ProjectDetail() {
                 </TabsContent>
               )}
             </Tabs>
+
+            <AlertDialog open={showReworkPopup} onOpenChange={closeReworkPopup}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                    <AlertTriangle className="h-5 w-5" />
+                    High Rework Trend Detected
+                  </AlertDialogTitle>
+                  <AlertDialogDescription className="text-slate-600 leading-relaxed pt-2 space-y-4">
+                    <p>
+                      The rework percentage for <strong>{project.name}</strong> has consistently exceeded reasonable thresholds in recent sprints.
+                    </p>
+
+                    {reworkNotification?.metadata?.recentSprints && (
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-100 max-h-[350px] overflow-y-auto">
+                        <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          Sprint Breakdown:
+                        </h4>
+                        <div className="space-y-6">
+                          {reworkNotification.metadata.recentSprints.map((s, idx) => (
+                            <div key={idx} className="space-y-3 pb-3 border-b border-red-200/50 last:border-0 last:pb-0">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="font-bold text-slate-800">{s.name}</span>
+                                <span className={`font-bold px-2 py-0.5 rounded-full text-xs ${s.rework > 25 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                                  {s.rework.toFixed(1)}% Rework
+                                </span>
+                              </div>
+
+                              {s.topTasks?.length > 0 && (
+                                <div className="pl-3 border-l-2 border-red-200">
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Impacted Tasks</p>
+                                  <div className="space-y-1">
+                                    {s.topTasks.map((t, tidx) => (
+                                      <div key={tidx} className="flex justify-between items-center text-[12px]">
+                                        <span className="text-slate-600 truncate max-w-[180px]" title={t.name}>{t.name}</span>
+                                        <span className="text-red-500 font-semibold">{t.hours}h</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {s.topUsers?.length > 0 && (
+                                <div className="pl-3 border-l-2 border-slate-200">
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Top Contributors</p>
+                                  <div className="space-y-1">
+                                    {s.topUsers.map((u, uidx) => (
+                                      <div key={uidx} className="flex justify-between items-center text-[12px]">
+                                        <span className="text-slate-600 truncate max-w-[180px]" title={u.name}>{u.name}</span>
+                                        <span className="text-slate-500 font-medium">{u.hours}h</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-sm italic">
+                      Please review team timesheets and quality processes to minimize further technical debt. Acknowledging this will log your review for auditing.
+                    </p>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleAcknowledge();
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    disabled={acknowledgeReworkMutation.isPending}
+                  >
+                    {acknowledgeReworkMutation.isPending ? 'Acknowledging...' : 'Acknowledge'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <CreateTaskModal
               open={showCreateTask}

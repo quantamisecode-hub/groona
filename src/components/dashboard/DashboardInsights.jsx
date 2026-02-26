@@ -65,6 +65,11 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
         return risks;
       };
 
+      const atRiskProjects = projects.filter(p => p.status === 'active').filter(p => {
+        const projectRisks = getProjectRisks(p);
+        return projectRisks.some(r => r.level === 'critical' || r.level === 'high');
+      });
+
       // Granular Risk Analysis
       let criticalRisks = 0;
       let highRisks = 0;
@@ -100,6 +105,14 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
       const inProgress = tasks.filter(t => t.status === 'in_progress').length;
       const hasBottleneck = inReview > 5 || inProgress > tasks.length * 0.4;
 
+      // Performance Trend
+      const last14Days = activities.filter(a => {
+        const activityDate = new Date(a.created_date);
+        const daysDiff = differenceInDays(now, activityDate);
+        return daysDiff <= 14 && daysDiff > 7 && a.action === 'completed' && a.entity_type === 'task';
+      });
+      // Use the trend calculated from tasks consistently
+
       // Health Score (0-100)
       const onTimeProjects = projects.filter(p => {
         if (!p.deadline || p.status === 'completed') return true;
@@ -123,29 +136,30 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
       let recommendation = "";
       let recommendationType = "success";
 
-      if (criticalRisks > 0) {
-        recommendation = `${criticalRisks} critical issues detected across active projects. Immediate intervention recommended.`;
-        recommendationType = "warning";
-      } else if (highRisks > 0) {
-        recommendation = `${highRisks} high-priority risks identified. Review project timelines and resource allocation.`;
+      if (atRiskProjects.length > 0) {
+        recommendation = `${atRiskProjects.length} project(s) need immediate attention - approaching deadline with low progress`;
         recommendationType = "warning";
       } else if (hasBottleneck) {
-        recommendation = `${inReview} tasks waiting for review. Accelerate approval process to maintain velocity.`;
+        recommendation = `${inReview} tasks in review - consider accelerating approval process`;
+        recommendationType = "info";
+      } else if (weeklyVelocity < 5) {
+        recommendation = "Low team velocity detected - consider redistributing workload or addressing blockers";
         recommendationType = "info";
       } else {
-        recommendation = "Project ecosystem is healthy. Team velocity is stable with no major blockers detected.";
+        recommendation = "All systems running smoothly! Team is on track with current goals";
         recommendationType = "success";
       }
 
       return {
         healthScore,
+        atRiskProjects: atRiskProjects.length,
         criticalRisks,
         highRisks,
         mediumRisks,
         weeklyVelocity,
         velocityTrend,
         hasBottleneck,
-        bottleneckCount: inReview,
+        bottleneckCount: inReview + inProgress,
         recommendation,
         recommendationType,
       };

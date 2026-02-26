@@ -1,6 +1,11 @@
+import React from "react";
+import { useSearchParams } from "react-router-dom";
 import ResourceAllocation from "../components/projects/ResourceAllocation";
 
 export default function ResourcePlanning() {
+  const [searchParams] = useSearchParams();
+  const highlightUser = searchParams.get('highlightUser');
+
   return (
     <div className="flex flex-col w-full h-full relative overflow-hidden">
       {/* Fixed Header Section */}
@@ -17,7 +22,7 @@ export default function ResourcePlanning() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50/50">
         <div className="p-3 pb-24">
-          <ResourceAllocation showResourceListOnly={true} />
+          <ResourceAllocation showResourceListOnly={true} highlightUserId={highlightUser} />
         </div>
       </div>
     </div>

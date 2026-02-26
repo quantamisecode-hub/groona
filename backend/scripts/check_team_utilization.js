@@ -282,9 +282,13 @@ async function checkTeamUtilization() {
                         }
                     }
 
-                    // Remove explicit "Broadcast to all Admins" to respect user request: "pertular project manager only"
+                    // User Request: Notify Admin as well
+                    const adminUsers = await User.find({ role: 'admin', status: 'active' });
 
-                    // Fallback to Owner/Admin ONLY if no PM found
+                    // Combine PMs and Admins
+                    recipients = [...recipients, ...adminUsers];
+
+                    // Fallback to Owner ONLY if no PM or Admin found
                     if (recipients.length === 0) {
                         // Check Tenant Owner
                         if (project.tenant_id) {
@@ -316,7 +320,8 @@ async function checkTeamUtilization() {
                             type: 'PM_CRITICAL_UNDERUTILIZATION_ALARM',
                             category: 'alarm', // Severity ALARM
                             title: '🚨 Critical Underutilization',
-                            message: `🚨 Critical underutilization detected for ${project.name} (${stat30Days.percentage.toFixed(0)}% for 30 days). Project efficiency is at risk.`,
+                            message: `🚨 Critical underutilization detected for ${project.name} (${stat30Days.percentage.toFixed(0)}% over 30 days). Project efficiency may be impacted. Review and redistribute tasks.`,
+                            system_action: "Require utilization explanation",
                             entity_type: 'project',
                             entity_id: project._id,
                             project_id: project._id,

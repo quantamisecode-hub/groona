@@ -135,6 +135,10 @@
       "type": "boolean",
       "default": false
     },
+    "commitments_frozen": {
+      "type": "boolean",
+      "default": false
+    },
     "health_score": {
       "type": "number",
       "minimum": 0,

@@ -283,18 +283,15 @@ export default function AskAIInsights({ projects, tasks }) {
         }
         currentY += lineHeight;
       });
-
       // Render the normal part (after colon) if it exists
       if (afterColon) {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(50, 50, 50);
-
         // If the bold part didn't wrap, continue on same line
         if (boldLines.length === 1 && lastBoldLineWidth < maxWidth - 5) {
           // Continue on same line
           const remainingWidth = maxWidth - lastBoldLineWidth;
           const normalLines = doc.splitTextToSize(afterColon, remainingWidth);
-
           normalLines.forEach((line, index) => {
             if (index === 0) {
               // First line continues on same line as bold text
@@ -316,7 +313,6 @@ export default function AskAIInsights({ projects, tasks }) {
         } else {
           // Bold part wrapped, so normal text starts on new line
           const normalLines = doc.splitTextToSize(afterColon, maxWidth);
-
           normalLines.forEach((line) => {
             if (currentY > doc.internal.pageSize.getHeight() - 20) {
               doc.addPage();
@@ -347,7 +343,6 @@ export default function AskAIInsights({ projects, tasks }) {
     const lines = doc.splitTextToSize(processedText, maxWidth);
     let currentY = y;
     const lineHeight = fontSize * 0.45;
-
     lines.forEach((line) => {
       if (currentY > doc.internal.pageSize.getHeight() - 20) {
         doc.addPage();
@@ -377,7 +372,6 @@ export default function AskAIInsights({ projects, tasks }) {
   const downloadPDF = async (report) => {
     try {
       toast.info('Generating PDF...');
-
       const doc = new jsPDF('p', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -432,7 +426,6 @@ export default function AskAIInsights({ projects, tasks }) {
         }
 
         const trimmedLine = line.trim();
-
         // Check if we're running out of space - stop if near bottom
         if (yPos > pageHeight - margin - 20) {
           break; // Stop adding content if we're near the bottom
@@ -460,13 +453,11 @@ export default function AskAIInsights({ projects, tasks }) {
         } else if (trimmedLine.match(/^[-*+]\s+/)) {
           const bulletText = trimmedLine.replace(/^[-*+]\s+/, '');
           const bulletX = margin + bulletIndent;
-
           // Draw bullet - compressed
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(50, 50, 50);
           doc.text('•', margin, yPos);
-
           // Render bullet text with formatting - compressed font
           yPos = addFormattedText(doc, bulletText, bulletX, yPos, contentWidth - bulletIndent, 8, false, true);
           yPos += 1.5;
@@ -477,13 +468,11 @@ export default function AskAIInsights({ projects, tasks }) {
             const number = match[1];
             const listText = match[2];
             const listX = margin + bulletIndent;
-
             // Draw number
             doc.setFontSize(8);
             doc.setFont("helvetica", "bold");
             doc.setTextColor(50, 50, 50);
             doc.text(`${number}.`, margin, yPos);
-
             // Render list text with formatting - compressed
             yPos = addFormattedText(doc, listText, listX, yPos, contentWidth - bulletIndent, 8, false, true);
             yPos += 1.5;
@@ -500,7 +489,6 @@ export default function AskAIInsights({ projects, tasks }) {
 
       // Compress and save
       const pdfBlob = doc.output('blob');
-
       // Create download link
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -511,7 +499,6 @@ export default function AskAIInsights({ projects, tasks }) {
       a.click();
       window.URL.revokeObjectURL(url);
       a.remove();
-
       toast.success('PDF downloaded successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -636,7 +623,6 @@ Keep it extremely brief and focused.`;
           const maxReportLength = 800000; // 800KB limit
           let reportContentToSave = result;
           let wasTruncated = false;
-
           if (result.length > maxReportLength) {
             reportContentToSave = result.substring(0, maxReportLength) + '\n\n---\n\n**Note:** This report was truncated due to size limitations. The full report content is available in the AI report display above.';
             wasTruncated = true;
@@ -684,7 +670,6 @@ Keep it extremely brief and focused.`;
             statusText: error.response?.statusText,
             response: error.response?.data
           });
-
           // If still getting 413, try with even smaller content
           if (error.response?.status === 413) {
             try {

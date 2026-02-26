@@ -65,16 +65,31 @@ export default function NotificationBell() {
   const handleNotificationClick = (notification) => {
     markAsReadMutation.mutate(notification.id);
 
-    if (notification.entity_type === 'task' || notification.entity_type === 'project') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const currentId = urlParams.get('id');
+    // 1. Check for specific link/deep_link (highest priority)
+    if (notification.link || notification.deep_link) {
+      navigate(notification.link || notification.deep_link);
+      return;
+    }
 
-      if (notification.entity_type === 'project') {
-        navigate(`${createPageUrl("ProjectDetail")}?id=${notification.entity_id}`);
-      } else if (notification.entity_type === 'task') {
-        // We need to find the project_id for the task
-        // For now, just mark as read
+    // 2. Navigation based on project_id and entity context
+    if (notification.project_id) {
+      let targetUrl = `${createPageUrl("ProjectDetail")}?id=${notification.project_id}`;
+
+      if (notification.entity_type === 'task' && notification.entity_id) {
+        targetUrl += `&taskId=${notification.entity_id}`;
       }
+
+      // Handle comment/mention deep linking
+      if (notification.type === 'comment_added' || notification.type === 'mention') {
+        const commentId = notification.comment_id || notification.id;
+        targetUrl += `&commentId=${commentId}`;
+      }
+
+      navigate(targetUrl);
+    } else if (notification.entity_type === 'project' && notification.entity_id) {
+      navigate(`${createPageUrl("ProjectDetail")}?id=${notification.entity_id}`);
+    } else if (notification.entity_type === 'leave') {
+      navigate('/PlannedLeaves?tab=my-leaves');
     }
   };
 

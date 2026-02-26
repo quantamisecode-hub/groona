@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Code, Megaphone, Check } from "lucide-react";
+import { Code, Megaphone, Check, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function CompanyTypeStep({ tenant, user, onNext }) {
   const [selectedType, setSelectedType] = useState(null);
@@ -15,47 +15,21 @@ export default function CompanyTypeStep({ tenant, user, onNext }) {
       id: "SOFTWARE",
       icon: Code,
       title: "Software Development",
-      description: "Agile workflows, sprints, story points, and developer tools",
-      features: [
-        "Sprint planning & velocity tracking",
-        "Story points & burndown charts",
-        "Code review integration",
-        "Developer-focused analytics"
-      ],
-      color: "from-blue-500 to-cyan-500"
+      description: "Agile workflows, sprints, and code reviews.",
+      features: ["Sprints & Velocity", "Story Points", "Code Integration"]
     },
     {
       id: "MARKETING",
       icon: Megaphone,
       title: "Marketing Agency",
-      description: "Campaign management, content pipelines, and client deliverables",
-      features: [
-        "Campaign planning & tracking",
-        "Content approval workflows",
-        "Client collaboration tools",
-        "Campaign performance metrics"
-      ],
-      color: "from-purple-500 to-pink-500"
+      description: "Campaigns, content pipelines, and creative assets.",
+      features: ["Campaign Tracking", "Approval Flows", "Client Portals"]
     }
   ];
 
-  const handleSelect = (type) => {
-    setSelectedType(type);
-  };
-
   const handleNext = () => {
-    // Validate required fields
-    if (!selectedType) {
-      return;
-    }
-    if (!companyName.trim()) {
-      return;
-    }
-    if (!workspaceName.trim()) {
-      return;
-    }
-    
-    onNext({ 
+    if (!selectedType || !companyName.trim() || !workspaceName.trim()) return;
+    onNext({
       company_type: selectedType,
       company_name: companyName.trim(),
       workspace_name: workspaceName.trim()
@@ -63,118 +37,123 @@ export default function CompanyTypeStep({ tenant, user, onNext }) {
   };
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="w-full space-y-12">
       {/* Header */}
-      <div className="text-center space-y-3">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900">
-          What type of company are you?
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+          Tell us about your <span className="text-blue-600">organization.</span>
         </h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          We'll customize your workspace with the right tools and terminology for your industry
+        <p className="text-slate-500 text-xl max-w-2xl">
+          We'll customize your experience with the right tools and terminology for your industry.
         </p>
-      </div>
+      </motion.div>
 
-      {/* Company Type Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6">
+      {/* Simplified Selection Cards - Wider Grid */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="grid grid-cols-1 xl:grid-cols-2 gap-6"
+      >
         {companyTypes.map((type) => (
-          <Card
+          <motion.button
             key={type.id}
-            className={`cursor-pointer transition-all ${
-              selectedType === type.id
-                ? "ring-2 ring-blue-500 shadow-lg scale-105"
-                : "hover:shadow-md hover:scale-102"
-            }`}
-            onClick={() => handleSelect(type.id)}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setSelectedType(type.id)}
+            className={`flex flex-col text-left p-6 rounded-2xl border-2 transition-all duration-200 relative overflow-hidden group ${selectedType === type.id
+              ? "border-blue-600 bg-blue-50/30"
+              : "border-slate-100 hover:border-slate-200 bg-white"
+              }`}
           >
-            <CardContent className="p-6 space-y-4">
-              {/* Icon & Title */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-lg bg-gradient-to-br ${type.color} flex items-center justify-center`}>
-                    <type.icon className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg text-slate-900">{type.title}</h3>
-                    <p className="text-sm text-slate-600 mt-1">{type.description}</p>
-                  </div>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors ${selectedType === type.id ? "bg-blue-600 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600"
+              }`}>
+              <type.icon className="w-6 h-6" />
+            </div>
+
+            <h3 className="font-bold text-slate-900 mb-1">{type.title}</h3>
+            <p className="text-sm text-slate-500 leading-snug mb-4">{type.description}</p>
+
+            <ul className="space-y-2 mt-auto">
+              {type.features.map((f, i) => (
+                <li key={i} className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+                  <div className={`w-1 h-1 rounded-full ${selectedType === type.id ? "bg-blue-600" : "bg-slate-300"}`} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            {selectedType === type.id && (
+              <motion.div
+                layoutId="active-selection"
+                className="absolute top-4 right-4"
+              >
+                <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
                 </div>
-                
-                {selectedType === type.id && (
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                      <Check className="h-5 w-5 text-white" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Features List */}
-              <div className="space-y-2 pt-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  Included Features
-                </p>
-                <ul className="space-y-2">
-                  {type.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+              </motion.div>
+            )}
+          </motion.button>
         ))}
-      </div>
+      </motion.div>
 
-      {/* Company Name and Workspace Name Inputs */}
-      <div className="space-y-4 pt-4 max-w-2xl mx-auto">
-        <div className="space-y-2">
-          <Label htmlFor="companyName" className="text-sm font-semibold">
-            Company Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="companyName"
-            placeholder="Enter your company name"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            required
-            className="w-full"
-          />
-          <p className="text-xs text-slate-500">
-            This will be your organization name
-          </p>
+      {/* Form Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="space-y-6 pt-2"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="space-y-2 text-left">
+            <Label htmlFor="companyName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+              Organization Name
+            </Label>
+            <Input
+              id="companyName"
+              placeholder="e.g. Acme Corp"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              className="h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all"
+            />
+          </div>
+
+          <div className="space-y-2 text-left">
+            <Label htmlFor="workspaceName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+              Workspace Identifier
+            </Label>
+            <Input
+              id="workspaceName"
+              placeholder="e.g. General"
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+              className="h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all"
+            />
+          </div>
         </div>
+      </motion.div>
 
-        <div className="space-y-2">
-          <Label htmlFor="workspaceName" className="text-sm font-semibold">
-            Workspace Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="workspaceName"
-            placeholder="Enter your workspace name"
-            value={workspaceName}
-            onChange={(e) => setWorkspaceName(e.target.value)}
-            required
-            className="w-full"
-          />
-          <p className="text-xs text-slate-500">
-            Give your workspace a name to help organize your projects and team
-          </p>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-center gap-3 pt-4">
+      {/* Navigation */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="pt-6 border-t border-slate-100 flex items-center justify-end"
+      >
         <Button
           onClick={handleNext}
           disabled={!selectedType || !companyName.trim() || !workspaceName.trim()}
           size="lg"
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-10 h-14 font-semibold group"
         >
-          Continue with {selectedType === "SOFTWARE" ? "Software Development" : selectedType === "MARKETING" ? "Marketing Agency" : "Selected Option"}
+          Continue
+          <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </Button>
-      </div>
+      </motion.div>
     </div>
   );
 }

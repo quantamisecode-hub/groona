@@ -47,7 +47,6 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
     // Predictions using different methods
     const taskBasedDays = velocity > 0 ? Math.ceil(remainingTasks / velocity) : remainingTasks * 2;
     const progressBasedDays = progressRate > 0 ? Math.ceil(remainingProgress / progressRate) : 60;
-
     // Smart weighted prediction (consider both task count and progress)
     let estimatedDays;
     if (remainingTasks === 0 && progress >= 100) {
@@ -85,12 +84,10 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
     let status = 'on-track';
     let message = 'Project is progressing well';
     let daysBuffer = 0;
-
     if (project.deadline) {
       const deadline = new Date(project.deadline);
       const daysUntilDeadline = differenceInDays(deadline, now);
       daysBuffer = daysUntilDeadline - estimatedDays;
-
       if (daysBuffer < -7) {
         status = 'critical';
         message = `Predicted to finish ${Math.abs(daysBuffer)} days after deadline - immediate action required`;
@@ -115,7 +112,6 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
       const daysDiff = differenceInDays(now, activityDate);
       return daysDiff <= 7 && a.action === 'completed' && a.entity_type === 'task';
     });
-
     const last14To7Days = activities.filter(a => {
       const activityDate = new Date(a.created_date);
       const daysDiff = differenceInDays(now, activityDate);
@@ -125,7 +121,6 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
     const recentWeekVelocity = last7Days.length;
     const previousWeekVelocity = last14To7Days.length;
     let velocityTrend = 'stable';
-
     if (recentWeekVelocity > previousWeekVelocity * 1.2) {
       velocityTrend = 'accelerating';
     } else if (recentWeekVelocity < previousWeekVelocity * 0.8) {

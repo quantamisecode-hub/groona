@@ -4,7 +4,7 @@ import SprintsListPage from "./SprintsListPage";
 // Wrapper to maintain compatibility but use the new SprintsListPage
 export default function SprintManagement(props) {
   return (
-    <SprintsListPage 
+    <SprintsListPage
       projectId={props.projectId}
       sprints={props.sprints}
       tasks={props.tasks}

@@ -152,6 +152,30 @@
       },
       "description": "List of subtasks"
     },
+    "blocked_by": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "completed": {
+            "type": "boolean",
+            "default": false
+          },
+          "assigned_to": {
+            "type": "string",
+            "description": "Email of assignee"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "description": "Standalone blocked-by dependencies"
+    },
     "custom_fields": {
       "type": "object",
       "description": "Custom fields for flexible task data"

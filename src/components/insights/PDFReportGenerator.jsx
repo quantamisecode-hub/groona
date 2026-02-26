@@ -61,7 +61,6 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
     doc.setFontSize(16);
     doc.setTextColor(50, 50, 50);
     doc.text(companyName || 'Organization', pageWidth - margin, y + 8, { align: 'right' });
-
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
@@ -160,12 +159,10 @@ export const generateBrandedDocumentPDF = async (htmlContent, metadata) => {
             doc.setFont("helvetica", "italic");
             doc.setTextColor(80, 80, 80);
             const lines = doc.splitTextToSize(textContent, contentWidth - 10);
-
             const height = (lines.length * 5);
             doc.setDrawColor(200, 200, 200);
             doc.setLineWidth(1);
             doc.line(margin, y, margin, y + height);
-
             doc.text(lines, margin + 5, y + 4);
             y += height + 8;
         }
@@ -198,7 +195,6 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(50, 50, 50);
-
         let x = margin + 2;
         doc.text("Date", x, y + 5); x += 25;
         doc.text("Project", x, y + 5); x += 40;
@@ -225,7 +221,6 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
 
     const totalHours = timesheets.reduce((acc, t) => acc + (t.total_minutes || 0), 0) / 60;
     const billableHours = timesheets.filter(t => t.is_billable).reduce((acc, t) => acc + (t.total_minutes || 0), 0) / 60;
-
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.1);
     doc.line(margin, y, pageWidth - margin, y);
@@ -276,7 +271,6 @@ export const generateTimesheetReportPDF = (timesheets, filters) => {
         doc.setTextColor(0, 0, 0);
 
         y += 7;
-
         if ((index + 1) % 5 === 0) {
             doc.setDrawColor(240, 240, 240);
             doc.line(margin, y - 4, pageWidth - margin, y - 4);
@@ -320,12 +314,10 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
         doc.text(`${label}:`, margin + xOffset, y);
-
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
         const valStr = value !== undefined && value !== null ? String(value) : "N/A";
         doc.text(valStr, margin + xOffset + 35, y);
-
         if (!isInline) y += 6;
     };
 
@@ -334,7 +326,6 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
     doc.setTextColor(79, 70, 229);
     doc.text("Project Summary Report", margin, y);
     y += 10;
-
     doc.setFontSize(16);
     doc.setTextColor(50, 50, 50);
     doc.text(project.name, margin, y);
@@ -364,12 +355,10 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
-
         const teamNames = analytics.assignedUsers.map(email => {
             const profile = userMap[email];
             return profile ? `${profile.name} (${profile.title})` : email;
         }).join(", ");
-
         const splitTeam = doc.splitTextToSize(teamNames, contentWidth);
         checkPageBreak(splitTeam.length * 5);
         doc.text(splitTeam, margin, y);
@@ -388,12 +377,10 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
         analytics.recentActivities.slice(0, 8).forEach(activity => {
             checkPageBreak(12);
             const dateStr = format(new Date(activity.created_date), 'MMM d, HH:mm');
-
             doc.setFont("helvetica", "bold");
             doc.setTextColor(50, 50, 50);
             doc.text(`•  ${activity.user_name} ${activity.action} ${activity.entity_type}`, margin, y);
             y += 4;
-
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
             const detail = activity.entity_name || "";
@@ -410,7 +397,6 @@ export const generateProjectReportPDF = (project, analytics, aiReport, userMap =
     if (aiReport) {
         doc.addPage();
         y = 20;
-
         doc.setFont("helvetica", "bold");
         doc.setFontSize(18);
         doc.setTextColor(79, 70, 229);
@@ -506,14 +492,12 @@ export const generateSprintReportPDF = (sprint, tasks, project) => {
     doc.setTextColor(100, 100, 100);
     doc.text(`Project: ${project?.name || 'Unknown'}`, margin, y);
     y += 6;
-
     if (sprint.start_date && sprint.end_date) {
         const start = format(new Date(sprint.start_date), 'MMM d');
         const end = format(new Date(sprint.end_date), 'MMM d, yyyy');
         doc.text(`Duration: ${start} - ${end}`, margin, y);
         y += 6;
     }
-
     doc.text(`Generated on: ${format(new Date(), 'MMM d, yyyy HH:mm')}`, margin, y);
     y += 12;
 

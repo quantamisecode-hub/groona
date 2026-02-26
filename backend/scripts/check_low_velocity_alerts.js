@@ -19,6 +19,7 @@ async function checkAndAlertLowVelocity() {
         const Notification = mongoose.model('Notification');
         const ProjectUserRole = mongoose.model('ProjectUserRole');
         const User = mongoose.model('User');
+        const Project = mongoose.model('Project');
         const emailService = require('../services/emailService');
 
         // 1. Get all unique projects that have velocity data
@@ -29,36 +30,49 @@ async function checkAndAlertLowVelocity() {
 
         // 2. Check each project for consecutive low velocity
         for (const projectId of projectsWithVelocity) {
-            // Fetch last 2 completed/active sprints (even with 0 committed points)
-            const lastSprints = await SprintVelocity.find({
+            // Fetch all velocity records for the project, sorted by latest end date and creation
+            const allVelocityRecords = await SprintVelocity.find({
                 project_id: projectId
-            })
-                .sort({ sprint_end_date: -1, created_date: -1 }) // Latest first
-                .limit(2);
+            }).sort({ sprint_end_date: -1, created_date: -1 });
 
-            if (lastSprints.length < 2) {
-                // Need at least 2 sprints to establish a pattern
+            if (allVelocityRecords.length === 0) {
                 continue;
             }
 
-            const [latestSprint, previousSprint] = lastSprints;
+            // Deduplicate to get the latest record per unique sprint
+            const uniqueSprintsMap = new Map();
+            for (const record of allVelocityRecords) {
+                if (!uniqueSprintsMap.has(record.sprint_id)) {
+                    uniqueSprintsMap.set(record.sprint_id, record);
+                }
+            }
 
-            // Calculate Average Accuracy
-            const averageAccuracy = (latestSprint.accuracy + previousSprint.accuracy) / 2;
+            const lastSprints = Array.from(uniqueSprintsMap.values()).slice(0, 2);
 
-            // Check if Average is below 85%
-            if (averageAccuracy < 85) {
-                console.log(`⚠️  Project ${projectId} has low average velocity (${averageAccuracy.toFixed(1)}%):`);
-                console.log(`   - ${latestSprint.sprint_name}: ${latestSprint.accuracy.toFixed(1)}%`);
-                console.log(`   - ${previousSprint.sprint_name}: ${previousSprint.accuracy.toFixed(1)}%`);
+            const latestSprint = lastSprints[0];
+            const previousSprint = lastSprints.length > 1 ? lastSprints[1] : null;
 
-                // Attach average stats to the record for use in alerts
-                latestSprint.avg_accuracy = averageAccuracy;
-                latestSprint.prev_accuracy = previousSprint.accuracy;
-                latestSprint.prev_sprint_name = previousSprint.sprint_name;
+            if (latestSprint.accuracy < 85) {
+                if (previousSprint && previousSprint.accuracy < 85) {
+                    console.log(`⚠️  Project ${projectId} has critically low velocity (<85%) for 2 consecutive sprints:`);
+                    console.log(`   - ${latestSprint.sprint_name}: ${latestSprint.accuracy.toFixed(1)}%`);
+                    console.log(`   - ${previousSprint.sprint_name}: ${previousSprint.accuracy.toFixed(1)}%`);
 
-                // Add the latest sprint to the alert list
-                lowVelocitySprints.push(latestSprint);
+                    latestSprint.alert_type = 'PM_CONSISTENT_VELOCITY_DROP';
+                    latestSprint.alert_category = 'alarm';
+                    latestSprint.prev_accuracy = previousSprint.accuracy;
+                    latestSprint.prev_sprint_name = previousSprint.sprint_name;
+
+                    lowVelocitySprints.push(latestSprint);
+                } else {
+                    console.log(`⚠️  Project ${projectId} velocity for the latest sprint dropped below 85%:`);
+                    console.log(`   - ${latestSprint.sprint_name}: ${latestSprint.accuracy.toFixed(1)}%`);
+
+                    latestSprint.alert_type = 'PM_VELOCITY_DROP';
+                    latestSprint.alert_category = 'alert';
+
+                    lowVelocitySprints.push(latestSprint);
+                }
             }
         }
 
@@ -84,7 +98,7 @@ async function checkAndAlertLowVelocity() {
                 startOfDay.setHours(0, 0, 0, 0);
 
                 const existingAlert = await Notification.findOne({
-                    type: 'PM_VELOCITY_DROP',
+                    type: velocityRecord.alert_type,
                     project_id: velocityRecord.project_id,
                     'data.sprint_id': velocityRecord.sprint_id,
                     created_date: { $gt: startOfDay }
@@ -104,6 +118,14 @@ async function checkAndAlertLowVelocity() {
                 const sprint = await Sprint.findById(velocityRecord.sprint_id);
                 if (!sprint) {
                     console.log(`   ⚠️  Sprint not found in database, skipping...`);
+                    alertsFailed++;
+                    continue;
+                }
+
+                // Get project details
+                const project = await Project.findById(velocityRecord.project_id);
+                if (!project) {
+                    console.log(`   ⚠️  Project not found in database, skipping...`);
                     alertsFailed++;
                     continue;
                 }
@@ -139,6 +161,14 @@ async function checkAndAlertLowVelocity() {
                     continue;
                 }
 
+                // Apply System Actions: Freeze commitments if it's an ALARM
+                if (velocityRecord.alert_type === 'PM_CONSISTENT_VELOCITY_DROP') {
+                    await Project.findByIdAndUpdate(velocityRecord.project_id, {
+                        commitments_frozen: true
+                    });
+                    console.log(`   ❄️  System Action Executed: Project ${velocityRecord.project_id} commitments frozen.`);
+                }
+
                 // Send notifications to each recipient
                 for (const recipient of recipients) {
                     // Create in-app notification
@@ -146,10 +176,12 @@ async function checkAndAlertLowVelocity() {
                         tenant_id: velocityRecord.tenant_id,
                         recipient_email: recipient.email,
                         user_id: recipient._id,
-                        type: 'PM_VELOCITY_DROP',
-                        category: 'alert',
-                        title: '⚠️ Low Average Velocity Alert',
-                        message: `Project velocity average (${velocityRecord.avg_accuracy.toFixed(1)}%) is below 85% over the last 2 sprints. Latest: ${velocityRecord.accuracy.toFixed(1)}%, Previous: ${velocityRecord.prev_accuracy.toFixed(1)}%. Review required.`,
+                        type: velocityRecord.alert_type,
+                        category: velocityRecord.alert_category,
+                        title: velocityRecord.alert_type === 'PM_CONSISTENT_VELOCITY_DROP' ? '🚨 Consistent Low Velocity Alarm' : '⚠️ Low Velocity Alert',
+                        message: velocityRecord.alert_type === 'PM_CONSISTENT_VELOCITY_DROP'
+                            ? `**${project.name}** velocity is critically low (<85%) for 2 consecutive sprints. Latest: ${velocityRecord.accuracy.toFixed(1)}%, Previous: ${velocityRecord.prev_accuracy.toFixed(1)}%. Immediate review required.`
+                            : `**${project.name}** velocity dropped below 85% for the latest sprint. Latest: ${velocityRecord.accuracy.toFixed(1)}%. Review required.`,
                         entity_type: 'sprint',
                         entity_id: velocityRecord.sprint_id,
                         project_id: velocityRecord.project_id,
@@ -160,16 +192,20 @@ async function checkAndAlertLowVelocity() {
 
                     console.log(`   ✅ In-app notification created for ${recipient.email}`);
 
-                    // Send email notification
-                    try {
-                        await emailService.sendEmail({
-                            to: recipient.email,
-                            subject: `⚠️ Alert: Low Average Velocity (${velocityRecord.avg_accuracy.toFixed(1)}%)`,
-                            html: getAlertHtml(velocityRecord)
-                        });
-                        console.log(`   ✅ Email sent to ${recipient.email}`);
-                    } catch (emailErr) {
-                        console.error(`   ❌ Failed to send email to ${recipient.email}:`, emailErr.message);
+                    // Send email notification ONLY for ALARMs (2 consecutive sprints)
+                    if (velocityRecord.alert_type === 'PM_CONSISTENT_VELOCITY_DROP') {
+                        try {
+                            await emailService.sendEmail({
+                                to: recipient.email,
+                                subject: `🚨 Alarm: Consistent Low Velocity - ${project.name}`,
+                                html: getAlertHtml(velocityRecord, project)
+                            });
+                            console.log(`   ✅ Email sent to ${recipient.email}`);
+                        } catch (emailErr) {
+                            console.error(`   ❌ Failed to send email to ${recipient.email}:`, emailErr.message);
+                        }
+                    } else {
+                        console.log(`   ⏭️  Email skipped for ${recipient.email} (Only required for consecutive drops)`);
                     }
 
                     // Rate Limit safeguard: Wait 1s between emails
@@ -261,55 +297,51 @@ function getBaseTemplate(title, greeting, content) {
 }
 
 // Helper function to generate Email HTML
-function getAlertHtml(velocityRecord) {
+function getAlertHtml(velocityRecord, project) {
+    const isAlarm = velocityRecord.alert_type === 'PM_CONSISTENT_VELOCITY_DROP';
+    const alertTitle = isAlarm ? 'Consistent Low Velocity Detected' : 'Velocity Drop Detected';
+    const description = isAlarm
+        ? `The velocity for your project <strong>${project.name || 'Unknown Project'}</strong> is critically low (<85%) for 2 consecutive sprints. Immediate action is required.`
+        : `The velocity for your project <strong>${project.name || 'Unknown Project'}</strong> dropped below the 85% threshold for the latest sprint. Please review to prevent further drops.`;
+
     const content = `
-    <p style="${styles.text}">The average velocity for your project <strong>${velocityRecord.project_name || 'Unknown Project'}</strong> is below the expected threshold.</p>
+    <p style="${styles.text}">${description}</p>
     
     <div style="${styles.infoBox}">
       <div style="${styles.infoRow}">
-        <span style="${styles.label}">Average Accuracy:</span>
-        <span style="${styles.value}">
-            <strong style="color: #ef4444;">${velocityRecord.avg_accuracy.toFixed(1)}%</strong> (Threshold: 85%)
-        </span>
-      </div>
-    
-      <div style="margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-        <div style="${styles.infoRow}">
           <span style="${styles.label}">Latest Sprint:</span>
           <span style="${styles.value}">
             <strong>${velocityRecord.sprint_name}</strong>: 
-            <span style="color: ${velocityRecord.accuracy < 85 ? '#ef4444' : '#10b981'}; font-weight: bold;">
+            <span style="color: #ef4444; font-weight: bold;">
                 ${velocityRecord.accuracy.toFixed(1)}%
             </span>
           </span>
-        </div>
+      </div>
+
+      ${isAlarm && velocityRecord.prev_sprint_name ? `
+      <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
         <div style="${styles.infoRow}">
           <span style="${styles.label}">Previous Sprint:</span>
           <span style="${styles.value}">
             ${velocityRecord.prev_sprint_name}: 
-            <span style="color: ${velocityRecord.prev_accuracy < 85 ? '#ef4444' : '#10b981'}; font-weight: bold;">
-                ${velocityRecord.prev_accuracy.toFixed(1)}%
+            <span style="color: #ef4444; font-weight: bold;">
+                ${velocityRecord.prev_accuracy ? velocityRecord.prev_accuracy.toFixed(1) : '0.0'}%
             </span>
           </span>
         </div>
       </div>
+      ` : ''}
     </div>
-
-    <p style="${styles.text}">Consistent low velocity may indicate blockers or capacity issues. Please review recent retrospectives.</p>
-
+    
+    <p style="${styles.text}">Consistent low velocity may indicate blockers or capacity issues. Please review recent retrospectives and sprint plans.</p>
     <div style="${styles.buttonGroup}">
-        <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${velocityRecord.project_id}/sprint/${velocityRecord.sprint_id}" 
+       <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${velocityRecord.project_id}/sprint/${velocityRecord.sprint_id}" 
            style="${styles.primaryBtn}">
            View Sprint Details
         </a>
-    </div>
-    `;
+    </div>`;
 
-    return getBaseTemplate(
-        'Low Average Velocity Alert',
-        'Hello Project Manager',
-        content
-    );
+    return getBaseTemplate(alertTitle, 'Hello Project Manager', content);
 }
 
 // Run the alert check

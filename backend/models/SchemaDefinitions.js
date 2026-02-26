@@ -16,6 +16,8 @@ const convertType = (field) => {
     schemaType.type = Number;
   } else if (field.type === 'boolean') {
     schemaType.type = Boolean;
+  } else if (field.type === 'objectid') {
+    schemaType.type = mongoose.Schema.Types.ObjectId;
   } else if (field.type === 'array') {
     if (field.items && field.items.type === 'object') {
       const nestedSchema = {};
@@ -38,8 +40,7 @@ const convertType = (field) => {
         nestedSchema[key] = convertType(field.properties[key]);
       });
     }
-    schemaType = nestedSchema;
-    return schemaType;
+    return nestedSchema; // Corrected: return directly for embedded schemas
   } else {
     schemaType.type = mongoose.Schema.Types.Mixed;
   }
@@ -47,6 +48,7 @@ const convertType = (field) => {
   if (field.enum) schemaType.enum = field.enum;
   if (field.default !== undefined) schemaType.default = field.default;
   if (field.unique) schemaType.unique = true;
+  if (field.ref) schemaType.ref = field.ref;
 
   return schemaType;
 };
@@ -62,12 +64,12 @@ if (fs.existsSync(modelsPath)) {
         const definition = require(path.join(modelsPath, file));
         const modelName = definition.name || path.parse(file).name;
 
-        // Helper: Get IST Date
-        const getISTDate = () => new Date(Date.now() + (330 * 60000));
+        // Helper: Get Standard UTC Date (Unified for sorting) - Corrected: single definition
+        const getDefaultDate = () => new Date();
 
         const schemaObj = {};
-        schemaObj.created_date = { type: Date, default: getISTDate };
-        schemaObj.updated_date = { type: Date, default: getISTDate };
+        schemaObj.created_date = { type: Date, default: getDefaultDate };
+        schemaObj.updated_date = { type: Date, default: getDefaultDate };
 
         if (definition.properties) {
           Object.keys(definition.properties).forEach(propName => {
@@ -75,7 +77,9 @@ if (fs.existsSync(modelsPath)) {
             const mongooseDef = convertType(fieldDef);
 
             if (definition.required && definition.required.includes(propName)) {
-              if (mongooseDef.type) mongooseDef.required = true;
+              if (mongooseDef && typeof mongooseDef === 'object' && !Array.isArray(mongooseDef) && mongooseDef.type) {
+                mongooseDef.required = true;
+              }
             }
             if (fieldDef.unique) mongooseDef.unique = true;
 
@@ -90,22 +94,16 @@ if (fs.existsSync(modelsPath)) {
           const syncSubscription = async (doc) => {
             if (!doc) return;
             try {
-              // Ensure TenantSubscription model is available (it might be loaded later if files processed alphabetically)
-              // But since this is a post hook, it runs at runtime, so all models should be loaded.
-              // However, to be safe, we can use mongoose.connection.db if model not found, like in check_trial_status.
-              // Better: use mongoose.model if possible, catch if missing.
               let TenantSubscription;
               try {
                 TenantSubscription = mongoose.model('TenantSubscription');
               } catch (e) {
-                // If not registered yet, we can't sync via Mongoose model. 
-                // But typically schemas are registered synchronously in this loop.
                 console.warn("[Middleware] TenantSubscription model not found yet. Skipping sync.");
                 return;
               }
 
               const updateData = {
-                tenant_id: doc._id || doc.id,
+                tenant_id: doc._id,
                 status: doc.subscription_status || 'trialing',
                 trial_ends_at: doc.trial_ends_at,
                 subscription_plan_id: doc.subscription_plan_id,
@@ -121,7 +119,7 @@ if (fs.existsSync(modelsPath)) {
               };
 
               await TenantSubscription.findOneAndUpdate(
-                { tenant_id: doc._id || doc.id },
+                { tenant_id: doc._id },
                 {
                   $set: updateData,
                   $setOnInsert: { created_at: new Date() }
@@ -149,7 +147,7 @@ if (fs.existsSync(modelsPath)) {
               // === DUPLICATE CHECK ===
               // Check if we already sent a 'PM_VELOCITY_DROP' alert for this sprint
               const existingAlert = await Notification.findOne({
-                entity_id: doc._id || doc.id,
+                entity_id: doc._id,
                 type: 'PM_VELOCITY_DROP'
               });
 
@@ -163,7 +161,7 @@ if (fs.existsSync(modelsPath)) {
               const Task = mongoose.model('Task');
               const Story = mongoose.model('Story');
 
-              const sprintId = String(doc._id || doc.id);
+              const sprintId = String(doc._id);
 
               // 1. Fetch Stories and Tasks
               const sprintStories = await Story.find({ sprint_id: sprintId });
@@ -256,7 +254,7 @@ if (fs.existsSync(modelsPath)) {
                     title: 'Sprint Velocity Alert',
                     message: `⚠️ Sprint velocity has dropped below planned levels (${completedPoints.toFixed(2)}/${plannedPoints}). Review capacity and blockers.`,
                     entity_type: 'sprint',
-                    entity_id: doc._id || doc.id,
+                    entity_id: doc._id,
                     project_id: doc.project_id,
                     sender_name: 'System',
                     read: false,
@@ -290,7 +288,7 @@ if (fs.existsSync(modelsPath)) {
                           </table>
 
                           <p>Please review the sprint retrospective to identify blockers or capacity issues.</p>
-                          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/project/${doc.project_id}/sprint/${doc._id || doc.id}" 
+                          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/ProjectDetail?id=${doc.project_id}&tab=sprints&highlightSprintId=${doc._id}" 
                              style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
                             View Sprint Report
                           </a>
@@ -323,7 +321,7 @@ if (fs.existsSync(modelsPath)) {
               const ProjectUserRole = mongoose.model('ProjectUserRole');
               const User = mongoose.model('User');
 
-              const sprintId = String(doc._id || doc.id);
+              const sprintId = String(doc._id);
 
               // Determine user_id (PM or owner)
               let userId = 'system';
@@ -456,108 +454,165 @@ if (fs.existsSync(modelsPath)) {
         if (modelName === 'Comment') {
           schema.post('save', async function (doc) {
             try {
-              if (doc.mentions && Array.isArray(doc.mentions) && doc.mentions.length > 0) {
-                const Notification = mongoose.model('Notification');
-                const Mention = mongoose.model('Mention');
-                const Task = mongoose.model('Task');
-                const Project = mongoose.model('Project');
-                const Sprint = mongoose.model('Sprint');
+              const Notification = mongoose.model('Notification');
+              const Mention = mongoose.model('Mention');
+              const Task = mongoose.model('Task');
+              const Project = mongoose.model('Project');
+              const Sprint = mongoose.model('Sprint');
+              const ProjectUserRole = mongoose.model('ProjectUserRole');
+              const User = mongoose.model('User');
+              const emailService = require('../services/emailService');
 
-                // Try to get rich context
-                let contextName = doc.entity_type;
-                let previewText = (doc.content || '').trim();
-                // Clean @mentions from preview
-                previewText = previewText.replace(/@[A-Za-z][A-Za-z\s'-]*/g, '').replace(/\s+/g, ' ').trim();
-                if (previewText.length > 50) previewText = previewText.substring(0, 50) + '...';
-                const suffix = previewText ? `: "${previewText}"` : '';
+              // 1. Resolve Context and Project ID
+              let contextName = doc.entity_type;
+              let resolvedProjectId = doc.project_id;
+              let taskTitle = '';
+              let projectName = '';
 
-                // Capture project_id for the notification
-                let resolvedProjectId = doc.project_id;
+              if (doc.entity_type === 'task') {
+                let task = await Task.findById(doc.entity_id);
+                if (!task) task = await Task.findOne({ id: doc.entity_id }); // Fallback if using string id
 
-                if (doc.entity_type === 'task') {
-                  try {
-                    // Try both findById and findOne({id}) for robustness
-                    let task = null;
-                    try { task = await Task.findById(doc.entity_id); } catch (e) { }
-                    if (!task) task = await Task.findOne({ id: doc.entity_id });
+                if (task) {
+                  taskTitle = task.title;
+                  resolvedProjectId = task.project_id;
 
-                    if (task) {
-                      let project = null;
-                      try { project = await Project.findById(task.project_id); } catch (e) { }
-                      if (!project) project = await Project.findOne({ id: task.project_id });
+                  let project = await Project.findById(task.project_id);
+                  if (!project) project = await Project.findOne({ id: task.project_id });
 
-                      if (project) {
-                        resolvedProjectId = project.id; // Capture ID
-                      }
-
-                      let sprintName = '';
-                      if (task.sprint_id) {
-                        let sprint = null;
-                        try { sprint = await Sprint.findById(task.sprint_id); } catch (e) { }
-                        if (!sprint) sprint = await Sprint.findOne({ id: task.sprint_id });
-                        if (sprint) sprintName = sprint.name;
-                      }
-
-                      const projLabel = project ? `Project: **${project.name}**` : 'Project: **Unknown**';
-                      const taskLabel = `Task: **${task.title}**`;
-
-                      if (sprintName) {
-                        contextName = `${projLabel} > Sprint: **${sprintName}** > ${taskLabel}`;
-                      } else {
-                        contextName = `${projLabel} > ${taskLabel}`;
-                      }
-                    }
-                  } catch (e) {
-                    console.error("[Middleware] Error fetching task context:", e);
+                  if (project) {
+                    projectName = project.name;
+                    resolvedProjectId = project._id;
                   }
-                } else if (doc.entity_type === 'project') {
-                  try {
-                    let project = null;
-                    try { project = await Project.findById(doc.entity_id); } catch (e) { }
-                    if (!project) project = await Project.findOne({ id: doc.entity_id });
 
-                    if (project) {
-                      contextName = `Project: **${project.name}**`;
-                      resolvedProjectId = project.id;
-                    }
-                  } catch (e) {
-                    console.error("[Middleware] Error fetching project context:", e);
+                  let sprintName = '';
+                  if (task.sprint_id) {
+                    let sprint = await Sprint.findById(task.sprint_id);
+                    if (!sprint) sprint = await Sprint.findOne({ id: task.sprint_id });
+                    if (sprint) sprintName = sprint.name;
                   }
+
+                  const projLabel = projectName ? `Project: **${projectName}**` : 'Project: **Unknown**';
+                  const taskLabel = `Task: **${taskTitle}**`;
+                  contextName = sprintName ? `${projLabel} > Sprint: **${sprintName}** > ${taskLabel}` : `${projLabel} > ${taskLabel}`;
                 }
+              } else if (doc.entity_type === 'project') {
+                let project = await Project.findById(doc.entity_id);
+                if (!project) project = await Project.findOne({ id: doc.entity_id });
 
-                const notifications = doc.mentions.map(email => ({
-                  tenant_id: doc.tenant_id,
-                  recipient_email: email,
-                  type: 'mention',
-                  title: 'You were mentioned',
-                  message: `${doc.author_name} mentioned you in ${contextName}${suffix}`,
-                  entity_type: doc.entity_type,
-                  entity_id: doc.entity_id,
-                  project_id: resolvedProjectId || (doc.entity_type === 'project' ? doc.entity_id : undefined),
-                  comment_id: doc._id, // <--- ADDED COMMENT ID
-                  sender_name: doc.author_name,
-                  read: false,
-                  created_date: new Date()
-                }));
+                if (project) {
+                  projectName = project.name;
+                  contextName = `Project: **${projectName}**`;
+                  resolvedProjectId = project._id;
+                }
+              }
 
-                const mentionRecords = doc.mentions.map(email => ({
+              // 2. Identify Recipients (PMs + Mentions + Assignees)
+              const mentions = Array.isArray(doc.mentions) ? doc.mentions : [];
+              const pmEmails = [];
+              const assigneeEmails = [];
+
+              if (resolvedProjectId) {
+                const pmRoles = await ProjectUserRole.find({
+                  project_id: resolvedProjectId,
+                  role: 'project_manager'
+                });
+                if (pmRoles.length > 0) {
+                  const pms = await User.find({ _id: { $in: pmRoles.map(r => r.user_id) } });
+                  pmEmails.push(...pms.map(u => u.email));
+                }
+              }
+
+              // Get Assignees if it's a task
+              if (doc.entity_type === 'task') {
+                let task = await Task.findById(doc.entity_id);
+                if (!task) task = await Task.findOne({ id: doc.entity_id });
+                if (task && task.assigned_to) {
+                  const assigned = Array.isArray(task.assigned_to) ? task.assigned_to : [task.assigned_to];
+                  assigneeEmails.push(...assigned.map(a => typeof a === 'object' ? a.email : a));
+                }
+              }
+
+              // Combine and Deduplicate
+              let allRecipientEmails = [...new Set([...mentions, ...pmEmails, ...assigneeEmails])];
+              // Exclude author
+              allRecipientEmails = allRecipientEmails.filter(email => email !== doc.author_email);
+
+              if (allRecipientEmails.length === 0) return;
+
+              // 3. Prepare Notification Content
+              let previewText = (doc.content || '').trim();
+              previewText = previewText.replace(/@[A-Za-z][A-Za-z\s'-]*/g, '').replace(/\s+/g, ' ').trim();
+              if (previewText.length > 50) previewText = previewText.substring(0, 50) + '...';
+              const suffix = previewText ? `: "${previewText}"` : '';
+
+              // 4. Create In-App Notifications
+              const notifications = allRecipientEmails.map(email => ({
+                tenant_id: doc.tenant_id,
+                recipient_email: email,
+                type: mentions.includes(email) ? 'mention' : 'comment_added',
+                title: mentions.includes(email) ? 'You were mentioned' : 'New Comment',
+                message: `${doc.author_name} ${mentions.includes(email) ? 'mentioned you' : 'commented'} in ${contextName}${suffix}`,
+                entity_type: doc.entity_type,
+                entity_id: doc.entity_id,
+                project_id: resolvedProjectId,
+                comment_id: doc._id,
+                sender_name: doc.author_name,
+                read: false,
+              }));
+              await Notification.insertMany(notifications);
+
+              // 5. Create Mention Records (for actual mentions only)
+              if (mentions.length > 0) {
+                const mentionRecords = mentions.filter(email => email !== doc.author_email).map(email => ({
                   tenant_id: doc.tenant_id,
                   recipient_email: email,
                   sender_email: doc.author_email,
                   sender_name: doc.author_name,
                   entity_type: doc.entity_type,
                   entity_id: doc.entity_id,
-                  entity_title: contextName.toUpperCase(),
+                  entity_title: (taskTitle || projectName || contextName).toUpperCase(),
                   comment_content: doc.content,
                   read: false,
-                  created_date: new Date()
                 }));
+                if (mentionRecords.length > 0) await Mention.insertMany(mentionRecords);
+              }
 
-                await Notification.insertMany(notifications);
-                await Mention.insertMany(mentionRecords);
+              // 6. Send Email Notifications
+              for (const email of allRecipientEmails) {
+                try {
+                  const recipient = await User.findOne({ email });
+                  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+                  // Construct Deep Link
+                  let actionUrl = `${frontendUrl}/Dashboard`;
+                  if (doc.entity_type === 'task' && resolvedProjectId) {
+                    actionUrl = `${frontendUrl}/ProjectDetail?id=${resolvedProjectId}&taskId=${doc.entity_id}&commentId=${doc._id}&tab=tasks`;
+                  } else if (doc.entity_type === 'project' && resolvedProjectId) {
+                    actionUrl = `${frontendUrl}/ProjectDetail?id=${resolvedProjectId}&commentId=${doc._id}&tab=overview`;
+                  }
+
+                  await emailService.sendEmail({
+                    to: email,
+                    templateType: 'comment_mention',
+                    data: {
+                      recipientName: recipient ? (recipient.full_name || recipient.name) : email,
+                      recipientEmail: email,
+                      authorName: doc.author_name,
+                      contextName: contextName,
+                      commentContent: doc.content,
+                      entityType: doc.entity_type,
+                      entityId: doc.entity_id,
+                      taskUrl: actionUrl,
+                      projectUrl: actionUrl
+                    }
+                  });
+                } catch (emailErr) {
+                  console.error(`[Middleware] Failed to send comment email to ${email}:`, emailErr);
+                }
               }
             } catch (err) {
-              console.error("[Middleware] Error processing comment mentions:", err);
+              console.error("[Middleware] Error processing comment notifications:", err);
             }
           });
         }

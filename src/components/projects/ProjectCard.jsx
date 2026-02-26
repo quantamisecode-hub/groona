@@ -27,7 +27,33 @@ const priorityColors = {
   urgent: "bg-red-100 text-red-700",
 };
 
-export default function ProjectCard({ project, onDelete }) {
+export default function ProjectCard({ project, onDelete, highlighted }) {
+  // Health score calculation logic (mirroring backend)
+  const healthScore = useMemo(() => {
+    let score = 70;
+    score += (project.progress || 0) * 0.3;
+
+    // Simplistic task completion for card preview
+    if (project.tasks_count && project.completed_tasks_count) {
+      score += (project.completed_tasks_count / project.tasks_count) * 20;
+    }
+
+    if (project.deadline) {
+      const daysUntilDeadline = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+      if (daysUntilDeadline < 0) score -= 20;
+      else if (daysUntilDeadline < 7) score -= 10;
+    }
+    if (project.status === 'on_hold') score -= 15;
+    if (project.risk_level === 'critical') score -= 20;
+    else if (project.risk_level === 'high') score -= 15;
+    else if (project.risk_level === 'medium') score -= 5;
+
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }, [project]);
+
+  const isYellow = healthScore >= 50 && healthScore < 70;
+  const isRed = healthScore < 50;
+
   const getProjectInitials = (name) => {
     if (!name) return 'PR';
     const initials = name.split(' ').map(word => word[0]).join('').toUpperCase();
@@ -80,8 +106,11 @@ export default function ProjectCard({ project, onDelete }) {
 
   return (
     <Card
-      className="group hover:shadow-xl transition-all duration-300 bg-white/60 backdrop-blur-xl border-slate-200/60 overflow-hidden"
-      style={{ borderTopColor: project.color || '#3b82f6', borderTopWidth: '4px' }}
+      className={`group hover:shadow-xl transition-all duration-300 border-slate-200/60 overflow-hidden ${highlighted && isRed ? 'bg-red-50 border-red-200 shadow-lg ring-2 ring-red-500/20' :
+        highlighted && isYellow ? 'bg-amber-50 border-amber-200 shadow-lg ring-2 ring-amber-500/20' :
+          'bg-white/60 backdrop-blur-xl'
+        }`}
+      style={{ borderTopColor: project.color || (isRed ? '#ef4444' : isYellow ? '#f59e0b' : '#3b82f6'), borderTopWidth: '4px' }}
     >
       <CardHeader>
         <div className="flex items-start gap-3">
@@ -144,7 +173,11 @@ export default function ProjectCard({ project, onDelete }) {
             <span className="text-slate-600">Progress</span>
             <span className="font-semibold text-slate-900">{projectProgress}%</span>
           </div>
-          <Progress value={projectProgress} className="h-2" />
+          <Progress
+            value={projectProgress}
+            className="h-2"
+            indicatorClassName={isRed ? 'bg-red-500' : isYellow ? 'bg-amber-500' : ''}
+          />
         </div>
 
         {project.deadline && (

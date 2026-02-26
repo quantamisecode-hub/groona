@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Plus, TrendingUp, CheckCircle2, Clock, AlertCircle, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import { OnboardingProvider } from "../components/onboarding/OnboardingProvider";
 import FeatureOnboarding from "../components/onboarding/FeatureOnboarding";
 import TenantBrandingHeader from "../components/shared/TenantBrandingHeader"; // Import the header
+import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
 
 const DASHBOARD_ONBOARDING_ITEMS = [
   { id: 'create_workspace', label: 'Create a Workspace', hint: 'Organize your projects' },
@@ -37,9 +38,24 @@ export default function Dashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [assigneeFilter, setAssigneeFilter] = useState("all");
 
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const taskIdParam = searchParams.get('taskId');
+  const [selectedTaskId, setSelectedTaskId] = useState(taskIdParam || null);
+
+  // Sync selectedTaskId with URL param
+  React.useEffect(() => {
+    if (taskIdParam) setSelectedTaskId(taskIdParam);
+  }, [taskIdParam]);
+
+  const handleCloseTaskDetail = () => {
+    setSelectedTaskId(null);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.delete('taskId');
+    setSearchParams(newParams, { replace: true });
+  };
 
   const { user: currentUser, tenant, effectiveTenantId } = useUser();
   const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
@@ -331,7 +347,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      {/* Global Task Detail Dialog for Deep Linking */}
+      {(selectedTaskId || taskIdParam) && (
+        <TaskDetailDialog
+          open={!!selectedTaskId || !!taskIdParam}
+          onClose={handleCloseTaskDetail}
+          taskId={selectedTaskId || taskIdParam}
+          key="global-dashboard-task-dialog"
+        />
+      )}
     </OnboardingProvider>
   );
 }
-

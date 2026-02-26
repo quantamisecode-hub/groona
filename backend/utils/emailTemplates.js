@@ -127,6 +127,10 @@ function getEmailTemplate(templateType, data = {}) {
       return getUnderUtilizationAlertTemplate(data);
     case 'audit_lock_toggle':
       return getAuditLockToggleTemplate(data);
+    case 'blocked_by_assigned':
+      return getBlockedByAssignedTemplate(data);
+    case 'comment_mention':
+      return getCommentMentionTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -487,6 +491,73 @@ function getTaskStatusChangedTemplate(data) {
       content
     ),
     defaultSubject: `${subjectPrefix}Task Update: ${taskTitle} moved to ${getStatusLabel(newStatus)}`
+  };
+}
+
+/**
+ * Task Blocker Template
+ */
+function getBlockedByAssignedTemplate(data) {
+  const { assigneeName, assigneeEmail, taskTitle, blockerTitle, projectName, dashboardUrl } = data;
+
+  const content = `
+    <p style="${styles.text}">You have been assigned as the owner of a task that is currently <strong>blocking</strong> another task: <strong>${taskTitle}</strong> in project <strong>${projectName}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Blocking Task:</td>
+          <td style="${styles.valueCell}"><strong>${blockerTitle || taskTitle}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName || 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="${styles.text}">Please review the blocking task and update its status to help unblock the team.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${dashboardUrl || '#'}" style="${styles.primaryBtn}">View Blocking Task</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Action Required: Assigned to Task Blocker',
+      `Hello, ${assigneeName || assigneeEmail || 'Team Member'}`,
+      content
+    ),
+    defaultSubject: `Action Required: Assigned to Task Blocker – ${blockerTitle || taskTitle}`
+  };
+}
+
+/**
+ * Comment Mention Template
+ */
+function getCommentMentionTemplate(data) {
+  const { userName, commenterName, taskTitle, commentText, taskUrl } = data;
+
+  const content = `
+    <p style="${styles.text}"><strong>${commenterName || 'A team member'}</strong> mentioned you in a comment on task: <strong>${taskTitle}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <p style="font-style: italic; color: #475569; margin: 0;">"${commentText}"</p>
+    </div>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${taskUrl || '#'}" style="${styles.primaryBtn}">View Comment</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'New Mention in Comment',
+      `Hello, ${userName || 'User'}`,
+      content
+    ),
+    defaultSubject: `New mention on task: ${taskTitle}`
   };
 }
 

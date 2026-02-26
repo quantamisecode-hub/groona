@@ -24,24 +24,24 @@ function extractProjectInfo(messages) {
 
   // Check if this is a project creation conversation
   const isProjectCreation = isProjectCreationConversation(messages);
-  
+
   // Look through recent messages to extract information
   // Process messages in reverse order (newest first) to prioritize latest user input
   // ONLY extract from USER messages, not assistant messages (to avoid capturing AI questions)
   const recentMessages = messages.slice(-10).filter(msg => msg.role === 'user').reverse();
-  
+
   console.log('[Project Service] Processing messages for extraction:', recentMessages.map(m => ({ role: m.role, content: m.content?.substring(0, 50) })));
-  
+
   for (const msg of recentMessages) {
     const content = msg.content || '';
     const contentLower = content.toLowerCase().trim();
-    
+
     // First, try to extract from parentheses format: "Create a project (name,deadline,workspace)"
     const parenMatch = content.match(/create\s+(?:a\s+)?project\s*\(([^)]+)\)/i);
     if (parenMatch) {
       const parts = parenMatch[1].split(',').map(p => p.trim()).filter(p => p.length > 0);
       console.log('[Project Service] Extracted from parentheses:', parts);
-      
+
       if (parts.length >= 1 && !projectInfo.name) {
         projectInfo.name = parts[0];
       }
@@ -58,7 +58,7 @@ function extractProjectInfo(messages) {
         projectInfo.workspace_name = parts[2];
       }
     }
-    
+
     // Also try format without parentheses: "Create a project name,deadline,workspace" (comma-separated)
     if ((!projectInfo.name || !projectInfo.deadline || !projectInfo.workspace_name) && contentLower.includes('create') && contentLower.includes('project')) {
       const commaMatch = content.match(/create\s+(?:a\s+)?project\s+([^,\n\(\)]+?)\s*,\s*([^,\n\(\)]+?)\s*,\s*([^,\n\(\)]+?)(?:\s*[,\n]|$)/i);
@@ -71,7 +71,7 @@ function extractProjectInfo(messages) {
         if (!projectInfo.workspace_name) projectInfo.workspace_name = commaMatch[3].trim();
       }
     }
-    
+
     // Also try simple format: "Create a project name" (single word after project)
     if (!projectInfo.name && contentLower.includes('create') && contentLower.includes('project')) {
       const simpleMatch = content.match(/create\s+(?:a\s+)?project\s+([^,\n\(\)]+?)(?:\s*[,\n]|$)/i);
@@ -83,7 +83,7 @@ function extractProjectInfo(messages) {
         }
       }
     }
-    
+
     // Extract project name - avoid capturing AI questions
     if (!projectInfo.name) {
       const nameMatch = content.match(/(?:project name|name of the project|project called|create.*project.*named?)\s*[:\-]?\s*["']?([^"'\n\(\)\?]+)["']?/i);
@@ -91,48 +91,48 @@ function extractProjectInfo(messages) {
         const potentialName = nameMatch[1].trim();
         // Reject if it looks like a question
         if (!potentialName.toLowerCase().includes('would you like') &&
-            !potentialName.toLowerCase().includes('what') &&
-            !potentialName.toLowerCase().includes('this project') &&
-            potentialName.length > 1) {
+          !potentialName.toLowerCase().includes('what') &&
+          !potentialName.toLowerCase().includes('this project') &&
+          potentialName.length > 1) {
           projectInfo.name = potentialName;
         }
       }
     }
-    
+
     // IMPORTANT: If this is a project creation conversation and we don't have a name yet,
     // treat simple user responses as potential project names (follow-up messages)
     // This handles cases where user says "create project" -> AI asks -> user says "ai project"
     if (!projectInfo.name && isProjectCreation) {
       // Skip if message contains question words or looks like a question or command
-      const isQuestion = contentLower.includes('?') || 
-                        contentLower.includes('what') ||
-                        contentLower.includes('would you') ||
-                        contentLower.includes('can you') ||
-                        contentLower.includes('how') ||
-                        contentLower.includes('when') ||
-                        contentLower.includes('where') ||
-                        contentLower.includes('why') ||
-                        contentLower.startsWith('create') ||
-                        contentLower.includes('help') ||
-                        contentLower.includes('i want') ||
-                        contentLower.includes('please') ||
-                        contentLower.length > 200; // Skip very long messages
-      
+      const isQuestion = contentLower.includes('?') ||
+        contentLower.includes('what') ||
+        contentLower.includes('would you') ||
+        contentLower.includes('can you') ||
+        contentLower.includes('how') ||
+        contentLower.includes('when') ||
+        contentLower.includes('where') ||
+        contentLower.includes('why') ||
+        contentLower.startsWith('create') ||
+        contentLower.includes('help') ||
+        contentLower.includes('i want') ||
+        contentLower.includes('please') ||
+        contentLower.length > 200; // Skip very long messages
+
       // Check if message is a simple response (likely a project name)
       // Allow "project" in the name (like "ai project") but reject if message is ONLY about creating a project (command)
       const isCreateCommand = contentLower.match(/^(create|make|start|new)\s+(a\s+)?project/i);
-      const isSimpleResponse = !isQuestion && 
-                              !isCreateCommand &&
-                              contentLower.length > 0 && 
-                              contentLower.length < 100 &&
-                              !contentLower.includes('workspace') &&
-                              !contentLower.includes('deadline') &&
-                              !contentLower.includes('due date');
-      
+      const isSimpleResponse = !isQuestion &&
+        !isCreateCommand &&
+        contentLower.length > 0 &&
+        contentLower.length < 100 &&
+        !contentLower.includes('workspace') &&
+        !contentLower.includes('deadline') &&
+        !contentLower.includes('due date');
+
       if (isSimpleResponse) {
         // Check if it's not obviously a date
         const isDate = parseDate(content) !== null;
-        
+
         // Check if it looks like a project name (not a command, not a question, reasonable length)
         if (!isDate) {
           const trimmed = content.trim();
@@ -146,7 +146,7 @@ function extractProjectInfo(messages) {
         }
       }
     }
-    
+
     // Extract deadline - improved pattern to catch more date formats
     if (!projectInfo.deadline) {
       // Try various date patterns
@@ -156,7 +156,7 @@ function extractProjectInfo(messages) {
         /(?:deadline|due date|end date|finish by|by|on)\s*[:\-]?\s*([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i,
         /(?:deadline|due date|end date|finish by|by|on)\s*[:\-]?\s*([0-9]{4}[\/\-][0-9]{1,2}[\/\-][0-9]{1,2})/i
       ];
-      
+
       for (const pattern of datePatterns) {
         const dateMatch = content.match(pattern);
         if (dateMatch && dateMatch[1]) {
@@ -167,7 +167,7 @@ function extractProjectInfo(messages) {
           }
         }
       }
-      
+
       // Also try to find dates in the message without keywords (but not if we already have a name extracted)
       if (!projectInfo.deadline) {
         const datePattern = /([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\s+[0-9]{0,4}|[A-Za-z]+\s+[0-9]{1,2}(?:st|nd|rd|th)?\s*,?\s*[0-9]{0,4}|[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{2,4})/i;
@@ -180,7 +180,7 @@ function extractProjectInfo(messages) {
         }
       }
     }
-    
+
     // Extract workspace
     if (!projectInfo.workspace_name) {
       const workspaceMatch = content.match(/(?:workspace|in workspace|belong to)\s*[:\-]?\s*["']?([^"'\n\(\)]+)["']?/i);
@@ -188,7 +188,7 @@ function extractProjectInfo(messages) {
         projectInfo.workspace_name = workspaceMatch[1].trim();
       }
     }
-    
+
     // Final validation: if deadline is a string, try to parse it one more time
     if (projectInfo.deadline && typeof projectInfo.deadline === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(projectInfo.deadline)) {
       const parsed = parseDate(projectInfo.deadline);
@@ -209,14 +209,14 @@ function extractProjectInfo(messages) {
  */
 function parseDate(dateStr) {
   if (!dateStr) return null;
-  
+
   try {
     // Clean the date string
     let cleanDate = dateStr.trim().toLowerCase();
-    
+
     // Handle ordinal numbers (1st, 2nd, 3rd, 4th, etc.)
     cleanDate = cleanDate.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-    
+
     // Try to parse common date formats
     // Format: "10 jan" or "jan 10" or "10 january" or "january 10"
     const monthNames = {
@@ -233,14 +233,14 @@ function parseDate(dateStr) {
       'nov': 10, 'november': 10,
       'dec': 11, 'december': 11
     };
-    
+
     // Try to match patterns like "10 jan" or "jan 10" (handles "10th jan" after ordinal removal)
     for (const [monthName, monthIndex] of Object.entries(monthNames)) {
       // Pattern 1: "10 jan" or "10 january" (day first)
       const pattern1 = new RegExp(`(\\d+)\\s+${monthName}(?:\\s+(\\d{4}))?`, 'i');
       // Pattern 2: "jan 10" or "january 10" (month first)
       const pattern2 = new RegExp(`${monthName}\\s+(\\d+)(?:\\s+(\\d{4}))?`, 'i');
-      
+
       let match = cleanDate.match(pattern1);
       if (match) {
         const day = parseInt(match[1]);
@@ -252,7 +252,7 @@ function parseDate(dateStr) {
           }
         }
       }
-      
+
       match = cleanDate.match(pattern2);
       if (match) {
         const day = parseInt(match[1]);
@@ -265,13 +265,13 @@ function parseDate(dateStr) {
         }
       }
     }
-    
+
     // Try standard Date parsing
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
       return date.toISOString().split('T')[0];
     }
-    
+
     // Try parsing formats like "DD/MM/YYYY" or "MM/DD/YYYY"
     const slashPattern = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
     const slashMatch = cleanDate.match(slashPattern);
@@ -284,7 +284,7 @@ function parseDate(dateStr) {
         return date.toISOString().split('T')[0];
       }
     }
-    
+
     // Try parsing formats like "YYYY-MM-DD"
     const dashPattern = /(\d{4})-(\d{1,2})-(\d{1,2})/;
     const dashMatch = cleanDate.match(dashPattern);
@@ -297,7 +297,7 @@ function parseDate(dateStr) {
         return date.toISOString().split('T')[0];
       }
     }
-    
+
     return null;
   } catch (e) {
     console.error('Date parsing error:', e);
@@ -313,20 +313,20 @@ function parseDate(dateStr) {
  */
 function findWorkspaceByName(workspaces, workspaceName) {
   if (!workspaceName || !workspaces || workspaces.length === 0) return null;
-  
+
   const normalized = workspaceName.toLowerCase().trim();
-  
+
   // Exact match
   let found = workspaces.find(w => w.name.toLowerCase().trim() === normalized);
   if (found) return found;
-  
+
   // Partial match
-  found = workspaces.find(w => 
-    w.name.toLowerCase().includes(normalized) || 
+  found = workspaces.find(w =>
+    w.name.toLowerCase().includes(normalized) ||
     normalized.includes(w.name.toLowerCase())
   );
   if (found) return found;
-  
+
   return null;
 }
 
@@ -442,7 +442,7 @@ async function createProjectFromInfo(projectInfo, tenantId, userId, userEmail) {
       console.warn('FRONTEND_URL not set in environment variables, skipping email notification');
       return;
     }
-    
+
     // Get all team members except the creator
     const teamMembers = (projectInfo.team_members || []).filter(m => {
       const memberEmail = typeof m === 'string' ? m : m.email;
@@ -458,7 +458,7 @@ async function createProjectFromInfo(projectInfo, tenantId, userId, userEmail) {
       const memberEmail = typeof member === 'string' ? member : member.email;
       const memberUser = await Models.User.findOne({ email: memberEmail });
       const memberName = memberUser?.full_name || memberEmail;
-      
+
       await emailService.sendEmail({
         to: memberEmail,
         templateType: 'project_member_added',
@@ -468,7 +468,7 @@ async function createProjectFromInfo(projectInfo, tenantId, userId, userEmail) {
           projectName: project.name,
           projectDescription: project.description,
           addedBy: creatorName,
-          projectUrl: `${frontendUrl}/projects/${project._id}`
+          projectUrl: `${frontendUrl}/ProjectDetail?id=${project._id}`
         }
       });
     }
@@ -487,12 +487,12 @@ async function createProjectFromInfo(projectInfo, tenantId, userId, userEmail) {
  */
 function isProjectCreationConversation(messages) {
   if (!messages || messages.length === 0) return false;
-  
+
   const recentMessages = messages.slice(-5);
   const combinedText = recentMessages
     .map(m => (m.content || '').toLowerCase())
     .join(' ');
-  
+
   const projectKeywords = [
     'create project',
     'new project',
@@ -501,7 +501,7 @@ function isProjectCreationConversation(messages) {
     'project creation',
     'create a project'
   ];
-  
+
   return projectKeywords.some(keyword => combinedText.includes(keyword));
 }
 
@@ -513,38 +513,38 @@ function isProjectCreationConversation(messages) {
  */
 function checkProjectInfoComplete(projectInfo, workspaces = []) {
   const missing = [];
-  
+
   // Check project name
   if (!projectInfo.name || (typeof projectInfo.name === 'string' && projectInfo.name.trim() === '')) {
     missing.push('project name');
   }
-  
+
   // Check deadline - accept both parsed ISO format and raw string (will be parsed later)
   // A deadline is considered present if it exists and is not empty
-  const hasDeadline = projectInfo.deadline && 
+  const hasDeadline = projectInfo.deadline &&
     (typeof projectInfo.deadline === 'string' ? projectInfo.deadline.trim() !== '' : true);
   if (!hasDeadline) {
     missing.push('deadline');
   }
-  
+
   // Workspace is required only if workspaces exist
-  const hasWorkspace = projectInfo.workspace_id || 
+  const hasWorkspace = projectInfo.workspace_id ||
     (projectInfo.workspace_name && typeof projectInfo.workspace_name === 'string' && projectInfo.workspace_name.trim() !== '');
   if (workspaces.length > 0 && !hasWorkspace) {
     missing.push('workspace');
   }
-  
+
   const result = {
     isComplete: missing.length === 0,
     missing: missing
   };
-  
+
   console.log('[Project Service] Completeness check:', {
     projectInfo,
     missing,
     isComplete: result.isComplete
   });
-  
+
   return result;
 }
 

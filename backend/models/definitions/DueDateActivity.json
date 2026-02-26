@@ -1,0 +1,47 @@
+{
+    "name": "DueDateActivity",
+    "properties": {
+        "taskId": {
+            "type": "string"
+        },
+        "tenant_id": {
+            "type": "string"
+        },
+        "previousDueDate": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "newDueDate": {
+            "type": "string",
+            "format": "date-time"
+        },
+        "changedBy": {
+            "type": "object",
+            "properties": {
+                "userId": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "reason": {
+            "type": "string"
+        },
+        "changedAt": {
+            "type": "string",
+            "format": "date-time"
+        }
+    },
+    "required": [
+        "taskId",
+        "newDueDate",
+        "changedBy",
+        "reason",
+        "changedAt"
+    ]
+}

@@ -79,12 +79,25 @@ export default function NotificationCenter({ currentUser }) {
         // Navigate to Rework Info tab
         navigate(notification.link || '/Timesheets?tab=rework-info');
         setOpen(false);
+      } else if (notification.type === 'PM_OVERALLOCATION_RISK') {
+        // Navigate to Resource Planning and highlight the overloaded user
+        let url = '/ResourcePlanning';
+        // Check if there is a linked user, or extract email/name from message
+        // Notification stores user._id as entity_id
+        if (notification.entity_id) {
+          url += `?highlightUser=${notification.entity_id}`;
+        }
+        navigate(url);
+        setOpen(false);
       } else if (notification.project_id) {
         // Navigate to project detail for project-related alerts
         let targetUrl = `/ProjectDetail?id=${notification.project_id}`;
 
-        // If there's a specific entity (task, etc.), include it
-        if (notification.entity_type === 'task' && notification.entity_id) {
+        if (notification.type === 'PM_VELOCITY_DROP' && notification.entity_id) {
+          targetUrl += `&tab=sprints&highlightSprintId=${notification.entity_id}`;
+        } else if (notification.type === 'PM_HIGH_REWORK' || notification.type === 'PM_RUNAWAY_REWORK_ALARM') {
+          targetUrl += `&showReworkPopup=true&notificationId=${notification.id}`;
+        } else if (notification.entity_type === 'task' && notification.entity_id) {
           targetUrl += `&taskId=${notification.entity_id}`;
         }
 
@@ -116,14 +129,16 @@ export default function NotificationCenter({ currentUser }) {
       await updateStatusMutation.mutateAsync({ id: notification.id, status: 'ACKNOWLEDGED' });
 
       // Navigate to relevant context
-      if (notification.deep_link || notification.link) {
-        navigate(notification.deep_link || notification.link);
-        setOpen(false);
-      } else if (notification.project_id) {
+      if (notification.project_id) {
         let targetUrl = `/ProjectDetail?id=${notification.project_id}`;
 
-        // Include entity details if available
-        if (notification.entity_type === 'task' && notification.entity_id) {
+        if (notification.type === 'PM_VELOCITY_DROP' && notification.entity_id) {
+          targetUrl += `&tab=sprints&highlightSprintId=${notification.entity_id}`;
+        } else if (notification.type === 'PM_CONSISTENT_VELOCITY_DROP') {
+          targetUrl += `&tab=sprints&highlightSprints=critical`;
+        } else if (notification.type === 'PM_HIGH_REWORK' || notification.type === 'PM_RUNAWAY_REWORK_ALARM') {
+          targetUrl += `&showReworkPopup=true&notificationId=${notification.id}`;
+        } else if (notification.entity_type === 'task' && notification.entity_id) {
           targetUrl += `&taskId=${notification.entity_id}`;
         }
 
@@ -181,11 +196,11 @@ export default function NotificationCenter({ currentUser }) {
         if (shouldShow) alerts.push(n);
       }
       // 1. Critical Alarms -> ALARMS (Red)
-      if (n.category === 'alarm' || n.category === 'critical' || n.type.includes('critical') || n.type.includes('failure') || n.type.includes('security')) {
+      else if (n.category === 'alarm' || n.category === 'critical' || n.type.includes('critical') || n.type.includes('failure') || n.type.includes('security')) {
         if (shouldShow) alarms.push(n);
       }
       // 2. Warnings/Advisories -> ALERTS (Yellow)
-      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.category === 'action_request' || (n.category !== 'general' && (n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable') || n.type === 'profile_incomplete'))) {
+      else if (n.category === 'alert' || n.category === 'warning' || n.category === 'advisory' || n.category === 'action_request' || n.type.includes('warning') || n.type.includes('alert') || n.type.includes('non_billable')) {
         if (shouldShow) alerts.push(n);
       }
       // 3. Fallback -> GENERAL
@@ -231,7 +246,8 @@ export default function NotificationCenter({ currentUser }) {
         const getIcon = (type) => {
           switch (type) {
             case 'task_assigned':
-            case 'subtask_assignment': return <UserPlus className="h-5 w-5 text-purple-600" />;
+            case 'subtask_assignment':
+            case 'blocker_assignment': return <UserPlus className="h-5 w-5 text-purple-600" />;
             case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
             case 'comment_added':
             case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
@@ -251,6 +267,7 @@ export default function NotificationCenter({ currentUser }) {
             case 'leave_cancellation': return <CalendarDays className="h-5 w-5 text-gray-500" />;
             case 'rework_review_accepted': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
             case 'rework_review_declined': return <XCircle className="h-5 w-5 text-red-600" />;
+            case 'PM_ACKNOWLEDGED_ALERT': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
             default: return <Bell className="h-5 w-5 text-slate-600" />;
           }
         };
@@ -343,7 +360,9 @@ export default function NotificationCenter({ currentUser }) {
 
   const getIcon = (type) => {
     switch (type) {
-      case 'task_assigned': return <UserPlus className="h-5 w-5 text-purple-600" />;
+      case 'task_assigned':
+      case 'subtask_assignment':
+      case 'blocker_assignment': return <UserPlus className="h-5 w-5 text-purple-600" />;
       case 'task_completed': return <CheckCircle2 className="h-5 w-5 text-green-600" />;
       case 'comment_added':
       case 'mention': return <MessageSquare className="h-5 w-5 text-blue-600" />;
@@ -479,8 +498,8 @@ export default function NotificationCenter({ currentUser }) {
                         <div className="flex-shrink-0 mt-1">{getIcon(notification.type)}</div>
                         <div className="flex-1 min-w-0">
                           {/* Only show title if it exists, else rely on message */}
-                          {notification.title && <p className="text-sm font-semibold text-slate-900 mb-1">{notification.title}</p>}
-                          <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{renderMessage(notification.message)}</div>
+                          {notification.title && <p className="text-sm font-medium text-slate-900">{notification.title}</p>}
+                          <p className="text-sm text-slate-600 mt-0.5 line-clamp-2">{renderMessage(notification.message)}</p>
                           <p className="text-xs text-slate-400 mt-1">{formatDistanceToNow(safeDate(notification.timestamp || notification.created_date), { addSuffix: true })}</p>
                         </div>
                         {!notification.read && <div className="h-2 w-2 rounded-full bg-blue-600 mt-2 shrink-0" />}
@@ -515,7 +534,33 @@ export default function NotificationCenter({ currentUser }) {
                           <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
                           <div>
                             <h5 className="text-sm font-bold text-amber-800 mb-1">Warning</h5>
-                            <div className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{renderMessage(alert.message)}</div>
+                            <p className="text-sm text-amber-900">{renderMessage(alert.message)}</p>
+                            <div className="flex gap-2 mt-2">
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); handleReview(alert); }}
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-amber-300 text-amber-700 bg-white hover:bg-amber-50"
+                                disabled={loadingState.id === alert.id && loadingState.action === 'review'}
+                              >
+                                {loadingState.id === alert.id && loadingState.action === 'review' ? (
+                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
+                                ) : (
+                                  alert.type === 'rework_alert' ? <strong>Peer Review requested</strong> : 'Review'
+                                )}
+                              </Button>
+                              <Button
+                                onClick={(e) => { e.stopPropagation(); handleDismiss(alert); }}
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-amber-600 hover:text-amber-800 hover:bg-amber-200/50"
+                                disabled={loadingState.id === alert.id && loadingState.action === 'dismiss'}
+                              >
+                                {loadingState.id === alert.id && loadingState.action === 'dismiss' ? (
+                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Loading...</>
+                                ) : 'Dismiss'}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -540,7 +585,11 @@ export default function NotificationCenter({ currentUser }) {
                   {categorized.alarms.map(alarm => {
                     const isActioned = alarm.status === 'ACKNOWLEDGED' || alarm.status === 'RESOLVED';
                     return (
-                      <div key={alarm.id} className={`p-4 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors shadow-sm relative overflow-hidden ${isActioned ? 'opacity-60' : ''}`}>
+                      <div
+                        key={alarm.id}
+                        onClick={() => handleTakeAction(alarm)}
+                        className={`p-4 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition-colors shadow-sm relative overflow-hidden cursor-pointer ${isActioned ? 'opacity-60' : ''}`}
+                      >
                         {/* Escalation Bar */}
                         <div className="absolute top-0 left-0 w-1 bg-red-500 h-full" />
 
@@ -551,7 +600,7 @@ export default function NotificationCenter({ currentUser }) {
                               <h5 className="text-sm font-bold text-red-800 mb-1">CRITICAL ALARM</h5>
                               <span className="text-[10px] font-mono bg-red-200 text-red-900 px-1.5 py-0.5 rounded">{alarm.escalationTime || 'Auto-Escalating'}</span>
                             </div>
-                            <p className="text-sm text-red-900 font-medium">{alarm.message.replace(/\*\*/g, '')}</p>
+                            <p className="text-sm text-red-900 font-medium">{renderMessage(alarm.message)}</p>
 
                             {/* Suggestion Message for Rework Alarms */}
                             {(alarm.type === 'rework_alarm' || alarm.type === 'high_rework_alarm') && (
@@ -564,7 +613,7 @@ export default function NotificationCenter({ currentUser }) {
                             <div className="flex gap-2 mt-3">
                               {!alarm.hide_action && (
                                 <Button
-                                  onClick={() => handleTakeAction(alarm)}
+                                  onClick={(e) => { e.stopPropagation(); handleTakeAction(alarm); }}
                                   size="sm"
                                   className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white w-full shadow-red-200"
                                   disabled={loadingState.id === alarm.id && loadingState.action === 'takeAction'}

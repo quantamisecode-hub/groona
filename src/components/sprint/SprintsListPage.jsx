@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, Lock } from "lucide-react";
+import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import CreateSprintDialog from "./CreateSprintDialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { useUser } from "@/components/shared/UserContext";
 import {
@@ -43,9 +43,11 @@ const statusColors = {
   completed: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
-export default function SprintsListPage({ projectId, sprints = [], tasks = [], tenantId }) {
+export default function SprintsListPage({ projectId, sprints = [], tasks = [], tenantId, highlightSprintId }) {
   const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [editingSprint, setEditingSprint] = useState(null);
+  const [highlightedId, setHighlightedId] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -57,6 +59,43 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     id: null
   });
 
+  useEffect(() => {
+    if (highlightSprintId) {
+      setHighlightedId(highlightSprintId);
+
+      const timer = setTimeout(() => {
+        setHighlightedId(null);
+        // Safely remove highlightSprintId from URL using React Router
+        const newParams = new URLSearchParams(searchParams);
+        if (newParams.has('highlightSprintId')) {
+          newParams.delete('highlightSprintId');
+          setSearchParams(newParams, { replace: true });
+        }
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightSprintId, searchParams, setSearchParams]);
+
+  // Handle critical sprint highlighting from URL param
+  const [criticalSprintsHighlight, setCriticalSprintsHighlight] = useState(false);
+  useEffect(() => {
+    if (searchParams.get('highlightSprints') === 'critical') {
+      setCriticalSprintsHighlight(true);
+
+      const timer = setTimeout(() => {
+        setCriticalSprintsHighlight(false);
+        const newParams = new URLSearchParams(searchParams);
+        if (newParams.has('highlightSprints')) {
+          newParams.delete('highlightSprints');
+          setSearchParams(newParams, { replace: true });
+        }
+      }, 8000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
   // Check if user is a viewer
   const isViewer = currentUser?.custom_role === 'viewer';
 
@@ -66,28 +105,6 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     queryFn: async () => {
       if (!projectId) return [];
       return groonabackend.entities.Story.filter({ project_id: projectId });
-    },
-    enabled: !!projectId,
-  });
-
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      if (!projectId) return null;
-      let projects = await groonabackend.entities.Project.filter({ _id: projectId });
-      if (!projects || projects.length === 0) {
-        projects = await groonabackend.entities.Project.filter({ id: projectId });
-      }
-      return projects[0] || null;
-    },
-    enabled: !!projectId,
-  });
-
-  const { data: milestones = [] } = useQuery({
-    queryKey: ['milestones', projectId],
-    queryFn: async () => {
-      if (!projectId) return [];
-      return groonabackend.entities.Milestone.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -181,7 +198,8 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
       setShowCreateSprint(false);
     },
     onError: (error) => {
-      toast.error(`Failed to create sprint: ${error.message}`);
+      const apiError = error.response?.data?.error || error.response?.data?.message || error.message;
+      toast.error(`Failed to create sprint: ${apiError}`);
     }
   });
 
@@ -232,7 +250,8 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
       setShowCreateSprint(false);
     },
     onError: (error) => {
-      toast.error(`Failed to update sprint: ${error.message}`);
+      const apiError = error.response?.data?.error || error.response?.data?.message || error.message;
+      toast.error(`Failed to update sprint: ${apiError}`);
     }
   });
 
