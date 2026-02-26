@@ -702,6 +702,17 @@ async function buildDeepContext(tenant_id, user_id, content) {
 
 // ... (GENERIC ROUTES) ...
 router.post('/entities/:entity/filter', async (req, res) => { try { const Model = Models[req.params.entity]; if (!Model) return res.status(400).json({ msg: `Entity not found` }); const { filters = {}, sort } = req.body; let query = Model.find(filters); if (sort) { const sortObj = {}; if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1; else sortObj[sort] = 1; query = query.sort(sortObj); } res.json(await query.exec()); } catch (err) { res.json([]); } });
+router.post('/entities/:entity/get/:id', async (req, res) => {
+  try {
+    const Model = Models[req.params.entity];
+    if (!Model) return res.status(400).json({ msg: `Entity not found` });
+    const item = await Model.findById(req.params.id);
+    if (!item) return res.status(404).json({ msg: `Item not found` });
+    res.json(item);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
 router.post('/entities/:entity/create', async (req, res) => {
   try {
     const Model = Models[req.params.entity];
@@ -1969,10 +1980,11 @@ router.post('/entities/:entity/update', async (req, res) => {
                   });
 
                   // B. Send In-App Notification
+                  const recipientEmail = assigneeEmail.toLowerCase().trim();
                   await Models.Notification.create({
                     tenant_id: updatedDoc.tenant_id,
-                    recipient_email: assigneeEmail,
-                    type: 'subtask_assignment', // New type
+                    recipient_email: recipientEmail,
+                    type: 'subtask_assignment',
                     title: 'Subtask Assigned',
                     message: `You have been assigned a subtask: "${newSt.title}" in task "${updatedDoc.title}"`,
                     entity_type: 'task',
@@ -2070,9 +2082,10 @@ router.post('/entities/:entity/update', async (req, res) => {
 
                   console.log(`[DEBUG_BLOCKER] Creating in-app notification...`);
                   // B. Send In-App Notification
+                  const recipientEmail = assigneeEmail.toLowerCase().trim();
                   const notification = await Models.Notification.create({
                     tenant_id: updatedDoc.tenant_id,
-                    recipient_email: assigneeEmail,
+                    recipient_email: recipientEmail,
                     type: 'blocker_assignment',
                     title: 'Assigned to Blocker',
                     message: `You have been assigned to resolve a blocker: "${newB.title}" in task "${updatedDoc.title}"`,

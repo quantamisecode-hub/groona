@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createPageUrl } from "@/utils";
-import { Sparkles, Mail, Loader2, Eye, EyeOff, ArrowRight, Check } from "lucide-react";
+import { Sparkles, Mail, Loader2, Eye, EyeOff, ArrowRight, Check, Rocket } from "lucide-react";
 import { groonabackend } from "@/api/groonabackend";
 import { getOtpEmailTemplate } from "@/utils/emailTemplates";
 import { motion } from "framer-motion";
@@ -150,276 +150,265 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex overflow-hidden">
-      {/* Left Side: Form */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-12 lg:px-24 relative overflow-hidden bg-slate-50/50">
-        {/* Subtle Background Shadows/Blobs */}
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            x: [0, 50, 0],
-            y: [0, 30, 0],
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-24 -left-24 w-96 h-96 bg-blue-100/50 rounded-full blur-[100px] pointer-events-none"
-        />
-        <motion.div
-          animate={{
-            scale: [1.2, 1, 1.2],
-            x: [0, -40, 0],
-            y: [0, -20, 0],
-          }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -bottom-24 -right-24 w-80 h-80 bg-purple-100/40 rounded-full blur-[100px] pointer-events-none"
-        />
-
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
-          className="max-w-md w-full mx-auto relative z-10"
-        >
-          {/* Logo */}
-          <div className="mb-12 flex flex-col items-center">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20 mb-3">
-              <Sparkles className="h-6 w-6 text-white" />
+    <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
+      {/* Left Panel: Branding & Welcome Message */}
+      <div className="hidden md:flex md:w-[35%] lg:w-[30%] bg-slate-950 relative flex-col justify-between p-12 text-white overflow-hidden">
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-24">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Rocket className="w-5 h-5 text-white" />
             </div>
-            <span className="text-2xl font-bold text-slate-900 tracking-tight">Groona</span>
+            <span className="font-bold text-xl tracking-tight">Groona</span>
           </div>
 
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">Sign In</h1>
-            <p className="text-slate-500">Welcome back! Please enter your details.</p>
-          </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6"
-            >
-              <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-800">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            </motion.div>
-          )}
-
-
-
-          <form className="space-y-6" onSubmit={handleLogin}>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Email Address
-              </Label>
-              <div className="relative group">
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="name@company.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={loading}
-                  className="pl-0 border-0 border-b-2 border-slate-100 rounded-none focus-visible:ring-0 focus-visible:border-blue-600 transition-all bg-transparent text-lg py-5"
-                />
-              </div>
+          <div className="space-y-12">
+            <div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <h1 className="text-4xl lg:text-5xl font-bold leading-[1.1] mb-6">
+                  Connect to your <span className="text-blue-500">productive world.</span>
+                </h1>
+                <p className="text-slate-400 text-lg leading-relaxed">
+                  Access your project insights, team updates, and AI-powered performance metrics in one secure place.
+                </p>
+              </motion.div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                Password
-              </Label>
-              <div className="relative group">
-                <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  disabled={loading}
-                  className="pl-0 pr-10 border-0 border-b-2 border-slate-100 rounded-none focus-visible:ring-0 focus-visible:border-blue-600 transition-all bg-transparent text-lg py-5"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 cursor-pointer" onClick={() => setRememberMe(!rememberMe)}>
-                <div className={`h-5 w-5 rounded border flex items-center justify-center transition-all ${rememberMe ? 'bg-blue-600 border-blue-600' : 'border-slate-300 bg-white'}`}>
-                  {rememberMe && <Check className="h-3 w-3 text-white stroke-[3px]" />}
+            <div className="space-y-8 pt-12 border-t border-white/10">
+              <div className="flex items-center gap-4 group">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                  <Check className="w-5 h-5" />
                 </div>
-                <span className="text-sm font-medium text-slate-600 select-none">Remember Me</span>
+                <span className="text-sm font-bold text-slate-300">Secure AI-Powered Analytics</span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => navigate(createPageUrl("ForgotPassword"))}
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                Forgot Password?
-              </button>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <Checkbox
-                id="terms"
-                checked={acceptTerms}
-                onCheckedChange={(checked) => setAcceptTerms(checked)}
-                required
-                className="mt-1 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-              />
-              <label htmlFor="terms" className="text-xs font-medium text-slate-500 leading-relaxed cursor-pointer select-none">
-                I agree to the <a href="#" className="text-blue-600 font-bold hover:underline">Terms</a> and <a href="#" className="text-blue-600 font-bold hover:underline">Privacy Policy</a>.
-              </label>
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row gap-4">
-              <Button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-4 h-auto text-base font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98]"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 mr-3 animate-spin" />
-                    Signing In...
-                  </>
-                ) : (
-                  "LOGIN"
-                )}
-              </Button>
-
-              <Link to={createPageUrl("Register")} className="flex-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full py-4 h-auto text-base font-bold border-2 border-slate-200 hover:border-blue-600 hover:text-blue-600 transition-all active:scale-[0.98]"
-                >
-                  CREATE ACCOUNT
-                </Button>
-              </Link>
-            </div>
-          </form>
-
-          <div className="my-8">
-            <div className="relative mb-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-4 text-slate-400 font-bold tracking-widest">Or login with</span>
+              <div className="flex items-center gap-4 group">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                  <Check className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-bold text-slate-300">Real-time Team Collaboration</span>
               </div>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled={googleLoading}
-              onClick={handleGoogleLogin}
-              className="w-full py-4 h-auto text-base font-bold border-2 border-slate-100 hover:border-blue-600 hover:text-blue-600 transition-all active:scale-[0.98] flex items-center justify-center gap-3"
-            >
-              {googleLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <GoogleIcon className="h-5 w-5" />
-                  Sign in with Google
-                </>
-              )}
-            </Button>
-          </div>
-
-          <div className="mt-12 text-center text-sm">
-            <p className="text-slate-500 mb-4">
-              Forgotten your login details?{" "}
-              <button
-                onClick={() => navigate(createPageUrl("AboutUs"))}
-                className="text-blue-600 font-bold hover:underline"
-              >
-                Get Help Signing In
-              </button>
-            </p>
-          </div>
-        </motion.div>
-      </div>
-
-
-      {/* Right Side: Visual Hero */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 relative items-center justify-center overflow-hidden">
-        {/* Background Gradient & Animated Elements */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-700 to-purple-800 opacity-90" />
-
-        {/* Abstract Background Shapes */}
-        <motion.div
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-1/4 -right-1/4 w-[800px] h-[800px] bg-white/10 rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            rotate: [360, 0],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] bg-blue-400/20 rounded-full blur-3xl"
-        />
-
-        {/* Content */}
-        <div className="relative z-10 text-center px-12">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <div className="mb-8 flex justify-center">
-              <div className="h-24 w-24 rounded-3xl bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center shadow-2xl">
-                <Sparkles className="h-12 w-12 text-white" />
-              </div>
-            </div>
-
-            <p className="text-white/60 font-bold tracking-[0.3em] uppercase mb-4">Welcome to</p>
-            <h2 className="text-5xl font-extrabold text-white mb-6 tracking-tight">
-              Groona Management
-            </h2>
-            <div className="w-24 h-1.5 bg-white/20 mx-auto rounded-full mb-8" />
-            <p className="text-xl text-white/80 max-w-md mx-auto leading-relaxed">
-              Login to access your personalized project dashboard and AI-powered insights.
-            </p>
-          </motion.div>
-
-          {/* Decorative Elements */}
-          <div className="mt-16 grid grid-cols-3 gap-6 opacity-40">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-1 bg-white/30 rounded-full" />
-            ))}
           </div>
         </div>
 
-        {/* Floating Icons for depth */}
-        <motion.div
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-20 right-20 text-white/10"
-        >
-          <Sparkles size={120} />
-        </motion.div>
+        <div className="relative z-10">
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Trusted by Industry Leaders</p>
+          <div className="flex gap-4 opacity-50">
+            {/* Simple visual placeholders for social proof */}
+            <div className="h-6 w-20 bg-white/20 rounded" />
+            <div className="h-6 w-20 bg-white/20 rounded" />
+          </div>
+        </div>
+
+        {/* Decorative Gradients */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] left-[-20%] w-[80%] aspect-square rounded-full bg-blue-600/20 blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-20%] w-[80%] aspect-square rounded-full bg-indigo-600/20 blur-[120px]" />
+        </div>
       </div>
+
+      {/* Right Panel: Content */}
+      <main className="flex-1 flex flex-col relative h-screen bg-white overflow-y-auto">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center justify-between p-6 border-b">
+          <div className="flex items-center gap-2">
+            <Rocket className="w-6 h-6 text-blue-600" />
+            <span className="font-bold text-lg">Groona</span>
+          </div>
+          <Link to={createPageUrl("Register")} className="text-sm font-bold text-blue-600">
+            Sign Up
+          </Link>
+        </div>
+
+        {/* Top Navigation for Desktop */}
+        <header className="hidden md:flex h-20 items-center justify-end px-12 shrink-0">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-slate-500">Don't have an account?</span>
+            <Link to={createPageUrl("Register")}>
+              <Button variant="outline" className="rounded-full px-6 font-bold border-slate-200 hover:border-blue-600 hover:text-blue-600 transition-all">
+                Create Account
+              </Button>
+            </Link>
+          </div>
+        </header>
+
+        {/* Form Content Area */}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-full max-w-xl px-8 py-12 md:py-24 space-y-12">
+            <div className="space-y-4">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="text-blue-600 font-bold tracking-widest uppercase text-xs"
+              >
+                Welcome back
+              </motion.div>
+              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+                Log in to <span className="text-blue-600">Groona.</span>
+              </h2>
+              <p className="text-slate-500 text-xl leading-relaxed max-w-md">
+                Enter your credentials to access your mission center and projects.
+              </p>
+            </div>
+
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+                <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-800 rounded-2xl">
+                  <AlertDescription className="font-medium">{error}</AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-8">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">
+                    Work Email
+                  </Label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      placeholder="name@company.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      disabled={loading}
+                      className="h-14 pl-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all text-lg"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between ml-1">
+                    <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                      Password
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => navigate(createPageUrl("ForgotPassword"))}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                    >
+                      Forgot?
+                    </button>
+                  </div>
+                  <div className="relative group">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      disabled={loading}
+                      className="h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all text-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-4 flex items-center text-slate-400 hover:text-slate-600"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div
+                  className="flex items-center gap-3 cursor-pointer group"
+                  onClick={() => setRememberMe(!rememberMe)}
+                >
+                  <div className={`h-6 w-6 rounded-lg border-2 flex items-center justify-center transition-all ${rememberMe ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-500/20' : 'border-slate-200 bg-white group-hover:border-blue-400'}`}>
+                    {rememberMe && <Check className="h-3.5 w-3.5 text-white stroke-[4px]" />}
+                  </div>
+                  <span className="text-sm font-bold text-slate-600 select-none">Remember this device</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-blue-50/30 border border-blue-100/50">
+                  <Checkbox
+                    id="terms"
+                    checked={acceptTerms}
+                    onCheckedChange={(checked) => setAcceptTerms(checked)}
+                    required
+                    className="mt-1 border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md"
+                  />
+                  <Label htmlFor="terms" className="text-xs font-medium text-slate-500 leading-relaxed cursor-pointer select-none">
+                    I have read and agree to the <a href="#" className="text-blue-600 font-bold hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 font-bold hover:underline">Privacy Policy</a>.
+                  </Label>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    size="lg"
+                    className="flex-1 h-16 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        Sign In Now
+                        <ArrowRight className="h-6 w-6" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </form>
+
+            <div className="space-y-8">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-100"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-6 text-slate-400 font-bold tracking-widest">Or continue with</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                disabled={googleLoading}
+                onClick={handleGoogleLogin}
+                className="w-full h-16 text-lg font-bold border-2 border-slate-100 hover:border-blue-600 hover:text-blue-600 rounded-2xl transition-all hover:bg-blue-50/30 flex items-center justify-center gap-4 group"
+              >
+                {googleLoading ? (
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                ) : (
+                  <>
+                    <GoogleIcon className="h-6 w-6 group-hover:scale-110 transition-transform" />
+                    Sign in with Google
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <footer className="pt-12 flex items-center justify-between border-t border-slate-50">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
+                Groona AI Intelligence
+              </p>
+              <button
+                onClick={() => navigate(createPageUrl("AboutUs"))}
+                className="text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors"
+              >
+                Need help signing in?
+              </button>
+            </footer>
+          </div>
+        </div>
+
+        {/* Floating background details for the form area */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-[100px] pointer-events-none opacity-50" />
+      </main>
     </div>
   );
 }

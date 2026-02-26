@@ -231,9 +231,11 @@ async function checkHighReworkTrend() {
         const User = mongoose.model('User');
         const ProjectUserRole = mongoose.model('ProjectUserRole');
         const Notification = mongoose.model('Notification');
+        const Timesheet = mongoose.model('Timesheet');
 
-        const testMode = process.argv.includes('--force');
-        if (testMode) {
+        const isTest = process.argv.includes('--test');
+        const isForce = process.argv.includes('--force');
+        if (isForce) {
             console.log('⚠️  FORCE MODE ENABLED: Skipping duplicate checks.\n');
         }
 
@@ -276,37 +278,77 @@ async function checkHighReworkTrend() {
                         memberEmails = fallbackUsers.map(u => u.email);
                     }
 
-                    if (memberEmails.length === 0) {
-                        break; // can't reliably calculate timesheets without members
-                    }
+                    // memberEmails = (project.team_members || []).map(m => m.email).filter(Boolean);
+                    // if (memberEmails.length === 0) { ... }
+                    // We'll rely on project_id and project_name in Timesheet directly.
 
-                    memberEmails = [...new Set(memberEmails)];
+                    // Fetch project-specific timesheets within sprint dates (including end of day)
+                    const sDate = new Date(sprint.start_date);
+                    sDate.setHours(0, 0, 0, 0);
+                    const eDate = new Date(sprint.end_date);
+                    eDate.setHours(23, 59, 59, 999);
 
-                    // Fetch timesheets within sprint dates
-                    const timesheets = await User_timesheets.find({
-                        user_email: { $in: memberEmails },
-                        timesheet_date: {
-                            $gte: new Date(sprint.start_date),
-                            $lte: new Date(sprint.end_date)
-                        }
+                    const projectTimesheets = await Timesheet.find({
+                        tenant_id: project.tenant_id,
+                        $or: [
+                            { project_id: project._id.toString() },
+                            { project_name: { $regex: new RegExp(`^${project.name}$`, 'i') } }
+                        ],
+                        date: {
+                            $gte: sDate,
+                            $lte: eDate
+                        },
+                        status: { $ne: 'rejected' }
                     });
+
+                    if (projectTimesheets.length === 0) {
+                        // Log specifically why we skipped
+                        // console.log(`      ℹ️  No timesheets found for ${sprint.name} (${sDate.toISOString().split('T')[0]} to ${eDate.toISOString().split('T')[0]})`);
+                    }
 
                     let sprintTotalMins = 0;
                     let sprintReworkMins = 0;
+                    const taskRework = {};
+                    const userRework = {};
 
-                    timesheets.forEach(ts => {
-                        sprintTotalMins += (ts.total_time_submitted_in_day || 0);
-                        sprintReworkMins += (ts.rework_time_in_day || 0);
+                    projectTimesheets.forEach(ts => {
+                        const mins = (ts.total_minutes || ((ts.hours || 0) * 60 + (ts.minutes || 0)));
+                        sprintTotalMins += mins;
+
+                        if (ts.work_type === 'rework') {
+                            sprintReworkMins += mins;
+                            const taskName = ts.task_title || 'Unassigned';
+                            const userName = ts.user_name || ts.user_email || 'Unknown';
+                            taskRework[taskName] = (taskRework[taskName] || 0) + mins;
+                            userRework[userName] = (userRework[userName] || 0) + mins;
+                        }
                     });
 
                     const percentage = sprintTotalMins > 0 ? (sprintReworkMins / sprintTotalMins) * 100 : 0;
+
+                    const topTasks = Object.entries(taskRework)
+                        .map(([name, mins]) => ({ name, hours: (mins / 60).toFixed(1) }))
+                        .sort((a, b) => b.hours - a.hours)
+                        .slice(0, 3);
+
+                    const topUsers = Object.entries(userRework)
+                        .map(([name, mins]) => ({ name, hours: (mins / 60).toFixed(1) }))
+                        .sort((a, b) => b.hours - a.hours)
+                        .slice(0, 3);
+
+                    if (sprintReworkMins > 0) {
+                        console.log(`    📊 Sprint "${sprint.name}": ${percentage.toFixed(1)}% Rework (${(sprintReworkMins / 60).toFixed(1)}h / ${(sprintTotalMins / 60).toFixed(1)}h)`);
+                        if (topTasks.length > 0) console.log(`      🔝 Top Tasks: ${topTasks.map(t => `${t.name}(${t.hours}h)`).join(', ')}`);
+                    }
 
                     sprintMetrics.push({
                         sprintId: sprint._id,
                         sprintName: sprint.name,
                         totalHours: sprintTotalMins / 60,
                         reworkHours: sprintReworkMins / 60,
-                        reworkPercentage: percentage
+                        reworkPercentage: percentage,
+                        topTasks,
+                        topUsers
                     });
                 }
 
@@ -352,7 +394,7 @@ async function checkHighReworkTrend() {
                 if (isRunawayRework) {
                     console.log(`    🚨 RUNAWAY REWORK TREND DETECTED! (>25% for 3 sprints)`);
 
-                    if (!testMode) {
+                    if (!isForce) {
                         const startOfDay = new Date();
                         startOfDay.setHours(0, 0, 0, 0);
                         const existingAlert = await Notification.findOne({
@@ -417,7 +459,7 @@ async function checkHighReworkTrend() {
                     console.log(`    ✅ System Action: Auto-created tech-debt sprint.`);
 
                     for (const recipient of recipients) {
-                        await Notification.create({
+                        const newNote = new Notification({
                             tenant_id: project.tenant_id,
                             recipient_email: recipient.email,
                             user_id: recipient._id,
@@ -431,14 +473,18 @@ async function checkHighReworkTrend() {
                             sender_name: 'System',
                             read: false,
                             created_date: new Date(),
-                            link: `/ProjectDetail?id=${project._id}&showReworkPopup=true`,
                             metadata: {
                                 recentSprints: sprintMetrics.slice(0, 3).map(s => ({
                                     name: s.sprintName,
-                                    rework: s.reworkPercentage
+                                    rework: s.reworkPercentage,
+                                    topTasks: s.topTasks,
+                                    topUsers: s.topUsers
                                 }))
                             }
                         });
+                        newNote.link = `/ProjectDetail?id=${project._id}&showReworkPopup=true&notificationId=${newNote._id}`;
+                        await newNote.save();
+
                         console.log(`    ✅ In-app notification saved for ${recipient.email}`);
                         try {
                             const emailHtml = getRunawayAlertHtml(project, sprint1, sprint2, sprint3);
@@ -458,7 +504,7 @@ async function checkHighReworkTrend() {
                     console.log(`    ⚠️ HIGH REWORK TREND DETECTED! (>15% for 2 sprints)`);
 
                     // Duplicate check
-                    if (!testMode) {
+                    if (!isForce) {
                         const startOfDay = new Date();
                         startOfDay.setHours(0, 0, 0, 0);
 
@@ -520,7 +566,7 @@ async function checkHighReworkTrend() {
 
                     for (const recipient of recipients) {
                         // In-app Notification
-                        await Notification.create({
+                        const newNote = new Notification({
                             tenant_id: project.tenant_id,
                             recipient_email: recipient.email,
                             user_id: recipient._id,
@@ -534,14 +580,18 @@ async function checkHighReworkTrend() {
                             sender_name: 'System',
                             read: false,
                             created_date: new Date(),
-                            link: `/ProjectDetail?id=${project._id}&showReworkPopup=true`,
                             metadata: {
-                                recentSprints: sprintMetrics.slice(0, 2).map(s => ({
+                                recentSprints: sprintMetrics.slice(0, 3).map(s => ({
                                     name: s.sprintName,
-                                    rework: s.reworkPercentage
+                                    rework: s.reworkPercentage,
+                                    topTasks: s.topTasks,
+                                    topUsers: s.topUsers
                                 }))
                             }
                         });
+                        newNote.link = `/ProjectDetail?id=${project._id}&showReworkPopup=true&notificationId=${newNote._id}`;
+                        await newNote.save();
+
                         console.log(`    ✅ In-app notification saved for ${recipient.email}`);
 
                         // Email removed as per requirement: only in-app notification for > 15%

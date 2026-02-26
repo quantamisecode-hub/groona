@@ -775,15 +775,48 @@ export default function ProjectDetail() {
                     </p>
 
                     {reworkNotification?.metadata?.recentSprints && (
-                      <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                        <h4 className="text-sm font-semibold text-red-800 mb-2">Trend Analysis:</h4>
-                        <div className="space-y-2">
+                      <div className="bg-red-50 p-4 rounded-lg border border-red-100 max-h-[350px] overflow-y-auto">
+                        <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          Sprint Breakdown:
+                        </h4>
+                        <div className="space-y-6">
                           {reworkNotification.metadata.recentSprints.map((s, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-sm">
-                              <span className="text-slate-700">{s.name}</span>
-                              <span className={`font-bold ${s.rework > 25 ? 'text-red-600' : 'text-orange-600'}`}>
-                                {s.rework.toFixed(1)}% Rework
-                              </span>
+                            <div key={idx} className="space-y-3 pb-3 border-b border-red-200/50 last:border-0 last:pb-0">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="font-bold text-slate-800">{s.name}</span>
+                                <span className={`font-bold px-2 py-0.5 rounded-full text-xs ${s.rework > 25 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                                  {s.rework.toFixed(1)}% Rework
+                                </span>
+                              </div>
+
+                              {s.topTasks?.length > 0 && (
+                                <div className="pl-3 border-l-2 border-red-200">
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Impacted Tasks</p>
+                                  <div className="space-y-1">
+                                    {s.topTasks.map((t, tidx) => (
+                                      <div key={tidx} className="flex justify-between items-center text-[12px]">
+                                        <span className="text-slate-600 truncate max-w-[180px]" title={t.name}>{t.name}</span>
+                                        <span className="text-red-500 font-semibold">{t.hours}h</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {s.topUsers?.length > 0 && (
+                                <div className="pl-3 border-l-2 border-slate-200">
+                                  <p className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Top Contributors</p>
+                                  <div className="space-y-1">
+                                    {s.topUsers.map((u, uidx) => (
+                                      <div key={uidx} className="flex justify-between items-center text-[12px]">
+                                        <span className="text-slate-600 truncate max-w-[180px]" title={u.name}>{u.name}</span>
+                                        <span className="text-slate-500 font-medium">{u.hours}h</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

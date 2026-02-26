@@ -1,128 +1,144 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Rocket, FolderKanban, Users, Palette, Bell } from "lucide-react";
+import { CheckCircle2, Rocket, FolderKanban, Users, Palette, Bell, ArrowRight, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function CompletionStep({ data, onComplete, onBack }) {
   const completedSteps = [
     {
       icon: FolderKanban,
-      title: "Projects Created",
+      title: "Projects",
       completed: data.projects?.length > 0,
       count: data.projects?.length || 0,
     },
     {
       icon: Users,
-      title: "Team Invites Sent",
+      title: "Team",
       completed: data.invites?.length > 0,
       count: data.invites?.length || 0,
     },
     {
       icon: Palette,
-      title: "Branding Configured",
+      title: "Identity",
       completed: data.branding?.logo_url || data.branding?.primary_color,
       count: null,
     },
     {
       icon: Bell,
-      title: "Notifications Set",
+      title: "Settings",
       completed: data.notifications && Object.keys(data.notifications).length > 0,
       count: null,
     },
   ];
 
-  const completedCount = completedSteps.filter(s => s.completed).length;
-
   return (
-    <div className="space-y-8 py-4">
-      {/* Success Icon */}
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 mb-4">
-          <CheckCircle2 className="h-14 w-14 text-white" />
+    <div className="w-full space-y-16">
+      {/* Celebratory Header */}
+      <div className="space-y-6">
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-xl shadow-blue-500/20"
+        >
+          <Rocket className="h-8 w-8" />
+        </motion.div>
+
+        <div className="space-y-3">
+          <h2 className="text-5xl md:text-6xl font-bold text-slate-900 tracking-tight leading-tight">
+            Mission Ready.
+          </h2>
+          <p className="text-slate-500 text-xl max-w-2xl">
+            Your workspace is configured and the environment is optimized for your team's success.
+          </p>
         </div>
-        <h2 className="text-3xl md:text-4xl font-bold text-slate-900">
-          You're All Set! 🎉
-        </h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Your workspace is ready to go. You've completed {completedCount} of {completedSteps.length} setup steps.
-        </p>
       </div>
 
-      {/* Completed Steps Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {completedSteps.map((step, index) => (
-          <div
-            key={index}
-            className={`flex items-start gap-4 p-4 rounded-lg border transition-all ${
-              step.completed
-                ? 'bg-green-50 border-green-200'
-                : 'bg-slate-50 border-slate-200 opacity-60'
-            }`}
-          >
-            <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-              step.completed
-                ? 'bg-green-500'
-                : 'bg-slate-300'
-            }`}>
-              {step.completed ? (
-                <CheckCircle2 className="h-5 w-5 text-white" />
-              ) : (
-                <step.icon className="h-5 w-5 text-white" />
-              )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch">
+        {/* Hero Action Section */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="p-10 md:p-12 rounded-[2.5rem] bg-slate-900 text-white shadow-2xl space-y-8 relative overflow-hidden group flex flex-col justify-between"
+        >
+          <div className="relative z-10 space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest mb-4 border border-blue-500/30">
+              <Sparkles className="w-4 h-4" />
+              AI Deployment Active
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900">{step.title}</h3>
-              {step.completed && step.count !== null && (
-                <p className="text-sm text-slate-600 mt-1">
-                  {step.count} {step.count === 1 ? 'item' : 'items'}
-                </p>
-              )}
-              {!step.completed && (
-                <p className="text-sm text-slate-500 mt-1">Skipped</p>
-              )}
+            <h3 className="text-3xl font-bold">Launch your first sprint</h3>
+            <p className="text-slate-400 text-lg leading-relaxed max-w-sm">
+              Everything is set up. Head to your dashboard to start organizing tasks and tracking progress with real-time AI insights.
+            </p>
+          </div>
+
+          <div className="relative z-10">
+            <Button
+              onClick={onComplete}
+              size="lg"
+              className="w-full h-16 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl font-bold text-xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 shadow-xl"
+            >
+              Enter Dashboard
+              <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            </Button>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-blue-600/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
+        </motion.div>
+
+        {/* Status Checklist Column */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+          className="space-y-6 flex flex-col justify-center"
+        >
+          <div className="p-8 rounded-3xl border border-slate-100 bg-white shadow-sm space-y-8">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Setup Summary</h4>
+            <div className="grid grid-cols-1 gap-6">
+              {completedSteps.map((step, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6 + (index * 0.1) }}
+                  className="flex items-center gap-5 group"
+                >
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${step.completed ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-300'
+                    }`}>
+                    {step.completed ? <CheckCircle2 className="w-6 h-6" /> : <step.icon className="w-6 h-6" />}
+                  </div>
+                  <div className="flex-1 border-b border-slate-50 pb-4 group-last:border-0">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold ${step.completed ? 'text-slate-900' : 'text-slate-400 font-medium'}`}>
+                        {step.title}
+                      </span>
+                      {step.count > 0 && (
+                        <span className="text-xs font-bold bg-slate-950 text-white px-2 py-0.5 rounded-md">
+                          {step.count}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">
+                      {step.completed ? 'Successfully configured' : 'Skipped during setup'}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Next Steps */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
-        <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-          <Rocket className="h-5 w-5 text-blue-600" />
-          What's Next?
-        </h3>
-        <ul className="space-y-2 text-sm text-slate-700">
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-0.5">•</span>
-            <span>Create tasks and start organizing your projects</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-0.5">•</span>
-            <span>Explore AI features to automate your workflow</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-0.5">•</span>
-            <span>Set up sprints and use Kanban boards for agile management</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-0.5">•</span>
-            <span>Check out insights and analytics to track progress</span>
-          </li>
-        </ul>
-      </div>
-
-      {/* Actions */}
-      <div className="flex justify-between pt-4 border-t">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          onClick={onComplete}
-          size="lg"
-          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8"
-        >
-          Go to Dashboard
-          <Rocket className="h-5 w-5 ml-2" />
-        </Button>
+          <div className="text-center pt-4">
+            <button
+              onClick={onBack}
+              className="text-slate-400 hover:text-slate-900 text-sm font-bold transition-colors underline-offset-4 hover:underline"
+            >
+              ← Return to setup details
+            </button>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

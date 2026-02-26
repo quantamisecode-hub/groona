@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FolderKanban, Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { FolderKanban, Plus, Trash2, Sparkles, Loader2, ArrowRight, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack }) {
   const [projects, setProjects] = useState([
@@ -33,7 +34,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
 
   const handleAISuggestions = async (projectIndex = 0) => {
     const projectName = projects[projectIndex]?.name?.trim();
-    
+
     if (!projectName) {
       toast.error("Please enter project name first");
       return;
@@ -42,10 +43,10 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
     setAiGenerating(true);
     try {
       const companyType = tenant.company_type || 'SOFTWARE';
-      const industryContext = companyType === 'MARKETING' 
+      const industryContext = companyType === 'MARKETING'
         ? 'marketing agency focused on campaigns, content creation, and client deliverables'
         : 'software development company focused on building applications and digital products';
-      
+
       const prompt = `Based on the project name "${projectName}" for a ${industryContext} company named "${tenant.name}", generate:
       - A brief description (2-3 sentences) explaining what this project is about and its objectives
       - A priority level (low, medium, high, or urgent) based on the project's importance and urgency
@@ -101,7 +102,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
 
   const handleNext = async () => {
     const validProjects = projects.filter(p => p.name.trim());
-    
+
     if (validProjects.length === 0) {
       toast.error("Please add at least one project or skip this step");
       return;
@@ -110,7 +111,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
     setLoading(true);
     try {
       const createdProjects = [];
-      
+
       for (const project of validProjects) {
         const newProject = await groonabackend.entities.Project.create({
           tenant_id: tenant.id,
@@ -148,139 +149,165 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
   };
 
   return (
-    <div className="space-y-6 py-4">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-3">
-          <FolderKanban className="h-8 w-8 text-white" />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-900">Create Your First Projects</h2>
-        <p className="text-slate-600">
-          Start organizing your work by creating projects. You can add more later!
-        </p>
-      </div>
+    <div className="w-full space-y-12">
+      <motion.header
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-4"
+      >
+        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">Focus on your goals.</h2>
+        <p className="text-slate-500 text-xl max-w-2xl">Define your initial projects to get your workspace moving. You can always refine these later.</p>
+      </motion.header>
 
-      {/* Project Forms */}
-      <div className="space-y-4">
-        {projects.map((project, index) => (
-          <div key={index} className="p-4 border border-slate-200 rounded-lg bg-slate-50/50 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-semibold text-slate-700">
-                Project {index + 1}
-              </Label>
-              {projects.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeProject(index)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label className="text-sm">Project Name *</Label>
-                  <Button
-                    onClick={() => {
-                      if (!project.name.trim()) {
-                        toast.error("Please enter project name first");
-                        return;
-                      }
-                      handleAISuggestions(index);
-                    }}
-                    variant="outline"
-                    size="sm"
-                    disabled={aiGenerating}
-                    className="border-purple-200 hover:border-purple-300 hover:bg-purple-50"
-                  >
-                    {aiGenerating ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-3 w-3 mr-1 text-purple-600" />
-                        Get AI Suggestion
-                      </>
-                    )}
-                  </Button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="space-y-6"
+        >
+          <AnimatePresence>
+            {projects.map((project, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="p-6 rounded-2xl border border-slate-100 bg-white ring-8 ring-slate-50/50"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <span className="text-xs font-bold uppercase tracking-widest text-blue-600">Project {index + 1}</span>
+                  {projects.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => removeProject(index)} className="h-8 w-8 text-slate-300 hover:text-red-500">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
-                <Input
-                  placeholder="e.g., Website Redesign, Mobile App Development"
-                  value={project.name}
-                  onChange={(e) => updateProject(index, 'name', e.target.value)}
-                />
-              </div>
 
-              <div>
-                <Label className="text-sm">Description</Label>
-                <Textarea
-                  placeholder="What's this project about?"
-                  value={project.description}
-                  onChange={(e) => updateProject(index, 'description', e.target.value)}
-                  rows={2}
-                />
-              </div>
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase text-slate-400 ml-1">Title</Label>
+                      <button
+                        onClick={() => handleAISuggestions(index)}
+                        className="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 transition-colors disabled:opacity-50"
+                        disabled={aiGenerating}
+                      >
+                        {aiGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        Use AI
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="e.g. Q1 Product Roadmap"
+                      value={project.name}
+                      onChange={(e) => updateProject(index, 'name', e.target.value)}
+                      className="h-12 border-slate-100 focus:border-blue-600 rounded-xl"
+                    />
+                  </div>
 
-              <div>
-                <Label className="text-sm">Priority</Label>
-                <Select
-                  value={project.priority}
-                  onValueChange={(value) => updateProject(index, 'priority', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-slate-400 ml-1">Details</Label>
+                    <Textarea
+                      placeholder="Briefly describe the objectives..."
+                      value={project.description}
+                      onChange={(e) => updateProject(index, 'description', e.target.value)}
+                      rows={2}
+                      className="border-slate-100 focus:border-blue-600 rounded-xl resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-xs font-bold uppercase text-slate-400 ml-1">Priority</Label>
+                      <Select value={project.priority} onValueChange={(v) => updateProject(index, 'priority', v)}>
+                        <SelectTrigger className="h-10 border-slate-100 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {projects.length < 3 && (
+            <Button onClick={addProject} variant="outline" className="w-full h-14 rounded-2xl border-dashed border-2 border-slate-100 hover:border-blue-200 hover:bg-blue-50/20 text-slate-400 transition-all font-bold">
+              <Plus className="w-4 h-4 mr-2" />
+              Add another mission
+            </Button>
+          )}
+        </motion.div>
+
+        {/* Project Tips Column */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-8 lg:sticky lg:top-0"
+        >
+          <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 space-y-6">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
+            <div className="space-y-2">
+              <h3 className="font-bold text-slate-900 text-lg">Pro Planning Tips</h3>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Successful teams usually start with 2-3 focused projects. This helps maintain momentum without overwhelming the initial team.
+              </p>
+            </div>
+            <ul className="space-y-4">
+              {[
+                "Keep titles short and action-oriented",
+                "Define a clear 'Done' state in the details",
+                "Use high priority for bottleneck projects",
+                "Leverage AI for drafting descriptions"
+              ].map((tip, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                  {tip}
+                </li>
+              ))}
+            </ul>
           </div>
-        ))}
 
-        {projects.length < 3 && (
-          <Button
-            onClick={addProject}
-            variant="outline"
-            className="w-full border-dashed"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Another Project
-          </Button>
-        )}
+          <div className="p-6 rounded-2xl border border-blue-50 bg-blue-50/20 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+              <Rocket className="w-5 h-5" />
+            </div>
+            <p className="text-xs font-semibold text-blue-800 leading-snug">
+              Projects can be grouped into Workspace Folders later for even better organization.
+            </p>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between pt-4 border-t">
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-        <div className="flex gap-3">
-          <Button variant="ghost" onClick={() => onNext({ projects: [] })}>
-            Skip
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="pt-8 border-t border-slate-100 flex items-center justify-between"
+      >
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => onNext({ projects: [] })} className="text-slate-400 hover:text-slate-900 font-bold">
+            Skip for now
           </Button>
-          <Button onClick={handleNext} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              "Continue"
-            )}
+          <Button
+            onClick={handleNext}
+            disabled={loading}
+            size="lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 h-14 font-bold group min-w-[140px]"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save & Continue <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" /></>}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
