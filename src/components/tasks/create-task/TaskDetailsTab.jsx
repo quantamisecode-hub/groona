@@ -84,6 +84,16 @@ export default function TaskDetailsTab({
     enabled: !!taskData.project_id,
   });
 
+  // Fetch milestones for the project
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', taskData.project_id],
+    queryFn: async () => {
+      if (!taskData.project_id) return [];
+      return await groonabackend.entities.Milestone.filter({ project_id: taskData.project_id });
+    },
+    enabled: !!taskData.project_id,
+  });
+
   // Fetch impediments for the project
   const { data: projectImpediments = [] } = useQuery({
     queryKey: ['impediments', taskData.project_id],
@@ -139,6 +149,16 @@ export default function TaskDetailsTab({
       }
     }
   }, [taskData.story_id, stories, projects, setTaskData]);
+
+  // Milestone inheritance from Sprint
+  React.useEffect(() => {
+    if (taskData.sprint_id && taskData.sprint_id !== "unassigned") {
+      const selectedSprint = sprints.find(s => (s.id || s._id) === taskData.sprint_id);
+      if (selectedSprint?.milestone_id && !taskData.milestone_id) {
+        setTaskData(prev => ({ ...prev, milestone_id: selectedSprint.milestone_id }));
+      }
+    }
+  }, [taskData.sprint_id, sprints, setTaskData]);
 
 
   // Notify parent when impediment data changes
@@ -398,6 +418,38 @@ export default function TaskDetailsTab({
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Milestone Selection */}
+        <div className="md:col-span-2">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Flag className="h-4 w-4 text-blue-500" />
+            Project Milestone
+          </Label>
+          <Select
+            value={taskData.milestone_id || "unassigned"}
+            onValueChange={(value) => setTaskData({ ...taskData, milestone_id: value === "unassigned" ? null : value })}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Select Milestone (Optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unassigned">No Milestone</SelectItem>
+              {milestones
+                .filter(m => m.status === 'in_progress' || (taskData.milestone_id && (m.id === taskData.milestone_id || m._id === taskData.milestone_id)))
+                .map(m => (
+                  <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
+                      {m.name}
+                    </div>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Link this task to a phase for accurate milestone-level profit tracking.
+          </p>
         </div>
 
         {/* Story - Moved Above Assignees */}

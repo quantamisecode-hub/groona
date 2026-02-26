@@ -812,7 +812,34 @@ async function buildDeepContext(tenant_id, user_id, content) {
 }
 
 // ... (GENERIC ROUTES) ...
-router.post('/entities/:entity/filter', async (req, res) => { try { const Model = Models[req.params.entity]; if (!Model) return res.status(400).json({ msg: `Entity not found` }); const { filters = {}, sort } = req.body; let query = Model.find(filters); if (sort) { const sortObj = {}; if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1; else sortObj[sort] = 1; query = query.sort(sortObj); } res.json(await query.exec()); } catch (err) { res.json([]); } });
+router.post('/entities/:entity/filter', async (req, res) => {
+  try {
+    const entityName = req.params.entity;
+    const Model = Models[entityName];
+    if (!Model) {
+      console.warn(`[API] Entity Not Found: ${entityName}`);
+      return res.status(400).json({ msg: `Entity not found` });
+    }
+    const { filters = {}, sort } = req.body;
+    let query = Model.find(filters);
+    if (sort) {
+      const sortObj = {};
+      if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1;
+      else sortObj[sort] = 1;
+      query = query.sort(sortObj);
+    }
+    const results = await query.exec();
+    if (entityName === 'ProjectExpense' || entityName === 'Timesheet') {
+      console.log(`[DEBUG-BACKEND] Entity: ${entityName} | Filters:`, filters, `| Count: ${results.length}`);
+    }
+    res.json(results);
+  } catch (err) {
+    if (req.params.entity === 'ProjectExpense') {
+      console.error(`[DEBUG-BACKEND] Error fetching ${req.params.entity}:`, err);
+    }
+    res.json([]);
+  }
+});
 router.post('/entities/:entity/create', async (req, res) => {
   try {
     const Model = Models[req.params.entity];
@@ -3000,6 +3027,94 @@ router.get('/tenant/payments-history/:tenantId', async (req, res) => {
   } catch (error) {
     console.error('[API] Tenant Payment History error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// === AI PROFITABILITY ANALYSIS ENDPOINT ===
+router.post('/ai/analyze-profitability', async (req, res) => {
+  const { project, metrics } = req.body;
+
+  if (!project || !metrics) {
+    return res.status(400).json({ error: 'Missing project or metrics data' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY_2;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'AI Service (Gemini) not configured' });
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = modelHelper.getDefaultModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const prompt = `
+      You are "Groona AI", a senior financial analyst and project management consultant. 
+      Analyze the following project profitability data and provide deep, real-time insights targeting both OVERALL PROJECT VISION and PHASE-SPECIFIC performance.
+      
+      PROJECT: ${project.name}
+      STATUS: ${project.status}
+      BILLING MODEL: ${project.billing_model}
+      TOTAL BUDGET: ${metrics.currency} ${metrics.projectBudget}
+      TOTAL ACTUAL COST: ${metrics.currency} ${metrics.totalCost}
+      NET PROFIT/LOSS: ${metrics.currency} ${metrics.netProfit}
+      
+      BREAKDOWN:
+      - Labor Cost: ${metrics.currency} ${metrics.breakdown.laborCost}
+      - Non-Labor (Expenses): ${metrics.currency} ${metrics.breakdown.nonLaborCost}
+      - Non-Billable Efficiency Impact: ${metrics.currency} ${metrics.breakdown.nonBillableCost}
+      
+      PHASE-WISE PERFORMANCE:
+      ${(metrics.breakdown.phases || []).map(p => `- Phase: ${p.phaseName}, Status: ${p.status}, Cost: ${metrics.currency} ${p.totalPhaseCost}, Profit/Loss: ${metrics.currency} ${p.profitPoint}, Health: ${p.healthStatus}`).join('\n')}
+
+      TIMELINE:
+      - Days Overdue: ${metrics.daysOverdue}
+      - Estimated Cost Impact of Delay: ${metrics.currency} ${metrics.costImpact}
+      
+      TASK:
+      Provide a comprehensive 4-5 point analysis of project and phase health in EASY, PLAIN WORDS (Layman's terms). 
+      
+      ADAPT YOUR ANALYSIS & TONE BASED ON STATUS:
+      - IF IN PLANNING/NOT STARTED (Advisory Tone): Focus on budget realism, estimation risks, and resource readiness. Use a supportive, cautionary tone.
+      - IF ACTIVE (Urgent/Proactive Tone): Focus on burn rate, leakage, timeline buffers, and proactive warnings about overruns. Use a fast-paced, intervention-focused tone.
+      - IF COMPLETED (Forensic/Evaluative Tone): Focus on post-mortem efficiency, final margin vs estimate, and lessons for future projects. Use a reflective, analytical, and critical-but-constructive tone.
+      
+      CONTENT REQUIREMENTS:
+      1. Overall Performance: Identify the primary driver of project profit or loss.
+      2. Phase Insight: Specifically highlight the best performing and most concerning phases.
+      3. Strategic Advice (What/Why/How):
+         - WHAT: Clear summary of current financial health.
+         - WHY: Specific reasons (e.g., "labor cost exceeded estimate by INR X due to non-billable hours").
+         - HOW: Tactical steps to correct or prevent issues in future phases.
+      4. Clear Recommendations: Provide 2-3 specific, actionable recommendations (directly improving profitability).
+      
+      Formatting: Use **bold text** to highlight critical figures, phase names, or key terms for easy scanning.
+      
+      Format your response as a JSON object:
+      {
+        "primaryDriver": "string (Short, effective name for the main cause)",
+        "analysisPoints": ["string (Layman friendly explanation point)"],
+        "recommendations": ["string (Actionable point)"],
+        "overallHealth": "Healthy | At Risk | High Risk | Critical"
+      }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    // Clean JSON from response in case of markdown blocks
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+      primaryDriver: "Unknown",
+      analysisPoints: ["Failed to parse AI response"],
+      recommendations: ["Review metrics manually"],
+      overallHealth: "N/A"
+    };
+
+    res.json(analysis);
+  } catch (error) {
+    console.error('[AI Analysis] Error:', error);
+    res.status(500).json({ error: 'Failed to generate AI analysis' });
   }
 });
 

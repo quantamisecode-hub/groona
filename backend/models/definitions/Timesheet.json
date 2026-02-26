@@ -38,6 +38,14 @@
       "type": "string",
       "description": "Task title"
     },
+    "milestone_id": {
+      "type": "string",
+      "description": "ID of the associated milestone (optional)"
+    },
+    "milestone_name": {
+      "type": "string",
+      "description": "Name of the associated milestone (optional)"
+    },
     "date": {
       "type": "string",
       "format": "date",

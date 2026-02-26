@@ -11,11 +11,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertCircle, Folder, Sparkles, Loader2, Users, Upload, Image as ImageIcon, X } from "lucide-react";
+import {
+  AlertCircle,
+  Folder,
+  Sparkles,
+  Loader2,
+  Users,
+  Upload,
+  Image as ImageIcon,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { aiService } from "../shared/aiService";
 
@@ -26,7 +41,7 @@ export default function CreateProjectDialog({
   loading,
   error,
   selectedTemplate = null,
-  preselectedWorkspaceId = null
+  preselectedWorkspaceId = null,
 }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [formData, setFormData] = useState({
@@ -53,12 +68,14 @@ export default function CreateProjectDialog({
     non_billable_reason: "",
     retainer_period: "month",
     retainer_amount: 0,
+    expense_budget: 0,
   });
-  const [showFinancialFields, setShowFinancialFields] = useState(false);
 
+  const [showFinancialFields, setShowFinancialFields] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [generatingDescription, setGeneratingDescription] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -70,26 +87,26 @@ export default function CreateProjectDialog({
     : currentUser?.tenant_id;
 
   const { data: workspaces = [] } = useQuery({
-    queryKey: ['workspaces', effectiveTenantId],
+    queryKey: ["workspaces", effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
-      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId }, '-created_date');
+      return groonabackend.entities.Workspace.filter({ tenant_id: effectiveTenantId }, "-created_date");
     },
     enabled: !!currentUser,
   });
 
   const { data: teamMembers = [] } = useQuery({
-    queryKey: ['users', effectiveTenantId],
+    queryKey: ["users", effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
       const allUsers = await groonabackend.entities.User.list();
-      return allUsers.filter(u => u.tenant_id === effectiveTenantId);
+      return allUsers.filter((u) => u.tenant_id === effectiveTenantId);
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
 
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients', effectiveTenantId],
+    queryKey: ["clients", effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
       return await groonabackend.entities.Client.filter({ tenant_id: effectiveTenantId });
@@ -98,31 +115,29 @@ export default function CreateProjectDialog({
   });
 
   const { data: clientUsers = [] } = useQuery({
-    queryKey: ['client-users', effectiveTenantId],
+    queryKey: ["client-users", effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
       const allUsers = await groonabackend.entities.User.list();
-      return allUsers.filter(u => u.tenant_id === effectiveTenantId && u.custom_role === 'client');
+      return allUsers.filter((u) => u.tenant_id === effectiveTenantId && u.custom_role === "client");
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
 
-  // Filter Active Organizations (allowing undefined status for backward compatibility)
   const activeClientsMap = clients.reduce((acc, client) => {
-    if (client.status === 'active' || !client.status) {
+    if (client.status === "active" || !client.status) {
       acc[client.id] = client;
     }
     return acc;
   }, {});
 
-  // Users who belong to Active Organizations
-  const availableClientUsers = clientUsers.filter(u => u.client_id && activeClientsMap[u.client_id]);
+  const availableClientUsers = clientUsers.filter((u) => u.client_id && activeClientsMap[u.client_id]);
 
-  const accessibleWorkspaces = workspaces.filter(ws => {
-    if (currentUser?.role === 'admin' || currentUser?.is_super_admin) return true;
+  const accessibleWorkspaces = workspaces.filter((ws) => {
+    if (currentUser?.role === "admin" || currentUser?.is_super_admin) return true;
     if (ws.owner_email === currentUser?.email) return true;
-    const member = ws.members?.find(m => m.user_email === currentUser?.email);
-    return member && (member.role === 'admin' || member.role === 'member');
+    const member = ws.members?.find((m) => m.user_email === currentUser?.email);
+    return member && (member.role === "admin" || member.role === "member");
   });
 
   useEffect(() => {
@@ -145,14 +160,18 @@ export default function CreateProjectDialog({
           contract_amount: selectedTemplate.contract_amount || 0,
           budget_hours: selectedTemplate.budget_hours || 0,
           default_bill_rate_per_hour: selectedTemplate.default_bill_rate_per_hour || 0,
+          currency: selectedTemplate.currency || "INR",
           contract_start_date: "",
           contract_end_date: "",
           estimated_duration: 0,
           non_billable_reason: "",
           retainer_period: "month",
           retainer_amount: 0,
+          expense_budget: 0,
+          client: "",
+          client_user_id: "",
         });
-        setShowFinancialFields(!!(selectedTemplate.billing_model || selectedTemplate.contract_amount || selectedTemplate.budget_hours));
+        setShowFinancialFields(!!(selectedTemplate.billing_model || selectedTemplate.contract_amount));
       } else {
         setFormData({
           name: "",
@@ -169,16 +188,21 @@ export default function CreateProjectDialog({
           contract_amount: 0,
           budget_hours: 0,
           default_bill_rate_per_hour: 0,
+          currency: "INR",
           contract_start_date: "",
           contract_end_date: "",
           estimated_duration: 0,
           non_billable_reason: "",
           retainer_period: "month",
           retainer_amount: 0,
+          expense_budget: 0,
+          client: "",
+          client_user_id: "",
         });
         setShowFinancialFields(false);
       }
     } else {
+      // reset
       setFormData({
         name: "",
         description: "",
@@ -201,6 +225,9 @@ export default function CreateProjectDialog({
         non_billable_reason: "",
         retainer_period: "month",
         retainer_amount: 0,
+        expense_budget: 0,
+        client: "",
+        client_user_id: "",
       });
       setShowFinancialFields(false);
       setValidationErrors({});
@@ -211,26 +238,24 @@ export default function CreateProjectDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
+      toast.error("Image size must be less than 5MB");
       return;
     }
 
     setUploadingLogo(true);
     try {
       const { file_url } = await groonabackend.integrations.Core.UploadFile({ file });
-      setFormData({ ...formData, logo_url: file_url });
-      toast.success('Logo uploaded successfully!');
-    } catch (error) {
-      console.error('[CreateProject] Logo upload error:', error);
-      toast.error('Failed to upload logo');
+      setFormData((prev) => ({ ...prev, logo_url: file_url }));
+      toast.success("Logo uploaded successfully!");
+    } catch (err) {
+      console.error("[CreateProject] Logo upload error:", err);
+      toast.error("Failed to upload logo");
     } finally {
       setUploadingLogo(false);
     }
@@ -240,19 +265,19 @@ export default function CreateProjectDialog({
     const errors = {};
 
     if (!formData.name.trim()) {
-      errors.name = 'Project name is required';
+      errors.name = "Project name is required";
     } else if (formData.name.trim().length < 3) {
-      errors.name = 'Project name must be at least 3 characters';
+      errors.name = "Project name must be at least 3 characters";
     }
 
-    if (!formData.workspace_id || formData.workspace_id === "" || formData.workspace_id === undefined) {
-      errors.workspace_id = 'Workspace is required';
+    if (!formData.workspace_id) {
+      errors.workspace_id = "Workspace is required";
     }
 
     if (showFinancialFields) {
       if (formData.billing_model === "fixed_price") {
         if (!formData.contract_amount || formData.contract_amount <= 0) {
-          errors.contract_amount = 'Contract amount is required for fixed price projects';
+          errors.contract_amount = "Contract amount is required";
         }
         if (!formData.contract_start_date) errors.contract_start_date = "Start date is required";
         if (!formData.contract_end_date) errors.contract_end_date = "End date is required";
@@ -260,28 +285,26 @@ export default function CreateProjectDialog({
 
       if (formData.billing_model === "time_and_materials") {
         if (!formData.estimated_duration || formData.estimated_duration <= 0) {
-          errors.estimated_duration = "Duration is required for Time & Materials";
+          errors.estimated_duration = "Estimated duration is required";
         }
       }
 
       if (formData.billing_model === "retainer") {
+        if (!formData.retainer_amount || formData.retainer_amount <= 0) {
+          errors.retainer_amount = "Retainer amount is required";
+        }
         if (!formData.contract_start_date) errors.contract_start_date = "Start date is required";
         if (!formData.contract_end_date) errors.contract_end_date = "End date is required";
-        if (!formData.retainer_amount || formData.retainer_amount <= 0) errors.retainer_amount = "Retainer amount is required";
       }
 
       if (formData.billing_model === "non_billable") {
-        if (!formData.non_billable_reason || !formData.non_billable_reason.trim()) {
+        if (!formData.non_billable_reason?.trim()) {
           errors.non_billable_reason = "Reason is required for non-billable projects";
         }
       }
 
-      if (formData.budget_hours && isNaN(Number(formData.budget_hours))) {
-        errors.budget_hours = 'Budget hours must be a valid number';
-      }
-
       if (formData.default_bill_rate_per_hour && isNaN(Number(formData.default_bill_rate_per_hour))) {
-        errors.default_bill_rate = 'Bill rate must be a valid number';
+        errors.default_bill_rate_per_hour = "Bill rate must be a valid number";
       }
     }
 
@@ -291,105 +314,94 @@ export default function CreateProjectDialog({
 
   const handleGenerateDescription = async () => {
     if (!formData.name.trim()) {
-      toast.error('Please enter a project name first');
+      toast.error("Please enter a project name first");
       return;
     }
 
     setGeneratingDescription(true);
     try {
       const prompt = `Generate a concise, professional project description for a project named "${formData.name}". 
-      The description should be 2-3 sentences, explaining the project's purpose, scope, and expected outcomes. 
-      Keep it clear, actionable, and suitable for a project management tool.`;
+The description should be 2-3 sentences, explaining the project's purpose, scope, and expected outcomes. 
+Keep it clear, actionable, and suitable for a project management tool.`;
 
       const response = await aiService.invokeLLM(prompt, {
         addContextFromInternet: false,
       });
 
-      setFormData({ ...formData, description: response });
-      toast.success('Description generated successfully!');
-    } catch (error) {
-      console.error('[CreateProject] Failed to generate description:', error);
-      toast.error('Failed to generate description. Please try again.');
+      setFormData((prev) => ({ ...prev, description: response }));
+      toast.success("Description generated successfully!");
+    } catch (err) {
+      console.error("[CreateProject] Failed to generate description:", err);
+      toast.error("Failed to generate description. Please try again.");
     } finally {
       setGeneratingDescription(false);
     }
   };
 
   const toggleTeamMember = (userEmail) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       team_members: prev.team_members.includes(userEmail)
-        ? prev.team_members.filter(email => email !== userEmail)
-        : [...prev.team_members, userEmail]
+        ? prev.team_members.filter((email) => email !== userEmail)
+        : [...prev.team_members, userEmail],
     }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!validateForm()) return;
 
-    if (!validateForm()) {
-      return;
-    }
+    const workspaceId = formData.workspace_id || undefined;
 
-    // CRITICAL FIX: Properly handle workspace_id
-    const workspaceId = formData.workspace_id && formData.workspace_id !== ""
-      ? formData.workspace_id
-      : undefined;
-
-    // Exclusivity Logic for Create Project
     let billingFields = {};
 
     if (showFinancialFields) {
       switch (formData.billing_model) {
-        case 'time_and_materials':
+        case "time_and_materials":
           billingFields = {
             estimated_duration: Number(formData.estimated_duration) || 0,
             default_bill_rate_per_hour: Number(formData.default_bill_rate_per_hour) || 0,
-            // Clear others just in case backend has defaults
             contract_amount: 0,
             budget: 0,
             retainer_amount: 0,
             retainer_period: null,
             non_billable_reason: null,
             contract_start_date: null,
-            contract_end_date: null
+            contract_end_date: null,
           };
           break;
 
-        case 'fixed_price':
+        case "fixed_price":
           billingFields = {
             contract_amount: Number(formData.contract_amount) || 0,
             budget: Number(formData.contract_amount) || 0,
             contract_start_date: formData.contract_start_date || undefined,
             contract_end_date: formData.contract_end_date || undefined,
-            // Clear others
             estimated_duration: 0,
             default_bill_rate_per_hour: 0,
             retainer_amount: 0,
             retainer_period: null,
-            non_billable_reason: null
+            non_billable_reason: null,
           };
           break;
 
-        case 'retainer':
+        case "retainer":
           billingFields = {
             retainer_amount: Number(formData.retainer_amount) || 0,
-            retainer_period: formData.retainer_period || 'month',
+            retainer_period: formData.retainer_period || "month",
             contract_start_date: formData.contract_start_date || undefined,
             contract_end_date: formData.contract_end_date || undefined,
-            // Clear others
             contract_amount: 0,
             budget: 0,
             estimated_duration: 0,
             default_bill_rate_per_hour: 0,
-            non_billable_reason: null
+            non_billable_reason: null,
           };
           break;
 
-        case 'non_billable':
+        case "non_billable":
           billingFields = {
-            non_billable_reason: formData.non_billable_reason || undefined,
-            // Clear others
+            non_billable_reason: formData.non_billable_reason?.trim() || undefined,
             contract_amount: 0,
             budget: 0,
             estimated_duration: 0,
@@ -397,8 +409,10 @@ export default function CreateProjectDialog({
             retainer_amount: 0,
             retainer_period: null,
             contract_start_date: null,
-            contract_end_date: null
+            contract_end_date: null,
           };
+          break;
+        default:
           break;
       }
     }
@@ -416,53 +430,68 @@ export default function CreateProjectDialog({
       owner: currentUser?.email,
       client: formData.client || undefined,
       client_user_id: formData.client_user_id || undefined,
-      team_members: formData.team_members.length > 0
-        ? formData.team_members.map(email => ({
-          email,
-          role: 'member'
-        }))
-        : [],
+      team_members:
+        formData.team_members.length > 0
+          ? formData.team_members.map((email) => ({
+            email,
+            role: "member",
+          }))
+          : [],
       template_id: selectedTemplate?.id || undefined,
 
-      // Financials
-      ...(showFinancialFields ? {
-        billing_model: formData.billing_model,
-        currency: formData.currency,
-        ...billingFields
-      } : {}),
+      ...(showFinancialFields
+        ? {
+          billing_model: formData.billing_model,
+          currency: formData.currency,
+          expense_budget: Number(formData.expense_budget) || 0,
+          ...billingFields,
+        }
+        : {}),
     };
 
-    console.log('[CreateProjectDialog] Submitting:', cleanData);
+    console.log("[CreateProjectDialog] Submitting:", cleanData);
     onSubmit(cleanData);
   };
 
-  const getProjectInitials = (name) => {
-    return name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'PR';
-  };
+  const getProjectInitials = (name) =>
+    name?.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "PR";
+
+  const currencySymbol = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    AUD: "A$",
+    CAD: "C$",
+    SGD: "S$",
+    AED: "dh",
+  }[formData.currency] || formData.currency;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] sm:max-w-3xl h-[90vh] max-h-[900px] flex flex-col p-0 gap-0 bg-white">
         <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
           <DialogTitle className="text-2xl font-bold text-slate-900">
-            {selectedTemplate ? `Create Project from "${selectedTemplate.name}"` : 'Create New Project'}
+            {selectedTemplate ? `Create Project from "${selectedTemplate.name}"` : "Create New Project"}
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {error.message?.includes('permission') || error.message?.includes('RLS') || error.message?.includes('policy')
-                    ? 'You need admin permissions to create projects. Contact your administrator.'
-                    : `Failed to create project: ${error.message || 'Please try again.'}`}
+                  {error.message?.includes("permission") ||
+                    error.message?.includes("RLS") ||
+                    error.message?.includes("policy")
+                    ? "You need admin permissions to create projects. Contact your administrator."
+                    : `Failed to create project: ${error.message || "Please try again."}`}
                 </AlertDescription>
               </Alert>
             )}
 
-            {/* Logo Upload */}
+            {/* Logo */}
             <div className="flex items-center gap-6">
               <div>
                 <Label className="mb-2 block">Project Logo (Optional)</Label>
@@ -487,6 +516,7 @@ export default function CreateProjectDialog({
                       </AvatarFallback>
                     )}
                   </Avatar>
+
                   <div className="space-y-2">
                     <Button
                       type="button"
@@ -507,84 +537,81 @@ export default function CreateProjectDialog({
                         </>
                       )}
                     </Button>
+
                     {formData.logo_url && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => setFormData({ ...formData, logo_url: "" })}
+                        onClick={() => setFormData((p) => ({ ...p, logo_url: "" }))}
                         disabled={loading}
-                        className="text-red-600"
+                        className="text-red-600 hover:text-red-700"
                       >
                         <X className="h-4 w-4 mr-1" />
                         Remove
                       </Button>
                     )}
+
                     <p className="text-xs text-slate-500">PNG, JPG or GIF (max 5MB)</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            {/* Name + Color */}
+            <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <Label htmlFor="name">Project Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => {
-                    setFormData({ ...formData, name: e.target.value });
-                    if (validationErrors.name) {
-                      setValidationErrors({ ...validationErrors, name: undefined });
-                    }
+                    setFormData((p) => ({ ...p, name: e.target.value }));
+                    if (validationErrors.name) setValidationErrors((p) => ({ ...p, name: undefined }));
                   }}
                   placeholder="Enter project name"
-                  className={validationErrors.name ? 'border-red-500' : ''}
+                  className={validationErrors.name ? "border-red-500" : ""}
                   disabled={loading}
                 />
-                {validationErrors.name && (
-                  <p className="text-xs text-red-600">{validationErrors.name}</p>
-                )}
+                {validationErrors.name && <p className="text-xs text-red-600">{validationErrors.name}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="color">Project Color</Label>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-3 items-center">
                   <Input
                     id="color"
                     type="color"
                     value={formData.color}
-                    onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                    className="w-20 h-10"
+                    onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
+                    className="w-20 h-10 p-1"
                     disabled={loading}
                   />
-                  <span className="text-sm text-slate-600">{formData.color}</span>
+                  <span className="text-sm text-slate-600 font-mono">{formData.color}</span>
                 </div>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            {/* Workspace + Client */}
+            <div className="grid md:grid-cols-2 gap-5">
               <div className="space-y-2">
-                <Label htmlFor="workspace">
-                  Workspace *
-                </Label>
+                <Label htmlFor="workspace">Workspace *</Label>
                 {accessibleWorkspaces.length > 0 ? (
                   <>
                     <Select
                       value={formData.workspace_id}
                       onValueChange={(value) => {
-                        setFormData({ ...formData, workspace_id: value });
-                        if (validationErrors.workspace_id) {
-                          setValidationErrors({ ...validationErrors, workspace_id: undefined });
-                        }
+                        setFormData((p) => ({ ...p, workspace_id: value }));
+                        if (validationErrors.workspace_id)
+                          setValidationErrors((p) => ({ ...p, workspace_id: undefined }));
                       }}
                       disabled={loading || !!preselectedWorkspaceId}
                     >
-                      <SelectTrigger id="workspace" className={validationErrors.workspace_id ? 'border-red-500' : ''}>
+                      <SelectTrigger id="workspace" className={validationErrors.workspace_id ? "border-red-500" : ""}>
                         <SelectValue placeholder="Select a workspace..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {accessibleWorkspaces.map(ws => (
+                        {accessibleWorkspaces.map((ws) => (
                           <SelectItem key={ws.id} value={ws.id}>
                             <div className="flex items-center gap-2">
                               <Folder className="h-4 w-4" />
@@ -601,108 +628,82 @@ export default function CreateProjectDialog({
                 ) : (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      No workspaces available. Please create a workspace first.
-                    </AlertDescription>
+                    <AlertDescription>No workspaces available. Please create a workspace first.</AlertDescription>
                   </Alert>
                 )}
               </div>
 
-              <div className={`grid ${formData.client ? 'grid-cols-2' : ''} gap-4`}>
+              <div className={`space-y-2 ${formData.client ? "grid grid-cols-2 gap-4" : ""}`}>
                 <div className="space-y-2">
                   <Label htmlFor="client_org">Client Organization</Label>
                   <Select
                     value={formData.client}
-                    onValueChange={(value) => {
-                      setFormData({
-                        ...formData,
-                        client: value,
-                        client_user_id: "" // Reset user when org changes
-                      });
-                    }}
+                    onValueChange={(value) =>
+                      setFormData((p) => ({ ...p, client: value, client_user_id: "" }))
+                    }
                     disabled={loading}
                   >
                     <SelectTrigger id="client_org">
-                      <SelectValue placeholder="Select an organization...">
-                        {formData.client && activeClientsMap[formData.client] ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5 border border-slate-200">
-                              <AvatarImage src={activeClientsMap[formData.client]?.logo_url} className="object-cover" />
-                              <AvatarFallback className="text-[10px]">
-                                {activeClientsMap[formData.client]?.name?.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            {activeClientsMap[formData.client]?.name}
-                          </div>
-                        ) : "Select an organization..."}
-                      </SelectValue>
+                      <SelectValue
+                        placeholder="Select an organization..."
+                        // Custom render when selected
+                        renderValue={(value) =>
+                          value && activeClientsMap[value] ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5">
+                                <AvatarImage src={activeClientsMap[value].logo_url} />
+                                <AvatarFallback className="text-xs">
+                                  {activeClientsMap[value].name?.[0]?.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {activeClientsMap[value].name}
+                            </div>
+                          ) : (
+                            "Select an organization..."
+                          )
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.values(activeClientsMap).map(client => (
+                      {Object.values(activeClientsMap).map((client) => (
                         <SelectItem key={client.id} value={client.id}>
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5 border border-slate-200">
-                              <AvatarImage src={client.logo_url} className="object-cover" />
-                              <AvatarFallback className="text-[10px]">
-                                {client.name?.charAt(0).toUpperCase()}
-                              </AvatarFallback>
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={client.logo_url} />
+                              <AvatarFallback className="text-xs">{client.name?.[0]?.toUpperCase()}</AvatarFallback>
                             </Avatar>
                             {client.name}
                           </div>
                         </SelectItem>
                       ))}
-                      {Object.keys(activeClientsMap).length === 0 && (
-                        <div className="p-2 text-sm text-slate-500 text-center">No active clients found</div>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {/* Client User Selection - Only visible if Organization is selected */}
                 {formData.client && (
                   <div className="space-y-2">
-                    <Label htmlFor="client_user">Client User</Label>
+                    <Label htmlFor="client_user">Client Contact Person</Label>
                     <Select
                       value={formData.client_user_id || "none"}
-                      onValueChange={(userId) => {
-                        setFormData({
-                          ...formData,
-                          client_user_id: userId === "none" ? "" : userId
-                        });
-                      }}
+                      onValueChange={(v) =>
+                        setFormData((p) => ({ ...p, client_user_id: v === "none" ? "" : v }))
+                      }
                       disabled={loading}
                     >
                       <SelectTrigger id="client_user">
-                        <SelectValue placeholder="Select a user...">
-                          {formData.client_user_id ? (
-                            <div className="flex items-center gap-2">
-                              <div className="flex flex-col text-left">
-                                <span className="font-medium text-sm leading-tight">
-                                  {availableClientUsers.find(u => u.id === formData.client_user_id)?.full_name || "Unknown User"}
-                                </span>
-                              </div>
-                            </div>
-                          ) : "Select a user..."}
-                        </SelectValue>
+                        <SelectValue placeholder="Select contact person..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">
-                          <span className="text-slate-500 italic">No Specific User</span>
+                          <span className="text-slate-500 italic">No specific person</span>
                         </SelectItem>
                         {availableClientUsers
-                          .filter(u => u.client_id === formData.client) // Filter users by selected Org
-                          .map(user => (
+                          .filter((u) => u.client_id === formData.client)
+                          .map((user) => (
                             <SelectItem key={user.id} value={user.id}>
-                              <div className="flex items-center gap-2 w-full">
-                                <span>{user.full_name}</span>
-                                <span className="text-xs text-slate-400">({user.email})</span>
-                              </div>
+                              {user.full_name} <span className="text-xs text-muted-foreground">({user.email})</span>
                             </SelectItem>
-                          ))
-                        }
-                        {availableClientUsers.filter(u => u.client_id === formData.client).length === 0 && (
-                          <div className="p-2 text-sm text-slate-500 text-center">No users found for this client</div>
-                        )}
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -710,6 +711,7 @@ export default function CreateProjectDialog({
               </div>
             </div>
 
+            {/* Description + AI */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="description">Description</Label>
@@ -737,19 +739,20 @@ export default function CreateProjectDialog({
               <Textarea
                 id="description"
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="What is this project about?"
+                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                placeholder="What is this project about? (AI can help generate it)"
                 rows={3}
                 disabled={loading || generatingDescription}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Status + Priority */}
+            <div className="grid grid-cols-2 gap-5">
               <div className="space-y-2">
                 <Label>Status</Label>
                 <Select
                   value={formData.status}
-                  onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  onValueChange={(v) => setFormData((p) => ({ ...p, status: v }))}
                   disabled={loading}
                 >
                   <SelectTrigger>
@@ -768,7 +771,7 @@ export default function CreateProjectDialog({
                 <Label>Priority</Label>
                 <Select
                   value={formData.priority}
-                  onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  onValueChange={(v) => setFormData((p) => ({ ...p, priority: v }))}
                   disabled={loading}
                 >
                   <SelectTrigger>
@@ -790,14 +793,14 @@ export default function CreateProjectDialog({
                 id="deadline"
                 type="date"
                 value={formData.deadline}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setFormData((p) => ({ ...p, deadline: e.target.value }))}
                 disabled={loading}
               />
             </div>
 
-            {currentUser?.custom_role !== 'project_manager' && (
-              <div className="border rounded-lg p-4 bg-slate-50 space-y-4">
+            {currentUser?.custom_role !== "project_manager" && (
+              <div className="border rounded-lg p-5 bg-slate-50/70 space-y-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="financial-tracking"
@@ -805,18 +808,18 @@ export default function CreateProjectDialog({
                     onCheckedChange={setShowFinancialFields}
                     disabled={loading}
                   />
-                  <Label htmlFor="financial-tracking" className="font-medium cursor-pointer">
+                  <Label htmlFor="financial-tracking" className="font-medium cursor-pointer text-base">
                     Enable Financial Tracking
                   </Label>
                 </div>
 
                 {showFinancialFields && (
-                  <div className="grid md:grid-cols-2 gap-4 pt-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid md:grid-cols-2 gap-x-6 gap-y-5 pt-2">
                     <div className="space-y-2">
                       <Label htmlFor="billing_model">Billing Model</Label>
                       <Select
                         value={formData.billing_model}
-                        onValueChange={(value) => setFormData({ ...formData, billing_model: value })}
+                        onValueChange={(v) => setFormData((p) => ({ ...p, billing_model: v }))}
                         disabled={loading}
                       >
                         <SelectTrigger>
@@ -831,177 +834,302 @@ export default function CreateProjectDialog({
                       </Select>
                     </div>
 
-                    {formData.billing_model !== 'non_billable' && formData.billing_model !== 'retainer' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="currency">Currency</Label>
-                        <Select
-                          value={formData.currency}
-                          onValueChange={(value) => setFormData({ ...formData, currency: value })}
-                          disabled={loading}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="INR">INR (₹)</SelectItem>
-                            <SelectItem value="USD">USD ($)</SelectItem>
-                            <SelectItem value="EUR">EUR (€)</SelectItem>
-                            <SelectItem value="GBP">GBP (£)</SelectItem>
-                            <SelectItem value="AUD">AUD (A$)</SelectItem>
-                            <SelectItem value="CAD">CAD (C$)</SelectItem>
-                            <SelectItem value="SGD">SGD (S$)</SelectItem>
-                            <SelectItem value="AED">AED (dh)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="currency">Currency</Label>
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(v) => setFormData((p) => ({ ...p, currency: v }))}
+                        disabled={loading}
+                      >
+                        <SelectTrigger id="currency">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INR">INR (₹)</SelectItem>
+                          <SelectItem value="USD">USD ($)</SelectItem>
+                          <SelectItem value="EUR">EUR (€)</SelectItem>
+                          <SelectItem value="GBP">GBP (£)</SelectItem>
+                          <SelectItem value="AUD">AUD (A$)</SelectItem>
+                          <SelectItem value="CAD">CAD (C$)</SelectItem>
+                          <SelectItem value="SGD">SGD (S$)</SelectItem>
+                          <SelectItem value="AED">AED (dh)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                    {/* Fixed Price Fields */}
-                    {formData.billing_model === 'fixed_price' && (
+                    {/* ──────────────────────────────────────── */}
+                    {/*           FIXED PRICE SECTION            */}
+                    {/* ──────────────────────────────────────── */}
+                    {formData.billing_model === "fixed_price" && (
                       <>
                         <div className="space-y-2">
-                          <Label htmlFor="contract_amount">Fixed Price Amount</Label>
-                          <Input
-                            id="contract_amount"
-                            type="number"
-                            min="0"
-                            value={formData.contract_amount}
-                            onChange={(e) => setFormData({ ...formData, contract_amount: e.target.value })}
-                            placeholder="0.00"
-                            className={validationErrors.contract_amount ? 'border-red-500' : ''}
-                            disabled={loading}
-                          />
-                          {validationErrors.contract_amount && <p className="text-xs text-red-600">{validationErrors.contract_amount}</p>}
+                          <Label>Fixed Price Amount *</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">
+                              {currencySymbol}
+                            </span>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={formData.contract_amount}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, contract_amount: e.target.value }))
+                              }
+                              className="pl-10"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          {validationErrors.contract_amount && (
+                            <p className="text-xs text-red-600">{validationErrors.contract_amount}</p>
+                          )}
                         </div>
+
                         <div className="grid grid-cols-2 gap-4 col-span-2">
                           <div className="space-y-2">
                             <Label>Contract Start Date *</Label>
-                            <Input type="date" value={formData.contract_start_date} min={new Date().toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, contract_start_date: e.target.value })} className={validationErrors.contract_start_date ? 'border-red-500' : ''} />
-                            {validationErrors.contract_start_date && <p className="text-xs text-red-600">{validationErrors.contract_start_date}</p>}
+                            <Input
+                              type="date"
+                              value={formData.contract_start_date}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, contract_start_date: e.target.value }))
+                              }
+                              className={validationErrors.contract_start_date ? "border-red-500" : ""}
+                            />
+                            {validationErrors.contract_start_date && (
+                              <p className="text-xs text-red-600">{validationErrors.contract_start_date}</p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label>Contract End Date *</Label>
-                            <Input type="date" value={formData.contract_end_date} min={formData.contract_start_date || new Date().toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, contract_end_date: e.target.value })} className={validationErrors.contract_end_date ? 'border-red-500' : ''} />
-                            {validationErrors.contract_end_date && <p className="text-xs text-red-600">{validationErrors.contract_end_date}</p>}
+                            <Input
+                              type="date"
+                              value={formData.contract_end_date}
+                              min={formData.contract_start_date || new Date().toISOString().split("T")[0]}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, contract_end_date: e.target.value }))
+                              }
+                              className={validationErrors.contract_end_date ? "border-red-500" : ""}
+                            />
+                            {validationErrors.contract_end_date && (
+                              <p className="text-xs text-red-600">{validationErrors.contract_end_date}</p>
+                            )}
                           </div>
                         </div>
                       </>
                     )}
 
-                    {/* Time & Materials Fields */}
-                    {formData.billing_model === 'time_and_materials' && (
+                    {/* ──────────────────────────────────────── */}
+                    {/*        TIME & MATERIALS SECTION          */}
+                    {/* ──────────────────────────────────────── */}
+                    {formData.billing_model === "time_and_materials" && (
                       <>
                         <div className="space-y-2">
-                          <Label>Estimated Duration (Hours) *</Label>
-                          <Input type="number" min="0" value={formData.estimated_duration} onChange={e => setFormData({ ...formData, estimated_duration: e.target.value })} className={validationErrors.estimated_duration ? 'border-red-500' : ''} />
-                          {validationErrors.estimated_duration && <p className="text-xs text-red-600">{validationErrors.estimated_duration}</p>}
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="default_bill_rate">Default Bill Rate (/hr)</Label>
+                          <Label>Estimated Duration (hours) *</Label>
                           <Input
-                            id="default_bill_rate"
                             type="number"
                             min="0"
-                            value={formData.default_bill_rate_per_hour}
-                            onChange={(e) => setFormData({ ...formData, default_bill_rate_per_hour: e.target.value })}
-                            placeholder="0.00"
-                            disabled={loading}
+                            value={formData.estimated_duration}
+                            onChange={(e) =>
+                              setFormData((p) => ({ ...p, estimated_duration: e.target.value }))
+                            }
+                            placeholder="e.g. 120"
+                            className={validationErrors.estimated_duration ? "border-red-500" : ""}
                           />
+                          {validationErrors.estimated_duration && (
+                            <p className="text-xs text-red-600">{validationErrors.estimated_duration}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Default Bill Rate (per hour)</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">
+                              {currencySymbol}
+                            </span>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formData.default_bill_rate_per_hour}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, default_bill_rate_per_hour: e.target.value }))
+                              }
+                              className="pl-10"
+                              placeholder="0.00"
+                            />
+                          </div>
                         </div>
                       </>
                     )}
 
-                    {/* Retainer Fields */}
-                    {formData.billing_model === 'retainer' && (
+                    {/* ──────────────────────────────────────── */}
+                    {/*            RETAINER SECTION              */}
+                    {/* ──────────────────────────────────────── */}
+                    {formData.billing_model === "retainer" && (
                       <>
-                        <div className="col-span-2 grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Retainer Amount *</Label>
-                            <Input type="number" min="0" value={formData.retainer_amount} onChange={e => setFormData({ ...formData, retainer_amount: e.target.value })} className={validationErrors.retainer_amount ? 'border-red-500' : ''} placeholder="3000" />
-                            {validationErrors.retainer_amount && <p className="text-xs text-red-600">{validationErrors.retainer_amount}</p>}
+                        <div className="space-y-2">
+                          <Label>Retainer Amount *</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">
+                              {currencySymbol}
+                            </span>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={formData.retainer_amount}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, retainer_amount: e.target.value }))
+                              }
+                              className="pl-10"
+                              placeholder="0.00"
+                            />
                           </div>
-                          <div className="space-y-2">
-                            <Label>Period</Label>
-                            <Select value={formData.retainer_period} onValueChange={v => setFormData({ ...formData, retainer_period: v })}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="week">Weekly</SelectItem>
-                                <SelectItem value="month">Monthly</SelectItem>
-                                <SelectItem value="quarter">Quarterly</SelectItem>
-                                <SelectItem value="year">Yearly</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          {validationErrors.retainer_amount && (
+                            <p className="text-xs text-red-600">{validationErrors.retainer_amount}</p>
+                          )}
                         </div>
-                        <div className="col-span-2 grid grid-cols-2 gap-4">
+
+                        <div className="space-y-2">
+                          <Label>Retainer Period</Label>
+                          <Select
+                            value={formData.retainer_period}
+                            onValueChange={(v) => setFormData((p) => ({ ...p, retainer_period: v }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="month">Monthly</SelectItem>
+                              <SelectItem value="quarter">Quarterly</SelectItem>
+                              <SelectItem value="year">Yearly</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 col-span-2">
                           <div className="space-y-2">
-                            <Label>Contract Start Date *</Label>
-                            <Input type="date" value={formData.contract_start_date} min={new Date().toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, contract_start_date: e.target.value })} className={validationErrors.contract_start_date ? 'border-red-500' : ''} />
-                            {validationErrors.contract_start_date && <p className="text-xs text-red-600">{validationErrors.contract_start_date}</p>}
+                            <Label>Start Date *</Label>
+                            <Input
+                              type="date"
+                              value={formData.contract_start_date}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, contract_start_date: e.target.value }))
+                              }
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label>Contract End Date *</Label>
-                            <Input type="date" value={formData.contract_end_date} min={formData.contract_start_date || new Date().toISOString().split('T')[0]} onChange={e => setFormData({ ...formData, contract_end_date: e.target.value })} className={validationErrors.contract_end_date ? 'border-red-500' : ''} />
-                            {validationErrors.contract_end_date && <p className="text-xs text-red-600">{validationErrors.contract_end_date}</p>}
+                            <Label>End Date *</Label>
+                            <Input
+                              type="date"
+                              value={formData.contract_end_date}
+                              min={formData.contract_start_date || new Date().toISOString().split("T")[0]}
+                              onChange={(e) =>
+                                setFormData((p) => ({ ...p, contract_end_date: e.target.value }))
+                              }
+                            />
                           </div>
                         </div>
                       </>
                     )}
 
-                    {/* Non-Billable Fields */}
-                    {formData.billing_model === 'non_billable' && (
+                    {/* ──────────────────────────────────────── */}
+                    {/*         NON-BILLABLE SECTION             */}
+                    {/* ──────────────────────────────────────── */}
+                    {formData.billing_model === "non_billable" && (
                       <div className="col-span-2 space-y-2">
                         <Label>Reason for Non-Billable *</Label>
-                        <Input value={formData.non_billable_reason} onChange={e => setFormData({ ...formData, non_billable_reason: e.target.value })} placeholder="e.g. Internal Training, Pro-bono work" className={validationErrors.non_billable_reason ? 'border-red-500' : ''} />
-                        {validationErrors.non_billable_reason && <p className="text-xs text-red-600">{validationErrors.non_billable_reason}</p>}
+                        <Input
+                          value={formData.non_billable_reason}
+                          onChange={(e) =>
+                            setFormData((p) => ({ ...p, non_billable_reason: e.target.value }))
+                          }
+                          placeholder="e.g. Internal initiative, Proof of concept, Pro-bono work"
+                          className={validationErrors.non_billable_reason ? "border-red-500" : ""}
+                        />
+                        {validationErrors.non_billable_reason && (
+                          <p className="text-xs text-red-600">{validationErrors.non_billable_reason}</p>
+                        )}
                       </div>
                     )}
+
+                    {/* Expense Budget – common field */}
+                    <div className="col-span-2 space-y-2 pt-2 border-t">
+                      <Label>Expense Budget (optional)</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">
+                          {currencySymbol}
+                        </span>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={formData.expense_budget}
+                          onChange={(e) => setFormData((p) => ({ ...p, expense_budget: e.target.value }))}
+                          className="pl-10"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Maximum amount allowed for project-related expenses
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
             )}
+
+            {/* Team Members */}
             {teamMembers.length > 0 && (
               <div className="space-y-3">
-                <Label className="flex items-center gap-2">
+                <Label className="flex items-center gap-2 text-base font-medium">
                   <Users className="h-4 w-4" />
-                  Invite Team Members (Optional)
+                  Team Members (optional)
                 </Label>
-                <div className="border rounded-lg p-4 max-h-48 overflow-y-auto bg-slate-50">
-                  <div className="space-y-2">
-                    {teamMembers.map(member => (
-                      <div key={member.id} className="flex items-center gap-3 p-2 hover:bg-white rounded transition-colors">
+                <div className="border rounded-lg p-4 max-h-56 overflow-y-auto bg-white/60">
+                  <div className="space-y-1.5">
+                    {teamMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center gap-3 p-2.5 hover:bg-slate-50 rounded-md transition-colors"
+                      >
                         <Checkbox
                           id={`member-${member.id}`}
                           checked={formData.team_members.includes(member.email)}
                           onCheckedChange={() => toggleTeamMember(member.email)}
                           disabled={loading || member.email === currentUser?.email}
                         />
-                        <label htmlFor={`member-${member.id}`} className="flex-1 cursor-pointer text-sm">
-                          <div className="font-medium text-slate-900">{member.full_name}</div>
+                        <label
+                          htmlFor={`member-${member.id}`}
+                          className="flex-1 cursor-pointer text-sm flex flex-col"
+                        >
+                          <div className="font-medium">{member.full_name}</div>
                           <div className="text-xs text-slate-500">{member.email}</div>
                         </label>
                         {member.email === currentUser?.email && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">You</span>
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">
+                            You
+                          </span>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
                 <p className="text-xs text-slate-500">
-                  {formData.team_members.length} member(s) selected
+                  {formData.team_members.length} member{formData.team_members.length !== 1 ? "s" : ""} selected
                 </p>
               </div>
             )}
           </div>
 
-          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-slate-50/50 flex-shrink-0">
+          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-slate-50/70 flex-shrink-0">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || generatingDescription || uploadingLogo || accessibleWorkspaces.length === 0}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white min-w-[140px]"
             >
               {loading ? (
                 <>
@@ -1009,7 +1137,7 @@ export default function CreateProjectDialog({
                   Creating...
                 </>
               ) : (
-                'Create Project'
+                "Create Project"
               )}
             </Button>
           </div>
@@ -1018,4 +1146,3 @@ export default function CreateProjectDialog({
     </Dialog>
   );
 }
-

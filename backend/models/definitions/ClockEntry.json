@@ -26,6 +26,10 @@
       "type": "string",
       "description": "Associated task ID"
     },
+    "milestone_id": {
+      "type": "string",
+      "description": "Associated milestone ID (optional)"
+    },
     "description": {
       "type": "string",
       "description": "Work description"

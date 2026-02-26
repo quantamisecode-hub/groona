@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import CreateSprintDialog from "./CreateSprintDialog";
@@ -66,6 +66,28 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     queryFn: async () => {
       if (!projectId) return [];
       return groonabackend.entities.Story.filter({ project_id: projectId });
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: projectId });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: projectId });
+      }
+      return projects[0] || null;
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -305,7 +327,23 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
                 const metrics = getSprintMetrics(sprint.id, sprint);
                 return (
                   <TableRow key={sprint.id} className="hover:bg-slate-50">
-                    <TableCell className="font-medium">{sprint.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {sprint.name}
+                        {(() => {
+                          const isLocked = (sprint.milestone_id && milestones.find(m => (m.id || m._id) === sprint.milestone_id)?.status === 'completed') || project?.status === 'completed';
+                          if (isLocked) {
+                            return (
+                              <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 gap-1 opacity-70">
+                                <Lock className="h-3 w-3" />
+                                Settled
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`${statusColors[sprint.status] || statusColors.draft} capitalize`}>
                         {sprint.status}
@@ -329,7 +367,6 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {/* UPDATED BUTTON: Passes sprint object in state */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -350,18 +387,32 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
                             <DropdownMenuContent align="end">
                               {!isViewer && (
                                 <>
-                                  <DropdownMenuItem onClick={() => {
-                                    setEditingSprint(sprint);
-                                    setShowCreateSprint(true);
-                                  }}>
-                                    <Edit className="h-4 w-4 mr-2" /> Edit Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleDelete(sprint.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                  </DropdownMenuItem>
+                                  {(() => {
+                                    const isLocked = (sprint.milestone_id && milestones.find(m => (m.id || m._id) === sprint.milestone_id)?.status === 'completed') || project?.status === 'completed';
+                                    if (isLocked) {
+                                      return (
+                                        <DropdownMenuItem disabled className="text-slate-400">
+                                          <Lock className="h-4 w-4 mr-2" /> Action Locked
+                                        </DropdownMenuItem>
+                                      );
+                                    }
+                                    return (
+                                      <>
+                                        <DropdownMenuItem onClick={() => {
+                                          setEditingSprint(sprint);
+                                          setShowCreateSprint(true);
+                                        }}>
+                                          <Edit className="h-4 w-4 mr-2" /> Edit Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() => handleDelete(sprint.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                        </DropdownMenuItem>
+                                      </>
+                                    );
+                                  })()}
                                 </>
                               )}
                             </DropdownMenuContent>

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar as CalendarIcon, Clock, Save, Send, Loader2, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Save, Send, Loader2, DollarSign, Flag, Lock } from "lucide-react";
 import { format, isValid } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,7 @@ export default function TimesheetEntryForm({
     is_billable: initialData?.is_billable !== undefined ? initialData.is_billable : true,
     hourly_rate: initialData?.hourly_rate || null,
     currency: initialData?.currency || 'USD',
+    milestone_id: initialData?.milestone_id || '',
   });
   const [location, setLocation] = useState(initialData?.location || null);
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -135,6 +136,44 @@ export default function TimesheetEntryForm({
     },
     enabled: !!targetUserEmail,
   });
+
+  // Fetch project status and milestones
+  const { data: currentProject } = useQuery({
+    queryKey: ['project', formData.project_id],
+    queryFn: async () => {
+      if (!formData.project_id) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: formData.project_id });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: formData.project_id });
+      }
+      return projects[0] || null;
+    },
+    enabled: !!formData.project_id,
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', formData.project_id],
+    queryFn: async () => {
+      if (!formData.project_id) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: formData.project_id });
+    },
+    enabled: !!formData.project_id,
+  });
+
+  const isLocked = React.useMemo(() => {
+    if (!formData.project_id) return false;
+
+    // 1. Project-wide lock
+    if (currentProject?.status === 'completed') return true;
+
+    // 2. Milestone-specific lock
+    if (formData.milestone_id) {
+      const milestone = milestones.find(m => (m.id || m._id) === formData.milestone_id);
+      return milestone?.status === 'completed';
+    }
+
+    return false;
+  }, [currentProject, milestones, formData.project_id, formData.milestone_id]);
 
   const submittedTaskIds = React.useMemo(() => new Set(
     existingTimesheets
@@ -298,6 +337,7 @@ export default function TimesheetEntryForm({
     enabled: !!formData.project_id,
   });
 
+
   // Auto-select most recent project/task if available
   useEffect(() => {
     if (projects.length > 0 && !formData.project_id && !initialData) {
@@ -334,6 +374,15 @@ export default function TimesheetEntryForm({
       }
     }
   }, [filledDates, initialData, preSelectedDate]);
+  // Milestone inheritance from Sprint
+  useEffect(() => {
+    if (formData.sprint_id && formData.sprint_id !== "unassigned" && !formData.milestone_id) {
+      const sprint = sprints.find(s => (s.id || s._id) === formData.sprint_id);
+      if (sprint?.milestone_id) {
+        setFormData(prev => ({ ...prev, milestone_id: sprint.milestone_id }));
+      }
+    }
+  }, [formData.sprint_id, sprints, formData.milestone_id]);
 
   const handleDateSelect = (date) => {
     if (date && isValidDate(date)) {
@@ -368,6 +417,8 @@ export default function TimesheetEntryForm({
     const selectedProject = projects.find(p => p.id === formData.project_id);
     const selectedSprint = sprints.find(s => s.id === formData.sprint_id);
     const selectedTask = tasks.find(t => t.id === formData.task_id);
+    const selectedMilestone = milestones.find(m => (m.id || m._id) === formData.milestone_id) ||
+      milestones.find(m => (m.id || m._id) === selectedTask?.milestone_id);
 
     const totalMinutes = (formData.hours * 60) + formData.minutes;
 
@@ -383,6 +434,8 @@ export default function TimesheetEntryForm({
       sprint_name: selectedSprint?.name || null,
       task_id: formData.task_id || null,
       task_title: selectedTask?.title || null,
+      milestone_id: selectedMilestone?.id || selectedMilestone?._id || null,
+      milestone_name: selectedMilestone?.name || null,
       start_time: (() => {
         if (!formData.start_time) return null;
         // 1. Get the date string (e.g., "2023-10-27")
@@ -459,6 +512,16 @@ export default function TimesheetEntryForm({
             <TabsTrigger value="manual">Manual Entry</TabsTrigger>
             <TabsTrigger value="clock_in_out">Clock In/Out Timer</TabsTrigger>
           </TabsList>
+
+          {isLocked && (
+            <div className="mb-4 p-3 bg-slate-100 border border-slate-200 rounded-lg flex items-center gap-3 text-slate-600">
+              <Lock className="h-5 w-5 text-slate-400" />
+              <div className="text-sm">
+                <p className="font-bold">Entry Locked / Project Settled</p>
+                <p>You cannot log time against a completed project phase.</p>
+              </div>
+            </div>
+          )}
 
           {/* Manual Entry Tab */}
           <TabsContent value="manual">
@@ -604,7 +667,15 @@ export default function TimesheetEntryForm({
                   <Label>Task *</Label>
                   <Select
                     value={formData.task_id}
-                    onValueChange={(val) => setFormData(prev => ({ ...prev, task_id: val }))}
+                    onValueChange={(val) => {
+                      const selectedTask = tasks.find(t => t.id === val);
+                      setFormData(prev => ({
+                        ...prev,
+                        task_id: val,
+                        // Auto-inherit milestone from task if available
+                        milestone_id: selectedTask?.milestone_id || prev.milestone_id
+                      }));
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select task..." />
@@ -615,6 +686,34 @@ export default function TimesheetEntryForm({
                           {task.title}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Milestone Selection (Optional override or for non-task entries) */}
+              {formData.project_id && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Flag className="h-4 w-4 text-blue-500" />
+                    Project Milestone
+                  </Label>
+                  <Select
+                    value={formData.milestone_id}
+                    onValueChange={(val) => setFormData(prev => ({ ...prev, milestone_id: val === "unassigned" ? "" : val }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select milestone (Optional)..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">No Milestone</SelectItem>
+                      {milestones
+                        .filter(m => m.status === 'in_progress' || (formData.milestone_id && (m.id === formData.milestone_id || m._id === formData.milestone_id)))
+                        .map(m => (
+                          <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -802,16 +901,31 @@ export default function TimesheetEntryForm({
                   </Button>
                 )}
                 <Button
-                  type="submit"
-                  disabled={loading || !formData.project_id || !formData.task_id}
-                  className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600"
+                  type="button"
+                  onClick={() => handleSubmit('submitted')}
+                  disabled={loading || isLocked}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {loading ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
                   ) : (
-                    <Save className="h-4 w-4 mr-2" />
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Submit Now
+                    </>
                   )}
-                  Add to Drafts
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={loading || isLocked}
+                  variant="outline"
+                  className="border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Draft
                 </Button>
               </div>
             </form>

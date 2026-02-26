@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectItemRich, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, MoveRight, Link as LinkIcon, Users, Check, X, Plus, Upload, Paperclip, FileIcon, Trash2, BookOpen, Wand2, AlignLeft, Siren } from "lucide-react";
+import { Loader2, MoveRight, Link as LinkIcon, Users, Check, X, Plus, Upload, Paperclip, FileIcon, Trash2, BookOpen, Wand2, AlignLeft, Siren, Flag, AlertTriangle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -87,6 +87,15 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
     enabled: !!task?.project_id,
   });
 
+  const { data: projectMilestones = [] } = useQuery({
+    queryKey: ['milestones', task?.project_id],
+    queryFn: async () => {
+      if (!task?.project_id) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: task.project_id });
+    },
+    enabled: !!task?.project_id && open,
+  });
+
   const { data: project } = useQuery({
     queryKey: ['project', task?.project_id],
     queryFn: async () => {
@@ -146,6 +155,7 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
         dependencies: task.dependencies || [],
         subtasks: task.subtasks || [],
         attachments: task.attachments || [],
+        milestone_id: task.milestone_id || "",
       };
     }
     return {
@@ -641,6 +651,34 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
               placeholder="Enter task title"
               disabled={updateTaskMutation.isPending}
             />
+          </div>
+
+          {/* Milestone Choice */}
+          <div className="space-y-2">
+            <Label htmlFor="milestone_id" className="flex items-center gap-2">
+              <Flag className="h-4 w-4 text-blue-500" />
+              Project Milestone
+            </Label>
+            <Select
+              value={formData.milestone_id || "unassigned"}
+              onValueChange={(value) => setFormData({ ...formData, milestone_id: value === "unassigned" ? "" : value })}
+              disabled={updateTaskMutation.isPending}
+            >
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select milestone..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unassigned">No Milestone</SelectItem>
+                {projectMilestones.map(m => (
+                  <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
+                      {m.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Story - Full Width */}

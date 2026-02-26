@@ -56,7 +56,8 @@ import {
   Siren,
   AlertTriangle,
   AlignLeft,
-  Sparkles
+  Sparkles,
+  Lock
 } from "lucide-react";
 import { format, parseISO, differenceInDays, addDays } from "date-fns";
 import EditTaskDialog from "./EditTaskDialog";
@@ -66,7 +67,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 
 // --- Subtask Row Component ---
-const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, currentUser, project, reworkAlarms = [] }) => { // Added project and reworkAlarms props
+const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, currentUser, project, reworkAlarms = [], isLocked = false }) => { // Added isLocked
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
 
@@ -173,17 +174,17 @@ const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, curr
           <CheckSquare
             className={cn(
               "h-5 w-5 text-emerald-500",
-              isClient ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              (isClient || isLocked) ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             )}
-            onClick={() => !isClient && updateSubtask({ completed: false })}
+            onClick={() => (!isClient && !isLocked) && updateSubtask({ completed: false })}
           />
         ) : (
           <Square
             className={cn(
               "h-5 w-5 text-slate-300",
-              isClient ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+              (isClient || isLocked) ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             )}
-            onClick={() => !isClient && updateSubtask({ completed: true })}
+            onClick={() => (!isClient && !isLocked) && updateSubtask({ completed: true })}
           />
         )}
       </div>
@@ -210,8 +211,8 @@ const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, curr
         </div>
       </div>
 
-      {/* Action Buttons - Hide for clients */}
-      {!isClient && (
+      {/* Action Buttons - Hide for clients or if locked */}
+      {(!isClient && !isLocked) && (
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5">
           {/* 1. Due Date */}
           <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
@@ -289,7 +290,11 @@ const SubtaskRow = ({ subtask, index, taskId, allUsers, onUpdate, onDelete, curr
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50"
-            onClick={() => onDelete(index)}
+            onClick={() => {
+              if (confirm("Delete this subtask?")) {
+                onDelete(index);
+              }
+            }}
             title="Delete Subtask"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -400,6 +405,15 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     enabled: !!task?.project_id && showImpedimentDialog,
   });
 
+  const { data: projectMilestones = [] } = useQuery({
+    queryKey: ['milestones', task?.project_id],
+    queryFn: async () => {
+      if (!task?.project_id) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: task.project_id });
+    },
+    enabled: !!task?.project_id,
+  });
+
   const { data: project } = useQuery({
     queryKey: ["project", task?.project_id],
     queryFn: async () => {
@@ -433,6 +447,20 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     enabled: open && !!currentUser,
     refetchInterval: 30000,
   });
+
+  const isLocked = React.useMemo(() => {
+    if (!task) return false;
+    // 1. If project is completed, everything is locked
+    if (project?.status === 'completed') return true;
+
+    // 2. If task has a milestone, check its status
+    if (task.milestone_id) {
+      const milestone = projectMilestones.find(m => (m.id || m._id) === task.milestone_id);
+      return milestone?.status === 'completed';
+    }
+
+    return false;
+  }, [task, project, projectMilestones]);
 
 
 
@@ -720,16 +748,24 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                   {typeConfig.icon}
                 </div>
                 <div>
-                  <DialogTitle className="text-2xl font-bold text-white mb-1 drop-shadow-sm">
-                    {task.title}
-                  </DialogTitle>
+                  <div className="flex items-center gap-3">
+                    <DialogTitle className="text-2xl font-bold text-white mb-1 drop-shadow-sm">
+                      {task.title}
+                    </DialogTitle>
+                    {isLocked && (
+                      <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 self-start mt-1">
+                        <Lock className="h-3 w-3" />
+                        Settled
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-white/90 text-sm font-medium flex items-center gap-1">
                     <Layout className="h-3 w-3" /> {project?.name || 'Project'}
                   </p>
                 </div>
               </div>
 
-              {(!readOnly && !isViewer || autoEdit) && (
+              {(!readOnly && !isViewer && !isLocked || autoEdit) && (
                 <Button
                   onClick={handleEditClick}
                   size="sm"
@@ -755,6 +791,17 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                   {task.story_points} Points
                 </Badge>
               )}
+              {(() => {
+                const milestoneId = task.milestone_id;
+                const milestone = milestoneId ? projectMilestones.find(m => (m.id || m._id) === milestoneId) : null;
+                if (!milestone) return null;
+                return (
+                  <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-3 py-1.5 text-sm font-semibold shadow-sm">
+                    <Flag className="h-3.5 w-3.5 mr-1.5" />
+                    Phase: {milestone.name}
+                  </Badge>
+                );
+              })()}
             </div>
           </div>
 
@@ -829,6 +876,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                             currentUser={currentUser}
                             project={project}
                             reworkAlarms={reworkAlarms}
+                            isLocked={isLocked}
                           />
                         ))}
                       </div>
