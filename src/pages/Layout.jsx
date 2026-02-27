@@ -33,9 +33,11 @@ import {
   ChevronDown,
   Search,
   X,
-  Crown
+  Crown,
+  Sun
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { groonabackend } from "@/api/groonabackend";
 import NotificationCenter from "@/components/shared/NotificationCenter";
 import NotificationProvider from "@/components/shared/NotificationProvider";
@@ -781,9 +783,13 @@ function LayoutContent({ children, currentPageName }) {
     );
   };
 
-  // --- CHECK FOR MISSING TIMESHEET ALERT ---
-  // MOVED TO TOP LEVEL
-
+  if (loadingUser && !isPublicRoute) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <NotificationProvider>
@@ -818,6 +824,7 @@ function LayoutContent({ children, currentPageName }) {
           isAccountLocked={isAccountLocked}
           lockoutAlerts={lockoutAlerts}
           refetchNotifications={refetchNotifications}
+          isProjectManager={isProjectManager}
         />
       </SidebarProvider>
       {/* Modal containers removed from here to be moved inside main content area */}
@@ -825,142 +832,124 @@ function LayoutContent({ children, currentPageName }) {
   );
 }
 
+const NavigationItemWrapper = ({ item, isActive }) => {
+  const location = useLocation();
+  const { setOpenMobile, isMobile } = useSidebar();
+  const hasSubItems = item.subItems && item.subItems.length > 0;
+  const isSubItemActive = hasSubItems && item.subItems.some(subItem => location.pathname === subItem.url);
+
+  const [isOpen, setIsOpen] = React.useState(isSubItemActive);
+  const isInitialMount = React.useRef(true);
+
+  React.useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (isSubItemActive) {
+        setIsOpen(true);
+      }
+    }
+  }, [isSubItemActive]);
+
+  const shouldHighlight = isActive || isSubItemActive;
+
+  const subItemsList = React.useMemo(() => {
+    if (!hasSubItems) return null;
+    return item.subItems.map((subItem) => {
+      const isSubActive = location.pathname === subItem.url;
+      return { ...subItem, isSubActive };
+    });
+  }, [hasSubItems, item.subItems, location.pathname]);
+
+  return (
+    <SidebarMenuItem key={item.title}>
+      <div className="relative">
+        <SidebarMenuButton
+          asChild
+          isActive={shouldHighlight}
+          className={cn(
+            "p-2.5 transition-colors",
+            shouldHighlight && "text-blue-700 bg-blue-50/80 font-bold"
+          )}
+        >
+          <Link
+            to={item.url}
+            className="flex items-center gap-3 w-full"
+            onClick={() => isMobile && setOpenMobile(false)}
+          >
+            <item.icon className={cn("h-5 w-5 transition-colors", shouldHighlight ? "text-blue-600" : "text-slate-400 group-hover:text-slate-900")} />
+            <span className={cn("flex-1 truncate", shouldHighlight && "font-semibold")}>{item.title}</span>
+            {item.badge && (
+              <span className="px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold">
+                {item.badge}
+              </span>
+            )}
+          </Link>
+        </SidebarMenuButton>
+        {hasSubItems && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              setIsOpen(!isOpen);
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", isOpen && "rotate-180")} />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {isOpen && subItemsList && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden relative ml-6"
+          >
+            {/* Vertical Connection Line */}
+            <div className="absolute left-[2px] top-0 bottom-4 w-px bg-slate-100" />
+
+            <div className="pt-1 pb-2 space-y-1">
+              {subItemsList.map((subItem) => (
+                <div key={subItem.title} className="relative">
+                  {/* Horizontal Line Segment */}
+                  <div className="absolute left-[2px] top-1/2 -translate-y-1/2 w-3 h-px bg-slate-100" />
+
+                  <SidebarMenuButton
+                    asChild
+                    isActive={subItem.isSubActive}
+                    className={cn(
+                      "ml-4 h-9 p-0 bg-transparent hover:bg-slate-50 border-l-0",
+                      subItem.isSubActive ? "text-blue-600 font-bold" : "text-slate-500 hover:text-slate-900"
+                    )}
+                  >
+                    <Link
+                      to={subItem.url}
+                      className="flex items-center gap-3 px-3 w-full"
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
+                    >
+                      <subItem.icon className={cn("h-4 w-4 flex-shrink-0 transition-colors", subItem.isSubActive ? "text-blue-600" : "text-slate-400")} />
+                      <span className="font-medium text-sm whitespace-nowrap">{subItem.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </SidebarMenuItem>
+  );
+};
+
 function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isViewingAsTenant, viewingTenant, currentTenant, handleExitTenantView, exitingView, location, navigate, showReportBug, setShowReportBug, children, mainNavigationItems, adminNavigationItems, getInitials, searchQuery, setSearchQuery, searchOpen, setSearchOpen, filteredResults, searchProjects, effectiveTenantId, isPublicRoute, isAccountLocked, lockoutAlerts, refetchNotifications }) {
   const isInAdminSection = location?.pathname?.toLowerCase().includes('admin');
   const { open, isMobile } = useSidebar();
 
-  // Define NavigationItemWrapper - it will only be rendered inside SidebarProvider
-  // So useSidebar hook is safe to use
-  const NavigationItemWrapper = ({ item, isActive, className }) => {
-    const { setOpenMobile, isMobile } = useSidebar();
-    const hasSubItems = item.subItems && item.subItems.length > 0;
-    const isSubItemActive = hasSubItems && item.subItems.some(subItem => location.pathname === subItem.url);
 
-    // Auto-open dropdown if a sub-item is active - use useEffect to sync with location changes
-    const [isOpen, setIsOpen] = React.useState(isSubItemActive);
-    const userToggledRef = React.useRef(false); // Track if user manually toggled
-    const isInitialMount = React.useRef(true);
-
-    // Only auto-open on initial mount if sub-item is active
-    // After that, respect user's manual toggle and don't interfere
-    React.useEffect(() => {
-      if (isInitialMount.current) {
-        isInitialMount.current = false;
-        if (isSubItemActive) {
-          setIsOpen(true);
-        }
-      }
-      // Don't auto-open after initial mount - let user control it
-      // This prevents flickering when clicking submenu items
-    }, []); // Empty dependency array - only run on mount
-
-    // Check if any sub-item is active
-    const shouldHighlight = isActive || isSubItemActive;
-
-    // Memoize sub-items to prevent unnecessary re-renders
-    const subItemsList = React.useMemo(() => {
-      if (!hasSubItems) return null;
-      return item.subItems.map((subItem) => {
-        const isSubActive = location.pathname === subItem.url;
-        return { ...subItem, isSubActive };
-      });
-    }, [hasSubItems, item.subItems, location.pathname]);
-
-    if (hasSubItems) {
-      return (
-        <SidebarMenuItem key={item.title}>
-          <div className="relative">
-            <SidebarMenuButton
-              asChild
-              className={className}
-            >
-              <Link
-                to={item.url}
-                className="flex items-center gap-3 px-4 py-3"
-                onClick={() => isMobile && setOpenMobile(false)}
-              >
-                <item.icon className={`h-5 w-5 ${shouldHighlight ? 'text-white' : 'text-slate-700'}`} />
-                <span className="font-medium flex-1">{item.title}</span>
-              </Link>
-            </SidebarMenuButton>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                userToggledRef.current = true; // Mark as user-toggled
-                // Use a small delay to ensure state update happens after any pending updates
-                requestAnimationFrame(() => {
-                  setIsOpen(prev => !prev);
-                });
-              }}
-              className={`absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-black/10 transition-colors ${shouldHighlight ? 'text-white hover:bg-white/20' : 'text-slate-600'}`}
-            >
-              <ChevronDown
-                className={`h-4 w-4 transition-transform duration-300 ease-in-out ${isOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-          </div>
-          {isOpen && subItemsList && (
-            <div className="overflow-hidden">
-              <div className="ml-2 mt-1 mb-2 space-y-1 bg-slate-100/90 p-2 border-l-2 border-slate-400 shadow-sm rounded-bl-lg rounded-br-lg">
-                {subItemsList.map((subItem, index) => {
-                  // Check if this is an Administration sub-item (has Shield icon or is in admin section)
-                  const isAdminSubItem = item.icon === Shield || item.title === "Administration";
-
-                  return (
-                    <div key={subItem.title}>
-                      <SidebarMenuButton
-                        asChild
-                        className={`transition-all duration-200 ${subItem.isSubActive
-                          ? isInPlatformMode
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/25'
-                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md shadow-blue-500/25'
-                          : 'text-slate-700 hover:bg-slate-200/80 hover:shadow-sm'
-                          }`}
-                      >
-                        <Link
-                          to={subItem.url}
-                          className="flex items-center gap-1.5 px-2 py-2.5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isMobile) setOpenMobile(false);
-                            // Don't close dropdown on click - keep it open for better UX
-                            // Prevent any state changes that might cause flickering
-                          }}
-                        >
-                          <subItem.icon className={`h-4 w-4 flex-shrink-0 ${subItem.isSubActive ? 'text-white' : 'text-slate-600'}`} />
-                          <span className="font-medium text-sm whitespace-nowrap">{subItem.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </SidebarMenuItem>
-      );
-    }
-
-    return (
-      <SidebarMenuItem key={item.title}>
-        <SidebarMenuButton
-          asChild
-          className={className}
-        >
-          <Link
-            to={item.url}
-            className="flex items-center gap-3 px-4 py-3"
-            onClick={() => isMobile && setOpenMobile(false)}
-          >
-            <item.icon className={`h-5 w-5 ${isActive ? 'text-white' : ''}`} />
-            <span className="font-medium">{item.title}</span>
-          </Link>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    );
-  };
 
   return (
     <>
@@ -981,46 +970,25 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
         }
       `}</style>
       <div className="h-screen w-full flex overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20">
-        <Sidebar className="border-r border-slate-200/60 backdrop-blur-xl bg-white/80">
-          <SidebarHeader className="border-b border-slate-200/60 p-6">
-            {isViewingAsTenant && viewingTenant ? (
-              <div className="flex items-center gap-3">
-                {viewingTenant.branding?.logo_url ? (
-                  <img
-                    src={viewingTenant.branding.logo_url}
-                    alt={viewingTenant.name}
-                    className="h-10 w-10 object-contain rounded-lg border border-slate-200 bg-white p-1"
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                    <Building2 className="h-5 w-5 text-white" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-bold text-slate-900 text-lg truncate">{viewingTenant.name}</h2>
-                  <p className="text-xs text-slate-500 truncate">
-                    {viewingTenant.subscription_plan.charAt(0).toUpperCase() + viewingTenant.subscription_plan.slice(1)} Plan
-                  </p>
+        <Sidebar className="border-r border-slate-100 bg-white">
+          <SidebarHeader className="p-[14.5px] border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "h-9 w-9 rounded-xl flex items-center justify-center shadow-lg",
+                isInPlatformMode
+                  ? "bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20"
+                  : "bg-gradient-to-br from-blue-500 to-purple-600 shadow-blue-500/20"
+              )}>
+                {isInPlatformMode ? <Shield className="h-5 w-5 text-white" /> : <Sprout className="h-5 w-5 text-white" />}
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-900 text-base tracing-tight">Groona</h2>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Workspace</p>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg ${isInPlatformMode
-                  ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
-                  : 'bg-gradient-to-br from-blue-500 to-purple-600 shadow-blue-500/20'
-                  }`}>
-                  {isInPlatformMode ? <Shield className="h-5 w-5 text-white" /> : <Sprout className="h-5 w-5 text-white" />}
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-900 text-lg">{isInPlatformMode ? 'Platform Admin' : 'Groona'}</h2>
-                  <p className="text-xs text-slate-500">
-                    {isInPlatformMode
-                      ? 'Platform Management'
-                      : (currentTenant?.company_type === 'MARKETING' ? 'Marketing Management Platform' : 'Smart Project Management')}
-                  </p>
-                </div>
-              </div>
-            )}
+            </div>
           </SidebarHeader>
 
           <SidebarContent className="p-3">
@@ -1060,12 +1028,6 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                         key={item.title}
                         item={item}
                         isActive={isActive}
-                        className={`transition-all duration-200 rounded-xl ${shouldHighlight
-                          ? isInPlatformMode
-                            ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25'
-                            : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25'
-                          : 'text-slate-700 hover:shadow-sm'
-                          }`}
                       />
                     );
                   })}
@@ -1096,10 +1058,6 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                           key={adminItem.title}
                           item={adminItem}
                           isActive={isActive}
-                          className={`transition-all duration-200 rounded-xl ${shouldHighlight
-                            ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg shadow-blue-500/25'
-                            : 'text-slate-700 hover:shadow-sm'
-                            }`}
                         />
                       );
                     })()}
@@ -1109,227 +1067,124 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
             )}
           </SidebarContent>
 
-          <SidebarFooter className="border-t border-slate-200/60 p-4 space-y-2">
-
-            {/* Subscription Progress Bar - For Tenants (Viewing as Tenant or Actual Tenant) */}
-            {((isViewingAsTenant && viewingTenant?.status === 'trial') || (!isInPlatformMode && !isViewingAsTenant && currentTenant?.status === 'trial')) && (
-              <div className="mb-4 px-2 p-3 bg-slate-50 rounded-lg border border-slate-100 shadow-sm">
-                {(() => {
-                  const tenant = isViewingAsTenant ? viewingTenant : currentTenant;
-                  if (!tenant?.trial_ends_at) return null;
-
-                  const trialEnd = new Date(tenant.trial_ends_at);
-                  const now = new Date();
-
-                  // Find start date: subscription_start_date > created_at > (trialEnd - 14 days)
-                  let startDate = new Date(tenant.created_at);
-                  if (tenant.subscription_start_date) {
-                    startDate = new Date(tenant.subscription_start_date);
-                  } else if (isNaN(startDate.getTime())) {
-                    // Fallback if created_at is missing or invalid
-                    startDate = new Date(trialEnd);
-                    startDate.setDate(startDate.getDate() - 14); // Default 14 days
-                  }
-
-                  // Calculate total duration in ms
-                  const totalDuration = trialEnd - startDate;
-                  // Calculate elapsed time
-                  const elapsed = now - startDate;
-
-                  // Calculate days left for display
-                  const diffTime = trialEnd - now;
-                  const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                  // Percentage of time elapsed (0 to 100)
-                  let progress = 0;
-                  if (totalDuration > 0) {
-                    progress = (elapsed / totalDuration) * 100;
-                  }
-
-                  // Clamp
-                  progress = Math.min(100, Math.max(0, progress));
-
-                  // Color Logic based on Days Left (Urgency)
-                  let progressColor = "bg-emerald-500";
-                  let textColor = "text-emerald-700";
-                  let barBg = "bg-emerald-100";
-
-                  if (daysLeft <= 3) {
-                    progressColor = "bg-rose-500";
-                    textColor = "text-rose-700";
-                    barBg = "bg-rose-100";
-                  } else if (daysLeft <= 7) {
-                    progressColor = "bg-amber-500";
-                    textColor = "text-amber-700";
-                    barBg = "bg-amber-100";
-                  }
-
-                  if (daysLeft <= 0) return (
-                    <div className="text-center">
-                      <span className="text-xs font-bold text-rose-600">Trial Expired</span>
-                    </div>
-                  );
-
-                  const planName = tenant.subscription_plan
-                    ? tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)
-                    : 'Premium';
-
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs font-semibold">
-                        <span className="text-slate-700 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-indigo-500" />
-                          {planName} Trial
-                        </span>
-                        <span className={textColor}>{daysLeft} days left</span>
-                      </div>
-                      <div className={`h-2 w-full ${barBg} rounded-full overflow-hidden`}>
-                        <div
-                          className={`h-full ${progressColor} transition-all duration-1000 ease-out rounded-full`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-[10px] text-indigo-600 hover:text-indigo-700 w-full justify-center"
-                        onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
-                      >
-                        Upgrade Plan &rarr;
-                      </Button>
-                    </div>
-                  );
-                })()}
+          <SidebarFooter className="p-4 space-y-4">
+            {/* Premium Upgrade Card */}
+            <div className="mx-2 p-5 rounded-3xl bg-gradient-to-br from-[#1E40AF] via-[#1E3A8A] to-[#0F172A] relative overflow-hidden group shadow-xl">
+              {/* Background pattern */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-2xl -mr-16 -mt-16" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-400 rounded-full blur-2xl -ml-12 -mb-12" />
               </div>
-            )}
 
-            {/* Support Button - Sticky above profile */}
-            <SidebarMenuButton
-              asChild
-              className={`transition-all duration-200 rounded-xl mb-2 ${location.pathname === createPageUrl("MyTickets")
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                : 'text-slate-700 hover:shadow-sm'
-                }`}
-            >
-              <Link
-                to={createPageUrl("MyTickets")}
-                className="flex items-center gap-3 px-4 py-3"
+              <div className="relative z-10 space-y-4">
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20">
+                  <Crown className="w-5 h-5 text-white" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-white font-bold text-sm leading-tight">Upgrade to Premium!</h3>
+                  <p className="text-blue-200/70 text-[10px] font-medium leading-relaxed">
+                    Unlock advanced AI analytics, deep insights and unlimited projects.
+                  </p>
+                </div>
+
+                <Button
+                  onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
+                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-blue-900/50 border border-blue-400/30 transition-all active:scale-95"
+                >
+                  Upgrade premium
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <SidebarMenuButton
+                asChild
+                className="text-slate-500"
+                isActive={location.pathname === createPageUrl("MyTickets")}
               >
-                <LifeBuoy className={`h-5 w-5 ${location.pathname === createPageUrl("MyTickets") ? 'text-white' : 'text-slate-700'}`} />
-                <span className="font-medium">Support</span>
-              </Link>
-            </SidebarMenuButton>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="w-full">
-                <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-100/80 transition-colors cursor-pointer">
-                  <div className="relative">
-                    <Avatar className="h-9 w-9 border-2 border-slate-200">
-                      <AvatarImage src={user.profile_image_url} alt={user.full_name} key={`avatar-${user.profile_image_url}`} />
-                      <AvatarFallback className={`font-bold text-sm ${isInPlatformMode ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white' : 'bg-gradient-to-br from-blue-500 to-purple-600 text-white'}`}>
-                        {getInitials(user.full_name)}
+                <Link to={createPageUrl("MyTickets")}>
+                  <LifeBuoy className="h-5 w-5" />
+                  <span>Help & Support</span>
+                </Link>
+              </SidebarMenuButton>
+            </div>
+
+            <div className="pt-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger className="w-full">
+                  <div className="flex items-center gap-3 p-2 rounded-2xl hover:bg-slate-50 transition-colors group">
+                    <Avatar className="h-9 w-9 border border-slate-100 shadow-sm">
+                      <AvatarImage src={user?.profile_image_url} />
+                      <AvatarFallback className="bg-blue-600 text-white font-bold text-xs">
+                        {getInitials(user?.full_name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="absolute -bottom-0.5 -right-0.5"><PresenceIndicator status={user.presence_status || 'offline'} size="sm" /></div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{user?.full_name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">{user?.email}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <p className="font-medium text-slate-900 text-sm truncate flex items-center gap-2 flex-wrap">
-                      {user.full_name}
-                      {user.is_super_admin && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Super Admin</span>}
-                      {/* Owner: Show both Admin and Owner badges */}
-                      {!user.is_super_admin && user.custom_role === 'owner' && (
-                        <>
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Admin</span>
-                          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded flex items-center gap-1">
-                            <Crown className="h-2.5 w-2.5" />
-                            Owner
-                          </span>
-                        </>
-                      )}
-                      {/* Project Manager: Show only Project Manager badge, not Admin */}
-                      {!user.is_super_admin && user.custom_role === 'project_manager' && (
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded flex items-center gap-1">
-                          <Briefcase className="h-2.5 w-2.5" />
-                          Project Manager
-                        </span>
-                      )}
-                      {/* Regular Admin: Show Admin badge (not owner, not project manager) */}
-                      {!user.is_super_admin && user.role === 'admin' && user.custom_role !== 'owner' && user.custom_role !== 'project_manager' && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Admin</span>
-                      )}
-                      {/* Regular Member: Show Member badge for viewers */}
-                      {!user.is_super_admin && user.role === 'member' && user.custom_role === 'viewer' && (
-                        <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded">Member</span>
-                      )}
-                      {isViewingAsTenant && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded flex items-center gap-1"><Eye className="h-2.5 w-2.5" /> Viewing</span>}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                  </div>
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to={createPageUrl("UserProfile")} className="flex items-center cursor-pointer"><Settings className="h-4 w-4 mr-2" /> Profile & Settings</Link>
-                </DropdownMenuItem>
-                {isViewingAsTenant && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleExitTenantView} disabled={exitingView} className="text-amber-600 focus:text-amber-600 cursor-pointer">
-                      <ArrowLeft className="h-4 w-4 mr-2" /> Exit Tenant View
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => groonabackend.auth.logout()} className="text-red-600 focus:text-red-600 cursor-pointer">
-                  <LogOut className="h-4 w-4 mr-2" /> Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-slate-100">
+                  <DropdownMenuItem className="rounded-xl p-3 focus:bg-slate-50 cursor-pointer" onClick={() => navigate(createPageUrl("UserProfile"))}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    <span className="font-semibold">My Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem className="rounded-xl p-3 focus:bg-red-50 text-red-600 cursor-pointer" onClick={() => groonabackend.auth.logout()}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    <span className="font-semibold">Sign Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </SidebarFooter>
         </Sidebar>
 
-        <main className="flex-1 flex flex-col relative overflow-hidden" style={{ marginLeft: (!isMobile && open) ? '280px' : '0px', transition: 'margin-left 0.3s ease-in-out', width: '100%', maxWidth: '100%' }}>
+        <main className="flex-1 flex flex-col relative overflow-hidden" style={{ marginLeft: (!isMobile && open) ? '240px' : '0px', transition: 'margin-left 0.3s ease-in-out', width: '100%', maxWidth: '100%' }}>
           <header className="sticky top-0 z-50 bg-white px-4 md:px-6 flex items-center shadow-sm h-16" style={{ height: 'var(--header-height, 64px)' }}>
             <div className="flex items-center justify-between gap-2 md:gap-4 w-full">
               <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
                 <SidebarTrigger className="hover:bg-slate-100 p-2 rounded-lg transition-colors flex-shrink-0" />
                 <Popover open={searchOpen} onOpenChange={setSearchOpen}>
                   <PopoverTrigger asChild>
-                    <div className="flex-1 max-w-md relative min-w-0">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none z-10" />
+                    <div className="flex-1 max-w-md relative min-w-0 group">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-slate-400 pointer-events-none z-10">
+                        <Search className="h-4 w-4" />
+                      </div>
                       <Input
-                        placeholder="Search projects, tasks, users..."
+                        placeholder="Search anything..."
                         value={searchQuery}
                         onChange={(e) => {
                           const value = e.target.value;
                           setSearchQuery(value);
-                          // Always open popover when typing
                           setSearchOpen(true);
                         }}
-                        onFocus={() => {
-                          // Open popover on focus
-                          setSearchOpen(true);
-                        }}
-                        onClick={() => {
-                          // Open popover on click
-                          setSearchOpen(true);
-                        }}
-                        className="pl-10 pr-10 bg-white border border-slate-200 rounded-lg cursor-text"
+                        onFocus={() => setSearchOpen(true)}
+                        onClick={() => setSearchOpen(true)}
+                        className="pl-11 pr-16 bg-slate-50 border-slate-200/60 rounded-lg h-10 cursor-text focus-visible:ring-blue-500/20 transition-all hover:bg-slate-100/80"
                       />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSearchQuery("");
-                            setSearchOpen(false);
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 z-10"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 flex items-center gap-1.5">
+                        {searchQuery ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSearchQuery("");
+                              setSearchOpen(false);
+                            }}
+                            className="p-1 hover:bg-slate-200 rounded-md transition-colors pointer-events-auto"
+                          >
+                            <X className="h-3 w-3 text-slate-400" />
+                          </button>
+                        ) : (
+                          <div className="px-1.5 py-0.5 rounded border border-slate-200 bg-white text-[10px] font-bold text-slate-400 flex items-center gap-0.5 shadow-sm">
+                            <span className="text-[12px] leading-none">⌘</span>
+                            K
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] max-h-[500px] p-0 z-50" align="start" side="bottom" sideOffset={5} onOpenAutoFocus={(e) => e.preventDefault()} onInteractOutside={(e) => {
@@ -1543,25 +1398,31 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                   </div>
                 )}
               </div>
-              {!isInPlatformMode && !isClient && (
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(createPageUrl("GroonaAssistant"))}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 shadow-lg shadow-blue-500/25"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    <span className="hidden sm:inline">Groona AI</span>
-                    <span className="sm:hidden">AI</span>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setShowReportBug(true)} className="flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Report Bug</Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(createPageUrl("GroonaAssistant"))}
+                  className="hidden sm:flex items-center gap-2 h-10 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-slate-900 text-white font-semibold border-0 shadow-lg shadow-blue-500/20 hover:opacity-90 transition-all active:scale-95"
+                >
+                  <Sparkles className="h-4 w-4 text-white/90" />
+                  <span>Groona AI</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowReportBug(true)}
+                  className="hidden md:flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+                >
+                  <AlertCircle className="h-4 w-4" />
+                  <span>Report Bug</span>
+                </Button>
+
+                <div className="relative">
                   <NotificationCenter currentUser={user} />
                 </div>
-              )}
+              </div>
             </div>
-
-
           </header>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden relative" style={{ maxWidth: '100vw', width: '100%' }}>

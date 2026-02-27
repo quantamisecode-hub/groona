@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 const SidebarContext = createContext(undefined);
 
@@ -91,13 +92,13 @@ export function Sidebar({ className, children, side = "left", ...props }) {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen z-30 bg-white border-r transition-all duration-300 ease-in-out flex flex-col",
-        open ? "w-[280px]" : "w-[0px] overflow-hidden border-none",
+        "fixed left-0 top-0 h-screen z-30 bg-white border-r border-slate-100 transition-all duration-300 ease-in-out flex flex-col shadow-[1px_0_10px_rgba(0,0,0,0.02)]",
+        open ? "w-[240px]" : "w-[0px] overflow-hidden border-none",
         className
       )}
       {...props}
     >
-      <div className="flex flex-col h-full w-full overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col h-full w-full overflow-y-auto overflow-x-hidden no-scrollbar">
         {children}
       </div>
     </aside>
@@ -183,32 +184,44 @@ export function SidebarMenuButton({
   className,
   ...props
 }) {
-  const Comp = asChild ? React.Fragment : "button";
+  const baseStyles = cn(
+    "peer/menu-button group relative flex w-full items-center gap-3 overflow-hidden rounded-xl p-3 text-left text-sm font-medium transition-all duration-200 outline-none ring-sidebar-ring disabled:pointer-events-none",
+    "hover:bg-slate-50 hover:text-slate-900",
+    isActive
+      ? "bg-blue-50/80 text-blue-600 font-bold"
+      : "text-slate-600",
+    className
+  );
 
   if (asChild) {
     const child = React.Children.only(props.children);
-    return React.cloneElement(child, {
-      className: cn(
-        "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:shadow-sm focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none data-[state=open]:hover:shadow-sm",
-        className,
-        child.props.className
-      ),
-      "data-active": isActive,
-      "data-size": size,
-      "data-variant": variant,
-    });
+    return (
+      <div className="relative w-full px-2">
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-8 bg-blue-600 z-10" />
+        )}
+        {React.cloneElement(child, {
+          className: cn(baseStyles, child.props.className),
+          "data-active": isActive,
+          "data-size": size,
+          "data-variant": variant,
+        })}
+      </div>
+    );
   }
 
   return (
-    <button
-      data-active={isActive}
-      data-size={size}
-      data-variant={variant}
-      className={cn(
-        "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:shadow-sm focus-visible:ring-2 active:shadow-sm disabled:pointer-events-none data-[active=true]:bg-slate-100 data-[active=true]:font-medium data-[active=true]:text-slate-900 data-[state=open]:hover:shadow-sm",
-        className
+    <div className="relative w-full px-2">
+      {isActive && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-8 bg-blue-600 z-10" />
       )}
-      {...props}
-    />
+      <button
+        data-active={isActive}
+        data-size={size}
+        data-variant={variant}
+        className={baseStyles}
+        {...props}
+      />
+    </div>
   );
 }

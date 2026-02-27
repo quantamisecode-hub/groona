@@ -28,20 +28,6 @@ export default function TenantBrandingHeader({ currentUser }) {
     return null;
   }
 
-  const statusColors = {
-    active: "bg-green-100 text-green-800 border-green-200",
-    trial: "bg-amber-100 text-amber-800 border-amber-200",
-    suspended: "bg-red-100 text-red-800 border-red-200",
-    cancelled: "bg-slate-100 text-slate-800 border-slate-200",
-  };
-
-  const planColors = {
-    free: "bg-slate-100 text-slate-800",
-    starter: "bg-blue-100 text-blue-800",
-    professional: "bg-purple-100 text-purple-800",
-    enterprise: "bg-amber-100 text-amber-800",
-  };
-
   const handleSuccess = async () => {
     console.log('[TenantBrandingHeader] Update successful, refetching tenant...');
     await refetch();
@@ -53,91 +39,56 @@ export default function TenantBrandingHeader({ currentUser }) {
 
   return (
     <>
-      <div className="flex items-center gap-4 px-4 py-3 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-xl shadow-sm">
-        {/* Logo */}
-        <div className="flex-shrink-0">
-          {tenant.branding?.logo_url ? (
-            <img
-              src={tenant.branding.logo_url}
-              alt={tenant.name}
-              className="h-14 w-14 object-contain rounded-lg border border-slate-200 bg-white p-1.5"
-              key={tenant.branding.logo_url}
-            />
-          ) : (
-            <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Building2 className="h-7 w-7 text-white" />
-            </div>
-          )}
-        </div>
-
-        {/* Company Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-lg font-bold text-slate-900 truncate">{tenant.name}</h2>
-            {currentUser.role === 'admin' && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                <Crown className="h-3 w-3 mr-1" />
-                Admin
-              </Badge>
+      <div className="flex items-center justify-between px-3 py-2 bg-white border border-slate-100 rounded-xl shadow-sm mb-2">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Compact Logo */}
+          <div className="flex-shrink-0">
+            {tenant.branding?.logo_url ? (
+              <img
+                src={tenant.branding.logo_url}
+                alt={tenant.name}
+                className="h-8 w-8 object-contain rounded-md border border-slate-100 bg-white p-0.5"
+                key={tenant.branding.logo_url}
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center">
+                <Building2 className="h-4 w-4 text-white" />
+              </div>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge className={planColors[tenant.subscription_plan] || planColors.free}>
-              {tenant.subscription_plan ? (tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)) : 'Free'} Plan
-            </Badge>
-            <Badge variant="outline" className={statusColors[tenant.status] || statusColors.active}>
-              {tenant.status}
-            </Badge>
+          {/* Company Info - Single Inline Row */}
+          <div className="flex items-center gap-2 truncate">
+            <h2 className="text-[14px] font-semibold text-slate-800 truncate">{tenant.name}</h2>
 
-            {tenant.company_city && tenant.company_country && (
-              <span className="text-slate-600 flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
-                {tenant.company_city}, {tenant.company_country}
+            {currentUser.role === 'admin' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
+                <Crown className="h-2.5 w-2.5 mr-1" />
+                Admin
               </span>
             )}
-          </div>
 
-          {/* Additional Info - Only show if available */}
-          {(tenant.company_phone || tenant.billing_email || tenant.branding?.company_website) && (
-            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-600">
-              {tenant.company_phone && (
-                <span className="flex items-center gap-1">
-                  <Phone className="h-3 w-3" />
-                  {tenant.company_phone}
-                </span>
-              )}
-              {tenant.billing_email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="h-3 w-3" />
-                  {tenant.billing_email}
-                </span>
-              )}
-              {tenant.branding?.company_website && (
-                <a
-                  href={tenant.branding.company_website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors"
-                >
-                  <Globe className="h-3 w-3" />
-                  Website
-                </a>
-              )}
-            </div>
-          )}
+            <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 ml-1">
+              {tenant.subscription_plan ? (tenant.subscription_plan.charAt(0).toUpperCase() + tenant.subscription_plan.slice(1)) : 'Free'} Plan
+            </span>
+
+            <span className={`hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${tenant.status === 'active' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+              <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${tenant.status === 'active' ? 'bg-green-500' : 'bg-amber-500'}`} />
+              {tenant.status === 'active' ? 'Active' : tenant.status}
+            </span>
+          </div>
         </div>
 
-        {/* Edit Button - Only for admins */}
+        {/* Minimal Settings Button */}
         {currentUser.role === 'admin' && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={() => setShowEditDialog(true)}
-            className="flex-shrink-0"
+            className="flex-shrink-0 h-8 text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-2.5"
           >
-            <Settings className="h-4 w-4 mr-2" />
-            Company Settings
+            <Settings className="h-3.5 w-3.5 mr-1.5" />
+            Settings
           </Button>
         )}
       </div>

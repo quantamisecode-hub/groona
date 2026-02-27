@@ -1107,33 +1107,31 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0" aria-describedby="task-desc">
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0 border border-slate-200/50 shadow-2xl rounded-2xl bg-white" aria-describedby="task-desc">
           <DialogDescription id="task-desc" className="sr-only">
             Detailed view of task {task.title} including status, subtasks, and comments.
           </DialogDescription>
 
           {/* Header */}
-          <div className={`bg-gradient-to-r ${priorityConfig.gradient} p-6 text-white flex-shrink-0`}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl shadow-inner border border-white/10">
-                  {typeConfig.icon}
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold text-white mb-1 drop-shadow-sm">
-                    {task.title}
-                  </DialogTitle>
-                  <p className="text-white/90 text-sm font-medium flex items-center gap-1">
-                    <Layout className="h-3 w-3" /> {project?.name || 'Project'}
+          <div className="p-8 pb-6 bg-white flex-shrink-0 relative border-b border-slate-100">
+            <div className="flex items-start gap-5 mb-5 pr-10">
+              <div className="flex-1 pt-1">
+                <DialogTitle className="text-[26px] font-bold text-slate-900 leading-tight mb-2 tracking-tight">
+                  {task.title}
+                </DialogTitle>
+                <div className="flex items-center gap-4">
+                  <p className="text-slate-500 text-[14px] font-medium flex items-center gap-1.5 leading-none">
+                    {project?.name || 'Project'}
                   </p>
+
                 </div>
               </div>
-
               {!readOnly && !isViewer && (
                 <Button
                   onClick={handleEditClick}
                   size="sm"
-                  className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm mr-2 shadow-sm"
+                  variant="outline"
+                  className="text-slate-600 border-slate-200 hover:bg-slate-50 h-9 font-medium shadow-none transition-colors rounded-full px-5"
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
@@ -1141,85 +1139,74 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-3 py-1.5 text-sm font-semibold shadow-sm">
-                <StatusIcon className="h-4 w-4 mr-1.5" />
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-[13px] font-semibold text-slate-700">
+                <StatusIcon className="h-4 w-4 text-slate-500" />
                 {statusConfig.label}
-              </Badge>
-              <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-3 py-1.5 text-sm font-semibold shadow-sm">
-                <Flag className="h-3 w-3 mr-1.5" />
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-[13px] font-semibold text-slate-700">
+                <Flag className="h-4 w-4 text-slate-500" />
                 {task.priority.toUpperCase()}
-              </Badge>
+              </div>
               {task.story_points > 0 && (
-                <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 px-3 py-1.5 text-sm font-semibold shadow-sm">
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-[13px] font-semibold text-slate-700">
                   {task.story_points} Points
-                </Badge>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="p-6 bg-slate-50/80">
+          <div className="p-8 bg-white">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* LEFT COLUMN: Main Content + Comments */}
               <div className="lg:col-span-2 space-y-6">
 
                 {/* Description - Highlighted Headers */}
-                <Card className="border-slate-200 shadow-sm bg-white">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
-                        <FileText className="h-5 w-5 text-white" />
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-950">Description</h3>
-                    </div>
-                    <div className="pl-1">
-                      {renderDescription(task.description)}
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="bg-white pb-6 border-b border-slate-100">
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="text-[19px] font-bold text-slate-900 tracking-tight">Description</h3>
+                  </div>
+                  <div className="text-[15px] text-slate-700 leading-relaxed max-w-none prose prose-slate">
+                    {renderDescription(task.description)}
+                  </div>
+                </div>
 
                 {/* Reference URL */}
                 {task.reference_url && (
-                  <Card className="border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <Globe className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-0.5">Reference Link</h3>
-                        <a
-                          href={task.reference_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 truncate"
-                        >
-                          {task.reference_url} <ExternalLink className="h-3 w-3" />
-                        </a>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="bg-slate-50/50 border border-slate-100 p-4 flex items-center gap-4 rounded-2xl">
+                    <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0 shadow-sm border border-slate-100">
+                      <Globe className="h-5 w-5 text-slate-500" />
+                    </div>
+                    <div className="overflow-hidden">
+                      <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Reference Link</h3>
+                      <a
+                        href={task.reference_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[15px] font-medium text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1.5 truncate"
+                      >
+                        {task.reference_url} <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  </div>
                 )}
 
                 {/* Subtasks - UPDATED WITH ACTION BUTTONS */}
                 {task.subtasks && task.subtasks.length > 0 && (
-                  <Card className="border-slate-200 shadow-sm bg-white overflow-visible">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm">
-                            <ListTodo className="h-5 w-5 text-white" />
-                          </div>
-                          <h3 className="text-lg font-bold text-slate-950">Subtasks</h3>
-                        </div>
-                        <Badge variant="secondary" className="bg-slate-100 font-mono">
-                          {task.subtasks.filter(st => st.completed).length} / {task.subtasks.length}
-                        </Badge>
+                  <div className="bg-white py-6 border-b border-slate-100">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-[19px] font-bold text-slate-900 tracking-tight">Subtasks</h3>
                       </div>
-                      <div className="space-y-2.5">
-                        {task.subtasks.map((subtask, idx) => (
+                      <span className="text-slate-400 text-sm font-medium">
+                        {task.subtasks.filter(st => st.completed).length} of {task.subtasks.length}
+                      </span>
+                    </div>
+                    <div className="space-y-0 text-[15px]">
+                      {task.subtasks.map((subtask, idx) => (
+                        <div key={idx} className="border-b border-slate-100 last:border-0 py-1">
                           <SubtaskRow
-                            key={idx}
                             subtask={subtask}
                             index={idx}
                             taskId={task.id}
@@ -1230,34 +1217,25 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                             project={project}
                             reworkAlarms={reworkAlarms}
                           />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Blocked By (Dependencies) */}
                 {((task.dependencies && task.dependencies.length > 0) || (task.blocked_by && task.blocked_by.length > 0) || relatedTasks.length > 0) && (
-                  <Card className="border-amber-200 bg-amber-50/30 shadow-sm border-dashed">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
-                            <LinkIcon className="h-5 w-5 text-white" />
-                          </div>
-                          <h3 className="text-lg font-bold text-amber-950">Blocked By</h3>
-                        </div>
-                        <Badge variant="secondary" className="bg-amber-100/50 text-amber-800 font-mono border-amber-200">
-                          {relatedTasks.length +
-                            (task.dependencies?.filter(depId => !relatedTasks.some(rt => rt.id === depId)).length || 0) +
-                            (task.blocked_by?.length || 0)}
-                        </Badge>
+                  <div className="bg-white py-6 border-b border-slate-100">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-[19px] font-bold text-slate-900 tracking-tight">Blocked By</h3>
                       </div>
-                      <div className="space-y-2.5">
-                        {/* New Standalone Blockers */}
-                        {task.blocked_by?.map((blocker, index) => (
+                    </div>
+                    <div className="space-y-0 text-[15px]">
+                      {/* New Standalone Blockers */}
+                      {task.blocked_by?.map((blocker, index) => (
+                        <div key={`blocker-${index}`} className="border-b border-slate-100 last:border-0 py-1">
                           <BlockerRow
-                            key={`blocker-${index}`}
                             blocker={blocker}
                             index={index}
                             currentTask={task}
@@ -1267,12 +1245,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                             project={project}
                             reworkAlarms={reworkAlarms}
                           />
-                        ))}
+                        </div>
+                      ))}
 
-                        {/* Legacy Linked Dependencies */}
-                        {relatedTasks.map((depTask) => (
+                      {/* Legacy Linked Dependencies */}
+                      {relatedTasks.map((depTask) => (
+                        <div key={depTask.id} className="border-b border-slate-100 last:border-0 py-1">
                           <DependencyRow
-                            key={depTask.id}
                             dep={depTask}
                             isCustom={false}
                             currentTask={task}
@@ -1283,12 +1262,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                             reworkAlarms={reworkAlarms}
                             queryClient={queryClient}
                           />
-                        ))}
-                        {task.dependencies && task.dependencies
-                          .filter(depId => !relatedTasks.some(rt => rt.id === depId))
-                          .map((customDep, index) => (
+                        </div>
+                      ))}
+                      {task.dependencies && task.dependencies
+                        .filter(depId => !relatedTasks.some(rt => rt.id === depId))
+                        .map((customDep, index) => (
+                          <div key={`custom-${index}`} className="border-b border-slate-100 last:border-0 py-1">
                             <DependencyRow
-                              key={`custom-${index}`}
                               dep={customDep}
                               isCustom={true}
                               currentTask={task}
@@ -1299,24 +1279,26 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                               reworkAlarms={reworkAlarms}
                               queryClient={queryClient}
                             />
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Comments Section */}
-                <CommentsSection
-                  comments={comments}
-                  users={allUsers}
-                  mentionableUsers={allUsers.filter(u => project?.team_members?.some(m => m.email === u.email))}
-                  entityType="task"
-                  entityId={taskId}
-                  entityName={task.title}
-                  currentUser={currentUser}
-                  loading={commentsLoading}
-                  highlightCommentId={highlightCommentId}
-                />
+                <div className="pt-2">
+                  <CommentsSection
+                    comments={comments}
+                    users={allUsers}
+                    mentionableUsers={allUsers.filter(u => project?.team_members?.some(m => m.email === u.email))}
+                    entityType="task"
+                    entityId={taskId}
+                    entityName={task.title}
+                    currentUser={currentUser}
+                    loading={commentsLoading}
+                    highlightCommentId={highlightCommentId}
+                  />
+                </div>
 
               </div>
 
@@ -1324,70 +1306,54 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
               <div className="space-y-6">
 
                 {/* Timeline & Assigned To */}
-                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-                  <div className="bg-slate-50 p-3 border-b border-slate-100 flex items-center gap-2">
-                    <div className="h-6 w-6 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                      <CalendarIcon className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    <span className="text-sm font-bold text-slate-800">Timeline & Team</span>
-                  </div>
-                  <CardContent className="p-4 space-y-5">
+                <div className="bg-white">
+                  <div className="py-2">
+                    <h3 className="text-[19px] font-bold text-slate-900 tracking-tight mb-5">Details</h3>
+
                     {/* Dates */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Due Date</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-slate-800">
-                            {task.due_date ? format(parseISO(task.due_date), "MMM d, yyyy") : "None"}
-                          </p>
-                          {task.due_date && differenceInDays(new Date(), parseISO(task.due_date)) >= 1 && (
-                            <Badge className="bg-red-100 text-red-700 hover:bg-red-100 border-none text-[8px] h-4 px-1 py-0 shadow-none animate-pulse">
-                              OVERDUE
-                            </Badge>
-                          )}
-                        </div>
+                    <div className="space-y-4 mb-8">
+                      <div>
+                        <p className="text-[13px] text-slate-500 font-medium mb-1">Due Date</p>
+                        <p className="text-[15px] font-semibold text-slate-900">
+                          {task.due_date ? format(parseISO(task.due_date), "MMM d, yyyy") : "None"}
+                        </p>
                       </div>
-                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Estimate</p>
-                        <p className="text-sm font-bold text-slate-800">
+                      <div>
+                        <p className="text-[13px] text-slate-500 font-medium mb-1">Estimate</p>
+                        <p className="text-[15px] font-semibold text-slate-900">
                           {task.estimated_hours || 0} hrs
                         </p>
                       </div>
                     </div>
 
-                    <Separator className="bg-slate-100" />
-
                     {/* Assigned To - Vertical List */}
                     <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned To</span>
-                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-slate-300 font-mono">{assignees.length}</Badge>
+                      <div className="mb-3">
+                        <span className="text-[13px] text-slate-500 font-medium">Assigned To</span>
                       </div>
 
                       {assignees.length > 0 ? (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-3">
                           {assignees.map((assignee) => (
                             <div
                               key={assignee.id}
-                              className="flex items-center gap-3 p-2 rounded-lg bg-white border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all shadow-sm"
+                              className="flex items-center gap-3 group cursor-default"
                             >
-                              <Avatar className="h-8 w-8 border border-white shadow-sm ring-1 ring-slate-100">
+                              <Avatar className="h-8 w-8 bg-slate-100 flex items-center justify-center text-slate-700">
                                 <AvatarImage src={assignee.profile_image_url} />
-                                <AvatarFallback className="text-[10px] bg-indigo-600 text-white font-bold">
+                                <AvatarFallback className="text-[11px] bg-slate-100 text-slate-700 font-medium">
                                   {(assignee.full_name?.substring(0, 2) || assignee.email?.substring(0, 2) || 'U').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-slate-800 truncate">{assignee.full_name || assignee.email || 'Unknown User'}</p>
-                                <p className="text-[10px] text-slate-500 truncate">{assignee.email}</p>
+                                <p className="text-[15px] font-semibold text-slate-900 truncate">{assignee.full_name || assignee.email || 'Unknown User'}</p>
                               </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                          <UserIcon className="h-5 w-5 mx-auto text-slate-300 mb-1" />
-                          <span className="text-xs text-slate-400">Unassigned</span>
+                        <div className="text-left py-2">
+                          <span className="text-[15px] text-slate-400 font-medium">Unassigned</span>
                         </div>
                       )}
                     </div>
@@ -1401,11 +1367,11 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
 
                       if (diff >= 2) {
                         return (
-                          <div className="pt-2">
+                          <div className="pt-8">
                             <Button
                               onClick={() => setShowImpedimentDialog(true)}
                               size="sm"
-                              className="w-full bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 shadow-sm transition-all hover:shadow hover:border-red-300"
+                              className="w-full bg-red-50 hover:bg-red-100 text-red-600 border-0 shadow-none hover:shadow-none font-semibold rounded-xl h-10 transition-colors"
                             >
                               <AlertTriangle className="h-4 w-4 mr-2" />
                               Report Impediment
@@ -1415,11 +1381,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                       }
                       return null;
                     })()}
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
 
                 {/* Due Date Activity - MOVED UP */}
-                <DueDateActivityPanel taskId={task?.id || task?._id} />
+                <div className="bg-white py-2">
+                  <DueDateActivityPanel taskId={task?.id || task?._id} />
+                </div>
 
                 {/* AI Priority Suggestions (Only if Overdue) */}
                 {task.due_date && differenceInDays(new Date(), parseISO(task.due_date)) >= 1 && (
@@ -1466,79 +1434,60 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
 
                 {/* Labels - Vertical Step-wise */}
                 {task.labels && task.labels.length > 0 && (
-                  <Card className="border-slate-200 shadow-sm bg-white">
-                    <div className="bg-slate-50 p-3 border-b border-slate-100 flex items-center gap-2">
-                      <div className="h-6 w-6 rounded bg-gradient-to-br from-rose-500 to-red-500 flex items-center justify-center">
-                        <Tag className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <span className="text-sm font-bold text-slate-800">Labels</span>
+                  <div className="bg-white py-2">
+                    <h3 className="text-[19px] font-bold text-slate-900 tracking-tight mb-4">Labels</h3>
+                    <div className="flex flex-col items-start gap-2">
+                      {task.labels.map((label, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100/60 text-[13px] font-semibold text-slate-700 w-fit hover:bg-slate-100 transition-colors"
+                        >
+                          <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          {label}
+                        </div>
+                      ))}
                     </div>
-                    <CardContent className="p-4">
-                      <div className="flex flex-col items-start gap-2">
-                        {task.labels.map((label, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-slate-200 text-sm font-semibold text-slate-700 shadow-sm w-full hover:bg-slate-50 transition-colors"
-                          >
-                            <div className="h-2 w-2 rounded-full bg-rose-400 ring-2 ring-rose-100" />
-                            {label}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  </div>
                 )}
 
                 {/* Acceptance Criteria */}
                 {task.acceptance_criteria && (
-                  <Card className="border-slate-200 shadow-sm bg-white">
-                    <div className="bg-slate-50 p-3 border-b border-slate-100 flex items-center gap-2">
-                      <div className="h-6 w-6 rounded bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <span className="text-sm font-bold text-slate-800">Acceptance Criteria</span>
-                    </div>
-                    <CardContent className="p-4">
+                  <div className="bg-white py-2">
+                    <h3 className="text-[19px] font-bold text-slate-900 tracking-tight mb-4">Acceptance Criteria</h3>
+                    <div className="text-[15px] text-slate-700 leading-relaxed max-w-none prose prose-slate pl-2 border-l-2 border-indigo-100">
                       {renderAcceptanceCriteria(task.acceptance_criteria)}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 )}
 
                 {/* Attachments */}
                 {task.attachments && task.attachments.length > 0 && (
-                  <Card className="border-slate-200 shadow-sm bg-white">
-                    <div className="bg-slate-50 p-3 border-b border-slate-100 flex items-center gap-2">
-                      <div className="h-6 w-6 rounded bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center">
-                        <Paperclip className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <span className="text-sm font-bold text-slate-800">Attachments</span>
+                  <div className="bg-white py-2">
+                    <h3 className="text-[19px] font-bold text-slate-900 tracking-tight mb-4">Attachments</h3>
+                    <div className="space-y-3">
+                      {task.attachments.map((file, index) => (
+                        <a
+                          key={index}
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-4 p-3 bg-slate-50/50 border border-slate-100/80 rounded-2xl hover:bg-slate-50 hover:border-slate-200 transition-all group"
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center flex-shrink-0 text-slate-400 border border-slate-100 shadow-sm group-hover:text-indigo-600 transition-colors">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[14px] font-semibold text-slate-900 truncate group-hover:text-indigo-700 transition-colors">
+                              {file.name}
+                            </p>
+                            <p className="text-[11px] text-slate-400 uppercase font-medium mt-0.5">
+                              {file.name.split('.').pop() || 'FILE'}
+                            </p>
+                          </div>
+                        </a>
+                      ))}
                     </div>
-                    <CardContent className="p-4">
-                      <div className="space-y-2">
-                        {task.attachments.map((file, index) => (
-                          <a
-                            key={index}
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 p-2.5 bg-white border border-slate-200 rounded-lg hover:border-sky-300 hover:shadow-sm hover:bg-sky-50/20 transition-all group"
-                          >
-                            <div className="h-8 w-8 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0 text-sky-600">
-                              <FileText className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-700 truncate group-hover:text-sky-700">
-                                {file.name}
-                              </p>
-                              <p className="text-[10px] text-slate-400 uppercase font-medium">
-                                {file.name.split('.').pop() || 'FILE'}
-                              </p>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  </div>
                 )}
               </div>
             </div>
