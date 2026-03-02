@@ -653,33 +653,35 @@ export default function EditTaskDialog({ open, onClose, task, onUpdate = null })
             />
           </div>
 
-          {/* Milestone Choice */}
-          <div className="space-y-2">
-            <Label htmlFor="milestone_id" className="flex items-center gap-2">
-              <Flag className="h-4 w-4 text-blue-500" />
-              Project Milestone
-            </Label>
-            <Select
-              value={formData.milestone_id || "unassigned"}
-              onValueChange={(value) => setFormData({ ...formData, milestone_id: value === "unassigned" ? "" : value })}
-              disabled={updateTaskMutation.isPending}
-            >
-              <SelectTrigger className="h-10">
-                <SelectValue placeholder="Select milestone..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">No Milestone</SelectItem>
-                {projectMilestones.map(m => (
-                  <SelectItem key={m.id || m._id} value={m.id || m._id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
-                      {m.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Milestone Choice - Hide for T&M and Retainer */}
+          {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+            <div className="space-y-2">
+              <Label htmlFor="milestone_id" className="flex items-center gap-2">
+                <Flag className="h-4 w-4 text-blue-500" />
+                Project Milestone
+              </Label>
+              <Select
+                value={formData.milestone_id || "unassigned"}
+                onValueChange={(value) => setFormData({ ...formData, milestone_id: value === "unassigned" ? "" : value })}
+                disabled={updateTaskMutation.isPending}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select milestone..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">No Milestone</SelectItem>
+                  {projectMilestones.map(m => (
+                    <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
+                        {m.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Story - Full Width */}
           <div className="md:col-span-2 space-y-2">

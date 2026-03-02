@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, AlertTriangle, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import CreateSprintDialog from "./CreateSprintDialog";
@@ -105,6 +105,30 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     queryFn: async () => {
       if (!projectId) return [];
       return groonabackend.entities.Story.filter({ project_id: projectId });
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch milestones for the project
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: projectId });
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch project details
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: projectId });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: projectId });
+      }
+      return projects[0] || null;
     },
     enabled: !!projectId,
   });

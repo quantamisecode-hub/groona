@@ -35,7 +35,7 @@ const fixId = (item) => {
 // --- AXIOS INSTANCE ---
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 60000 // 60 seconds timeout for all requests (emails may take longer)
+  timeout: 120000 // 120 seconds timeout for all requests (AI and emails may take longer)
 });
 
 api.interceptors.request.use(config => {
@@ -225,6 +225,10 @@ export const groonabackend = {
   ai: {
     generateSprintTasks: async (payload) => {
       const res = await api.post('/functions/invoke', { functionName: 'generateSprintTasks', payload });
+      return res.data;
+    },
+    generateSprintReport: async (payload) => {
+      const res = await api.post('/ai/sprint-report', payload);
       return res.data;
     }
   },

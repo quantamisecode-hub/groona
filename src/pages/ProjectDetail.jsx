@@ -599,12 +599,15 @@ export default function ProjectDetail() {
                       </TabsTrigger>
                     </>
                   )}
-                  <TabsTrigger
-                    value="milestones"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3"
-                  >
-                    Milestones
-                  </TabsTrigger>
+                  {/* Hide Milestones tab for T&M and Retainer projects */}
+                  {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+                    <TabsTrigger
+                      value="milestones"
+                      className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3"
+                    >
+                      Milestones
+                    </TabsTrigger>
+                  )}
                   {/* Hide Budget & Expenses tab for viewer and project_manager */}
                   {currentUser && currentUser.custom_role !== 'viewer' && currentUser.custom_role !== 'project_manager' && (
                     <TabsTrigger

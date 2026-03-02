@@ -62,7 +62,8 @@ export default function Dashboard() {
 
   // Permissions
   const canCreateProject = useHasPermission('can_create_project');
-  const canViewInsights = useHasPermission('can_view_project_insights');
+  const canViewInsights = useHasPermission('can_view_insights');
+  const canViewAllProjects = useHasPermission('can_view_all_projects');
 
   // === UPDATED ONBOARDING LOGIC ===
   // Note: Onboarding redirect is now handled in Layout.jsx to prevent Dashboard from rendering first
@@ -147,11 +148,35 @@ export default function Dashboard() {
     return Array.from(assignees);
   }, [tasks]);
 
+  const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
+
   const { filteredProjects, filteredTasks } = useMemo(() => {
-    // FIX: Show projects if Admin, Owner, Team Member, OR Project Manager
+    // 1. Base Task Filtering (Restriction Layer)
+    let baseTasks = tasks;
+    if (isRestrictedViewer) {
+      const userEmail = currentUser.email?.toLowerCase();
+      baseTasks = tasks.filter(t => {
+        const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+        return taskAssignees.some(assignee => {
+          const email = typeof assignee === 'string' ? assignee : assignee?.email;
+          return email?.toLowerCase() === userEmail;
+        });
+      });
+    }
+
+    const assignedProjectIds = new Set(baseTasks.map(t => t.project_id));
+
+    // 2. Base Project Accessibility
     const accessibleProjects = projects.filter(p => {
       if (isAdmin) return true;
       if (!currentUser) return false;
+
+      // If restricted viewer, ONLY show projects with assignments
+      if (isRestrictedViewer) {
+        return assignedProjectIds.has(p.id);
+      }
+
+      if (canViewAllProjects) return true;
 
       const isOwner = p.owner === currentUser.email;
       const isTeamMember = p.team_members?.some(m => m.email === currentUser.email);
@@ -160,6 +185,7 @@ export default function Dashboard() {
       return isOwner || isTeamMember || isProjectManager;
     });
 
+    // 3. Apply Sidebar/Workspace/Status/Priority Filters
     let filteredP = selectedWorkspaceId
       ? accessibleProjects.filter(p => p.workspace_id === selectedWorkspaceId)
       : accessibleProjects;
@@ -167,12 +193,11 @@ export default function Dashboard() {
     if (statusFilter !== "all") filteredP = filteredP.filter(p => p.status === statusFilter);
     if (priorityFilter !== "all") filteredP = filteredP.filter(p => p.priority === priorityFilter);
 
-    const projectIds = new Set(filteredP.map(p => p.id));
-
+    const activeProjectIds = new Set(filteredP.map(p => p.id));
     const validTaskStatuses = ['todo', 'in_progress', 'review', 'completed'];
 
-    let filteredT = tasks.filter(t => {
-      if (!projectIds.has(t.project_id)) return false;
+    let filteredT = baseTasks.filter(t => {
+      if (!activeProjectIds.has(t.project_id)) return false;
 
       if (selectedWorkspaceId) {
         const taskProject = filteredP.find(p => p.id === t.project_id);
@@ -188,13 +213,14 @@ export default function Dashboard() {
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
       if (assigneeFilter !== "all") {
         const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
-        if (!taskAssignees.includes(assigneeFilter)) return false;
+        const emails = taskAssignees.map(a => typeof a === 'string' ? a : a?.email);
+        if (!emails.includes(assigneeFilter)) return false;
       }
       return true;
     });
 
     return { filteredProjects: filteredP, filteredTasks: filteredT };
-  }, [projects, tasks, selectedWorkspaceId, statusFilter, priorityFilter, assigneeFilter, currentUser, isAdmin, projectRoles]);
+  }, [projects, tasks, selectedWorkspaceId, statusFilter, priorityFilter, assigneeFilter, currentUser, isAdmin, isRestrictedViewer, canViewAllProjects, projectRoles]);
 
   const createProjectMutation = useMutation({
     mutationFn: (data) => groonabackend.entities.Project.create(data),
@@ -225,6 +251,44 @@ export default function Dashboard() {
     completedTasks: filteredTasks.filter(t => t.status === 'completed').length,
     pendingTasks: filteredTasks.filter(t => t.status === 'todo').length,
   }), [filteredProjects, filteredTasks]);
+
+  // Filter insights data for members/viewers to only show their assigned items
+  const { insightsProjects, insightsTasks, insightsStories } = useMemo(() => {
+    const isMemberOrViewer = currentUser && !currentUser.is_super_admin && currentUser.role !== 'admin';
+
+    if (!isMemberOrViewer || !currentUser?.email) {
+      return { insightsProjects: filteredProjects, insightsTasks: filteredTasks };
+    }
+
+    const userEmail = currentUser.email.toLowerCase();
+
+    // 1. Get ONLY tasks assigned to this user
+    const assignedTasks = filteredTasks.filter(t => {
+      const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+      return taskAssignees.some(assignee => {
+        const email = typeof assignee === 'string' ? assignee : assignee?.email;
+        return email?.toLowerCase() === userEmail;
+      });
+    });
+
+    // 2. Get ONLY projects that have these assigned tasks
+    const myProjectIds = new Set(assignedTasks.map(t => t.project_id));
+    const assignedProjects = filteredProjects.filter(p => myProjectIds.has(p.id));
+
+    // 3. Get ONLY stories that have these assigned tasks or belong to these projects
+    const myStoryIds = new Set(assignedTasks.map(t => t.story_id).filter(Boolean));
+    const assignedStories = stories.filter(s => myStoryIds.has(s.id) || myStoryIds.has(s._id));
+
+    // Fallback: If they have projects accessible but no tasks assigned, 
+    // show insights for the whole accessible set so the section doesn't disappear.
+    const hasAssignments = assignedTasks.length > 0;
+
+    return {
+      insightsProjects: hasAssignments ? assignedProjects : filteredProjects,
+      insightsTasks: hasAssignments ? assignedTasks : filteredTasks,
+      insightsStories: hasAssignments ? assignedStories : stories
+    };
+  }, [filteredProjects, filteredTasks, stories, currentUser]);
 
   const firstName = currentUser?.full_name ? currentUser.full_name.split(' ')[0] : 'User';
   const userRole = currentUser?.is_super_admin || currentUser?.role === 'admin' ? 'admin' : 'user';
@@ -311,9 +375,9 @@ export default function Dashboard() {
             {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
             {canViewInsights && (
               <DashboardInsights
-                projects={filteredProjects}
-                tasks={filteredTasks}
-                stories={stories}
+                projects={insightsProjects}
+                tasks={insightsTasks}
+                stories={insightsStories}
                 activities={activities}
                 loading={projectsLoading || tasksLoading}
               />
@@ -321,18 +385,7 @@ export default function Dashboard() {
 
             <div className="grid lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2"><ProjectsList projects={filteredProjects.slice(0, 4)} loading={projectsLoading} /></div>
-              <div className="space-y-6"><QuickActions /><RecentTasks tasks={(() => {
-                // For team members, only show assigned tasks
-                const isTeamMember = currentUser && !currentUser.is_super_admin && currentUser.role !== 'admin';
-                if (isTeamMember && currentUser?.email) {
-                  const userEmail = currentUser.email.toLowerCase();
-                  return filteredTasks.filter(t => {
-                    const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
-                    return taskAssignees.some(assignee => assignee?.toLowerCase() === userEmail);
-                  }).slice(0, 5);
-                }
-                return filteredTasks.slice(0, 5);
-              })()} loading={tasksLoading} /></div>
+              <div className="space-y-6"><QuickActions /><RecentTasks tasks={filteredTasks.slice(0, 5)} loading={tasksLoading} /></div>
             </div>
 
             {canCreateProject && (

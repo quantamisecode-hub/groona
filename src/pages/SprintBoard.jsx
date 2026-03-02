@@ -79,6 +79,7 @@ export default function SprintBoard() {
   const [manuallyChangedStatuses, setManuallyChangedStatuses] = useState(new Set()); // Track manually changed story statuses
   const [selectedMemberEmail, setSelectedMemberEmail] = useState("all");
   const queryClient = useQueryClient();
+  const [isExporting, setIsExporting] = useState(false);
   const printRef = useRef(null); // You can keep this even if unused for now
 
   const taskIdParam = searchParams.get('taskId');
@@ -899,29 +900,68 @@ export default function SprintBoard() {
 
   // === UPDATED: Data-Driven PDF Export ===
   const handleExportSprintReport = async () => {
-    // We no longer rely on 'printRef' (DOM screenshot)
     if (!selectedSprint) return;
+    setIsExporting(true);
 
     try {
-      toast.info('Generating PDF report...');
+      toast.info('Generating AI Sprint Analysis...');
 
-      // Call the new text-based generator function
-      const pdfBlob = generateSprintReportPDF(selectedSprint, sprintTasks, selectedProject);
+      // 1. Prepare data for AI
+      const tasksForAI = sprintTasks.map(t => {
+        // Find the actual name from the users list
+        const assigneeVal = typeof t.assigned_to === 'string' ? t.assigned_to : (t.assigned_to?.email || t.assigned_to?.id);
+        const user = users.find(u => (u.email?.toLowerCase() === assigneeVal?.toLowerCase()) || (u.id === assigneeVal));
+        const resolvedName = user ? (user.full_name || user.name) : (t.assigned_to_name || t.assigned_to || 'Unassigned');
+
+        return {
+          task_id: t.id || t._id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          story_points: t.story_points || 0,
+          assignee: resolvedName,
+          created_date: t.created_date,
+          due_date: t.due_date,
+          completed_date: t.completed_date,
+          estimated_hours: t.estimated_hours || 0,
+          actual_hours: t.actual_hours || 0,
+          progress_percentage: t.progress || 0
+        };
+      });
+
+      // 2. Call backend AI service via groonabackend
+      const aiReport = await groonabackend.ai.generateSprintReport({
+        sprint: selectedSprint,
+        tasks: tasksForAI,
+        project: selectedProject
+      });
+
+      if (aiReport.error) {
+        throw new Error(aiReport.error);
+      }
+
+      toast.info('Rendering Professional PDF Report...');
+
+      // 3. Generate PDF with AI insights
+      const pdfBlob = await generateSprintReportPDF(selectedSprint, sprintTasks, selectedProject, aiReport, users);
 
       if (pdfBlob) {
         const url = window.URL.createObjectURL(pdfBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Sprint_Report_${selectedSprint.name.replace(/\s+/g, '_')}.pdf`;
+        const timestamp = format(new Date(), 'yyyyMMdd_HHmm');
+        a.download = `Sprint_Performance_Report_${selectedProject?.name.replace(/\s+/g, '_')}_${selectedSprint.name.replace(/\s+/g, '_')}_${timestamp}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         a.remove();
-        toast.success('Sprint report downloaded');
+        toast.success('Sprint report generated and downloaded!');
       }
     } catch (error) {
-      console.error('[SprintBoard] Export error:', error);
-      toast.error('Failed to export sprint report');
+      console.error('[SprintBoard] AI Export error:', error);
+      toast.error(`Failed to export sprint report: ${error.message}`);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -1630,9 +1670,14 @@ export default function SprintBoard() {
                               variant="outline"
                               size="sm"
                               className="flex items-center gap-2 h-9"
+                              disabled={isExporting}
                             >
-                              <Download className="h-4 w-4" />
-                              Export PDF
+                              {isExporting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
+                              {isExporting ? 'Generating...' : 'Export PDF'}
                             </Button>
                           )}
                         </div>

@@ -216,6 +216,26 @@ export default function TimesheetEntryForm({
     return false;
   };
 
+  // Fetch epics
+  const { data: epics = [] } = useQuery({
+    queryKey: ['epics', formData.project_id],
+    queryFn: async () => {
+      if (!formData.project_id) return [];
+      return groonabackend.entities.Epic.filter({ project_id: formData.project_id });
+    },
+    enabled: !!formData.project_id,
+  });
+
+  // Fetch sprints
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['sprints', formData.project_id],
+    queryFn: async () => {
+      if (!formData.project_id) return [];
+      return groonabackend.entities.Sprint.filter({ project_id: formData.project_id });
+    },
+    enabled: !!formData.project_id,
+  });
+
   // Raw Stories and Tasks are now provided by the hierarchy query
   const rawTasks = myAssignedTasks;
 
@@ -313,30 +333,26 @@ export default function TimesheetEntryForm({
       //   return false;
       // }
 
+      // 4. Sprint Locked Check
+      let taskSprintId = task.sprint_id?.id || task.sprint_id?._id || task.sprint_id;
+      if (!taskSprintId && task.story_id) {
+        const sId = task.story_id?.id || task.story_id?._id || task.story_id;
+        const taskStory = rawStories.find(s => String(s.id || s._id) === String(sId));
+        if (taskStory) {
+          taskSprintId = taskStory.sprint_id?.id || taskStory.sprint_id?._id || taskStory.sprint_id;
+        }
+      }
+
+      if (taskSprintId && taskSprintId !== 'unassigned') {
+        const sprint = sprints.find(s => String(s.id || s._id) === String(taskSprintId));
+        if (sprint && !sprint.locked_date) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [rawTasks, targetUserEmail, formData.project_id, formData.story_id, submittedTaskIds, initialData]);
-
-  // Fetch epics
-  const { data: epics = [] } = useQuery({
-    queryKey: ['epics', formData.project_id],
-    queryFn: async () => {
-      if (!formData.project_id) return [];
-      return groonabackend.entities.Epic.filter({ project_id: formData.project_id });
-    },
-    enabled: !!formData.project_id,
-  });
-
-  // Fetch sprints
-  const { data: sprints = [] } = useQuery({
-    queryKey: ['sprints', formData.project_id],
-    queryFn: async () => {
-      if (!formData.project_id) return [];
-      return groonabackend.entities.Sprint.filter({ project_id: formData.project_id });
-    },
-    enabled: !!formData.project_id,
-  });
-
+  }, [rawTasks, targetUserEmail, formData.project_id, formData.story_id, sprints, rawStories]);
 
   // Auto-select most recent project/task if available
   useEffect(() => {
@@ -691,8 +707,8 @@ export default function TimesheetEntryForm({
                 </div>
               )}
 
-              {/* Milestone Selection (Optional override or for non-task entries) */}
-              {formData.project_id && (
+              {/* Milestone Selection (Optional override or for non-task entries) - Hide for T&M and Retainer */}
+              {formData.project_id && (currentProject?.billing_model !== 'time_and_materials' && currentProject?.billing_model !== 'retainer') && (
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Flag className="h-4 w-4 text-blue-500" />

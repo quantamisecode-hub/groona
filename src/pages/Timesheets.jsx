@@ -1162,7 +1162,8 @@ export default function TimesheetsPage() {
                     users={users}
                     showActions={true}
                     canEditLocked={isAdmin}
-                    groupByDate={true}
+                    groupByDate={!(isAdmin || isPM)}
+                    groupByEmployee={isAdmin || isPM}
                     highlightedId={editIdParam}
                     effectiveTenantId={effectiveTenantId}
                   />

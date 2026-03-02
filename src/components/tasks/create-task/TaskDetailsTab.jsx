@@ -420,37 +420,46 @@ export default function TaskDetailsTab({
           </Select>
         </div>
 
-        {/* Milestone Selection */}
-        <div className="md:col-span-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <Flag className="h-4 w-4 text-blue-500" />
-            Project Milestone
-          </Label>
-          <Select
-            value={taskData.milestone_id || "unassigned"}
-            onValueChange={(value) => setTaskData({ ...taskData, milestone_id: value === "unassigned" ? null : value })}
-          >
-            <SelectTrigger className="h-10">
-              <SelectValue placeholder="Select Milestone (Optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="unassigned">No Milestone</SelectItem>
-              {milestones
-                .filter(m => m.status === 'in_progress' || (taskData.milestone_id && (m.id === taskData.milestone_id || m._id === taskData.milestone_id)))
-                .map(m => (
-                  <SelectItem key={m.id || m._id} value={m.id || m._id}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
-                      {m.name}
-                    </div>
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <p className="text-[10px] text-slate-400 mt-1">
-            Link this task to a phase for accurate milestone-level profit tracking.
-          </p>
-        </div>
+        {/* Milestone Selection - Hide for T&M and Retainer projects */}
+        {(() => {
+          const project = projects.find(p => (p.id || p._id) === taskData.project_id);
+          const hideMilestone = project?.billing_model === 'time_and_materials' || project?.billing_model === 'retainer';
+
+          if (hideMilestone) return null;
+
+          return (
+            <div className="md:col-span-2">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Flag className="h-4 w-4 text-blue-500" />
+                Project Milestone
+              </Label>
+              <Select
+                value={taskData.milestone_id || "unassigned"}
+                onValueChange={(value) => setTaskData({ ...taskData, milestone_id: value === "unassigned" ? null : value })}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select Milestone (Optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">No Milestone</SelectItem>
+                  {milestones
+                    .filter(m => m.status === 'in_progress' || (taskData.milestone_id && (m.id === taskData.milestone_id || m._id === taskData.milestone_id)))
+                    .map(m => (
+                      <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color || '#3b82f6' }} />
+                          {m.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Link this task to a phase for accurate milestone-level profit tracking.
+              </p>
+            </div>
+          );
+        })()}
 
         {/* Story - Moved Above Assignees */}
         <div className="md:col-span-2 space-y-2">

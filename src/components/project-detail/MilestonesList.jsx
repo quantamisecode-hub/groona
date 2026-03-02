@@ -27,7 +27,8 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -76,6 +77,13 @@ export default function MilestonesList({ projectId, project }) {
   const { data: milestones = [], isLoading } = useQuery({
     queryKey: ['milestones', projectId],
     queryFn: () => groonabackend.entities.Milestone.filter({ project_id: projectId }, 'due_date'),
+    enabled: !!projectId,
+  });
+
+  // Fetch sprints to check for locking logic
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['sprints', projectId],
+    queryFn: () => groonabackend.entities.Sprint.filter({ project_id: projectId }),
     enabled: !!projectId,
   });
 
@@ -210,13 +218,15 @@ export default function MilestonesList({ projectId, project }) {
           <h2 className="text-2xl font-bold text-slate-900">Project Milestones</h2>
           <p className="text-slate-600">Track key deliverables and deadlines</p>
         </div>
-        <Button
-          onClick={() => { setEditingMilestone(null); setShowDialog(true); }}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Milestone
-        </Button>
+        {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+          <Button
+            onClick={() => { setEditingMilestone(null); setShowDialog(true); }}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Milestone
+          </Button>
+        )}
       </div>
 
       {/* View Controls */}
@@ -277,9 +287,11 @@ export default function MilestonesList({ projectId, project }) {
             <Flag className="w-12 h-12 text-slate-300 mb-4" />
             <h3 className="text-lg font-medium text-slate-900 mb-2">No milestones yet</h3>
             <p className="text-slate-500 mb-6">Create milestones to track important project events.</p>
-            <Button variant="outline" onClick={() => setShowDialog(true)}>
-              Create Milestone
-            </Button>
+            {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+              <Button onClick={() => { setEditingMilestone(null); setShowDialog(true); }}>
+                Add First Milestone
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : milestonesWithMetrics.length === 0 ? (
@@ -385,12 +397,31 @@ export default function MilestonesList({ projectId, project }) {
                         <DropdownMenuItem onClick={() => handleStatusChange(milestone, 'completed')}>
                           <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Complete
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => deleteMutation.mutate(milestone.id)}
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" /> Delete
-                        </DropdownMenuItem>
+                        {(() => {
+                          const mId = milestone.id || milestone._id;
+                          const isLockedBySprint = mId && sprints.some(s => (s.milestone_id === mId) && !!s.locked_date);
+                          const isLocked = isLockedBySprint || (mId && milestones.find(m => (m.id || m._id) === mId)?.status === 'completed') || project?.status === 'completed';
+
+                          if (isLocked) {
+                            return (
+                              <DropdownMenuItem disabled className="text-slate-400 opacity-70">
+                                <Lock className="w-4 h-4 mr-2" /> {isLockedBySprint ? 'Sprint Locked' : 'Settled'}
+                              </DropdownMenuItem>
+                            );
+                          }
+                          return (
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                if (confirm("Are you sure you want to delete this milestone?")) {
+                                  deleteMutation.mutate(milestone.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          );
+                        })()}
                       </>
                     )}
                   </DropdownMenuContent>

@@ -14,6 +14,7 @@ import {
   FileText,
   History,
   User,
+  Users,
   CalendarCheck,
   Lock
 } from "lucide-react";
@@ -41,6 +42,7 @@ export default function TimesheetList({
   users = [],
   showActions = true,
   groupByDate = true,
+  groupByEmployee = false, // Added groupByEmployee prop
   canEditLocked = false,
   currentUser, // Added currentUser prop
   highlightedId,
@@ -152,14 +154,24 @@ export default function TimesheetList({
     return `${hours}h ${minutes}m`;
   };
 
-  const groupedTimesheets = groupByDate
-    ? timesheets.reduce((acc, entry) => {
-      const date = entry.date;
-      if (!acc[date]) acc[date] = [];
-      acc[date].push(entry);
-      return acc;
-    }, {})
-    : { all: timesheets };
+  const groupedTimesheets = useMemo(() => {
+    if (groupByDate && !groupByEmployee) {
+      return timesheets.reduce((acc, entry) => {
+        const date = entry.date;
+        if (!acc[date]) acc[date] = [];
+        acc[date].push(entry);
+        return acc;
+      }, {});
+    } else if (groupByEmployee) {
+      return timesheets.reduce((acc, entry) => {
+        const name = entry.user_name || entry.user_full_name || entry.user_email || 'Unknown Employee';
+        if (!acc[name]) acc[name] = [];
+        acc[name].push(entry);
+        return acc;
+      }, {});
+    }
+    return { all: timesheets };
+  }, [timesheets, groupByDate, groupByEmployee]);
 
   if (timesheets.length === 0) {
     return (
@@ -174,18 +186,19 @@ export default function TimesheetList({
 
   return (
     <div className="space-y-6">
-      {Object.entries(groupedTimesheets).map(([date, entries]) => (
-        <div key={date} className="space-y-3">
-          {groupByDate && (
-            <div className="flex items-center gap-2 text-slate-700 font-semibold">
-              <Calendar className="h-4 w-4" />
-              {(() => {
+      {Object.entries(groupedTimesheets).sort(([a], [b]) => b.localeCompare(a)).map(([groupKey, entries]) => (
+        <div key={groupKey} className="space-y-3">
+          {(groupByDate || groupByEmployee) && (
+            <div className="flex items-center gap-2 text-slate-700 font-semibold bg-slate-100/50 p-2 rounded-lg border border-slate-200">
+              {groupByEmployee ? <Users className="h-4 w-4 text-blue-600" /> : <Calendar className="h-4 w-4 text-purple-600" />}
+              {groupByEmployee ? groupKey : (() => {
                 try {
-                  return format(new Date(date), 'EEEE, MMMM d, yyyy');
+                  return format(new Date(groupKey), 'EEEE, MMMM d, yyyy');
                 } catch (e) {
-                  return date;
+                  return groupKey;
                 }
               })()}
+              <div className="flex-1" />
               <span className="text-sm text-slate-500 font-normal">
                 ({(entries.reduce((sum, e) => sum + (e.total_minutes || 0), 0) / 60).toFixed(2)}h total)
               </span>

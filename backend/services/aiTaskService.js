@@ -349,6 +349,24 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
     // Don't throw error if sprint not found, just continue without it
   }
 
+  // Find milestone if provided
+  let milestoneId = taskInfo.milestone_id;
+  if (!milestoneId && taskInfo.milestone_name) {
+    const milestones = await Models.Milestone.find({ tenant_id: tenantId, project_id: projectId });
+    const milestone = findSprintByName(milestones, taskInfo.milestone_name);
+    if (milestone) milestoneId = milestone._id.toString();
+  }
+
+  // Find story if provided
+  let storyId = taskInfo.story_id;
+  if (!storyId && taskInfo.story_name) {
+    const stories = await Models.Story.find({ tenant_id: tenantId, project_id: projectId });
+    let norm = taskInfo.story_name.toLowerCase().trim();
+    const story = stories.find(s => s.title?.toLowerCase().trim() === norm) ||
+      stories.find(s => s.title?.toLowerCase().includes(norm));
+    if (story) storyId = story._id.toString();
+  }
+
   // STRICT: Find and validate assignee if provided
   let assignedTo = [];
   if (taskInfo.assignee_name) {
@@ -405,6 +423,15 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
     }
   }
 
+  // Validate and parse story points
+  let storyPoints = 0;
+  if (taskInfo.story_points !== undefined && taskInfo.story_points !== null && taskInfo.story_points !== 'undefined') {
+    const parsed = Number(taskInfo.story_points);
+    if (!isNaN(parsed) && parsed >= 0) {
+      storyPoints = parsed;
+    }
+  }
+
   // Build task data
   const taskData = {
     tenant_id: tenantId,
@@ -414,13 +441,15 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
     description: taskInfo.description || `Task created via AI Assistant: ${taskInfo.title}`,
     task_type: taskInfo.task_type || 'task',
     status: taskInfo.status || 'todo',
-    priority: taskInfo.priority || 'medium',
+    priority: (taskInfo.priority || 'medium').toLowerCase(),
     assigned_to: assignedTo,
     reporter: userEmail,
     sprint_id: sprintId || null,
+    milestone_id: milestoneId || null,
+    story_id: storyId || null,
     due_date: dueDate || undefined,
     estimated_hours: estimatedHours,
-    story_points: 0,
+    story_points: storyPoints,
     labels: [],
     attachments: [],
     dependencies: [],

@@ -24,7 +24,7 @@ export async function createTaskFromAI(taskData, tenantId, userId, userEmail) {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     // Validate and convert estimated_hours to a number or omit it
     let estimatedHours = undefined;
     if (taskData.estimated_hours !== undefined && taskData.estimated_hours !== null) {
@@ -33,7 +33,7 @@ export async function createTaskFromAI(taskData, tenantId, userId, userEmail) {
         estimatedHours = parsed;
       }
     }
-    
+
     const response = await fetch(`${API_URL}/groona-assistant/create-task`, {
       method: 'POST',
       headers,
@@ -41,6 +41,10 @@ export async function createTaskFromAI(taskData, tenantId, userId, userEmail) {
         title: taskData.title,
         project_name: taskData.project_name,
         sprint_name: taskData.sprint_name,
+        milestone_name: taskData.milestone_name,
+        story_name: taskData.story_name,
+        story_points: taskData.story_points,
+        priority: taskData.priority,
         assignee_email: taskData.assignee_email,
         assignee_name: taskData.assignee_name,
         due_date: taskData.due_date,

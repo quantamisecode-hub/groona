@@ -27,10 +27,23 @@ export default function TimesheetReportGenerator({
   allTimesheets = []
 }) {
   const [selectedEmployee, setSelectedEmployee] = useState("all");
+  const [selectedProject, setSelectedProject] = useState("all");
   const [reportPeriod, setReportPeriod] = useState("this-month");
   const [customStartDate, setCustomStartDate] = useState(null);
   const [customEndDate, setCustomEndDate] = useState(null);
   const [generating, setGenerating] = useState(false);
+
+  const uniqueProjects = React.useMemo(() => {
+    const projects = new Map();
+    (allTimesheets || []).forEach(t => {
+      // Handle both object and string IDs
+      const pid = t.project_id?._id || t.project_id?.id || t.project_id;
+      if (pid && t.project_name) {
+        projects.set(pid, t.project_name);
+      }
+    });
+    return Array.from(projects.entries());
+  }, [allTimesheets]);
 
   // Fetch tenant for branding
   const { data: tenant } = useQuery({
@@ -89,7 +102,13 @@ export default function TimesheetReportGenerator({
       let filteredTimesheets = (allTimesheets || []).filter(t => {
         if (!t.date) return false;
         const entryDate = new Date(t.date);
-        return entryDate >= start && entryDate <= end && t.status === 'approved';
+        const dateMatch = entryDate >= start && entryDate <= end;
+        const statusMatch = t.status === 'approved';
+
+        const pid = t.project_id?._id || t.project_id?.id || t.project_id;
+        const projectMatch = selectedProject === "all" || pid === selectedProject;
+
+        return dateMatch && statusMatch && projectMatch;
       });
 
       let employeeData = null;
@@ -185,10 +204,13 @@ export default function TimesheetReportGenerator({
       const empName = employeeData ? employeeData.full_name : "All Employees";
 
       // ID -> Show Email address as requested
-      const empID = employeeData ? employeeData.email : "N/A";
+      const uniqueEmails = [...new Set(filteredTimesheets.map(t => t.user_email).filter(Boolean))];
+      const isMultipleUsers = uniqueEmails.length > 1;
+      const empID = isMultipleUsers ? uniqueEmails.join(', ') : (employeeData ? employeeData.email : "N/A");
 
       // Role -> Show Job Title from Profile (priority) or User Entity
       const role = userProfile?.job_title || employeeData?.job_title || employeeData?.title || employeeData?.role || "N/A";
+      const showTitle = !isMultipleUsers;
 
       // Determine Project (if mostly one project)
       const projects = [...new Set(filteredTimesheets.map(t => t.project_name))];
@@ -206,12 +228,16 @@ export default function TimesheetReportGenerator({
       doc.setFont("helvetica", "bold");
       doc.text("Email ID:", 25, yPos + 16);
       doc.setFont("helvetica", "normal");
-      doc.text(empID, 60, yPos + 16);
+      // Wrap text if emails are many
+      const emailLines = doc.splitTextToSize(empID, 45);
+      doc.text(emailLines, 60, yPos + 16);
 
-      doc.setFont("helvetica", "bold");
-      doc.text("Title:", 25, yPos + 24);
-      doc.setFont("helvetica", "normal");
-      doc.text(role, 60, yPos + 24);
+      if (showTitle) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Title:", 25, yPos + 24);
+        doc.setFont("helvetica", "normal");
+        doc.text(role, 60, yPos + 24);
+      }
 
       // Col 2
       doc.setFont("helvetica", "bold");
@@ -238,97 +264,96 @@ export default function TimesheetReportGenerator({
       doc.text("Detailed Time Entries", 20, yPos);
       yPos += 8;
 
-      // Table Header
       const col = {
         date: 20,
-        project: 45,
-        task: 85,
-        hours: 145,
-        location: 170
+        project: 40,
+        task: 75,
+        hours: 130,
+        employee: 155
       };
-
-      doc.setFillColor(30, 58, 138); // Header Blue
-      doc.rect(20, yPos, pageWidth - 40, 8, 'F');
-
-      doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text('Date', col.date + 2, yPos + 6);
-      doc.text('Project', col.project + 2, yPos + 6);
-      doc.text('Task', col.task + 2, yPos + 6);
-      doc.text('Hours', col.hours + 2, yPos + 6);
-      doc.text('Location', col.location + 2, yPos + 6);
-
-      yPos += 8;
 
       // Rows
       doc.setTextColor(60, 60, 60);
       doc.setFont("helvetica", "normal");
 
-      filteredTimesheets.forEach((entry, index) => {
-        // Stripe
-        if (index % 2 === 0) {
-          doc.setFillColor(245, 247, 250);
-          doc.rect(20, yPos, pageWidth - 40, 7, 'F');
-        }
+      // Group by Employee
+      const groupedByEmployee = filteredTimesheets.reduce((acc, entry) => {
+        const key = entry.user_name || entry.user_full_name || entry.user_email || 'Unknown';
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(entry);
+        return acc;
+      }, {});
 
-        doc.setFontSize(8);
-        doc.text(format(new Date(entry.date), 'dd MMM'), col.date + 2, yPos + 5);
-
-        // Truncate text logic
-        const trunc = (str, n) => str && str.length > n ? str.substr(0, n - 1) + '...' : str || '-';
-
-        doc.text(trunc(entry.project_name, 20), col.project + 2, yPos + 5);
-        doc.text(trunc(entry.task_title, 35), col.task + 2, yPos + 5);
-
-        // Hours
-        const hrs = `${entry.hours}h ${entry.minutes}m`;
-        const billableMarker = entry.is_billable ? " (Billable)" : "";
-        doc.text(hrs + billableMarker, col.hours + 2, yPos + 5);
-
-        // Location - City, State
-        let locationDisplay = "N/A";
-        const loc = entry.location_data || entry.clock_in_location;
-
-        if (loc) {
-          const city = loc.city;
-          const state = loc.region || loc.state || loc.principalSubdivision;
-
-          if (city && state) {
-            locationDisplay = `${city}, ${state}`;
-          } else if (city) {
-            locationDisplay = city;
-          } else if (loc.address) {
-            // Fallback to address if no structured city/state
-            locationDisplay = loc.address;
+      Object.entries(groupedByEmployee).forEach(([emp, entries], empIdx) => {
+        // If not the first employee, check for page break or add space
+        if (empIdx > 0) {
+          yPos += 10;
+          if (yPos > pageHeight - 50) {
+            doc.addPage();
+            yPos = 20;
           }
         }
 
-        // Fallback to User Profile Address if Entry Location is N/A
-        if ((!locationDisplay || locationDisplay === "N/A") && userProfile?.address) {
-          locationDisplay = userProfile.address; // City, State from profile
-        }
+        // Section Title (Employee Name)
+        doc.setFontSize(11);
+        doc.setTextColor(30, 58, 138);
+        doc.setFont("helvetica", "bold");
+        doc.setFillColor(240, 244, 255);
+        doc.rect(20, yPos, pageWidth - 40, 10, 'F');
+        doc.text(`Employee: ${emp}`, 25, yPos + 7);
+        doc.setFontSize(9);
+        const totalEmpHours = (entries.reduce((sum, e) => sum + (e.total_minutes || 0), 0) / 60).toFixed(2);
+        doc.text(`Total: ${totalEmpHours}h`, pageWidth - 25, yPos + 7, { align: 'right' });
+        yPos += 12;
 
-        doc.text(trunc(locationDisplay, 25), col.location + 2, yPos + 5);
+        // Table Header for this employee
+        doc.setFillColor(51, 65, 85); // Slate 700
+        doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.text('Date', col.date + 2, yPos + 6);
+        doc.text('Project', col.project + 2, yPos + 6);
+        doc.text('Task', col.task + 2, yPos + 6);
+        doc.text('Hours', col.hours + 2, yPos + 6);
+        doc.text('Billable', col.employee + 2, yPos + 6);
+        yPos += 8;
 
-        yPos += 7;
+        doc.setTextColor(60, 60, 60);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
 
-        // Page break
-        if (yPos > pageHeight - 20) {
-          doc.addPage();
-          yPos = 20;
-          // Re-draw header reduced
-          doc.setFillColor(30, 58, 138);
-          doc.rect(20, yPos, pageWidth - 40, 8, 'F');
-          doc.setFontSize(9);
-          doc.setTextColor(255, 255, 255);
-          doc.text('Date', col.date + 2, yPos + 6);
-          doc.text('Project', col.project + 2, yPos + 6);
-          doc.text('Task', col.task + 2, yPos + 6);
-          doc.text('Hours', col.hours + 2, yPos + 6);
-          doc.text('Location', col.location + 2, yPos + 6);
-          yPos += 8;
-          doc.setTextColor(60, 60, 60);
-        }
+        entries.forEach((entry, idx) => {
+          if (idx % 2 === 0) {
+            doc.setFillColor(248, 250, 252);
+            doc.rect(20, yPos, pageWidth - 40, 7, 'F');
+          }
+
+          doc.text(format(new Date(entry.date), 'dd MMM yyyy'), col.date + 2, yPos + 5);
+          const trunc = (str, n) => str && str.length > n ? str.substr(0, n - 1) + '...' : str || '-';
+
+          doc.text(trunc(entry.project_name, 20), col.project + 2, yPos + 5);
+          doc.text(trunc(entry.task_title, 35), col.task + 2, yPos + 5);
+          doc.text(`${entry.hours}h ${entry.minutes}m`, col.hours + 2, yPos + 5);
+          doc.text(entry.is_billable ? "Yes" : "No", col.employee + 2, yPos + 5);
+
+          yPos += 7;
+
+          if (yPos > pageHeight - 20) {
+            doc.addPage();
+            yPos = 20;
+            // Repeat Header
+            doc.setFillColor(51, 65, 85);
+            doc.rect(20, yPos, pageWidth - 40, 8, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.text('Date', col.date + 2, yPos + 6);
+            doc.text('Project', col.project + 2, yPos + 6);
+            doc.text('Task', col.task + 2, yPos + 6);
+            doc.text('Hours', col.hours + 2, yPos + 6);
+            doc.text('Billable', col.employee + 2, yPos + 6);
+            yPos += 8;
+            doc.setTextColor(60, 60, 60);
+          }
+        });
       });
 
       // Footer
@@ -383,6 +408,22 @@ export default function TimesheetReportGenerator({
                     <span className="text-slate-600 font-medium">{user.full_name}</span>
                   </div>
                 </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Project Selection */}
+        <div className="space-y-2">
+          <Label>Select Project</Label>
+          <Select value={selectedProject} onValueChange={setSelectedProject}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {uniqueProjects.map(([id, name]) => (
+                <SelectItem key={id} value={id}>{name}</SelectItem>
               ))}
             </SelectContent>
           </Select>

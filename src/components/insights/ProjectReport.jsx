@@ -28,6 +28,13 @@ import { toast } from "sonner";
 
 export default function ProjectReport({ project, tasks, stories = [], activities }) {
   const { user: currentUser, effectiveTenantId } = useUser();
+  const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
+  const isProjectManager = currentUser?.role === 'admin' && currentUser?.custom_role === 'project_manager';
+  const isOwner = currentUser?.role === 'admin' && currentUser?.custom_role === 'owner';
+
+  const shouldFilterByMe = isRestrictedViewer || isProjectManager || isOwner;
+
+  const hideFinancialData = isRestrictedViewer || isProjectManager;
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiReport, setAiReport] = useState(null);
@@ -122,6 +129,17 @@ export default function ProjectReport({ project, tasks, stories = [], activities
     // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
     processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
 
+    // 4. Bold task statuses and clean up "in_progress"
+    const statusPatterns = [
+      /\b(todo|in[ _]progress|review|done|completed|doing)\b/gi
+    ];
+    statusPatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => {
+        let cleanMatch = match.replace(/_/g, ' ').toLowerCase();
+        return `**${cleanMatch}**`;
+      });
+    });
+
     return processed;
   };
 
@@ -204,10 +222,14 @@ export default function ProjectReport({ project, tasks, stories = [], activities
     queryFn: async () => {
       if (!effectiveTenantId || !project.id) return [];
       try {
-        return await groonabackend.entities.ProjectReport.filter({
+        const filterParams = {
           tenant_id: effectiveTenantId,
           project_id: project.id
-        }, '-created_date');
+        };
+        if (shouldFilterByMe) {
+          filterParams.generated_by = currentUser?.email;
+        }
+        return await groonabackend.entities.ProjectReport.filter(filterParams, '-created_date');
       } catch (error) {
         console.error('Error fetching previous reports:', error);
         return [];
@@ -290,9 +312,15 @@ export default function ProjectReport({ project, tasks, stories = [], activities
   const generateAIReport = async () => {
     setIsGenerating(true);
     try {
-      // Calculate velocity
+      // Calculate velocity - filter by user if restricted
       const now = new Date();
-      const last30DaysCompletedTasks = activities.filter(a => {
+      const userEmail = currentUser?.email?.toLowerCase();
+
+      const filteredActivitiesForVelocity = isRestrictedViewer
+        ? activities.filter(a => a.user_name?.toLowerCase() === userEmail || a.user_email?.toLowerCase() === userEmail)
+        : activities;
+
+      const last30DaysCompletedTasks = filteredActivitiesForVelocity.filter(a => {
         const activityDate = new Date(a.created_date);
         const daysDiff = Math.ceil((now.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24));
         return daysDiff <= 30 && a.action === 'completed' && a.entity_type === 'task';
@@ -302,60 +330,62 @@ export default function ProjectReport({ project, tasks, stories = [], activities
       const overdueTasksContext = analytics.overdueTasks.slice(0, 5).map(t => `- **${t.title}** (Due: ${format(new Date(t.due_date), 'MMM d, yyyy')})`).join('\n');
       const urgentTasksContext = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').slice(0, 5).map(t => `- **${t.title}** (Priority: Urgent)`).join('\n');
 
-      const prompt = `Generate a comprehensive, strategic executive project report for the following project:
+      const prompt = `Generate a ${isRestrictedViewer ? 'PERSONALIZED' : 'comprehensive, strategic'} executive project report for the following project, ${isRestrictedViewer ? 'FOCUSING EXCLUSIVELY on the work assigned to and performed by this specific team member.' : 'providing a high-level overview of overall project trajectory.'}
 
 PROJECT CONTEXT:
 - Project Name: ${project.name}
 - Client: ${clients.find(c => c.id === project.client_id)?.name || 'N/A'}
-- Workspace: ${workspaces.find(w => w.id === project.workspace_id)?.name || 'Default'}
+- Team Member Name: ${currentUser?.full_name || 'N/A'}
 - Description: ${project.description || 'No description'}
 - Status: ${project.status}
-- Overall Progress: ${analytics.completionRate}%
+- Personal Completion Rate: ${analytics.completionRate}% (Based on PERSONAL assigned stories)
 - Deadline: ${project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Not set'}
-- Priority: ${project.priority || 'Medium'}
-- Billing Model: ${project.billing_model || 'N/A'}
-- Budget/Contract: ${project.currency || '$'}${Number(project.contract_amount || project.budget || 0).toLocaleString()}
+${!hideFinancialData ? `- Billing Model: ${project.billing_model || 'N/A'}` : ''}
+${!hideFinancialData ? `- Budget/Contract: ${project.currency || '$'}${Number(project.contract_amount || project.budget || 0).toLocaleString()}` : ''}
 
-DETAILED STATISTICS:
-- Total Tasks: ${tasks.length}
-- Completed: ${analytics.completedTasks.length} (${analytics.completionRate}%)
-- In Progress: ${analytics.tasksByStatus.in_progress}
-- In Review/Feedback: ${analytics.tasksByStatus.review}
-- Pending/Backlog: ${analytics.tasksByStatus.todo}
-- OVERDUE TASKS: ${analytics.overdueTasks.length}
-- Velocity: ${velocity} tasks/day
-- Team Resources: ${analytics.assignedUsers.length} members
+${isRestrictedViewer ? 'PERSONAL ASSIGNMENT STATISTICS' : 'DETAILED STATISTICS'}:
+- Total Tasks Assigned to Me: ${tasks.length}
+- My Completed Tasks: ${analytics.completedTasks.length}
+- My In Progress Tasks: ${analytics.tasksByStatus.in_progress}
+- My Tasks In Review: ${analytics.tasksByStatus.review}
+- My Pending Tasks: ${analytics.tasksByStatus.todo}
+- MY OVERDUE TASKS: ${analytics.overdueTasks.length}
+- My Velocity: ${velocity} tasks/day
 
-CRITICAL ISSUES:
-${overdueTasksContext || '- No overdue tasks'}
-${urgentTasksContext || '- No other urgent tasks'}
+${isRestrictedViewer ? 'MY CRITICAL BLOCKERS' : 'CRITICAL ISSUES'}:
+${overdueTasksContext || '- No personal overdue tasks'}
+${urgentTasksContext || '- No other personal urgent tasks'}
 
-RECENT PROJECT TRAJECTORY:
-${analytics.recentActivities.slice(0, 8).map(a => `- ${a.user_name} ${a.action} ${a.entity_type}: ${a.entity_name} (${format(new Date(a.created_date), 'MMM d')})`).join('\n')}
+${isRestrictedViewer ? 'MY RECENT ACTIVITY' : 'RECENT PROJECT TRAJECTORY'}:
+${analytics.recentActivities.filter(a => !isRestrictedViewer || a.user_email?.toLowerCase() === userEmail).slice(0, 10).map(a => `- ${a.action} ${a.entity_type}: ${a.entity_name} (${format(new Date(a.created_date), 'MMM d')})`).join('\n')}
 
 INSTRUCTIONS:
-Analyze the data above and provide a COMPREHENSIVE strategic report. Do NOT be overly concise; provide professional depth and actionable insights.
+- Analyze the data above and provide a ${isRestrictedViewer ? 'PERSONAL PERFORMANCE & PROGRESS REPORT' : 'COMPREHENSIVE strategic report'}.
+- GREETING: Start the VERY FIRST line of the report with: "Hi **${currentUser?.full_name || 'there'}**, here is your project trajectory analysis."
+- ADDRESSING: Always address the user as "you" or "your" (e.g., "Your project is at risk", "You have tasks due").
+- Focus: ${isRestrictedViewer ? 'Focus PURELY on this specific user\'s contributions, blockers, and assigned goals. Do NOT mention other team members or overall team performance. Do NOT mention any financial, billing, or budget data.' : 'Do NOT be overly concise; provide professional depth and actionable insights.'}
 
 The report MUST include these specific sections:
-1. # Executive Summary (High-level overview of project health and trajectory)
-2. ## Key Achievements (Major milestones reached and velocity highlights)
-3. ## Current Bottlenecks (Analytical look at what's slowing progress, citing specific tasks if relevant)
-4. ## Risk Assessment (Detailed analysis of overdue items, deadlines, and potential blockers)
-5. ## Team Performance (Assessment of team engagement and task completion trends)
-6. ## Strategic Recommendations (Professional advice for project success and timeline optimization)
+1. # Executive Summary (High-level overview of your health and trajectory)
+2. ## Key Achievements (${isRestrictedViewer ? 'Your' : 'Major'} milestones reached and velocity highlights)
+3. ## Personal Bottlenecks (Analytical look at what's slowing your progress, citing specific tasks)
+4. ## Risk Assessment (Detailed analysis of your overdue items and potential blockers)
+5. ## What Went Well & What Went Wrong (Balanced assessment of your execution and challenges)
+6. ## Strategic Insights (Concise personal advice to improve your productivity and project impact)
+${!isRestrictedViewer ? '7. ## Team Performance (Overall assessment)' : ''}
 
 FORMATTING RULES:
 - Use **bold text** to highlight:
-    - Team member names
     - Specific Task Titles
     - Due Dates
-    - Critical Figures (percentages, counts, currency)
+    - Critical Figures (percentages, counts${!isRestrictedViewer ? ', currency' : ''})
     - Phase names or Key strategic terms
-- Use clear headers and bullet points for readability.
+- Use clear headers and bullet points.
 - Maintain a professional, executive tone.`;
 
       const result = await groonabackend.integrations.Core.InvokeLLM({
-        prompt,
+        prompt: `Generate a ${isRestrictedViewer ? 'PERSONALIZED' : 'comprehensive, strategic'} executive project report.`,
+        context: prompt,
         add_context_from_internet: false,
       });
 
@@ -881,7 +911,7 @@ FORMATTING RULES:
                 </div>
               )}
 
-              {project.billing_model && (
+              {!hideFinancialData && project.billing_model && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Billing Model</p>
                   <p className="font-semibold text-slate-900 text-sm capitalize">
@@ -890,7 +920,7 @@ FORMATTING RULES:
                 </div>
               )}
 
-              {(project.contract_amount || project.budget) && (
+              {!hideFinancialData && (project.contract_amount || project.budget) && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Budget / Contract</p>
                   <p className="font-bold text-emerald-600">
@@ -1190,6 +1220,7 @@ FORMATTING RULES:
                               {children}
                             </blockquote>
                           ),
+                          code: ({ children }) => <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-800 text-sm font-mono">{children}</code>,
                         }}
                       >
                         {preprocessMarkdown(displayedReport || aiReport || "")}
@@ -1210,7 +1241,7 @@ FORMATTING RULES:
                     </p>
                     {!selectedReport && (
                       <p className="text-sm text-slate-500">
-                        Includes: Executive Summary • Key Achievements • Bottlenecks • Risk Assessment • Team Performance • Strategic Recommendations
+                        Includes: Executive Summary • Key Achievements • Bottlenecks • Risk Assessment • {isRestrictedViewer ? 'What Went Well/Wrong • Strategic Insights' : 'Team Performance • Strategic Recommendations'}
                       </p>
                     )}
                   </div>
