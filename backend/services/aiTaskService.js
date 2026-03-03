@@ -367,38 +367,87 @@ async function createTaskFromInfo(taskInfo, tenantId, userId, userEmail) {
     if (story) storyId = story._id.toString();
   }
 
-  // STRICT: Find and validate assignee if provided
+  // STRICT: Find and validate assignee(s) if provided
   let assignedTo = [];
-  if (taskInfo.assignee_name) {
+
+  // Support multiple assignees via assignee_names array
+  if (taskInfo.assignee_names && Array.isArray(taskInfo.assignee_names) && taskInfo.assignee_names.length > 0) {
     // Get all team members for this tenant
     const users = await Models.User.find({ tenant_id: tenantId });
 
-    // STRICT: Find user by name only (no email matching for privacy)
-    const normalizedName = taskInfo.assignee_name.toLowerCase().trim();
-    const user = users.find(u => {
-      const fullName = u.full_name?.toLowerCase().trim();
-      return fullName === normalizedName ||
-        fullName?.includes(normalizedName) ||
-        normalizedName.includes(fullName);
-    });
+    for (const assigneeName of taskInfo.assignee_names) {
+      const normalizedInput = assigneeName.toLowerCase().trim();
+
+      // Check if it's an email format
+      const isEmailFormat = normalizedInput.includes('@') && normalizedInput.includes('.');
+
+      let user = null;
+
+      if (isEmailFormat) {
+        // It's an email - find by email
+        user = users.find(u => u.email?.toLowerCase() === normalizedInput);
+      } else {
+        // It's a name - find by name matching
+        user = users.find(u => {
+          const fullName = u.full_name?.toLowerCase().trim();
+          return fullName === normalizedInput ||
+            fullName?.includes(normalizedInput) ||
+            normalizedInput.includes(fullName);
+        });
+      }
+
+      if (!user) {
+        throw new Error(`The name "${assigneeName}" is not a team member, or you entered the wrong name. Please provide the correct team member name.`);
+      }
+
+      // Add to assignedTo if not already added
+      if (!assignedTo.includes(user.email)) {
+        assignedTo.push(user.email);
+      }
+    }
+  } else if (taskInfo.assignee_name) {
+    // Single assignee (legacy support)
+    const users = await Models.User.find({ tenant_id: tenantId });
+    const normalizedInput = taskInfo.assignee_name.toLowerCase().trim();
+
+    // Check if it's an email format
+    const isEmailFormat = normalizedInput.includes('@') && normalizedInput.includes('.');
+
+    let user = null;
+
+    if (isEmailFormat) {
+      // It's an email - find by email
+      user = users.find(u => u.email?.toLowerCase() === normalizedInput);
+    } else {
+      // It's a name - find by name matching
+      user = users.find(u => {
+        const fullName = u.full_name?.toLowerCase().trim();
+        return fullName === normalizedInput ||
+          fullName?.includes(normalizedInput) ||
+          normalizedInput.includes(fullName);
+      });
+    }
 
     if (!user) {
-      // STRICT: Reject if name doesn't match any team member
       throw new Error(`The name "${taskInfo.assignee_name}" is not a team member, or you entered the wrong name. Please provide the correct team member name.`);
     }
 
-    // Only assign if user is found
     assignedTo = [user.email];
   } else if (taskInfo.assignee_email) {
-    // If email is provided directly, validate it's a team member
+    // Handle both single email and array of emails
+    const emails = Array.isArray(taskInfo.assignee_email) ? taskInfo.assignee_email : [taskInfo.assignee_email];
     const users = await Models.User.find({ tenant_id: tenantId });
-    const user = users.find(u => u.email.toLowerCase() === taskInfo.assignee_email.toLowerCase());
 
-    if (!user) {
-      throw new Error(`The email provided does not belong to a team member. Please provide a valid team member name instead.`);
+    for (const email of emails) {
+      const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (!user) {
+        throw new Error(`The email "${email}" does not belong to a team member. Please provide a valid team member name instead.`);
+      }
+
+      if (!assignedTo.includes(user.email)) {
+        assignedTo.push(user.email);
+      }
     }
-
-    assignedTo = [user.email];
   }
 
   // Validate and parse due date

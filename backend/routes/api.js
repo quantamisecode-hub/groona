@@ -755,43 +755,56 @@ async function generateStandardWithRetry(genAI, params, modelName) {
 
 // --- DYNAMIC CONTROLLER ---
 async function generateController(genAI, params, requestedModel, retryCount = 0) {
-  // Use helper to get model (always defaults to gemini-2.5-flash-native-audio-dialog)
-  let targetModel = modelHelper.getModel(requestedModel);
-  const modelConfig = modelHelper.createModelConfig(targetModel);
+  const axios = require('axios');
+  const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY || process.env.GROQ_API;
+
+  if (!apiKey) {
+    throw new Error('GROQ_AI_API is not configured');
+  }
+
+  let fullPrompt = "";
+  if (params.systemInstruction?.parts?.[0]?.text) {
+    fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n\n`;
+  }
+
+  const messages = [];
+  if (params.history) {
+    params.history.forEach(h => {
+      messages.push({
+        role: h.role === 'model' ? 'assistant' : 'user',
+        content: h.parts?.[0]?.text || ''
+      });
+    });
+  }
+
+  let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
+  fullPrompt += currentText;
+  messages.push({ role: 'user', content: fullPrompt });
 
   try {
-    console.log(`[AI API] Attempting: ${targetModel} (Try: ${retryCount + 1})`);
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: messages,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
 
-    if (modelConfig.isLive) {
-      let fullPrompt = "";
-      if (params.systemInstruction?.parts?.[0]?.text) fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n`;
-      if (params.history) params.history.forEach(h => fullPrompt += `${h.role}: ${h.parts[0].text}\n`);
-      let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
-      fullPrompt += `User: ${currentText}`;
-
-      return await generateViaSocket(process.env.GEMINI_API_KEY, targetModel, fullPrompt);
-    } else {
-      return await generateStandardWithRetry(genAI, params, targetModel);
-    }
-
+    return {
+      text: response.data.choices[0]?.message?.content || '',
+      model: 'llama-3.3-70b-versatile'
+    };
   } catch (error) {
-    const shouldTryFallback = modelHelper.shouldFallback(error, targetModel);
-    const fallbackModel = modelHelper.getFallbackModel(targetModel);
-
-    const isQuotaError = error.status === 429 ||
-      error.message?.includes('quota') ||
-      error.message?.includes('rate limit') ||
-      error.message?.includes('Too Many Requests');
-
-    const isModelNotFound = error.status === 404 || error.message?.includes('not found');
-
-    // Fallback if it's a quota error, model not found, or a general technical error allowed by helper
-    if ((isQuotaError || isModelNotFound || shouldTryFallback) && fallbackModel && retryCount < 3) {
-      console.warn(`[AI API] Model ${targetModel} issue (${error.status}). Falling back to ${fallbackModel} (Retry: ${retryCount + 1})`);
-      return await generateController(genAI, params, fallbackModel, retryCount + 1);
-    }
-
-    throw new Error(`AI Generation Failed (${targetModel}): ${error.message}`);
+    console.error("Groq AI Error:", error.response?.data || error.message);
+    throw new Error(`AI Generation Failed: ${error.message}`);
   }
 }
 
@@ -2655,7 +2668,7 @@ router.get('/ai/usage/stats', async (req, res) => { const { user_id, tenant_id }
 // === CHAT ROUTE ===
 router.post('/ai/chat', async (req, res) => {
   const { conversation_id, content, file_urls, context, model, user_id, tenant_id } = req.body;
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "AI Configuration Error" });
+  if (!process.env.GROQ_AI_API) return res.status(500).json({ error: "AI Configuration Error" });
 
   try {
     const conversation = await Models.Conversation.findById(conversation_id);
@@ -2666,7 +2679,7 @@ router.post('/ai/chat', async (req, res) => {
     conversation.updated_date = new Date();
     await conversation.save();
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
 
     const deepContext = await buildDeepContext(tenant_id, user_id, content);
     const fileParts = await processFilesForGemini(file_urls, req);
@@ -2715,10 +2728,10 @@ router.post('/ai/chat', async (req, res) => {
 // === UPDATED SPRINT TASK GEN ROUTE (JSON FALLBACK HANDLING) ===
 router.post('/ai/generate-sprint-tasks', async (req, res) => {
   const { sprintId, projectId, workspaceId, tenantId, goal, userEmail } = req.body;
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "AI Configuration Error" });
+  if (!process.env.GROQ_AI_API) return res.status(500).json({ error: "AI Configuration Error" });
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
     const prompt = `Create tasks. Goal: "${goal}". Return JSON { "tasks": [] }.`;
 
     // Use default model (gemini-2.5-flash-native-audio-dialog) from helper
@@ -2753,7 +2766,7 @@ router.post('/ai/generate-sprint-tasks', async (req, res) => {
 // === NEW: AI Sprint Report Generation ===
 router.post('/ai/sprint-report', async (req, res) => {
   const { sprint, tasks, project } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GROQ_AI_API;
 
   if (!sprint || !tasks || !project) {
     return res.status(400).json({ error: 'Missing required data: sprint, tasks, or project' });
@@ -2764,7 +2777,7 @@ router.post('/ai/sprint-report', async (req, res) => {
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const genAI = null;
     const modelName = modelHelper.getDefaultModel();
     const model = genAI.getGenerativeModel({ model: modelName });
 
@@ -2874,16 +2887,16 @@ router.post('/integrations/llm', auth, async (req, res) => {
   const userId = req.user.id;
   const tenantId = req.user.tenant_id;
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (!process.env.GROQ_AI_API) {
     console.warn("[AI] No API Key found. Returning mock response.");
     if (response_json_schema) {
-      return res.json({ description: "Mock AI response. Configure GEMINI_API_KEY." });
+      return res.json({ description: "Mock AI response. Configure GROQ_AI_API." });
     }
-    return res.json("AI Response (Mock): Please configure GEMINI_API_KEY.");
+    return res.json("AI Response (Mock): Please configure GROQ_AI_API.");
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
     const user = await Models.User.findById(userId).lean();
     const isRestricted = user?.role === 'member' && user?.custom_role === 'viewer';
     const isProjectManager = user?.role === 'admin' && user?.custom_role === 'project_manager';
@@ -3330,16 +3343,12 @@ router.post('/ai/analyze-profitability', async (req, res) => {
     return res.status(400).json({ error: 'Missing project or metrics data' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY_2;
+  const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'AI Service (Gemini) not configured' });
+    return res.status(500).json({ error: 'AI Service (Groq) not configured' });
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = modelHelper.getDefaultModel();
-    const model = genAI.getGenerativeModel({ model: modelName });
-
     const prompt = `
       You are "Groona AI", a senior financial analyst and project management consultant.
       Analyze the following project profitability data and provide deep, real-time insights targeting both OVERALL PROJECT VISION and PHASE-SPECIFIC performance.
@@ -3394,8 +3403,8 @@ router.post('/ai/analyze-profitability', async (req, res) => {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const result = await generateController(null, { content: prompt }, 'llama-3.3-70b-versatile');
+    const responseText = result.text;
 
     // Clean JSON from response in case of markdown blocks
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);

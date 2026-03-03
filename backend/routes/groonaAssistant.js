@@ -400,7 +400,14 @@ router.post('/chat', async (req, res) => {
         // Build dynamic project details with matched Milestones, Stories, and Assignees
         const milestones = await Models.Milestone.find({ tenant_id });
         const stories = await Models.Story.find({ tenant_id });
-        const projectUserRoles = await Models.ProjectUserRole.find({ tenant_id });
+
+        // Get rework alarms to identify frozen/blocked assignees
+        const reworkAlarms = await Models.Notification.find({
+            tenant_id,
+            type: 'high_rework_alarm',
+            status: 'OPEN'
+        });
+        const frozenEmails = reworkAlarms.map(alarm => alarm.recipient_email?.toLowerCase()).filter(Boolean);
 
         let projectDetailsText = "";
         projects.forEach((p, i) => {
@@ -408,9 +415,26 @@ router.post('/chat', async (req, res) => {
             const projMilestones = milestones.filter(m => m.project_id?.toString() === pId);
             const projStories = stories.filter(s => s.project_id?.toString() === pId);
 
-            const userRoleDocs = projectUserRoles.filter(r => r.project_id?.toString() === pId);
-            const userIdsInProject = userRoleDocs.map(r => r.user_id?.toString());
-            const projAssignees = teamMembers.filter(u => u.full_name && userIdsInProject.includes(u._id.toString()));
+            // Get ALL team members from project.team_members (not just ProjectUserRole)
+            // This ensures frozen/blocked members are also shown
+            // Need to look up full_name from Users collection using email
+            let projAssignees = [];
+            if (p.team_members && Array.isArray(p.team_members)) {
+                projAssignees = p.team_members.map(member => {
+                    const memberEmail = (member.email || '').toLowerCase();
+                    const isFrozen = frozenEmails.includes(memberEmail);
+
+                    // Look up user's full_name from teamMembers (Users collection)
+                    const userFromCollection = teamMembers.find(u => u.email?.toLowerCase() === memberEmail);
+                    const fullName = userFromCollection?.full_name || memberEmail.split('@')[0]; // Fallback to email prefix
+
+                    return {
+                        full_name: fullName,
+                        email: memberEmail,
+                        isFrozen: isFrozen
+                    };
+                });
+            }
 
             projectDetailsText += `${i + 1}. Project: ${p.name}\n`;
 
@@ -427,9 +451,14 @@ router.post('/chat', async (req, res) => {
             }
 
             if (projAssignees.length > 0) {
-                projectDetailsText += `   * Assignees: ${projAssignees.map((a, j) => `${j + 1}. ${a.full_name}`).join(', ')}\n`;
+                // Show all assignees including frozen ones, with status indicator
+                const assigneeList = projAssignees.map((a, j) => {
+                    const status = a.isFrozen ? ` (FROZEN - Cannot be assigned)` : '';
+                    return `${j + 1}. ${a.full_name}${status}`;
+                }).join(', ');
+                projectDetailsText += `   * Available Assignees: ${assigneeList}\n`;
             } else {
-                projectDetailsText += `   * Assignees: None (All team members might not be assigned to this project yet)\n`;
+                projectDetailsText += `   * Available Assignees: None (No team members assigned to this project)\n`;
             }
         });
 
@@ -514,7 +543,7 @@ Then gather the remaining fields:
 - **Project Milestone** (REQUIRED - You MUST show ONLY the milestones listed under their chosen project.)
 - **Story** (REQUIRED - You MUST show ONLY the stories listed under their chosen project.)
 - **Story Points** (REQUIRED - Numbers only)
-- **Assignee** (REQUIRED - You MUST show ONLY the assignees listed under their chosen project.)
+- **Assignee(s)** (REQUIRED - You MUST show ONLY the assignees listed under their chosen project. You CAN select MULTIPLE assignees by providing their numbers/names separated by comma, e.g., "1,3" or "John, Jane". Frozen members are shown with "(FROZEN - Cannot be assigned)" indicator - proceed with assignment if user still wants to assign them.)
 - **Due Date** (REQUIRED - MUST be strictly in YYYY-MM-DD format)
 
 AVAILABLE PROJECTS & THEIR DETAILS:
@@ -522,10 +551,11 @@ ${projectDetailsText || "No projects found."}
 
 BEHAVIOR:
 - **CRITICAL**: If the user's chosen project has "Stories: None", you MUST STOP the task creation process immediately and reply exactly with: "Story for this project is not created, so task cannot be created." Do NOT ask for any more details.
-- For **Project Milestone**, **Story**, **Assignee**, and **Priority**, always display the numbered lists for them to pick from.
+- For **Project Milestone**, **Story**, **Assignee(s)**, and **Priority**, always display the numbered lists for them to pick from.
 - Instruct the user: "Please select by typing the number or the name."
 - If the user provides a number, you must internally map it to the correct string name or value (e.g., Priority '1' -> 'low').
-- If ALL required fields are collected, respond with JSON: {"action": "create_task", "title": "[title]", "project_name": "[project]", "priority": "[priority]", "milestone_name": "[milestone]", "story_name": "[story]", "story_points": [number], "assignee_name": "[name]", "due_date": "[date]"}
+- If the user selects multiple assignees (e.g., "1,3" or "John, Jane"), include them as an array: "assignee_names": ["John", "Jane"]
+- If ALL required fields are collected, respond with JSON: {"action": "create_task", "title": "[title]", "project_name": "[project]", "priority": "[priority]", "milestone_name": "[milestone]", "story_name": "[story]", "story_points": [number], "assignee_names": ["name1", "name2"], "due_date": "[date]"}
 - Be very strict: ask for fields specifically.
 
 3. PROJECT STATUS & PROGRESS ANALYSIS:
@@ -556,10 +586,11 @@ CRITICAL PRIVACY RULES:
 - If user provides an email address, convert it to the team member's name if they exist
 
 ASSIGNEE VALIDATION:
-- When user provides an assignee name, you MUST verify it matches a team member from the available list
+- When user provides an assignee, you MUST verify it matches a team member from the available list
 - If the name doesn't match any team member, respond with: "The name you entered is not a team member, or you entered the wrong name. Please provide the correct team member name."
-- Use "assignee_name" field (NOT assignee_email) in the JSON response
-- Only include assignee if the name exactly matches a team member
+- Use "assignee_names" field (NOT assignee_email) in the JSON response as an array of names, e.g., "assignee_names": ["John Doe", "Jane Smith"]
+- Only use team member FULL NAMES (as shown in Available Assignees list), NOT email addresses
+- IMPORTANT: When the user selects an assignee by number or name, always use their FULL NAME from the available list, never their email address
 
 GENERAL BEHAVIOR:
 - For analysis requests, provide a structured but conversational summary.
@@ -727,10 +758,18 @@ router.post('/create-project', async (req, res) => {
 
 // 6. Create Task Endpoint
 router.post('/create-task', async (req, res) => {
-    const { title, project_name, sprint_name, milestone_name, story_name, story_points, priority, assignee_name, assignee_email, due_date, estimated_hours, description, tenant_id, user_id, user_email } = req.body;
+    const { title, project_name, sprint_name, milestone_name, story_name, story_points, priority, assignee_name, assignee_names, assignee_email, assignee_emails, due_date, estimated_hours, description, tenant_id, user_id, user_email } = req.body;
 
-    if (!title || !project_name || !assignee_name || !due_date || !tenant_id || !user_id || !user_email) {
+    if (!title || !project_name || !due_date || !tenant_id || !user_id || !user_email) {
         return res.status(400).json({ error: 'Missing required fields for task creation' });
+    }
+
+    // Support both single assignee (assignee_name) and multiple assignees (assignee_names array)
+    const assigneeList = assignee_names || (assignee_name ? [assignee_name] : []);
+    const assigneeEmailList = assignee_emails || (assignee_email ? [assignee_email] : []);
+
+    if (assigneeList.length === 0 && assigneeEmailList.length === 0) {
+        return res.status(400).json({ error: 'At least one assignee is required for task creation' });
     }
 
     try {
@@ -743,33 +782,116 @@ router.post('/create-task', async (req, res) => {
             }
         }
 
-        // STRICT: Validate assignee if provided
-        if (assignee_name) {
-            const teamMembers = await Models.User.find({ tenant_id });
-            const normalizedName = assignee_name.toLowerCase().trim();
-            const isValidMember = teamMembers.some(u => {
-                const fullName = u.full_name?.toLowerCase().trim();
-                return fullName === normalizedName ||
-                    fullName?.includes(normalizedName) ||
-                    normalizedName.includes(fullName);
-            });
+        // STRICT: Validate assignee(s) if provided
+        const teamMembers = await Models.User.find({ tenant_id });
+        console.log('[create-task] Assignee list:', assigneeList);
+        console.log('[create-task] Team members count:', teamMembers.length);
 
-            if (!isValidMember) {
-                return res.status(400).json({
-                    error: `The name "${assignee_name}" is not a team member, or you entered the wrong name. Please provide the correct team member name.`
-                });
+        // Validate assignee names - also check if it's an email address
+        if (assigneeList.length > 0) {
+            for (const assigneeName of assigneeList) {
+                const normalizedInput = assigneeName.toLowerCase().trim();
+
+                // Check if it's a valid email address format
+                const isEmailFormat = normalizedInput.includes('@') && normalizedInput.includes('.');
+
+                let isValidMember = false;
+
+                // Try to find the user
+                if (isEmailFormat) {
+                    // It's an email - check if it belongs to a team member
+                    console.log('[create-task] Checking email:', normalizedInput);
+                    const member = teamMembers.find(u => {
+                        const userEmail = u.email?.toLowerCase();
+                        console.log('[create-task] Comparing with user email:', userEmail);
+                        return userEmail === normalizedInput;
+                    });
+                    console.log('[create-task] Found member by email:', member);
+                    if (member) {
+                        isValidMember = true;
+                    }
+                } else {
+                    // It's a name - check if it matches any team member's name
+                    isValidMember = teamMembers.some(u => {
+                        const fullName = u.full_name?.toLowerCase().trim();
+                        return fullName === normalizedInput ||
+                            fullName?.includes(normalizedInput) ||
+                            normalizedInput.includes(fullName);
+                    });
+                }
+
+                // If not found by primary method, try the other method as fallback
+                if (!isValidMember) {
+                    if (isEmailFormat) {
+                        // Try as name as fallback
+                        isValidMember = teamMembers.some(u => {
+                            const fullName = u.full_name?.toLowerCase().trim();
+                            return fullName === normalizedInput ||
+                                fullName?.includes(normalizedInput) ||
+                                normalizedInput.includes(fullName);
+                        });
+                    } else {
+                        // Try as email as fallback
+                        isValidMember = teamMembers.some(u => u.email?.toLowerCase() === normalizedInput);
+                    }
+                }
+
+                if (!isValidMember) {
+                    return res.status(400).json({
+                        error: `The name "${assigneeName}" is not a team member, or you entered the wrong name. Please provide the correct team member name.`
+                    });
+                }
             }
         }
 
-        // STRICT: If email is provided, validate it's a team member
-        if (assignee_email && !assignee_name) {
-            const teamMembers = await Models.User.find({ tenant_id });
-            const isValidMember = teamMembers.some(u => u.email.toLowerCase() === assignee_email.toLowerCase());
+        // Validate assignee emails if provided
+        if (assigneeEmailList.length > 0) {
+            for (const email of assigneeEmailList) {
+                const isValidMember = teamMembers.some(u => u.email.toLowerCase() === email.toLowerCase());
 
-            if (!isValidMember) {
-                return res.status(400).json({
-                    error: `The email provided does not belong to a team member. Please provide a valid team member name instead.`
+                if (!isValidMember) {
+                    return res.status(400).json({
+                        error: `The email "${email}" does not belong to a team member. Please provide a valid team member name instead.`
+                    });
+                }
+            }
+        }
+
+        // Convert assignee names to emails for storage
+        let finalAssigneeEmails = [];
+
+        // Add validated name-based assignees (including those that might be email addresses)
+        for (const name of assigneeList) {
+            const normalizedInput = name.toLowerCase().trim();
+
+            // Check if it's an email format
+            const isEmailFormat = normalizedInput.includes('@') && normalizedInput.includes('.');
+
+            let member = null;
+
+            if (isEmailFormat) {
+                // It's an email - find by email
+                member = teamMembers.find(u => u.email?.toLowerCase() === normalizedInput);
+            } else {
+                // It's a name - find by name match
+                member = teamMembers.find(u => {
+                    const fullName = u.full_name?.toLowerCase().trim();
+                    return fullName === normalizedInput ||
+                        fullName?.includes(normalizedInput) ||
+                        normalizedInput.includes(fullName);
                 });
+            }
+
+            if (member && member.email && !finalAssigneeEmails.includes(member.email)) {
+                finalAssigneeEmails.push(member.email);
+            }
+        }
+
+        // Add validated email-based assignees
+        for (const email of assigneeEmailList) {
+            const member = teamMembers.find(u => u.email.toLowerCase() === email.toLowerCase());
+            if (member && member.email && !finalAssigneeEmails.includes(member.email)) {
+                finalAssigneeEmails.push(member.email);
             }
         }
 
@@ -782,8 +904,7 @@ router.post('/create-task', async (req, res) => {
             story_name: story_name,
             story_points: story_points,
             priority: priority,
-            assignee_name: assignee_name, // Use name instead of email
-            ...(assignee_email && !assignee_name && { assignee_email: assignee_email }), // Only if name not provided
+            assignee_names: finalAssigneeEmails, // Store as array of emails
             due_date: due_date,
             ...(validEstimatedHours !== undefined && { estimated_hours: validEstimatedHours })
         };
