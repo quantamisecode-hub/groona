@@ -9,8 +9,8 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
   const [localSelection, setLocalSelection] = useState(selectedWorkspaceId || "all");
 
   // CRITICAL: Determine the effective tenant ID for filtering (RBAC + Multi-Tenancy)
-  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-    ? currentUser.active_tenant_id 
+  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+    ? currentUser.active_tenant_id
     : currentUser?.tenant_id;
 
   console.log('[WorkspaceSelector] Effective Tenant ID:', effectiveTenantId);
@@ -35,16 +35,16 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
     if (currentUser?.is_super_admin) {
       return true;
     }
-    
+
     // Regular Admins can see all workspaces in their tenant
     if (currentUser?.role === 'admin') {
       return true;
     }
-    
+
     // Regular users can only see workspaces they're members of or own
     const isMember = ws.members?.some(m => m.user_email === currentUser?.email);
     const isOwner = ws.owner_email === currentUser?.email;
-    
+
     return isMember || isOwner;
   });
 
@@ -73,7 +73,7 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white">
+      <div className="flex items-center gap-2 px-3 h-10 border border-slate-200 rounded-xl bg-white shadow-sm w-[200px]">
         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
         <span className="text-sm text-slate-600">Loading workspaces...</span>
       </div>
@@ -87,9 +87,11 @@ export default function WorkspaceSelector({ currentUser, onWorkspaceChange, sele
 
   return (
     <Select value={localSelection} onValueChange={handleChange}>
-      <SelectTrigger className="w-[200px] bg-white" data-onboarding="workspace-selector">
-        <Folder className="h-4 w-4 mr-2 text-slate-600" />
-        <SelectValue placeholder="All Workspaces" />
+      <SelectTrigger className="w-[200px] bg-white h-10 rounded-xl border-slate-200 shadow-sm" data-onboarding="workspace-selector">
+        <div className="flex items-center">
+          <Folder className="h-4 w-4 mr-2 text-slate-400" />
+          <SelectValue placeholder="All Workspaces" />
+        </div>
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All Workspaces</SelectItem>

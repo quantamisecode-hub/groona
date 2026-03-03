@@ -114,6 +114,7 @@ const PAGES = {
     ProjectManagerDashboard: ProjectManagerDashboard,
     MyTickets: MyTickets,
     UserOnboarding: UserOnboarding,
+    Onboarding: TenantOnboarding,
     ClientDashboard: ClientDashboard,
     ClientManagement: ClientManagement,
     Reports: Reports,
@@ -165,6 +166,7 @@ function PagesContent() {
         'AboutUs',
         'UserOnboarding',
         'TenantOnboarding',
+        'Onboarding',
         'SubscriptionManagement'
     ];
 
@@ -197,7 +199,10 @@ function PagesContent() {
                 <Route path="/Pricing" element={<Pricing />} />
                 <Route path="/AboutUs" element={<AboutUs />} />
                 <Route path="/UserOnboarding" element={<UserOnboarding />} />
+                <Route path="/user-onboarding" element={<UserOnboarding />} />
                 <Route path="/TenantOnboarding" element={<TenantOnboarding />} />
+                <Route path="/tenant-onboarding" element={<TenantOnboarding />} />
+                <Route path="/onboarding" element={<TenantOnboarding />} />
                 <Route path="/SubscriptionManagement" element={<SubscriptionManagement />} />
                 <Route path="/subscription-management" element={<SubscriptionManagement />} />
             </Routes>

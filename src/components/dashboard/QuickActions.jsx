@@ -7,13 +7,13 @@ import { createPageUrl } from "@/utils";
 
 export default function QuickActions() {
   return (
-    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <CardTitle className="text-lg font-bold text-slate-900">Quick Actions</CardTitle>
+    <Card className="bg-white border border-slate-100 shadow-sm rounded-xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-semibold text-slate-800">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 pt-2">
         <Link to={createPageUrl("Projects")} className="block">
-          <Button className="w-full justify-start bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/20">
+          <Button className="w-full justify-start bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 hover:tracking-wide text-white font-bold transition-all active:scale-95">
             <Plus className="h-4 w-4 mr-2" />
             New Project
           </Button>

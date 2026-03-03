@@ -105,12 +105,6 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
       const inProgress = tasks.filter(t => t.status === 'in_progress').length;
       const hasBottleneck = inReview > 5 || inProgress > tasks.length * 0.4;
 
-      // Performance Trend
-      const last14Days = activities.filter(a => {
-        const activityDate = new Date(a.created_date);
-        const daysDiff = differenceInDays(now, activityDate);
-        return daysDiff <= 14 && daysDiff > 7 && a.action === 'completed' && a.entity_type === 'task';
-      });
       // Use the trend calculated from tasks consistently
 
       // Health Score (0-100)
@@ -125,7 +119,6 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
         .filter(s => s.status === 'done')
         .reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
       const completionRate = totalGlobalPoints > 0 ? (doneGlobalPoints / totalGlobalPoints) * 100 : 0;
-
       const healthScore = Math.round(
         (onTimeProjects / Math.max(projects.length, 1)) * 40 +
         (completionRate * 0.4) +
@@ -170,203 +163,178 @@ export default function DashboardInsights({ projects, tasks, stories = [], activ
 
   if (loading || !insights) return null;
 
-  const healthColor = insights.healthScore >= 80 ? "text-green-600" : insights.healthScore >= 60 ? "text-amber-600" : "text-red-600";
-  const healthBg = insights.healthScore >= 80 ? "from-green-500 to-emerald-500" : insights.healthScore >= 60 ? "from-amber-500 to-orange-500" : "from-red-500 to-rose-500";
-
   return (
-    <Card className="bg-gradient-to-br from-purple-50/50 to-blue-50/50 border-purple-200/60 backdrop-blur-xl">
-      <CardHeader>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg shadow-purple-500/20 flex-shrink-0">
-              <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-            </div>
-            <span className="leading-tight">AI Insights & Recommendations</span>
-          </CardTitle>
-          <Link to={createPageUrl("ProjectInsights")} className="w-full sm:w-auto">
-            <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50 w-full sm:w-auto">
-              View Details
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </Link>
+    <div className="w-full bg-blue-50 border border-blue-200 rounded-[24px] overflow-hidden p-6 sm:p-8 flex flex-col gap-6">
+
+      {/* Header */}
+      <div className="flex flex-row items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-[18px] w-[18px] text-purple-600 fill-purple-100" />
+          <h2 className="text-[17px] font-bold text-slate-900 tracking-tight m-0">
+            AI Insights & Recommendations
+          </h2>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Health Score */}
-          <Link to={createPageUrl("ProjectInsights") + "?tab=overview"} className="block group">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-purple-300 hover:shadow-md transition-all group-hover:scale-[1.02] h-full">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-gradient-to-br ${healthBg} shadow-lg flex-shrink-0`}>
-                  <Target className="h-4 w-4 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-0.5">Health</p>
-                  <p className={`text-xl font-bold ${healthColor}`}>{insights.healthScore}</p>
+        <Link to={createPageUrl("ProjectInsights")}>
+          <Button variant="outline" size="sm" className="h-[34px] text-[13px] font-medium text-slate-600 bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-900 px-4 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+            View Details <ArrowRight className="h-3.5 w-3.5 ml-1.5 opacity-60" />
+          </Button>
+        </Link>
+      </div>
+
+      {/* Metric Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* Health Score */}
+        <Link to={`${createPageUrl("ProjectInsights")}?tab=overview`} className="flex flex-col justify-center p-5 rounded-[20px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.015)] hover:border-blue-300 hover:shadow-md transition-all group">
+          <div className="flex items-center gap-3.5">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${insights.healthScore >= 80 ? 'bg-green-50 text-green-500' : insights.healthScore >= 60 ? 'bg-amber-50 text-amber-500' : 'bg-red-50 text-red-500'}`}>
+              <Target className="h-5 w-5" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[12px] font-semibold text-slate-500 mb-0.5 group-hover:text-blue-600 transition-colors">Health Score</span>
+              <span className={`text-[26px] font-bold tracking-tight leading-none ${insights.healthScore >= 80 ? 'text-green-500' : insights.healthScore >= 60 ? 'text-amber-500' : 'text-red-500'}`}>{insights.healthScore}</span>
+            </div>
+          </div>
+        </Link>
+
+        {/* At Risk Projects */}
+        <Link to={`${createPageUrl("ProjectInsights")}?tab=risk`} className="flex flex-col justify-center p-5 rounded-[20px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.015)] hover:border-rose-300 hover:shadow-md transition-all group">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110">
+              <AlertTriangle className="h-5 w-5 text-rose-500" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[12px] font-semibold text-slate-500 mb-0.5 group-hover:text-rose-600 transition-colors">At Risk</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[26px] font-bold text-slate-900 tracking-tight leading-none">{insights.atRiskProjects}</span>
+                {insights.criticalRisks > 0 && <span className="text-[12px] font-bold text-rose-500">({insights.criticalRisks} crit)</span>}
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        {/* Weekly Velocity */}
+        <Link to={`${createPageUrl("ProjectInsights")}?tab=timeline`} className="flex flex-col justify-center p-5 rounded-[20px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.015)] hover:border-blue-300 hover:shadow-md transition-all group">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110">
+              {insights.velocityTrend === 'up' ? (
+                <TrendingUp className="h-5 w-5 text-blue-500" strokeWidth={2.5} />
+              ) : (
+                <TrendingDown className="h-5 w-5 text-blue-500" strokeWidth={2.5} />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[12px] font-semibold text-slate-500 mb-0.5 group-hover:text-blue-600 transition-colors">Velocity</span>
+              <div className="flex items-center gap-2 leading-none">
+                <span className="text-[26px] font-bold text-slate-900 tracking-tight">{insights.weeklyVelocity}</span>
+                <div className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 flex items-center justify-center text-[11px] font-medium">
+                  {insights.velocityTrend === 'up' ? '↑' : insights.velocityTrend === 'down' ? '↓' : '→'}
                 </div>
               </div>
             </div>
-          </Link>
+          </div>
+        </Link>
 
-          {/* Risk Summary (Granular) */}
-          <Link to={createPageUrl("ProjectInsights") + "?tab=risk"} className="block group lg:col-span-2">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-red-300 hover:shadow-md transition-all group-hover:scale-[1.01] h-full">
-              <div className="flex items-center justify-between gap-2 h-full">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-red-100 flex-shrink-0">
-                    <AlertTriangle className="h-4 w-4 text-red-600" />
-                  </div>
-                  <div className="hidden sm:block">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Total Risks</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-red-600">{insights.criticalRisks}</p>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">Crit</p>
-                  </div>
-                  <div className="text-center border-l border-slate-100 pl-3">
-                    <p className="text-lg font-bold text-orange-600">{insights.highRisks}</p>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">High</p>
-                  </div>
-                  <div className="text-center border-l border-slate-100 pl-3">
-                    <p className="text-lg font-bold text-amber-600">{insights.mediumRisks}</p>
-                    <p className="text-[9px] text-slate-400 uppercase font-bold">Med</p>
-                  </div>
-                </div>
-              </div>
+        {/* Bottlenecks */}
+        <Link to={`${createPageUrl("ProjectInsights")}?tab=overview`} className="flex flex-col justify-center p-5 rounded-[20px] bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.015)] hover:border-amber-300 hover:shadow-md transition-all group">
+          <div className="flex items-center gap-3.5">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110 ${insights.hasBottleneck ? 'bg-amber-50 text-amber-500' : 'bg-green-50 text-green-500'}`}>
+              <AlertCircle className="h-5 w-5" strokeWidth={2.5} />
             </div>
-          </Link>
-
-          {/* Weekly Velocity */}
-          <Link to={createPageUrl("ProjectInsights") + "?tab=timeline"} className="block group">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all group-hover:scale-[1.02] h-full">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-100 flex-shrink-0">
-                  {insights.velocityTrend === 'up' ? (
-                    <TrendingUp className="h-4 w-4 text-blue-600" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-blue-600" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-0.5">Velocity</p>
-                  <div className="flex items-baseline gap-1">
-                    <p className="text-xl font-bold text-slate-900">{insights.weeklyVelocity}</p>
-                    <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">tasks/day</span>
-                    <Badge variant="outline" className="ml-1 text-[8px] px-1 h-4 flex-shrink-0 border-slate-200">
-                      {insights.velocityTrend === 'up' ? '↑' : insights.velocityTrend === 'down' ? '↓' : '→'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
+            <div className="flex flex-col">
+              <span className="text-[12px] font-semibold text-slate-500 mb-0.5 group-hover:text-amber-600 transition-colors">Bottlenecks</span>
+              <span className="text-[26px] font-bold text-slate-900 tracking-tight leading-none">
+                {insights.hasBottleneck ? insights.bottleneckCount : 0}
+              </span>
             </div>
-          </Link>
+          </div>
+        </Link>
 
-          {/* Bottlenecks */}
-          <Link to={createPageUrl("ProjectInsights") + "?tab=timeline"} className="block group">
-            <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:border-amber-300 hover:shadow-md transition-all group-hover:scale-[1.02] h-full">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg flex-shrink-0 ${insights.hasBottleneck ? 'bg-amber-100' : 'bg-green-100'}`}>
-                  <Target className={`h-4 w-4 ${insights.hasBottleneck ? 'text-amber-600' : 'text-green-600'}`} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold tracking-tight mb-0.5">Bottlenecks</p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {insights.bottleneckCount}
-                  </p>
-                </div>
-              </div>
+      </div>
+
+      {/* AI Recommendation Banner */}
+      <div className={`mt-2 flex flex-col w-full p-5 rounded-[20px] border transition-all duration-300 ${insights.recommendationType === 'warning'
+        ? 'bg-[#FEFCE8] border-[#FEF08A]'
+        : insights.recommendationType === 'info'
+          ? 'bg-[#F0FDF4] border-[#BBF7D0]'
+          : 'bg-[#FEFCE8] border-[#FEF08A]'
+        }`}>
+        <div className="flex items-start justify-between gap-3 min-w-0 w-full">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <Sparkles className={`h-[18px] w-[18px] mt-0.5 flex-shrink-0 ${insights.recommendationType === 'warning'
+              ? 'text-orange-500 fill-orange-200'
+              : insights.recommendationType === 'info'
+                ? 'text-green-500 fill-green-200'
+                : 'text-orange-500 fill-orange-200'
+              }`} />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[14px] font-bold text-slate-900 tracking-tight leading-tight">AI Recommendation</span>
+              <span className="text-[13px] font-medium text-slate-600 mt-1">{insights.recommendation}</span>
             </div>
-          </Link>
-        </div>
-
-        {/* Recommendation */}
-        <div className={`p-4 rounded-xl border-2 transition-all duration-500 ${insights.recommendationType === 'warning'
-          ? 'bg-amber-50 border-amber-200'
-          : insights.recommendationType === 'info'
-            ? 'bg-blue-50 border-blue-200'
-            : 'bg-green-50 border-green-200'
-          }`}>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <Sparkles className={`h-5 w-5 flex-shrink-0 ${insights.recommendationType === 'warning'
-                  ? 'text-amber-600'
-                  : insights.recommendationType === 'info'
-                    ? 'text-blue-600'
-                    : 'text-green-600'
-                  }`} />
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-900 text-sm">AI Recommendation segment</p>
-                  <p className="text-xs text-slate-700 truncate">{insights.recommendation}</p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-slate-300 bg-white/50 backdrop-blur-sm shrink-0 h-8 text-xs font-semibold"
-                onClick={() => {
-                  setIsAnalyzing(true);
-                  // Simulate AI Analysis
-                  setTimeout(() => {
-                    const analysis = `### Analysis Result
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-shrink-0 ml-4 h-[34px] text-[13px] font-semibold text-slate-700 bg-white border-slate-200 hover:bg-slate-50 px-5 rounded-xl shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+            onClick={() => {
+              setIsAnalyzing(true);
+              // Simulate AI Analysis
+              setTimeout(() => {
+                const analysis = `### Analysis Result
 Based on current data, here are the key action items:
 1. **Critical Focus**: Address the **${insights.criticalRisks} critical risks** immediately. They are primarily driven by deadline breaches.
 2. **Velocity**: Current velocity is **${insights.weeklyVelocity} tasks/day**. ${insights.velocityTrend === 'down' ? '**Downward trend detected.**' : 'Velocity is stable.'}
 3. **Bottlenecks**: ${insights.hasBottleneck ? '**Identify blockers in Review stage.**' : 'No major bottlenecks currently.'}
 
 *Recommendation: **Re-prioritize resources** to Critical projects to avoid further slippage.*`;
-                    setDetailedAnalysis(analysis);
-                    setIsAnalyzing(false);
-                  }, 1500);
-                }}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
-                    Analyzing...
-                  </div>
-                ) : 'Analyze'}
-              </Button>
-            </div>
-
-            {detailedAnalysis && (
-              <div className="pt-3 border-t border-slate-200/50 animate-in fade-in slide-in-from-top-1 duration-300">
-                <div className="bg-white/40 rounded-lg p-3 text-sm text-slate-700 max-w-none">
-                  {detailedAnalysis.split('\n').map((line, i) => {
-                    if (!line.trim()) return null;
-
-                    // Helper to render bold text segments
-                    const renderFormattedLine = (text) => {
-                      const segments = text.split(/(\*\*.*?\*\*)/g);
-                      return segments.map((seg, si) => {
-                        if (seg.startsWith('**') && seg.endsWith('**')) {
-                          return <strong key={si} className="text-slate-900 font-bold">{seg.slice(2, -2)}</strong>;
-                        }
-                        return seg;
-                      });
-                    };
-
-                    if (line.startsWith('###')) return <h3 key={i} className="font-bold text-slate-900 mb-1">{line.replace('###', '')}</h3>;
-                    if (line.startsWith('*')) return <p key={i} className="italic mt-2 border-l-2 border-purple-200 pl-3 text-xs">{renderFormattedLine(line.replace('*', ''))}</p>;
-                    if (line.match(/^\d\./)) return <div key={i} className="ml-1 mb-1 text-xs sm:text-sm"><strong className="font-bold">{line.split('. ')[0]}.</strong> {renderFormattedLine(line.split('. ')[1])}</div>;
-                    return <p key={i} className="mb-1 text-xs sm:text-sm">{renderFormattedLine(line)}</p>;
-                  })}
-                  <div className="mt-2 flex justify-end">
-                    <Link to={createPageUrl("ProjectInsights")}>
-                      <Button variant="ghost" size="xs" className="text-[10px] text-purple-600 hover:text-purple-700 p-0 h-auto font-bold">
-                        View Detailed Report <ArrowRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
+                setDetailedAnalysis(analysis);
+                setIsAnalyzing(false);
+              }, 1500);
+            }}
+            disabled={isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                Analyzing...
               </div>
-            )}
-          </div>
+            ) : 'Analyze'}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+
+        {detailedAnalysis && (
+          <div className="mt-4 pt-4 border-t border-amber-200/50 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-white/50 backdrop-blur-sm rounded-xl p-4 text-[13px] text-slate-700 w-full">
+              {detailedAnalysis.split('\n').map((line, i) => {
+                if (!line.trim()) return null;
+
+                // Helper to render bold text segments
+                const renderFormattedLine = (text) => {
+                  const segments = text.split(/(\*\*.*?\*\*)/g);
+                  return segments.map((seg, si) => {
+                    if (seg.startsWith('**') && seg.endsWith('**')) {
+                      return <strong key={si} className="text-slate-900 font-bold">{seg.slice(2, -2)}</strong>;
+                    }
+                    return seg;
+                  });
+                };
+
+                if (line.startsWith('###')) return <h3 key={i} className="font-bold text-slate-900 mb-2">{line.replace('###', '')}</h3>;
+                if (line.startsWith('*')) return <p key={i} className="italic mt-3 border-l-2 border-orange-200 pl-3">{renderFormattedLine(line.replace('*', ''))}</p>;
+                if (line.match(/^\d\./)) return <div key={i} className="ml-1 mb-1"><strong className="font-bold">{line.split('. ')[0]}.</strong> {renderFormattedLine(line.split('. ')[1])}</div>;
+                return <p key={i} className="mb-1">{renderFormattedLine(line)}</p>;
+              })}
+              <div className="mt-3 flex justify-end">
+                <Link to={createPageUrl("ProjectInsights")}>
+                  <Button variant="ghost" size="sm" className="text-[12px] text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 font-bold h-8 rounded-lg">
+                    View Complete Report <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

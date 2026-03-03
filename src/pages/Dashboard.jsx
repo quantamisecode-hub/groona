@@ -3,13 +3,13 @@ import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
+import { format } from "date-fns";
 import { Plus, TrendingUp, CheckCircle2, Clock, AlertCircle, Filter, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StatsCard from "../components/dashboard/StatsCard";
 import ProjectsList from "../components/dashboard/ProjectsList";
 import RecentTasks from "../components/dashboard/RecentTasks";
-import QuickActions from "../components/dashboard/QuickActions";
 import DashboardInsights from "../components/dashboard/DashboardInsights";
 import CreateProjectDialog from "../components/projects/CreateProjectDialog";
 import WorkspaceSelector from "../components/workspaces/WorkspaceSelector";
@@ -19,8 +19,16 @@ import { useUser } from "../components/shared/UserContext";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import { OnboardingProvider } from "../components/onboarding/OnboardingProvider";
 import FeatureOnboarding from "../components/onboarding/FeatureOnboarding";
-import TenantBrandingHeader from "../components/shared/TenantBrandingHeader"; // Import the header
 import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
+import WeeklyTimesheetChart from "../components/dashboard/WeeklyTimesheetChart";
+import ResourceAllocationChart from "../components/dashboard/ResourceAllocationChart";
+import TeamActivityWidget from "../components/dashboard/TeamActivityWidget";
+import SprintVelocityChart from "../components/dashboard/SprintVelocityChart";
+import UpcomingDeadlines from "../components/dashboard/UpcomingDeadlines";
+import TaskOverviewDonutChart from "../components/dashboard/TaskOverviewDonutChart";
+import CompanyProfitabilityChart from "../components/dashboard/CompanyProfitabilityChart";
+import AdminTopPerformers from "../components/dashboard/AdminTopPerformers";
+import AdminLostRevenueWidget from "../components/dashboard/AdminLostRevenueWidget";
 
 const DASHBOARD_ONBOARDING_ITEMS = [
   { id: 'create_workspace', label: 'Create a Workspace', hint: 'Organize your projects' },
@@ -44,6 +52,8 @@ export default function Dashboard() {
 
   const taskIdParam = searchParams.get('taskId');
   const [selectedTaskId, setSelectedTaskId] = useState(taskIdParam || null);
+  const [selectedDeadlineDate, setSelectedDeadlineDate] = useState(null);
+  const [selectedDonutStatus, setSelectedDonutStatus] = useState(null);
 
   // Sync selectedTaskId with URL param
   React.useEffect(() => {
@@ -245,12 +255,14 @@ export default function Dashboard() {
     onError: (error) => toast.error('Failed to create project.'),
   });
 
-  const stats = useMemo(() => ({
-    totalProjects: filteredProjects.length,
-    activeProjects: filteredProjects.filter(p => p.status === 'active').length,
-    completedTasks: filteredTasks.filter(t => t.status === 'completed').length,
-    pendingTasks: filteredTasks.filter(t => t.status === 'todo').length,
-  }), [filteredProjects, filteredTasks]);
+  const stats = useMemo(() => {
+    return {
+      totalProjects: filteredProjects.length,
+      activeProjects: filteredProjects.filter(p => p.status === 'active').length,
+      completedTasks: filteredTasks.filter(t => t.status === 'completed').length,
+      pendingTasks: filteredTasks.filter(t => t.status === 'todo').length,
+    };
+  }, [filteredProjects, filteredTasks]);
 
   // Filter insights data for members/viewers to only show their assigned items
   const { insightsProjects, insightsTasks, insightsStories } = useMemo(() => {
@@ -304,14 +316,8 @@ export default function Dashboard() {
     <OnboardingProvider currentUser={currentUser} featureArea="dashboard">
       <FeatureOnboarding currentUser={currentUser} featureArea="dashboard" userRole={userRole} />
 
-      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
+      <div className="flex flex-col bg-[#f8f9fa] w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
         <div className="max-w-[1800px] mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
-          {/* Sticky Tenant Branding Header */}
-          <div className="sticky top-0 z-20 bg-slate-50 pt-[34px]">
-            <div className="px-6 md:px-8 py-0 bg-transparent">
-              <TenantBrandingHeader currentUser={currentUser} />
-            </div>
-          </div>
 
           {/* Scrollable Content */}
           <div className="flex-1 px-6 md:px-8 pt-6 pb-6 md:pb-8 space-y-8" data-onboarding="stats-cards">
@@ -324,68 +330,136 @@ export default function Dashboard() {
               />
             )}
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-2">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Welcome back, {firstName}</h1>
-                <p className="text-slate-600">Here's what's happening with your projects today.</p>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">Welcome back, {firstName}</h1>
+                <p className="text-sm text-slate-500">Here's what's happening with your projects today.</p>
               </div>
+
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                {/* 1. Filters */}
+                <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl p-1 px-3 h-10">
+                  <Filter className="h-4 w-4 text-slate-400" />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 w-[120px] text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700">
+                      <X className="h-3 w-3 mr-1" /> Clear
+                    </Button>
+                  )}
+                </div>
+
+                {/* 2. Workspace Selector */}
                 <WorkspaceSelector currentUser={currentUser} onWorkspaceChange={setSelectedWorkspaceId} selectedWorkspaceId={selectedWorkspaceId} />
+
+                {/* 3. Action Button */}
                 {canCreateProject ? (
-                  <Button onClick={() => setShowCreateProject(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25">
+                  <Button onClick={() => setShowCreateProject(true)} className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">
                     <Plus className="w-4 h-4 mr-2" /> New Project
                   </Button>
                 ) : (
                   <Link to={createPageUrl("Projects")}>
-                    <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25">View Projects</Button>
+                    <Button className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">View Projects</Button>
                   </Link>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:items-center bg-white/60 backdrop-blur-xl border border-slate-200/60 rounded-lg p-3">
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <Filter className="h-4 w-4 text-slate-600" />
-                <span className="text-sm font-medium text-slate-600">Filters:</span>
-              </div>
-              <div className="flex flex-wrap gap-2 flex-1">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                  </SelectContent>
-                </Select>
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 px-3 text-sm text-slate-600 hover:shadow-sm">
-                    <X className="h-4 w-4 mr-1" /> Clear
-                  </Button>
-                )}
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+              <StatsCard title="Total Projects" value={stats.totalProjects} icon={TrendingUp} iconColor="text-blue-600" loading={projectsLoading} />
+              <StatsCard title="Active Projects" value={stats.activeProjects} icon={Clock} iconColor="text-purple-600" loading={projectsLoading} />
+              <StatsCard title="Total Completed Tasks" value={stats.completedTasks} icon={CheckCircle2} iconColor="text-green-600" loading={tasksLoading} />
+              <StatsCard title="Total Pending Tasks" value={stats.pendingTasks} icon={AlertCircle} iconColor="text-orange-600" loading={tasksLoading} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatsCard title="Total Projects" value={stats.totalProjects} icon={TrendingUp} gradient="from-blue-500 to-cyan-500" loading={projectsLoading} />
-              <StatsCard title="Active Projects" value={stats.activeProjects} icon={Clock} gradient="from-purple-500 to-pink-500" loading={projectsLoading} />
-              <StatsCard title="Completed Tasks" value={stats.completedTasks} icon={CheckCircle2} gradient="from-green-500 to-emerald-500" loading={tasksLoading} />
-              <StatsCard title="Pending Tasks" value={stats.pendingTasks} icon={AlertCircle} gradient="from-orange-500 to-amber-500" loading={tasksLoading} />
-            </div>
+            {isAdmin && (
+              <div className="flex flex-col gap-6">
+                <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
+                <AdminTopPerformers projects={filteredProjects} tasks={filteredTasks} />
+                <CompanyProfitabilityChart />
+                <AdminLostRevenueWidget />
+              </div>
+            )}
 
-            {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
-            {canViewInsights && (
-              <DashboardInsights
-                projects={insightsProjects}
-                tasks={insightsTasks}
-                stories={insightsStories}
-                activities={activities}
-                loading={projectsLoading || tasksLoading}
-              />
+            {/* CONDITIONALLY RENDER ADMIN WIDGETS */}            {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
+            {canViewInsights && !isAdmin && (
+              <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
             )}
 
             <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2"><ProjectsList projects={filteredProjects.slice(0, 4)} loading={projectsLoading} /></div>
-              <div className="space-y-6"><QuickActions /><RecentTasks tasks={filteredTasks.slice(0, 5)} loading={tasksLoading} /></div>
+              <div className="lg:col-span-2 space-y-6">
+                {!isAdmin && (
+                  <>
+                    <UpcomingDeadlines
+                      tasks={filteredTasks}
+                      selectedDate={selectedDeadlineDate}
+                      onDateSelect={setSelectedDeadlineDate}
+                    />
+                    <RecentTasks
+                      title={
+                        selectedDeadlineDate
+                          ? `Tasks due ${format(selectedDeadlineDate, 'MMM d')}`
+                          : selectedDonutStatus
+                            ? `My ${selectedDonutStatus === 'to_do' ? 'To Do' : selectedDonutStatus.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())} Tasks`
+                            : "My Active Tasks"
+                      }
+                      tasks={(() => {
+                        if (currentUser?.email) {
+                          const userEmail = currentUser.email.toLowerCase();
+                          let myTasks = filteredTasks.filter(t => {
+                            const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+                            const isAssigned = taskAssignees.some(assignee => assignee?.toLowerCase() === userEmail);
+                            return isAssigned && t.status !== 'completed';
+                          });
+
+                          if (selectedDeadlineDate) {
+                            myTasks = myTasks.filter(t => {
+                              if (!t.due_date) return false;
+                              const taskDateStr = t.due_date.split('T')[0];
+                              const selectedDateStr = format(selectedDeadlineDate, 'yyyy-MM-dd');
+                              return taskDateStr === selectedDateStr;
+                            });
+                          }
+
+                          if (selectedDonutStatus) {
+                            myTasks = myTasks.filter(t => {
+                              let s = (t.status || 'todo').toLowerCase();
+                              if (s === 'to_do') s = 'todo'; // normalize
+                              const filterS = selectedDonutStatus === 'to_do' ? 'todo' : selectedDonutStatus;
+                              return s === filterS;
+                            });
+                          }
+
+                          return myTasks.slice(0, 5);
+                        }
+                        return [];
+                      })()}
+                      loading={tasksLoading}
+                    />
+                  </>
+                )}
+                <ProjectsList projects={filteredProjects} stories={stories} loading={projectsLoading} />
+                <SprintVelocityChart isAdmin={isAdmin} tenantId={effectiveTenantId} className="flex-1 min-h-[320px]" />
+              </div>
+              <div className="space-y-6">
+                <TaskOverviewDonutChart
+                  tasks={filteredTasks}
+                  selectedStatus={selectedDonutStatus}
+                  onSelectStatus={setSelectedDonutStatus}
+                  isAdmin={isAdmin}
+                />
+                <WeeklyTimesheetChart isAdmin={isAdmin} tenantId={effectiveTenantId} />
+                <ResourceAllocationChart isAdmin={isAdmin} tenantId={effectiveTenantId} />
+                <TeamActivityWidget activities={activities} />
+              </div>
             </div>
 
             {canCreateProject && (

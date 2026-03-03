@@ -261,27 +261,25 @@ export default function CommentsSection({
   }
 
   return (
-    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Comments ({comments.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
+    <div className="bg-transparent">
+      <div className="pt-2 pb-6">
+        <h3 className="text-[17px] font-bold text-slate-900 flex items-center gap-2 mb-4">
+          Comments <span className="text-slate-400 font-normal">({comments.length})</span>
+        </h3>
+
+        <div className="space-y-4">
           <div className="relative">
             {/* Overlay div showing formatted text with bold mentions */}
             <div
-              className="absolute inset-0 pointer-events-none whitespace-pre-wrap break-words p-3 pr-10 text-sm leading-6 z-10 overflow-hidden font-sans border border-transparent"
+              className="absolute inset-0 pointer-events-none whitespace-pre-wrap break-words p-4 pr-36 text-[15px] leading-relaxed z-10 overflow-hidden font-sans border border-transparent"
               aria-hidden="true"
             >
               {newComment ? (
-                <span className="text-slate-700">
+                <span className="text-slate-800">
                   {formatCommentContent(newComment)}
                 </span>
               ) : (
-                <span className="text-slate-400">Add a comment... (Type @ to mention team members)</span>
+                <span className="text-slate-400">Add a comment...</span>
               )}
             </div>
             {/* Actual textarea for input - transparent text to show overlay */}
@@ -291,78 +289,76 @@ export default function CommentsSection({
               onChange={handleCommentChange}
               placeholder=""
               rows={3}
-              className="min-h-[80px] bg-white border-slate-200 p-3 pr-10 text-sm leading-6 relative z-0 resize-y"
+              className="min-h-[120px] bg-slate-50/50 border border-slate-200/60 rounded-[16px] p-4 pr-36 text-[15px] leading-relaxed relative z-0 resize-none outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/10 focus-visible:border-indigo-400 transition-all shadow-sm"
               disabled={createCommentMutation.isPending}
               style={{
                 color: 'transparent',
                 caretColor: '#0f172a',
               }}
             />
+
             {showMentions && filteredUsers.length > 0 && (
-              <Card className="absolute bottom-full left-0 mb-1 w-64 z-50 shadow-xl border-slate-200">
-                <CardContent className="p-1">
+              <div className="absolute top-full left-0 mt-2 w-64 z-50 bg-white/80 backdrop-blur-xl shadow-lg border border-slate-200/60 rounded-xl overflow-hidden">
+                <div className="p-1">
                   {filteredUsers.map(user => (
                     <button
                       key={user.id}
                       onClick={() => insertMention(user)}
-                      className="w-full flex items-center gap-2 p-2 hover:bg-slate-100 rounded text-left text-sm"
+                      className="w-full flex items-center gap-3 p-2.5 hover:bg-slate-100/50 rounded-lg text-left text-sm transition-colors"
                     >
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="text-[11px] bg-slate-100 text-slate-700 font-medium">
                           {getInitials(user.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{user.full_name}</span>
+                      <span className="font-medium text-slate-700">{user.full_name}</span>
                     </button>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
-          </div>
-          {/* Attachment rendering and Upload button logic remains same */}
-          {/* ... */}
-          <div className="flex justify-end items-center">
+
             <Button
               onClick={handleSubmit}
               disabled={(!newComment.trim()) || createCommentMutation.isPending || !currentUser}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              size="sm"
+              className="absolute bottom-3 right-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full px-5 py-2 h-auto shadow-sm font-medium transition-all z-20"
             >
-              <Send className="h-4 w-4 mr-2" />
-              {createCommentMutation.isPending ? "Posting..." : "Post Comment"}
+              {createCommentMutation.isPending ? "Posting..." : "Post"}
             </Button>
           </div>
         </div>
 
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className="h-[400px] mt-8 pr-4">
           {comments.length === 0 ? (
-            <div className="text-center py-8 text-slate-500">
-              <MessageSquare className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-              <p>No comments yet. Be the first to comment!</p>
+            <div className="text-center py-16 text-slate-400">
+              <MessageSquare className="h-10 w-10 mx-auto mb-4 text-slate-200 stroke-[1.5]" />
+              <p className="text-[15px]">No comments yet.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {comments.map((comment) => (
                 <div
                   key={comment.id}
-                  id={`comment-${comment.id}`} // Added ID for accessibility
-                  ref={el => commentRefs.current[comment.id] = el} // STORE REF
-                  className="p-4 rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-500" // Added transition
+                  id={`comment-${comment.id}`}
+                  ref={el => commentRefs.current[comment.id] = el}
+                  className="group transition-all duration-500"
                 >
-                  <div className="flex items-start gap-3">
-                    <Avatar className="h-10 w-10 flex-shrink-0 border border-slate-200">
+                  <div className="flex items-start gap-4">
+                    <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarImage
                         src={users.find(u => u.email === comment.author_email)?.profile_image_url}
                         alt={comment.author_name}
                       />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
+                      <AvatarFallback className="bg-slate-100 text-slate-600 font-semibold text-[13px]">
                         {getInitials(comment.author_name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div>
-                          <p className="font-semibold text-slate-900">{comment.author_name}</p>
-                          <p className="text-xs text-slate-500">
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                        <div className="flex items-baseline gap-2">
+                          <p className="font-semibold text-slate-900 text-[15px]">{comment.author_name}</p>
+                          <p className="text-[13px] text-slate-400 font-medium">
                             {formatDistanceToNow(new Date(comment.created_date || Date.now()), { addSuffix: true })}
                           </p>
                         </div>
@@ -371,26 +367,28 @@ export default function CommentsSection({
                             variant="ghost"
                             size="icon"
                             onClick={() => deleteCommentMutation.mutate(comment.id)}
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50/50 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
-                      <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                      <p className="text-[15px] text-slate-700 leading-relaxed whitespace-pre-wrap">
                         {formatCommentContent(comment.content)}
                       </p>
 
                       {comment.attachments && comment.attachments.length > 0 && (
-                        <div className="mt-2 grid gap-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {comment.attachments.map((file, i) => (
-                            <div key={i} className="flex items-center gap-3 p-2 rounded border border-slate-200 bg-slate-50 text-sm hover:bg-slate-100 transition-colors w-fit max-w-full">
-                              <File className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                            <div key={i} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100/60 text-sm hover:bg-slate-100 transition-colors w-fit max-w-full">
+                              <div className="h-7 w-7 rounded-lg bg-white flex items-center justify-center shadow-sm border border-slate-100">
+                                <File className="h-3.5 w-3.5 text-indigo-500 flex-shrink-0" />
+                              </div>
                               <a
                                 href={file.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="truncate hover:underline text-blue-700 font-medium"
+                                className="truncate hover:underline text-slate-700 font-medium pr-2 text-[13px]"
                               >
                                 {file.name}
                               </a>
@@ -405,7 +403,7 @@ export default function CommentsSection({
             </div>
           )}
         </ScrollArea>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
