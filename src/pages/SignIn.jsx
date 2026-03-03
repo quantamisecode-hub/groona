@@ -42,7 +42,6 @@ export default function SignIn() {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
 
   // --- AUTO LOGIN LOGIC ---
   useEffect(() => {
@@ -94,11 +93,6 @@ export default function SignIn() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    if (!acceptTerms) {
-      toast.error('Please accept the Terms and Privacy Policy to continue.');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
@@ -136,11 +130,6 @@ export default function SignIn() {
   };
 
   const handleGoogleLogin = async () => {
-    if (!acceptTerms) {
-      toast.error('Please accept the Terms and Privacy Policy to continue.');
-      return;
-    }
-
     setGoogleLoading(true);
     // Placeholder for Google Auth logic - would typically redirect to backend oauth path
     setTimeout(() => {
@@ -150,7 +139,7 @@ export default function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
+    <div className="h-[100dvh] bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
       {/* Left Panel: Branding & Welcome Message */}
       <div className="hidden md:flex md:w-[35%] lg:w-[30%] bg-slate-950 relative flex-col justify-between p-12 text-white overflow-hidden">
         <div className="relative z-10">
@@ -194,14 +183,7 @@ export default function SignIn() {
           </div>
         </div>
 
-        <div className="relative z-10">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Trusted by Industry Leaders</p>
-          <div className="flex gap-4 opacity-50">
-            {/* Simple visual placeholders for social proof */}
-            <div className="h-6 w-20 bg-white/20 rounded" />
-            <div className="h-6 w-20 bg-white/20 rounded" />
-          </div>
-        </div>
+
 
         {/* Decorative Gradients */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -211,7 +193,7 @@ export default function SignIn() {
       </div>
 
       {/* Right Panel: Content */}
-      <main className="flex-1 flex flex-col relative h-screen bg-white overflow-y-auto">
+      <main className="flex-1 flex flex-col relative h-full bg-white overflow-y-auto">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-2">
@@ -224,7 +206,7 @@ export default function SignIn() {
         </div>
 
         {/* Top Navigation for Desktop */}
-        <header className="hidden md:flex h-20 items-center justify-end px-12 shrink-0">
+        <header className="hidden md:flex h-14 lg:h-16 items-center justify-end px-8 lg:px-12 shrink-0">
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium text-slate-500">Don't have an account?</span>
             <Link to={createPageUrl("Register")}>
@@ -237,8 +219,8 @@ export default function SignIn() {
 
         {/* Form Content Area */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-full max-w-xl px-8 py-12 md:py-24 space-y-12">
-            <div className="space-y-4">
+          <div className="w-full max-w-xl px-8 py-4 lg:py-8 space-y-6 lg:space-y-10">
+            <div className="space-y-1 lg:space-y-3">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -246,10 +228,10 @@ export default function SignIn() {
               >
                 Welcome back
               </motion.div>
-              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
                 Log in to <span className="text-blue-600">Groona.</span>
               </h2>
-              <p className="text-slate-500 text-xl leading-relaxed max-w-md">
+              <p className="text-slate-500 text-sm md:text-base lg:text-lg leading-relaxed max-w-md">
                 Enter your credentials to access your mission center and projects.
               </p>
             </div>
@@ -262,8 +244,8 @@ export default function SignIn() {
               </motion.div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-8">
-              <div className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-5 lg:space-y-8">
+              <div className="space-y-4 lg:space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">
                     Work Email
@@ -278,7 +260,7 @@ export default function SignIn() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       disabled={loading}
-                      className="h-14 pl-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all text-lg"
+                      className="h-12 lg:h-14 pl-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all text-base lg:text-lg"
                     />
                   </div>
                 </div>
@@ -305,7 +287,7 @@ export default function SignIn() {
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       disabled={loading}
-                      className="h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all text-lg"
+                      className="h-12 lg:h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all text-base lg:text-lg"
                     />
                     <button
                       type="button"
@@ -330,26 +312,13 @@ export default function SignIn() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-6">
-                <div className="flex items-start gap-4 p-5 rounded-2xl bg-blue-50/30 border border-blue-100/50">
-                  <Checkbox
-                    id="terms"
-                    checked={acceptTerms}
-                    onCheckedChange={(checked) => setAcceptTerms(checked)}
-                    required
-                    className="mt-1 border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md"
-                  />
-                  <Label htmlFor="terms" className="text-xs font-medium text-slate-500 leading-relaxed cursor-pointer select-none">
-                    I have read and agree to the <a href="#" className="text-blue-600 font-bold hover:underline">Terms of Service</a> and <a href="#" className="text-blue-600 font-bold hover:underline">Privacy Policy</a>.
-                  </Label>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col gap-4 lg:gap-6 mt-2">
+                <div className="flex flex-col gap-4 lg:gap-6">
                   <Button
                     type="submit"
                     disabled={loading}
                     size="lg"
-                    className="flex-1 h-16 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-2xl shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
+                    className="w-full h-12 lg:h-14 min-h-[3rem] lg:min-h-[3.5rem] text-base lg:text-lg font-bold bg-gradient-to-r from-blue-600 to-slate-900 border-0 hover:from-blue-700 hover:to-slate-950 text-white rounded-xl shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
@@ -364,7 +333,7 @@ export default function SignIn() {
               </div>
             </form>
 
-            <div className="space-y-8">
+            <div className="space-y-5 lg:space-y-6 pb-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-100"></div>
@@ -379,7 +348,7 @@ export default function SignIn() {
                 variant="outline"
                 disabled={googleLoading}
                 onClick={handleGoogleLogin}
-                className="w-full h-16 text-lg font-bold border-2 border-slate-100 hover:border-blue-600 hover:text-blue-600 rounded-2xl transition-all hover:bg-blue-50/30 flex items-center justify-center gap-4 group"
+                className="w-full h-12 lg:h-14 text-base lg:text-lg font-bold border-2 border-slate-100 hover:border-blue-600 hover:text-blue-600 rounded-xl transition-all hover:bg-blue-50/30 flex items-center justify-center gap-4 group"
               >
                 {googleLoading ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -391,18 +360,6 @@ export default function SignIn() {
                 )}
               </Button>
             </div>
-
-            <footer className="pt-12 flex items-center justify-between border-t border-slate-50">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
-                Groona AI Intelligence
-              </p>
-              <button
-                onClick={() => navigate(createPageUrl("AboutUs"))}
-                className="text-xs font-bold text-slate-400 hover:text-slate-900 transition-colors"
-              >
-                Need help signing in?
-              </button>
-            </footer>
           </div>
         </div>
 

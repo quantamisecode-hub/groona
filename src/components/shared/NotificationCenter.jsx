@@ -198,6 +198,8 @@ export default function NotificationCenter({ currentUser }) {
       case 'timesheet_approval_needed':
       case 'timesheet_status':
       case 'timesheet_reminder': return <div className="p-2 rounded-xl bg-amber-50 text-amber-600"><Clock className={iconBase} /></div>;
+      case 'idle_time_alert': return <div className="p-2 rounded-xl bg-amber-50 text-amber-600"><Clock className={iconBase} /></div>;
+      case 'under_utilization_alert': return <div className="p-2 rounded-xl bg-amber-50 text-amber-600"><BatteryLow className={iconBase} /></div>;
       case 'impediment_reported':
       case 'impediment_alert': return <div className="p-2 rounded-xl bg-red-50 text-red-600"><AlertTriangle className={iconBase} /></div>;
       case 'task_escalation_alert': return <div className="p-2 rounded-xl bg-orange-50 text-orange-600"><Flame className={iconBase} /></div>;
@@ -208,12 +210,44 @@ export default function NotificationCenter({ currentUser }) {
 
   const renderMessage = (text) => {
     if (!text) return null;
-    const parts = text.split(/(\*\*[\s\S]*?\*\*)/);
-    return parts.map((part, i) => {
-      if (part && part.startsWith('**') && part.endsWith('**')) {
-        return <span key={i} className="font-bold text-slate-900">{part.slice(2, -2)}</span>;
+    // Split into lines first to handle multi-line lists correctly
+    const lines = text.split('\n');
+
+    return lines.map((line, lineIdx) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return <div key={`br-${lineIdx}`} className="h-2" />;
+
+      // Handle list items starting with "- "
+      if (trimmedLine.startsWith('- ')) {
+        const lineText = trimmedLine.slice(2);
+        const parts = lineText.split(/(\*\*[\s\S]*?\*\*)/);
+        return (
+          <div key={lineIdx} className="flex items-start gap-1.5 mt-1.5 ml-1 group animate-in slide-in-from-left-2 duration-300">
+            <Lightbulb className="h-3.5 w-3.5 text-amber-500 mt-1 shrink-0 group-hover:animate-pulse transition-all" />
+            <span className="flex-1 italic text-slate-700">
+              {parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return <strong key={i} className="font-extrabold text-slate-900 not-italic">{part.slice(2, -2)}</strong>;
+                }
+                return part;
+              })}
+            </span>
+          </div>
+        );
       }
-      return part;
+
+      // Handle normal lines with bold support
+      const parts = line.split(/(\*\*[\s\S]*?\*\*)/);
+      return (
+        <div key={lineIdx} className="mb-1 last:mb-0">
+          {parts.map((part, i) => {
+            if (part && part.startsWith('**') && part.endsWith('**')) {
+              return <strong key={i} className="font-extrabold text-slate-900">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+          })}
+        </div>
+      );
     });
   };
 

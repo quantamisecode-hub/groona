@@ -257,82 +257,65 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProjects.map((project) => {
-                  const isYellow = project.healthScore >= 50 && project.healthScore < 70;
-                  const isRed = project.healthScore < 50;
-
-                  return (
-                    <TableRow
-                      key={project.id}
-                      ref={el => projectRefs.current[project.id] = el}
-                      className={`hover:bg-slate-50/50 transition-colors ${isRed ? 'bg-red-50/50' : isYellow ? 'bg-amber-50/50' : ''
-                        }`}
-                    >
-                      <TableCell className="font-medium">{project.name}</TableCell>
-                      <TableCell>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold text-lg ${isRed ? 'text-red-700' : isYellow ? 'text-amber-700' : ''
-                              }`}>
-                              {project.healthScore}
-                            </span>
-                            {getHealthBadge(project.healthScore)}
-                          </div>
-                          <Progress
-                            value={project.healthScore}
-                            className="h-2 w-24"
-                            indicatorClassName={isRed ? 'bg-red-500' : isYellow ? 'bg-amber-500' : ''}
-                          />
+                {filteredProjects.map((project) => (
+                  <TableRow key={project.id} className="hover:bg-slate-50/50">
+                    <TableCell className="font-medium">{project.name}</TableCell>
+                    <TableCell>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">{project.healthScore}</span>
+                          {getHealthBadge(project.healthScore)}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          {project.status.replace('_', ' ')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="font-medium">{project.taskCompletionRate}%</span>
-                            <span className="text-slate-500">
-                              ({project.completedTasks}/{project.totalTasks})
-                            </span>
-                          </div>
-                          <Progress value={project.taskCompletionRate} className="h-1.5 w-24" />
+                        <Progress value={project.healthScore} className="h-2 w-24" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize">
+                        {project.status.replace('_', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium">{project.taskCompletionRate}%</span>
+                          <span className="text-slate-500">
+                            ({project.completedTasks}/{project.totalTasks})
+                          </span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {getBudgetBadge(project.budgetHealth)}
-                        {project.budgetHealth.status !== 'unknown' && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            {project.budgetHealth.variance > 0 ? '+' : ''}{project.budgetHealth.variance}%
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {project.overdueTasks > 0 ? (
-                          <Badge variant="destructive">{project.overdueTasks} overdue</Badge>
-                        ) : (
-                          <span className="text-slate-400 text-sm">None</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {project.deadline ? (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-3 w-3 text-slate-400" />
-                            {new Date(project.deadline).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400 text-sm">No deadline</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                        <Progress value={project.taskCompletionRate} className="h-1.5 w-24" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {getBudgetBadge(project.budgetHealth)}
+                      {project.budgetHealth.status !== 'unknown' && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          {project.budgetHealth.variance > 0 ? '+' : ''}{project.budgetHealth.variance}%
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {project.overdueTasks > 0 ? (
+                        <Badge variant="destructive">{project.overdueTasks} overdue</Badge>
+                      ) : (
+                        <span className="text-slate-400 text-sm">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {project.deadline ? (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-3 w-3 text-slate-400" />
+                          {new Date(project.deadline).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-sm">No deadline</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

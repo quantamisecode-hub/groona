@@ -22,16 +22,17 @@ const runReminders = async () => {
         const startOfToday = new Date(now);
         startOfToday.setHours(0, 0, 0, 0);
 
-        // Get active logs with no submissions today
+        const Timesheet = Models.Timesheet;
+
+        // Get active logs (currently logged in users)
         const activeLogs = await UserLog.find({
-            today_submitted_timesheets_count: 0,
             $or: [
                 { logout_time: { $exists: false } },
                 { logout_time: null }
             ]
         });
 
-        console.log(`Checking roles for ${activeLogs.length} users with no logs today...`);
+        console.log(`Checking roles for ${activeLogs.length} logged-in users...`);
 
         for (const log of activeLogs) {
             try {
@@ -41,13 +42,26 @@ const runReminders = async () => {
                     continue;
                 }
 
-                const loginTime = new Date(log.login_time);
-                // Both 'now' and 'loginTime' are now in IST (if DB stores IST)
-                const diffMs = now - loginTime;
-                const diffHours = Math.floor(diffMs / (60 * 60 * 1000));
+                // Check for draft timesheets for this user
+                const draftCount = await Timesheet.countDocuments({ user_email: log.email, status: 'draft' });
+                const noSubmissionsToday = log.today_submitted_timesheets_count === 0;
 
-                const title = 'Timesheet Logging Reminder';
-                const message = "You haven’t logged your time today. Please update your timesheet before day end.";
+                if (!noSubmissionsToday && draftCount === 0) {
+                    // All good, no reminder needed
+                    continue;
+                }
+
+                let title = 'Timesheet Logging Reminder';
+                let message = '';
+
+                if (noSubmissionsToday && draftCount > 0) {
+                    message = `You haven’t logged your time today, and you have ${draftCount} draft timesheet(s) pending submission. Please update your timesheet before day end.`;
+                } else if (noSubmissionsToday) {
+                    message = `You haven’t logged your time today. Please update your timesheet before day end.`;
+                } else if (draftCount > 0) {
+                    title = 'Draft Timesheets Pending';
+                    message = `You have ${draftCount} draft timesheet(s) pending submission. Please review and submit them.`;
+                }
 
                 // 1. Create In-App Notification (General Tab)
                 await Notification.create({

@@ -1,0 +1,37 @@
+Services Folder Documentation (src/services)
+
+Overview
+--------
+The `src/services` folder contains modules that handle complex business logic and API orchestration, particularly for feature‑specific workflows like AI‑assisted project and task creation.
+
+Files
+-----
+### 1. aiProjectService.js
+Orchestrates the creation of projects and tasks based on AI Assistant conversation data.
+- **`createProjectFromAI(projectData, tenantId, userId, userEmail)`**:
+  - Purpose: POSTs project metadata to `${API_URL}/groona-assistant/create-project`.
+  - Logic: Handles auth headers and payload formatting.
+- **`parseProjectCreationResponse(aiResponse)`**:
+  - Purpose: Extracts structured JSON data from AI chat responses using both `JSON.parse` and regex fallback.
+  - Supported Actions: `create_project`, `create_task`.
+- **`isProjectCreationResponse(aiResponse)`**:
+  - Purpose: Boolean helper to check if a response specifically triggers a project creation action.
+
+### 2. aiTaskService.js
+Focuses on the creation of individual tasks via the AI Assistant.
+- **`createTaskFromAI(taskData, tenantId, userId, userEmail)`**:
+  - Purpose: POSTs task details to `${API_URL}/groona-assistant/create-task`.
+  - Validation: Specifically handles `estimated_hours` by ensuring it is a valid non‑negative number before sending.
+  - Payloads: Includes title, project/sprint names, assignee details, and deadlines.
+
+Tree Structure
+--------------
+src/services
+├─ aiProjectService.js
+└─ aiTaskService.js
+
+Developer Notes
+---------------
+- Services leverage the `groonabackend` API wrapper (`@/api/groonabackend`) but often use direct `fetch` for specific assistant endpoints.
+- Error handling is centralised within each service to log errors and re‑throw them for UI components to handle.
+- Parsing logic in `aiProjectService` is designed to be resilient to AI responses that may contain extra conversational text around JSON blocks.

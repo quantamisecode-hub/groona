@@ -196,7 +196,7 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="pt-8 border-t border-slate-100 flex items-center justify-between"
+        className="pt-8 border-t border-slate-100 flex items-center justify-end"
       >
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => onNext({ invites: [] })} className="text-slate-400 hover:text-slate-900 font-bold">
@@ -205,7 +205,7 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
           <Button
             onClick={handleNext}
             size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-12 h-14 font-bold group flex items-center gap-2"
+            className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 hover:from-blue-700 hover:to-slate-950 text-white rounded-xl px-12 h-14 font-bold group flex items-center gap-2"
           >
             Continue
             <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />

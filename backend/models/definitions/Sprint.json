@@ -7,6 +7,9 @@
     "project_id": {
       "type": "string"
     },
+    "milestone_id": {
+      "type": "string"
+    },
     "name": {
       "type": "string"
     },

@@ -74,6 +74,7 @@ const createEntityHandler = (entityName) => ({
 
 // --- MAIN CLIENT OBJECT ---
 export const groonabackend = {
+  apiBaseUrl: API_URL,
   auth: {
     me: async () => {
       const res = await api.get(`${AUTH_URL}/me`);
@@ -254,6 +255,21 @@ export const groonabackend = {
     }
   },
 
+  custom: {
+    getRazorpayConfig: async () => {
+      const res = await api.get('/admin/razorpay-config');
+      return res.data;
+    },
+    updateRazorpayConfig: async (data) => {
+      const res = await api.post('/admin/razorpay-config', data);
+      return res.data;
+    },
+    getAdminSubscriptions: async () => {
+      const res = await api.get('/admin/subscriptions-history');
+      return res.data;
+    }
+  },
+
   agents: {
     listConversations: async () => {
       try {
@@ -334,6 +350,16 @@ export const groonabackend = {
     sendTemplate: async ({ to, templateType, data, subject }) => {
       const res = await api.post('/email/send-template', { to, templateType, data, subject });
       return res.data;
+    }
+  },
+  payments: {
+    getAdminHistory: async () => {
+      const res = await api.get('/admin/payments-history');
+      return res.data.map(item => fixId(item));
+    },
+    getTenantHistory: async (tenantId) => {
+      const res = await api.get(`/tenant/payments-history/${tenantId}`);
+      return res.data.map(item => fixId(item));
     }
   }
 };

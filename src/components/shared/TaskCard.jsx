@@ -41,6 +41,7 @@ import TaskDetailDialog from "../tasks/TaskDetailDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
 import { groonabackend } from "@/api/groonabackend";
+import { Progress } from "@/components/ui/progress";
 
 const priorityColors = {
   low: "bg-blue-100 text-blue-600 border-blue-200",
@@ -118,6 +119,45 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
     }
     setShowDeleteDialog(false);
   };
+
+  const getProgressInfo = () => {
+    if (!task.due_date) return null;
+
+    const now = new Date();
+    const due = new Date(task.due_date);
+    // Use created_date if available, otherwise default to a 7-day window before due date for calculation
+    const created = new Date(task.created_date || task._created_at || (due.getTime() - 7 * 24 * 60 * 60 * 1000));
+
+    const total = due.getTime() - created.getTime();
+    if (total <= 0) return { percentage: 100, color: "bg-red-500" };
+
+    const elapsed = now.getTime() - created.getTime();
+    let percentage = Math.min(100, Math.max(0, (elapsed / total) * 100));
+
+    // Status-based overrides to ensure visibility and accuracy
+    if (task.status === 'completed') {
+      percentage = 100;
+    } else if (task.status === 'review') {
+      percentage = Math.max(80, percentage);
+    } else if (task.status === 'in_progress') {
+      percentage = Math.max(20, percentage);
+    }
+
+    const remainingDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+
+    let color = "bg-green-500";
+    if (task.status === 'completed') {
+      color = "bg-green-500";
+    } else if (remainingDays < 1) {
+      color = "bg-red-500";
+    } else if (remainingDays < 3) {
+      color = "bg-orange-500";
+    }
+
+    return { percentage, color };
+  };
+
+  const progressInfo = getProgressInfo();
 
   return (
     <>
@@ -230,6 +270,20 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
         </div>
 
         <div className="p-4 space-y-3">
+          {progressInfo && (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                <span>Progress</span>
+                <span>{Math.round(progressInfo.percentage)}%</span>
+              </div>
+              <Progress
+                value={progressInfo.percentage}
+                className="h-1.5 bg-slate-100 border border-slate-200/50"
+                indicatorClassName={cn("transition-all duration-500", progressInfo.color)}
+              />
+            </div>
+          )}
+
           {task.description && (
             <div className="text-sm text-slate-600 line-clamp-1 leading-relaxed">
               {(() => {

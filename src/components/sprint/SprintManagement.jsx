@@ -9,7 +9,6 @@ export default function SprintManagement(props) {
       sprints={props.sprints}
       tasks={props.tasks}
       tenantId={props.tenantId}
-      highlightSprintId={props.highlightSprintId}
     />
   );
 }

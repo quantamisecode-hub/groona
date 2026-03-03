@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Calendar, Clock, CheckCircle, AlertCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { groonabackend } from "@/api/groonabackend";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useUser } from "../shared/UserContext";
 
 export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, onSuccess }) {
   const queryClient = useQueryClient();
+  const { user } = useUser();
   const [selectedIds, setSelectedIds] = useState([]);
 
   const submitMutation = useMutation({
@@ -158,17 +160,72 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
     }
   });
 
+  // 1. Fetch relevant projects to check status
+  const projectIds = React.useMemo(() => {
+    return [...new Set(draftEntries.map(t => {
+      return t.project_id && typeof t.project_id === 'object' ? t.project_id._id || t.project_id.id : t.project_id;
+    }).filter(Boolean))];
+  }, [draftEntries]);
+
+  const { data: projectsMap = {} } = useQuery({
+    queryKey: ['projects-lock-map', projectIds],
+    queryFn: async () => {
+      if (projectIds.length === 0) return {};
+      const results = {};
+      await Promise.all(projectIds.map(async pid => {
+        let projects = await groonabackend.entities.Project.filter({ _id: pid });
+        if (!projects || projects.length === 0) {
+          projects = await groonabackend.entities.Project.filter({ id: pid });
+        }
+        if (projects[0]) results[pid] = projects[0];
+      }));
+      return results;
+    },
+    enabled: projectIds.length > 0 && open,
+  });
+
+  // 2. Fetch relevant milestones to check status
+  const milestoneIds = React.useMemo(() => {
+    return [...new Set(draftEntries.map(t => t.milestone_id).filter(Boolean))];
+  }, [draftEntries]);
+
+  const { data: milestonesMap = {} } = useQuery({
+    queryKey: ['milestones-lock-map', milestoneIds],
+    queryFn: async () => {
+      if (milestoneIds.length === 0) return {};
+      const results = {};
+      await Promise.all(milestoneIds.map(async mid => {
+        const milestone = await groonabackend.entities.Milestone.get(mid);
+        if (milestone) results[mid] = milestone;
+      }));
+      return results;
+    },
+    enabled: milestoneIds.length > 0 && open,
+  });
+
+  const getIsSettled = (entry) => {
+    const pId = entry.project_id && typeof entry.project_id === 'object' ? entry.project_id._id || entry.project_id.id : entry.project_id;
+    const project = projectsMap[pId];
+    const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
+
+    return (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
+  };
+
   const handleToggle = (id) => {
+    const entry = draftEntries.find(e => e.id === id);
+    if (getIsSettled(entry)) return;
+
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === draftEntries.length) {
+    const submittableEntries = draftEntries.filter(e => !getIsSettled(e));
+    if (selectedIds.length === submittableEntries.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(draftEntries.map(e => e.id));
+      setSelectedIds(submittableEntries.map(e => e.id));
     }
   };
 
@@ -191,6 +248,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
   const finalHours = totalHours + Math.floor(totalMinutes / 60);
   const finalMinutes = totalMinutes % 60;
 
+  const isLocked = user?.is_timesheet_locked;
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -200,6 +259,13 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
             Select the draft entries you want to submit. Once submitted, they will be locked until approved or rejected.
           </DialogDescription>
         </DialogHeader>
+
+        {isLocked && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <strong className="font-bold">Audit locked by Manager--</strong>
+            <span className="block sm:inline"> You cannot submit timesheets at this time.</span>
+          </div>
+        )}
 
         {draftEntries.length === 0 ? (
           <div className="py-12 text-center">
@@ -213,7 +279,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || isLocked}
               >
                 {selectedIds.length === draftEntries.length ? 'Deselect All' : 'Select All'}
               </Button>
@@ -227,7 +293,7 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                 <Card
                   key={entry.id}
                   className={`cursor-pointer transition-colors ${selectedIds.includes(entry.id) ? 'bg-blue-50 border-blue-200' : ''
-                    }`}
+                    } ${getIsSettled(entry) ? 'opacity-60 bg-slate-50 border-slate-200' : ''}`}
                   onClick={() => handleToggle(entry.id)}
                 >
                   <CardContent className="p-4">
@@ -236,12 +302,20 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                         <Checkbox
                           checked={selectedIds.includes(entry.id)}
                           onCheckedChange={() => handleToggle(entry.id)}
-                          disabled={submitMutation.isPending}
+                          disabled={submitMutation.isPending || getIsSettled(entry)}
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-2">
-                          <p className="font-medium text-slate-900">{entry.task_title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-slate-900">{entry.task_title}</p>
+                            {getIsSettled(entry) && (
+                              <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 gap-1 h-5 px-1.5">
+                                <Lock className="h-3 w-3" />
+                                Settled
+                              </Badge>
+                            )}
+                          </div>
                           <Badge variant="outline" className="ml-2">
                             <Clock className="h-3 w-3 mr-1" />
                             {entry.time_spent || `${entry.hours}h ${entry.minutes}m`}
@@ -257,6 +331,11 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
                             <Badge variant="secondary" className="text-xs">{entry.sprint_name}</Badge>
                           )}
                         </div>
+                        {getIsSettled(entry) && (
+                          <p className="text-[10px] text-red-500 font-medium mt-1 uppercase tracking-tighter">
+                            Cannot submit - Project phase is completed and settled
+                          </p>
+                        )}
                         {entry.notes && (
                           <p className="text-sm text-slate-600 line-clamp-1 mt-1">
                             {entry.notes}
@@ -294,7 +373,8 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitMutation.isPending || selectedIds.length === 0}
+            disabled={submitMutation.isPending || selectedIds.length === 0 || isLocked}
+            className={isLocked ? "bg-gray-400 cursor-not-allowed" : ""}
           >
             {submitMutation.isPending ? (
               <>
@@ -310,4 +390,3 @@ export default function SubmitTimesheetsDialog({ open, onClose, draftEntries, on
     </Dialog>
   );
 }
-

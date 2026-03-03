@@ -107,8 +107,8 @@ export default function ProjectCard({ project, onDelete, highlighted }) {
   return (
     <Card
       className={`group hover:shadow-xl transition-all duration-300 border-slate-200/60 overflow-hidden ${highlighted && isRed ? 'bg-red-50 border-red-200 shadow-lg ring-2 ring-red-500/20' :
-          highlighted && isYellow ? 'bg-amber-50 border-amber-200 shadow-lg ring-2 ring-amber-500/20' :
-            'bg-white/60 backdrop-blur-xl'
+        highlighted && isYellow ? 'bg-amber-50 border-amber-200 shadow-lg ring-2 ring-amber-500/20' :
+          'bg-white/60 backdrop-blur-xl'
         }`}
       style={{ borderTopColor: project.color || (isRed ? '#ef4444' : isYellow ? '#f59e0b' : '#3b82f6'), borderTopWidth: '4px' }}
     >

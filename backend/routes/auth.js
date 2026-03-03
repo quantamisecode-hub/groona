@@ -216,9 +216,55 @@ async function handleFailedLoginAttempt(email, user, req) {
   }
 }
 
+// --- HELPER: Check and Notify Profile Completion ---
+async function checkAndNotifyProfileCompletion(user) {
+  try {
+    const Notification = require('../models/SchemaDefinitions').Notification;
+    if (!Notification) return;
+
+    const missingFields = [];
+    if (!user.phone_number) missingFields.push('Phone Number');
+    if (!user.profile_image_url) missingFields.push('Profile Image');
+    if (!user.department) missingFields.push('Department');
+    if (!user.job_title) missingFields.push('Job Title');
+
+    if (missingFields.length > 0) {
+      // Check if we already notified recently to avoid spamming every login
+      // For now, let's just check if there's an UNREAD notification of this type
+      const existingNotification = await Notification.findOne({
+        recipient_email: user.email,
+        type: 'profile_incomplete',
+        read: false
+      });
+
+      if (!existingNotification) {
+        await Notification.create({
+          tenant_id: user.tenant_id,
+          recipient_email: user.email,
+          user_id: user._id || user.id,
+          type: 'profile_incomplete',
+          category: 'alert',
+          title: 'Action Required: Complete Your Profile',
+          message: 'Please complete your profile for better planning accuracy.',
+          link: '/UserProfile', // Deep link to profile page
+          entity_type: 'user',
+          entity_id: user._id || user.id,
+          sender_name: 'System',
+          read: false,
+          created_date: new Date()
+        });
+        console.log(`[Profile Check] Sent incomplete profile notification to ${user.email}`);
+      }
+    }
+  } catch (error) {
+    console.error('[Profile Check] Error checking profile completion:', error);
+  }
+}
+
 // --- HELPER: Log User Login ---
 async function logUserLogin(user, session, req) {
   try {
+    // ... (rest of the function remains the same, just keeping context)
     const UserLog = require('../models/SchemaDefinitions').UserLog;
     const User = require('../models/SchemaDefinitions').User;
 
@@ -232,7 +278,12 @@ async function logUserLogin(user, session, req) {
       });
     }
 
+    // Trigger Profile Completion Check asynchronously
+    checkAndNotifyProfileCompletion(user).catch(err => console.error(err));
+
     if (!UserLog) return;
+
+    // ... (rest of logging logic) ...
 
     const ua = parseUserAgent(req.headers['user-agent']);
     const deviceInfo = `${ua.os} - ${ua.browser} (${ua.device_type})`;

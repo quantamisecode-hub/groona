@@ -22,6 +22,7 @@ import FeatureOnboarding from "../components/onboarding/FeatureOnboarding";
 import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
 import WeeklyTimesheetChart from "../components/dashboard/WeeklyTimesheetChart";
 import ResourceAllocationChart from "../components/dashboard/ResourceAllocationChart";
+import TeamActivityWidget from "../components/dashboard/TeamActivityWidget";
 import SprintVelocityChart from "../components/dashboard/SprintVelocityChart";
 import UpcomingDeadlines from "../components/dashboard/UpcomingDeadlines";
 import TaskOverviewDonutChart from "../components/dashboard/TaskOverviewDonutChart";
@@ -134,6 +135,16 @@ export default function Dashboard() {
     staleTime: 1 * 60 * 1000,
   });
 
+  const { data: stories = [] } = useQuery({
+    queryKey: ['stories', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Story.list();
+      return groonabackend.entities.Story.filter({ tenant_id: effectiveTenantId });
+    },
+    enabled: !!currentUser,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set();
     tasks.forEach(task => {
@@ -218,12 +229,14 @@ export default function Dashboard() {
     onError: (error) => toast.error('Failed to create project.'),
   });
 
-  const stats = useMemo(() => ({
-    totalProjects: filteredProjects.length,
-    activeProjects: filteredProjects.filter(p => p.status === 'active').length,
-    completedTasks: filteredTasks.filter(t => t.status === 'completed').length,
-    pendingTasks: filteredTasks.filter(t => t.status === 'todo').length,
-  }), [filteredProjects, filteredTasks]);
+  const stats = useMemo(() => {
+    return {
+      totalProjects: filteredProjects.length,
+      activeProjects: filteredProjects.filter(p => p.status === 'active').length,
+      completedTasks: filteredTasks.filter(t => t.status === 'completed').length,
+      pendingTasks: filteredTasks.filter(t => t.status === 'todo').length,
+    };
+  }, [filteredProjects, filteredTasks]);
 
   const firstName = currentUser?.full_name ? currentUser.full_name.split(' ')[0] : 'User';
   const userRole = currentUser?.is_super_admin || currentUser?.role === 'admin' ? 'admin' : 'user';
@@ -285,12 +298,12 @@ export default function Dashboard() {
 
                 {/* 3. Action Button */}
                 {canCreateProject ? (
-                  <Button onClick={() => setShowCreateProject(true)} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10 rounded-xl px-4 font-medium transition-colors">
+                  <Button onClick={() => setShowCreateProject(true)} className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">
                     <Plus className="w-4 h-4 mr-2" /> New Project
                   </Button>
                 ) : (
                   <Link to={createPageUrl("Projects")}>
-                    <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10 rounded-xl px-4 font-medium transition-colors">View Projects</Button>
+                    <Button className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">View Projects</Button>
                   </Link>
                 )}
               </div>
@@ -299,16 +312,16 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
               <StatsCard title="Total Projects" value={stats.totalProjects} icon={TrendingUp} iconColor="text-blue-600" loading={projectsLoading} />
               <StatsCard title="Active Projects" value={stats.activeProjects} icon={Clock} iconColor="text-purple-600" loading={projectsLoading} />
-              <StatsCard title="Completed Tasks" value={stats.completedTasks} icon={CheckCircle2} iconColor="text-green-600" loading={tasksLoading} />
-              <StatsCard title="Pending Tasks" value={stats.pendingTasks} icon={AlertCircle} iconColor="text-orange-600" loading={tasksLoading} />
+              <StatsCard title="Total Completed Tasks" value={stats.completedTasks} icon={CheckCircle2} iconColor="text-green-600" loading={tasksLoading} />
+              <StatsCard title="Total Pending Tasks" value={stats.pendingTasks} icon={AlertCircle} iconColor="text-orange-600" loading={tasksLoading} />
             </div>
 
             {isAdmin && (
               <div className="flex flex-col gap-6">
                 <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
+                <AdminTopPerformers projects={filteredProjects} tasks={filteredTasks} />
                 <CompanyProfitabilityChart />
                 <AdminLostRevenueWidget />
-                <AdminTopPerformers />
               </div>
             )}
 
@@ -369,17 +382,19 @@ export default function Dashboard() {
                     />
                   </>
                 )}
-                <ProjectsList projects={filteredProjects.slice(0, 4)} loading={projectsLoading} />
+                <ProjectsList projects={filteredProjects} stories={stories} loading={projectsLoading} />
+                <SprintVelocityChart isAdmin={isAdmin} tenantId={effectiveTenantId} className="flex-1 min-h-[320px]" />
               </div>
               <div className="space-y-6">
                 <TaskOverviewDonutChart
                   tasks={filteredTasks}
                   selectedStatus={selectedDonutStatus}
                   onSelectStatus={setSelectedDonutStatus}
+                  isAdmin={isAdmin}
                 />
-                <WeeklyTimesheetChart />
-                <ResourceAllocationChart />
-                <SprintVelocityChart />
+                <WeeklyTimesheetChart isAdmin={isAdmin} tenantId={effectiveTenantId} />
+                <ResourceAllocationChart isAdmin={isAdmin} tenantId={effectiveTenantId} />
+                <TeamActivityWidget activities={activities} />
               </div>
             </div>
 

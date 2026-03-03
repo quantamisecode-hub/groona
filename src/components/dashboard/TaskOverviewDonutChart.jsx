@@ -7,22 +7,24 @@ const STATUS_CONFIG = [
     { id: 'to_do', label: 'To Do', color: '#64748b', tailwind: 'bg-slate-500' }, // slate-500
     { id: 'in_progress', label: 'In Progress', color: '#2563eb', tailwind: 'bg-blue-600' }, // blue-600
     { id: 'review', label: 'In Review', color: '#f59e0b', tailwind: 'bg-amber-500' }, // amber-500
-    { id: 'blocked', label: 'Blocked', color: '#ef4444', tailwind: 'bg-red-500' } // red-500
+    { id: 'blocked', label: 'Blocked', color: '#ef4444', tailwind: 'bg-red-500' }, // red-500
+    { id: 'completed', label: 'Completed', color: '#22c55e', tailwind: 'bg-green-500' } // green-500
 ];
 
-export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onSelectStatus, title = "Task Overview" }) {
+export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onSelectStatus, title: propTitle, isAdmin }) {
+    const title = propTitle || (isAdmin ? "Team Task Overview" : "Task Overview");
 
     // Derived stats
     const { counts, total, segments } = useMemo(() => {
-        const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'done');
-        const c = { 'to_do': 0, 'in_progress': 0, 'review': 0, 'blocked': 0 };
+        const c = { 'to_do': 0, 'in_progress': 0, 'review': 0, 'blocked': 0, 'completed': 0 };
 
-        activeTasks.forEach(task => {
+        tasks.forEach(task => {
             const status = (task.status || 'to_do').toLowerCase();
             if (c[status] !== undefined) {
                 c[status]++;
             } else {
                 if (status === 'todo') c['to_do']++;
+                else if (status === 'done') c['completed']++;
                 else c['to_do']++;
             }
         });

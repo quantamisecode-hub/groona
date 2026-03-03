@@ -28,8 +28,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Loader2, Sparkles, FolderKanban, BookOpen, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, Sparkles, FolderKanban, BookOpen, ChevronDown, ChevronRight, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 const sprintSchema = z.object({
@@ -37,6 +44,7 @@ const sprintSchema = z.object({
   goal: z.string().max(500, "Goal is too long").optional(),
   start_date: z.date({ required_error: "Start date is required" }),
   end_date: z.date({ required_error: "End date is required" }),
+  milestone_id: z.string().optional(),
 }).refine(
   (data) => {
     if (!data.start_date || !data.end_date) return true;
@@ -64,6 +72,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
       goal: initialValues?.goal || "",
       start_date: initialValues?.start_date ? new Date(initialValues.start_date) : undefined,
       end_date: initialValues?.end_date ? new Date(initialValues.end_date) : undefined,
+      milestone_id: initialValues?.milestone_id || "",
     },
   });
 
@@ -82,6 +91,16 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     queryFn: async () => {
       if (!projectId) return [];
       return await groonabackend.entities.Story.filter({ project_id: projectId });
+    },
+    enabled: !!projectId && open,
+  });
+
+  // Fetch milestones for the project
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      return await groonabackend.entities.Milestone.filter({ project_id: projectId });
     },
     enabled: !!projectId && open,
   });
@@ -266,6 +285,7 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
       goal: initialValues?.goal || "",
       start_date: initialValues?.start_date ? new Date(initialValues.start_date) : undefined,
       end_date: initialValues?.end_date ? new Date(initialValues.end_date) : undefined,
+      milestone_id: initialValues?.milestone_id || "",
     });
     // Reset initialization flag when initialValues change (different sprint being edited)
     if (initialValues?.id) {
@@ -332,6 +352,41 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
                   <FormControl>
                     <Textarea placeholder="Define the main objective for this sprint..." {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="milestone_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Flag className="h-4 w-4 text-blue-500" />
+                    Associated Milestone
+                  </FormLabel>
+                  <Select
+                    onValueChange={(val) => field.onChange(val === "unassigned" ? "" : val)}
+                    defaultValue={field.value}
+                    value={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a milestone (optional)" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {milestones
+                        .filter(m => m.status === 'in_progress' || (field.value && (m.id === field.value || m._id === field.value)))
+                        .map((m) => (
+                          <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                            {m.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -44,9 +44,9 @@ export default function ProjectDetail() {
 
   // Robust URL Parameter Handling
   const projectId = searchParams.get('id');
+  const tabParam = searchParams.get('tab') || 'overview';
   const taskIdParam = searchParams.get('taskId');
   const commentIdParam = searchParams.get('commentId');
-  const tabParam = searchParams.get('tab') || 'overview';
   const highlightSprintId = searchParams.get('highlightSprintId');
 
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -524,6 +524,7 @@ export default function ProjectDetail() {
 
             <ProjectHeader
               project={project}
+              tasks={tasks}
               tasksCount={(() => {
                 // For viewers, only count assigned tasks
                 // For project managers of this project, show all tasks
@@ -703,7 +704,6 @@ export default function ProjectDetail() {
                       onDelete={(id) => deleteTaskMutation.mutate(id)}
                       onTaskClick={(taskId) => {
                         setSelectedTaskId(taskId);
-                        setShowTaskDetail(true);
                       }}
                       onStoryClick={(storyId) => {
                         setSelectedStoryId(storyId);
@@ -747,7 +747,7 @@ export default function ProjectDetail() {
               )}
 
               <TabsContent value="milestones">
-                <MilestonesList projectId={projectId} />
+                <MilestonesList projectId={projectId} project={project} />
               </TabsContent>
 
               {/* Hide Budget & Expenses content for viewer and project_manager */}

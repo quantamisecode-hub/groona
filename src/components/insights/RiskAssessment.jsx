@@ -1,10 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, AlertCircle, CheckCircle2, Clock, Users, TrendingDown, ChevronRight, Activity, ShieldAlert } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export default function RiskAssessment({ project, tasks, compact = false }) {
+export default function RiskAssessment({ project, tasks, stories = [], compact = false }) {
+  const [expandedRisks, setExpandedRisks] = useState({});
+
+  const toggleRisk = (index) => {
+    setExpandedRisks(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
   const assessRisks = () => {
     const risks = [];
     const now = new Date();
@@ -13,11 +23,18 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
     let riskScore = 0;
     const riskFactors = [];
 
+    // Calculate progress for risk assessment using Story Points for consistency
+    const totalPoints = stories.reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const donePoints = stories
+      .filter(s => s.status === 'done')
+      .reduce((sum, s) => sum + (parseInt(s.story_points) || 0), 0);
+    const currentProgress = totalPoints > 0 ? (donePoints / totalPoints) * 100 : 0;
+
     // 1. Deadline Risk (0-30 points)
     if (project.deadline) {
       const deadline = new Date(project.deadline);
       const daysUntilDeadline = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
-      const progress = project.progress || 0;
+      const progress = currentProgress;
       const expectedProgress = 100 - ((daysUntilDeadline / 90) * 100); // Assuming 90 day project
       const progressGap = Math.max(0, expectedProgress - progress);
 
@@ -187,7 +204,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
               </div>
               <div className="text-right">
                 <p className="text-sm text-slate-600">Risk Score</p>
-                <p className={`text-3xl font-bold ${text}`}>{riskScore}</p>
+                <p className={`text-3xl font-bold ${text}`}>{Number(riskScore).toFixed(2)}</p>
               </div>
             </div>
             <Progress value={riskScore} className="h-2" />
@@ -216,8 +233,13 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
     <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 transition-all duration-300 hover:shadow-md">
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <CardTitle className="flex items-center gap-3 text-lg md:text-xl">
+            <Avatar className="h-8 w-8 border border-slate-200">
+              <AvatarImage src={project.logo_url} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
+                {project.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <span className="truncate">Risk Assessment: {project.name}</span>
           </CardTitle>
           <Badge variant="outline" className={`${text} ${bg} border-${riskColors[overallRiskLevel].border} px-3 py-1 text-sm capitalize`}>
@@ -239,7 +261,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
             <div className="relative z-10 w-full">
               <p className="text-sm font-medium text-slate-600 mb-1 uppercase tracking-wider">Risk Score</p>
               <div className="flex items-baseline justify-center gap-1 mb-2">
-                <span className={`text-5xl font-bold ${text}`}>{riskScore}</span>
+                <span className={`text-5xl font-bold ${text}`}>{Number(riskScore).toFixed(2)}</span>
                 <span className="text-slate-500 font-medium">/100</span>
               </div>
 
@@ -290,7 +312,7 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
                             style={{ width: `${Math.min(100, (factor.impact / 30) * 100)}%` }}
                           />
                         </div>
-                        <span className="font-mono font-medium text-slate-700 text-xs w-6 text-right">+{factor.impact}</span>
+                        <span className="font-mono font-medium text-slate-700 text-xs w-6 text-right">+{Number(factor.impact).toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -336,14 +358,27 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
                     </div>
 
                     {/* Action Section */}
-                    <div className="sm:w-1/3 min-w-[250px] bg-white/60 rounded-lg p-3 border border-slate-200/50 backdrop-blur-sm self-start">
-                      <div className="flex items-start gap-2">
-                        <ChevronRight className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-0.5">Recommended Action</p>
-                          <p className="text-xs md:text-sm font-medium text-slate-800 leading-snug">{risk.mitigation}</p>
+                    <div
+                      className="sm:w-1/3 min-w-[250px] bg-white/80 rounded-lg p-3 border border-slate-200 shadow-sm cursor-pointer transition-all hover:bg-white group"
+                      onClick={() => toggleRisk(index)}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${expandedRisks[index] ? 'rotate-90 text-purple-600' : ''}`} />
+                          <p className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Recommended Action</p>
                         </div>
+                        {expandedRisks[index] && (
+                          <Badge variant="outline" className="text-[8px] h-4 px-1 border-purple-100 text-purple-600 bg-purple-50">Active</Badge>
+                        )}
                       </div>
+                      <div className={`overflow-hidden transition-all duration-300 ${expandedRisks[index] ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+                        <p className="text-xs md:text-sm font-medium text-slate-800 leading-snug border-t border-slate-100 pt-2">{risk.mitigation}</p>
+                      </div>
+                      {!expandedRisks[index] && (
+                        <p className="text-[10px] text-slate-400 italic mt-1 flex items-center gap-1 group-hover:text-purple-500 transition-colors">
+                          Click to view mitigation strategy...
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
@@ -360,6 +395,6 @@ export default function RiskAssessment({ project, tasks, compact = false }) {
           </div>
         )}
       </CardContent>
-    </Card>
+    </Card >
   );
 }

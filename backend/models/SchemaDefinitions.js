@@ -40,8 +40,7 @@ const convertType = (field) => {
         nestedSchema[key] = convertType(field.properties[key]);
       });
     }
-    schemaType = nestedSchema;
-    return schemaType;
+    return nestedSchema; // Corrected: return directly for embedded schemas
   } else {
     schemaType.type = mongoose.Schema.Types.Mixed;
   }
@@ -65,12 +64,12 @@ if (fs.existsSync(modelsPath)) {
         const definition = require(path.join(modelsPath, file));
         const modelName = definition.name || path.parse(file).name;
 
-        // Helper: Get Standard UTC Date (Unified for sorting)
-        const getISTDate = () => new Date();
+        // Helper: Get Standard UTC Date (Unified for sorting) - Corrected: single definition
+        const getDefaultDate = () => new Date();
 
         const schemaObj = {};
-        schemaObj.created_date = { type: Date, default: getISTDate };
-        schemaObj.updated_date = { type: Date, default: getISTDate };
+        schemaObj.created_date = { type: Date, default: getDefaultDate };
+        schemaObj.updated_date = { type: Date, default: getDefaultDate };
 
         if (definition.properties) {
           Object.keys(definition.properties).forEach(propName => {
@@ -78,7 +77,9 @@ if (fs.existsSync(modelsPath)) {
             const mongooseDef = convertType(fieldDef);
 
             if (definition.required && definition.required.includes(propName)) {
-              if (mongooseDef.type) mongooseDef.required = true;
+              if (mongooseDef && typeof mongooseDef === 'object' && !Array.isArray(mongooseDef) && mongooseDef.type) {
+                mongooseDef.required = true;
+              }
             }
             if (fieldDef.unique) mongooseDef.unique = true;
 
@@ -93,22 +94,16 @@ if (fs.existsSync(modelsPath)) {
           const syncSubscription = async (doc) => {
             if (!doc) return;
             try {
-              // Ensure TenantSubscription model is available (it might be loaded later if files processed alphabetically)
-              // But since this is a post hook, it runs at runtime, so all models should be loaded.
-              // However, to be safe, we can use mongoose.connection.db if model not found, like in check_trial_status.
-              // Better: use mongoose.model if possible, catch if missing.
               let TenantSubscription;
               try {
                 TenantSubscription = mongoose.model('TenantSubscription');
               } catch (e) {
-                // If not registered yet, we can't sync via Mongoose model. 
-                // But typically schemas are registered synchronously in this loop.
                 console.warn("[Middleware] TenantSubscription model not found yet. Skipping sync.");
                 return;
               }
 
               const updateData = {
-                tenant_id: doc._id || doc.id,
+                tenant_id: doc._id,
                 status: doc.subscription_status || 'trialing',
                 trial_ends_at: doc.trial_ends_at,
                 subscription_plan_id: doc.subscription_plan_id,
@@ -124,7 +119,7 @@ if (fs.existsSync(modelsPath)) {
               };
 
               await TenantSubscription.findOneAndUpdate(
-                { tenant_id: doc._id || doc.id },
+                { tenant_id: doc._id },
                 {
                   $set: updateData,
                   $setOnInsert: { created_at: new Date() }
@@ -152,7 +147,7 @@ if (fs.existsSync(modelsPath)) {
               // === DUPLICATE CHECK ===
               // Check if we already sent a 'PM_VELOCITY_DROP' alert for this sprint
               const existingAlert = await Notification.findOne({
-                entity_id: doc._id || doc.id,
+                entity_id: doc._id,
                 type: 'PM_VELOCITY_DROP'
               });
 
@@ -166,7 +161,7 @@ if (fs.existsSync(modelsPath)) {
               const Task = mongoose.model('Task');
               const Story = mongoose.model('Story');
 
-              const sprintId = String(doc._id || doc.id);
+              const sprintId = String(doc._id);
 
               // 1. Fetch Stories and Tasks
               const sprintStories = await Story.find({ sprint_id: sprintId });
@@ -259,10 +254,11 @@ if (fs.existsSync(modelsPath)) {
                     title: 'Sprint Velocity Alert',
                     message: `⚠️ Sprint velocity has dropped below planned levels (${completedPoints.toFixed(2)}/${plannedPoints}). Review capacity and blockers.`,
                     entity_type: 'sprint',
-                    entity_id: doc._id || doc.id,
+                    entity_id: doc._id,
                     project_id: doc.project_id,
                     sender_name: 'System',
                     read: false,
+                    created_date: new Date()
                   });
 
                   // B. Email Notification
@@ -292,7 +288,7 @@ if (fs.existsSync(modelsPath)) {
                           </table>
 
                           <p>Please review the sprint retrospective to identify blockers or capacity issues.</p>
-                          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/ProjectDetail?id=${doc.project_id}&tab=sprints&highlightSprintId=${doc._id || doc.id}" 
+                          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/ProjectDetail?id=${doc.project_id}&tab=sprints&highlightSprintId=${doc._id}" 
                              style="display: inline-block; background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">
                             View Sprint Report
                           </a>
@@ -325,7 +321,7 @@ if (fs.existsSync(modelsPath)) {
               const ProjectUserRole = mongoose.model('ProjectUserRole');
               const User = mongoose.model('User');
 
-              const sprintId = String(doc._id || doc.id);
+              const sprintId = String(doc._id);
 
               // Determine user_id (PM or owner)
               let userId = 'system';
@@ -474,27 +470,24 @@ if (fs.existsSync(modelsPath)) {
               let projectName = '';
 
               if (doc.entity_type === 'task') {
-                let task = null;
-                try { task = await Task.findById(doc.entity_id); } catch (e) { }
-                if (!task) task = await Task.findOne({ id: doc.entity_id });
+                let task = await Task.findById(doc.entity_id);
+                if (!task) task = await Task.findOne({ id: doc.entity_id }); // Fallback if using string id
 
                 if (task) {
                   taskTitle = task.title;
                   resolvedProjectId = task.project_id;
 
-                  let project = null;
-                  try { project = await Project.findById(task.project_id); } catch (e) { }
+                  let project = await Project.findById(task.project_id);
                   if (!project) project = await Project.findOne({ id: task.project_id });
 
                   if (project) {
                     projectName = project.name;
-                    resolvedProjectId = project._id || project.id;
+                    resolvedProjectId = project._id;
                   }
 
                   let sprintName = '';
                   if (task.sprint_id) {
-                    let sprint = null;
-                    try { sprint = await Sprint.findById(task.sprint_id); } catch (e) { }
+                    let sprint = await Sprint.findById(task.sprint_id);
                     if (!sprint) sprint = await Sprint.findOne({ id: task.sprint_id });
                     if (sprint) sprintName = sprint.name;
                   }
@@ -504,14 +497,13 @@ if (fs.existsSync(modelsPath)) {
                   contextName = sprintName ? `${projLabel} > Sprint: **${sprintName}** > ${taskLabel}` : `${projLabel} > ${taskLabel}`;
                 }
               } else if (doc.entity_type === 'project') {
-                let project = null;
-                try { project = await Project.findById(doc.entity_id); } catch (e) { }
+                let project = await Project.findById(doc.entity_id);
                 if (!project) project = await Project.findOne({ id: doc.entity_id });
 
                 if (project) {
                   projectName = project.name;
                   contextName = `Project: **${projectName}**`;
-                  resolvedProjectId = project._id || project.id;
+                  resolvedProjectId = project._id;
                 }
               }
 
@@ -533,15 +525,12 @@ if (fs.existsSync(modelsPath)) {
 
               // Get Assignees if it's a task
               if (doc.entity_type === 'task') {
-                try {
-                  let task = null;
-                  try { task = await Task.findById(doc.entity_id); } catch (e) { }
-                  if (!task) task = await Task.findOne({ id: doc.entity_id });
-                  if (task && task.assigned_to) {
-                    const assigned = Array.isArray(task.assigned_to) ? task.assigned_to : [task.assigned_to];
-                    assigneeEmails.push(...assigned.map(a => typeof a === 'object' ? a.email : a));
-                  }
-                } catch (e) { }
+                let task = await Task.findById(doc.entity_id);
+                if (!task) task = await Task.findOne({ id: doc.entity_id });
+                if (task && task.assigned_to) {
+                  const assigned = Array.isArray(task.assigned_to) ? task.assigned_to : [task.assigned_to];
+                  assigneeEmails.push(...assigned.map(a => typeof a === 'object' ? a.email : a));
+                }
               }
 
               // Combine and Deduplicate

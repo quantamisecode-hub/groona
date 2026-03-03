@@ -18,13 +18,15 @@ import {
   Loader2,
   Sparkles,
   History,
-  Trash2
+  Trash2,
+  Image as ImageIcon
 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import ReactMarkdown from 'react-markdown';
 import { toast } from "sonner";
 
-export default function ProjectReport({ project, tasks, activities }) {
+export default function ProjectReport({ project, tasks, stories = [], activities }) {
   const { user: currentUser, effectiveTenantId } = useUser();
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -35,12 +37,26 @@ export default function ProjectReport({ project, tasks, activities }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const reportRef = useRef(null);
   const reportContainerRef = useRef(null);
+  const scrollAnchorRef = useRef(null);
+  const [userHasScrolledUp, setUserHasScrolledUp] = useState(false);
 
   // Fetch user profiles to map emails to names and titles
   const { data: userProfiles = [] } = useQuery({
     queryKey: ['user-profiles'],
     queryFn: () => groonabackend.entities.UserProfile.list(),
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => groonabackend.entities.Client.list(),
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: workspaces = [] } = useQuery({
+    queryKey: ['workspaces'],
+    queryFn: () => groonabackend.entities.Workspace.list(),
+    staleTime: 10 * 60 * 1000,
   });
 
   // Create a lookup map for fast access: email -> { name, title }
@@ -57,6 +73,81 @@ export default function ProjectReport({ project, tasks, activities }) {
     return map;
   }, [userProfiles]);
 
+  // Memoized list of names to bold
+  const boldTargets = useMemo(() => {
+    const names = new Set();
+    if (project?.name) names.add(project.name);
+    // Add client and workspace names if available
+    if (project.client_id) {
+      const client = clients.find(c => c.id === project.client_id);
+      if (client?.name) names.add(client.name);
+    }
+    if (project.workspace_id) {
+      const workspace = workspaces.find(w => w.id === project.workspace_id);
+      if (workspace?.name) names.add(workspace.name);
+    }
+    tasks.forEach(t => { if (t.title) names.add(t.title); });
+    userProfiles.forEach(p => {
+      if (p.full_name) names.add(p.full_name);
+      if (p.name) names.add(p.name);
+    });
+    return Array.from(names).filter(n => n && n.length > 2).sort((a, b) => b.length - a.length); // Longest first, ignore very short names
+  }, [project, tasks, userProfiles, clients, workspaces]);
+
+  // Preprocess markdown to bold identifiers and quotes
+  const preprocessMarkdown = (text) => {
+    if (!text) return "";
+    let processed = text;
+
+    // 1. Bold explicit targets (projects, tasks, and team members)
+    boldTargets.forEach(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Use case-insensitive regex ('gi') and negative lookbehind/lookahead to avoid double-bolding
+      const regex = new RegExp(`(?<!\\*\\*)\\b${escapedName}\\b(?!\\*\\*)`, 'gi');
+      processed = processed.replace(regex, (match) => `**${match}**`);
+    });
+
+    // 2. Bold dates, percentages, and critical figures
+    const boldPatterns = [
+      /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g,
+      /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/gi,
+      /\b\d{4}-\d{2}-\d{2}\b/g,
+      /\b\d+(\.\d+)?%\b/g, // Percentages
+      /(?<!\d)(?:\$|₹|£|€|USD)\s?\d+(?:,\d+)*(?:\.\d+)?(?:[kMBb])?\b/gi, // Currency/Figures
+    ];
+    boldPatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
+
+    // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
+    processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
+
+    return processed;
+  };
+
+  // Scroll detection to pause auto-scroll if user scrolls up
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!isStreaming) return;
+
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // If user is more than 150px from the bottom, they've scrolled up
+      if (documentHeight - (scrollY + windowHeight) > 150) {
+        if (!userHasScrolledUp) setUserHasScrolledUp(true);
+      } else {
+        if (userHasScrolledUp) setUserHasScrolledUp(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isStreaming, userHasScrolledUp]);
+
+  // Fetch reports logic follows...
+
   const generateAnalytics = () => {
     const completedTasks = tasks.filter(t => t.status === 'completed');
     const pendingTasks = tasks.filter(t => t.status !== 'completed');
@@ -71,6 +162,17 @@ export default function ProjectReport({ project, tasks, activities }) {
       review: tasks.filter(t => t.status === 'review').length,
       completed: completedTasks.length,
     };
+
+    // Calculate completion rate using Story Points (strict formula: Done SP / Total SP)
+    const completedStoryPoints = stories
+      .filter(s => {
+        const status = (s.status || '').toLowerCase();
+        return status === 'done' || status === 'completed';
+      })
+      .reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+
+    const totalStoryPoints = stories.reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+    const completionRate = totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
 
     // Fix: Correctly flatten and deduplicate assigned users
     const allAssignees = tasks.flatMap(t => {
@@ -90,7 +192,7 @@ export default function ProjectReport({ project, tasks, activities }) {
       tasksByStatus,
       assignedUsers,
       recentActivities,
-      completionRate: tasks.length > 0 ? ((completedTasks.length / tasks.length) * 100).toFixed(0) : 0,
+      completionRate,
     };
   };
 
@@ -135,8 +237,8 @@ export default function ProjectReport({ project, tasks, activities }) {
     }
   });
 
-  // Typewriter effect function - faster speed
-  const typewriterEffect = (text, speed = 5) => {
+  // Typewriter effect function - balanced speed (middle ground)
+  const typewriterEffect = (text, speed = 10) => {
     return new Promise((resolve) => {
       let index = 0;
       setDisplayedReport("");
@@ -144,29 +246,29 @@ export default function ProjectReport({ project, tasks, activities }) {
 
       const type = () => {
         if (index < text.length) {
-          setDisplayedReport(text.substring(0, index + 1));
-          index++;
+          // Balanced step size (10-15 chars) for a smooth but efficient reveal
+          const nextIndex = Math.min(index + 12, text.length);
+          setDisplayedReport(text.substring(0, nextIndex));
+          index = nextIndex;
 
-          // Auto-scroll to bottom while typing (every 50 characters for performance)
-          if (index % 50 === 0 && reportContainerRef.current) {
-            setTimeout(() => {
-              reportContainerRef.current?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'end'
-              });
-            }, 0);
+          // Auto-scroll to bottom while typing if user hasn't scrolled up manually
+          if (index % 60 === 0 && !userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
+              behavior: 'auto',
+              block: 'end'
+            });
           }
 
           setTimeout(type, speed);
         } else {
           setIsStreaming(false);
-          // Final scroll
-          setTimeout(() => {
-            reportContainerRef.current?.scrollIntoView({
+          // Final scroll if not manually scrolled up
+          if (!userHasScrolledUp) {
+            scrollAnchorRef.current?.scrollIntoView({
               behavior: 'smooth',
               block: 'end'
             });
-          }, 100);
+          }
           resolve();
         }
       };
@@ -177,22 +279,13 @@ export default function ProjectReport({ project, tasks, activities }) {
 
   // Auto-scroll effect when report changes or while streaming
   useEffect(() => {
-    if ((displayedReport || aiReport) && reportContainerRef.current) {
-      const scrollToBottom = () => {
-        if (reportContainerRef.current) {
-          reportContainerRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'end'
-          });
-        }
-      };
-
-      scrollToBottom();
-      const timeout = setTimeout(scrollToBottom, 200);
-
-      return () => clearTimeout(timeout);
+    if ((displayedReport || aiReport) && isStreaming && !userHasScrolledUp) {
+      scrollAnchorRef.current?.scrollIntoView({
+        behavior: 'auto',
+        block: 'end'
+      });
     }
-  }, [displayedReport, aiReport, isStreaming]);
+  }, [displayedReport, aiReport, isStreaming, userHasScrolledUp]);
 
   const generateAIReport = async () => {
     setIsGenerating(true);
@@ -206,41 +299,60 @@ export default function ProjectReport({ project, tasks, activities }) {
       });
       const velocity = (last30DaysCompletedTasks.length / 30).toFixed(2);
 
-      const prompt = `Generate a comprehensive executive project report for the following project:
+      const overdueTasksContext = analytics.overdueTasks.slice(0, 5).map(t => `- **${t.title}** (Due: ${format(new Date(t.due_date), 'MMM d, yyyy')})`).join('\n');
+      const urgentTasksContext = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').slice(0, 5).map(t => `- **${t.title}** (Priority: Urgent)`).join('\n');
 
-Project Name: ${project.name}
-Description: ${project.description || 'No description'}
-Status: ${project.status}
-Progress: ${project.progress || 0}%
-Deadline: ${project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Not set'}
-Priority: ${project.priority || 'Not set'}
+      const prompt = `Generate a comprehensive, strategic executive project report for the following project:
 
-Task Statistics:
+PROJECT CONTEXT:
+- Project Name: ${project.name}
+- Client: ${clients.find(c => c.id === project.client_id)?.name || 'N/A'}
+- Workspace: ${workspaces.find(w => w.id === project.workspace_id)?.name || 'Default'}
+- Description: ${project.description || 'No description'}
+- Status: ${project.status}
+- Overall Progress: ${analytics.completionRate}%
+- Deadline: ${project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Not set'}
+- Priority: ${project.priority || 'Medium'}
+- Billing Model: ${project.billing_model || 'N/A'}
+- Budget/Contract: ${project.currency || '$'}${Number(project.contract_amount || project.budget || 0).toLocaleString()}
+
+DETAILED STATISTICS:
 - Total Tasks: ${tasks.length}
 - Completed: ${analytics.completedTasks.length} (${analytics.completionRate}%)
 - In Progress: ${analytics.tasksByStatus.in_progress}
-- Pending: ${analytics.tasksByStatus.todo}
-- In Review: ${analytics.tasksByStatus.review}
-- Overdue: ${analytics.overdueTasks.length}
+- In Review/Feedback: ${analytics.tasksByStatus.review}
+- Pending/Backlog: ${analytics.tasksByStatus.todo}
+- OVERDUE TASKS: ${analytics.overdueTasks.length}
+- Velocity: ${velocity} tasks/day
+- Team Resources: ${analytics.assignedUsers.length} members
 
-Performance Metrics:
-- Completion Velocity: ${velocity} tasks/day
-- Team Members: ${analytics.assignedUsers.length}
-- Recent Activity: ${analytics.recentActivities.length} actions in last 10 entries
+CRITICAL ISSUES:
+${overdueTasksContext || '- No overdue tasks'}
+${urgentTasksContext || '- No other urgent tasks'}
 
-Recent Activities:
-${analytics.recentActivities.slice(0, 5).map(a => `- ${a.user_name} ${a.action} ${a.entity_type}: ${a.entity_name}`).join('\n')}
+RECENT PROJECT TRAJECTORY:
+${analytics.recentActivities.slice(0, 8).map(a => `- ${a.user_name} ${a.action} ${a.entity_type}: ${a.entity_name} (${format(new Date(a.created_date), 'MMM d')})`).join('\n')}
 
-Provide a VERY CONCISE executive report (max 300 words, fit on ONE PAGE) with:
+INSTRUCTIONS:
+Analyze the data above and provide a COMPREHENSIVE strategic report. Do NOT be overly concise; provide professional depth and actionable insights.
 
-1. **Executive Summary** (1-2 sentences only)
-2. **Key Achievements** (Top 3 bullet points, one line each)
-3. **Current Bottlenecks** (Top 2 bullet points, one line each)
-4. **Risk Assessment** (Top 3 bullet points, one line each)
-5. **Team Performance** (1-2 bullet points, one line each)
-6. **Strategic Recommendations** (Top 3 actionable items, one line each)
+The report MUST include these specific sections:
+1. # Executive Summary (High-level overview of project health and trajectory)
+2. ## Key Achievements (Major milestones reached and velocity highlights)
+3. ## Current Bottlenecks (Analytical look at what's slowing progress, citing specific tasks if relevant)
+4. ## Risk Assessment (Detailed analysis of overdue items, deadlines, and potential blockers)
+5. ## Team Performance (Assessment of team engagement and task completion trends)
+6. ## Strategic Recommendations (Professional advice for project success and timeline optimization)
 
-CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points only. No long paragraphs. Be direct and concise.`;
+FORMATTING RULES:
+- Use **bold text** to highlight:
+    - Team member names
+    - Specific Task Titles
+    - Due Dates
+    - Critical Figures (percentages, counts, currency)
+    - Phase names or Key strategic terms
+- Use clear headers and bullet points for readability.
+- Maintain a professional, executive tone.`;
 
       const result = await groonabackend.integrations.Core.InvokeLLM({
         prompt,
@@ -249,8 +361,8 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
 
       setAiReport(result);
 
-      // Start typewriter effect - faster speed
-      await typewriterEffect(result, 5);
+      // Start typewriter effect - balanced speed
+      await typewriterEffect(result, 10);
 
       // Save report to database - truncate if too large to avoid 413 errors
       if (effectiveTenantId && currentUser && project.id) {
@@ -363,7 +475,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
       console.error('Error generating AI report:', error);
       const errorMessage = "Error generating report. Please try again.";
       setAiReport(errorMessage);
-      await typewriterEffect(errorMessage, 5);
+      await typewriterEffect(errorMessage, 10);
       toast.error('Failed to generate report');
       return errorMessage;
     } finally {
@@ -438,15 +550,25 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     }
   };
 
-  // Helper function to check if text contains dates
-  const containsDate = (text) => {
+  // Helper function to check if text contains dates or bold targets for PDF bolding
+  const shouldBoldPDFLine = (text) => {
+    if (!text) return false;
     const datePatterns = [
       /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/,
       /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},?\s+\d{4}\b/i,
       /\b\d{1,2}\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}\b/i,
       /\b\d{4}-\d{2}-\d{2}\b/,
+      /\b\d+(\.\d+)?%\b/, // Percentages
+      /(?:\$|₹|£|€|USD)\s?\d+/, // Currency/Figures
     ];
-    return datePatterns.some(pattern => pattern.test(text));
+    if (datePatterns.some(pattern => pattern.test(text))) return true;
+
+    // Check for bold targets in the line
+    return boldTargets.some(name => {
+      const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedName}\\b`, 'i');
+      return regex.test(text);
+    });
   };
 
   // Helper function to add text with formatting (handles bold markers and dates) - compressed
@@ -508,7 +630,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                 doc.addPage();
                 currentY = 15;
               }
-              if (containsDate(line)) {
+              if (shouldBoldPDFLine(line)) {
                 doc.setFont("helvetica", "bold");
                 doc.setTextColor(20, 20, 20);
               } else {
@@ -527,7 +649,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
               doc.addPage();
               currentY = 15;
             }
-            if (containsDate(line)) {
+            if (shouldBoldPDFLine(line)) {
               doc.setFont("helvetica", "bold");
               doc.setTextColor(20, 20, 20);
             } else {
@@ -556,7 +678,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
         currentY = 15;
       }
 
-      const lineShouldBeBold = shouldBeBold || containsDate(line);
+      const lineShouldBeBold = shouldBeBold || shouldBoldPDFLine(line);
 
       if (lineShouldBeBold) {
         doc.setFont("helvetica", "bold");
@@ -606,29 +728,17 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 4;
 
-    // Parse and render markdown content - compressed
     const content = aiReportContent || "";
-    // Truncate content if too long to fit on one page
-    const maxChars = 2000; // Approximate max for one page
-    const truncatedContent = content.length > maxChars
-      ? content.substring(0, maxChars) + '...'
-      : content;
-    const lines = truncatedContent.split('\n');
-    const lineHeight = 4; // Reduced line height
+    const lines = content.split('\n');
     const bulletIndent = 3;
 
-    // Use regular for loop to allow early exit
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Check if we're running out of space - stop if near bottom
-      if (yPos > pageHeight - margin - 20) {
-        break; // Stop adding content if we're near the bottom
-      }
-
+      // Check if we're running out of space
       if (yPos > pageHeight - margin - 15) {
         doc.addPage();
-        yPos = margin;
+        yPos = margin + 10;
       }
 
       const trimmedLine = line.trim();
@@ -689,8 +799,13 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
     <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-purple-600" />
+          <CardTitle className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border border-slate-200">
+              <AvatarImage src={project.logo_url} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
+                {project.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             Project Summary Report: {project.name}
           </CardTitle>
           <div className="flex gap-2">
@@ -730,17 +845,60 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
           {/* Overview */}
           <div className="p-6 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Project Overview</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div>
                 <p className="text-sm text-slate-600 mb-1">Status</p>
-                <Badge className="bg-blue-100 text-blue-700 border-blue-200 border">
-                  {project.status}
+                <Badge className="bg-blue-100 text-blue-700 border-blue-200 border capitalize">
+                  {project.status?.replace('_', ' ')}
                 </Badge>
               </div>
               <div>
                 <p className="text-sm text-slate-600 mb-1">Progress</p>
-                <p className="text-2xl font-bold text-slate-900">{project.progress || 0}%</p>
+                <p className="text-2xl font-bold text-slate-900">{analytics.completionRate}%</p>
               </div>
+              <div>
+                <p className="text-sm text-slate-600 mb-1">Priority</p>
+                <Badge variant="outline" className="capitalize font-semibold">
+                  {project.priority || 'medium'}
+                </Badge>
+              </div>
+
+              {project.client_id && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Client</p>
+                  <p className="font-semibold text-slate-900 text-sm">
+                    {clients.find(c => c.id === project.client_id)?.name || 'Unknown Client'}
+                  </p>
+                </div>
+              )}
+
+              {project.workspace_id && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Workspace</p>
+                  <p className="font-semibold text-slate-900 text-sm">
+                    {workspaces.find(w => w.id === project.workspace_id)?.name || 'Default Workspace'}
+                  </p>
+                </div>
+              )}
+
+              {project.billing_model && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Billing Model</p>
+                  <p className="font-semibold text-slate-900 text-sm capitalize">
+                    {project.billing_model.replace('_', ' ')}
+                  </p>
+                </div>
+              )}
+
+              {(project.contract_amount || project.budget) && (
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Budget / Contract</p>
+                  <p className="font-bold text-emerald-600">
+                    {project.currency || '$'}{Number(project.contract_amount || project.budget).toLocaleString()}
+                  </p>
+                </div>
+              )}
+
               {project.deadline && (
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Deadline</p>
@@ -756,6 +914,15 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                 </p>
               </div>
             </div>
+
+            {project.description && (
+              <div className="mt-6 pt-4 border-t border-blue-100">
+                <p className="text-sm text-slate-600 mb-1">Description</p>
+                <div className="text-slate-800 text-sm line-clamp-3">
+                  <ReactMarkdown>{project.description}</ReactMarkdown>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Key Metrics */}
@@ -1016,7 +1183,7 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                           ul: ({ children }) => <ul className="list-disc list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ol>,
                           li: ({ children }) => <li className="text-slate-700 pl-1">{children}</li>,
-                          strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+                          strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
                           em: ({ children }) => <em className="italic text-slate-600">{children}</em>,
                           blockquote: ({ children }) => (
                             <blockquote className="border-l-4 border-purple-400 pl-4 italic text-slate-700 my-4 bg-white/50 py-2">
@@ -1025,11 +1192,13 @@ CRITICAL: Keep it EXTREMELY BRIEF. Maximum 300 words total. Use bullet points on
                           ),
                         }}
                       >
-                        {displayedReport || aiReport || ""}
+                        {preprocessMarkdown(displayedReport || aiReport || "")}
                       </ReactMarkdown>
                       {isStreaming && (
                         <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
                       )}
+                      {/* Precise scroll anchor */}
+                      <div ref={scrollAnchorRef} className="h-px w-full" />
                     </div>
                   </div>
                 ) : (

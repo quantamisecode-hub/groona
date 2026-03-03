@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Calendar, MoreVertical, Plus, Eye, Edit, Trash2, AlertTriangle, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import CreateSprintDialog from "./CreateSprintDialog";
@@ -105,6 +105,26 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     queryFn: async () => {
       if (!projectId) return [];
       return groonabackend.entities.Story.filter({ project_id: projectId });
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch project to check if it's completed/locked
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      return groonabackend.entities.Project.get(projectId);
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch milestones to check sprint locking
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: projectId });
     },
     enabled: !!projectId,
   });
@@ -344,29 +364,23 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
             <TableBody>
               {sprints.map((sprint) => {
                 const metrics = getSprintMetrics(sprint.id, sprint);
-
-                // Calculate accuracy to identify critical sprints
-                const accuracy = metrics.total > 0 ? (metrics.completed / metrics.total) * 100 : 0;
-                // Treat 0/0 as failing if it's evaluated during critical highlight (similar to backend)
-                const isCritical = criticalSprintsHighlight && (metrics.total === 0 || accuracy < 85);
-
-                const rowClass = isCritical
-                  ? 'bg-red-50 hover:bg-red-100 transition-colors duration-1000'
-                  : sprint.id === highlightedId
-                    ? 'bg-amber-100'
-                    : 'hover:bg-slate-50 transition-colors duration-1000';
-
                 return (
-                  <TableRow key={sprint.id} className={rowClass}>
+                  <TableRow key={sprint.id} className="hover:bg-slate-50">
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        {isCritical && (
-                          <AlertTriangle className="h-4 w-4 text-red-600 animate-pulse" title="Critically Low Velocity (<85%)" />
-                        )}
-                        {sprint.id === highlightedId && !isCritical && (
-                          <AlertTriangle className="h-4 w-4 text-amber-600" title="Low Velocity Detected" />
-                        )}
                         {sprint.name}
+                        {(() => {
+                          const isLocked = (sprint.milestone_id && milestones.find(m => (m.id || m._id) === sprint.milestone_id)?.status === 'completed') || project?.status === 'completed';
+                          if (isLocked) {
+                            return (
+                              <Badge variant="outline" className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 gap-1 opacity-70">
+                                <Lock className="h-3 w-3" />
+                                Settled
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -392,7 +406,6 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {/* UPDATED BUTTON: Passes sprint object in state */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -413,18 +426,32 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
                             <DropdownMenuContent align="end">
                               {!isViewer && (
                                 <>
-                                  <DropdownMenuItem onClick={() => {
-                                    setEditingSprint(sprint);
-                                    setShowCreateSprint(true);
-                                  }}>
-                                    <Edit className="h-4 w-4 mr-2" /> Edit Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleDelete(sprint.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                  </DropdownMenuItem>
+                                  {(() => {
+                                    const isLocked = (sprint.milestone_id && milestones.find(m => (m.id || m._id) === sprint.milestone_id)?.status === 'completed') || project?.status === 'completed';
+                                    if (isLocked) {
+                                      return (
+                                        <DropdownMenuItem disabled className="text-slate-400">
+                                          <Lock className="h-4 w-4 mr-2" /> Action Locked
+                                        </DropdownMenuItem>
+                                      );
+                                    }
+                                    return (
+                                      <>
+                                        <DropdownMenuItem onClick={() => {
+                                          setEditingSprint(sprint);
+                                          setShowCreateSprint(true);
+                                        }}>
+                                          <Edit className="h-4 w-4 mr-2" /> Edit Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="text-red-600"
+                                          onClick={() => handleDelete(sprint.id)}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                        </DropdownMenuItem>
+                                      </>
+                                    );
+                                  })()}
                                 </>
                               )}
                             </DropdownMenuContent>

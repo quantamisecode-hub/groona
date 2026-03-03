@@ -264,7 +264,7 @@ export default function TenantOnboarding() {
   const CurrentStepComponent = steps[currentStep].component;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
+    <div className="h-[100dvh] bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
       {/* Left Panel: Branding & Progress Indicator */}
       <div className="hidden md:flex md:w-[35%] lg:w-[30%] bg-slate-950 relative flex-col justify-between p-12 text-white">
         <div className="relative z-10">
@@ -275,9 +275,9 @@ export default function TenantOnboarding() {
             <span className="font-bold text-xl tracking-tight">Groona</span>
           </div>
 
-          <div className="space-y-12">
+          <div className="space-y-8 lg:space-y-12">
             <div>
-              <h1 className="text-3xl font-bold leading-tight mb-4">
+              <h1 className="text-2xl lg:text-3xl font-bold leading-tight mb-2 lg:mb-4">
                 Let's build your <span className="text-blue-500">ideal workspace.</span>
               </h1>
               <p className="text-slate-400 leading-relaxed">
@@ -285,7 +285,7 @@ export default function TenantOnboarding() {
               </p>
             </div>
 
-            <nav className="space-y-6">
+            <nav className="space-y-4 lg:space-y-6">
               {steps.map((s, i) => (
                 <div key={s.id} className="flex items-center gap-4 group">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center border transition-all duration-300 ${i === currentStep
@@ -337,7 +337,7 @@ export default function TenantOnboarding() {
         </div>
 
         {/* Top Header with Back Button */}
-        <header className="h-20 flex items-center justify-between px-8 md:px-12 border-b border-slate-50 shrink-0">
+        <header className="h-14 lg:h-16 flex items-center justify-between px-6 sm:px-8 md:px-12 border-b border-slate-50 shrink-0">
           {currentStep > 0 ? (
             <button
               onClick={handleBack}
@@ -357,8 +357,8 @@ export default function TenantOnboarding() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-8 py-16 md:py-24">
+        <div className="flex-1 overflow-y-auto w-full">
+          <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-12">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={currentStep}
@@ -383,7 +383,7 @@ export default function TenantOnboarding() {
         </div>
 
         {/* Persistent Bottom Bar for some steps if needed, or Footer */}
-        <footer className="px-8 md:px-12 py-6 border-t border-slate-50 flex items-center justify-between shrink-0">
+        <footer className="px-6 sm:px-8 md:px-12 py-3 lg:py-4 border-t border-slate-50 flex items-center justify-between shrink-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">
             Groona AI Intelligence
           </p>

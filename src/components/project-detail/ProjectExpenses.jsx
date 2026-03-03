@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, DollarSign, TrendingUp, AlertCircle, Trash2, Edit, Check, X, Upload, Loader2, Settings } from "lucide-react";
+import { Plus, DollarSign, TrendingUp, AlertCircle, Trash2, Edit, Check, X, Upload, Loader2, Settings, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { PermissionGuard } from "../shared/PermissionGuard";
@@ -49,6 +49,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
     category: "other",
     date: new Date().toISOString().split('T')[0],
     notes: "",
+    milestone_id: "",
   });
 
   // Keep form currency in sync with project currency for new expenses
@@ -76,6 +77,18 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
   const { data: timesheets = [] } = useQuery({
     queryKey: ['project-timesheets', projectId],
     queryFn: () => groonabackend.entities.Timesheet.filter({ project_id: projectId, status: 'approved' }),
+    enabled: !!projectId,
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', projectId],
+    queryFn: async () => {
+      const all = await groonabackend.entities.Milestone.list();
+      return all.filter(m => {
+        const mPid = typeof m.project_id === 'object' ? m.project_id.id : m.project_id;
+        return mPid === projectId;
+      });
+    },
     enabled: !!projectId,
   });
 
@@ -110,6 +123,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
         category: "other",
         date: new Date().toISOString().split('T')[0],
         notes: "",
+        milestone_id: "",
       });
       toast.success('Expense added successfully');
     },
@@ -171,6 +185,7 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
       category: expense.category,
       date: expense.date,
       notes: expense.notes || "",
+      milestone_id: expense.milestone_id || "",
     });
     setShowAddDialog(true);
   };
@@ -322,10 +337,10 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
     switch (project?.billing_model) {
       case 'fixed_price':
         budget = Number(project.contract_amount || project.budget || 0);
-        budgetLabel = "Fixed Price Value";
+        budgetLabel = "Contract Amount";
         break;
       case 'retainer':
-        budget = Number(project.retainer_amount || 0);
+        budget = Number(project.retainer_amount || project.contract_amount || project.budget || 0);
         budgetLabel = "Retainer Amount";
         break;
       case 'time_and_materials':
@@ -343,14 +358,17 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
         budgetLabel = "Total Budget";
     }
 
-    const remaining = budget - totalSpent;
-    // For T&M, margin analysis is different (Revenue - Cost), but if "Budget" here equals "Estimated Revenue", then "Remaining" implies "Remaining Projected Profit" which is weird.
-    // Actually for T&M, "Budget" usually means "Client Cap".
-    // If we use Est Duration * Rate as "Budget", we are treating it as a Cap. That's a fair assumption for this context.
+    // Budget Used % = (Labor Cost + Non-Labor Cost) ÷ Expense Budget × 100
+    // Remaining = Expense Budget − Total Spent
+    // For T&M: expense_budget × estimated_duration = total expense budget
+    // For all other models: expense_budget is used directly
+    const rawExpenseBudget = Number(project?.expense_budget || 0);
+    const expenseBudgetValue = project?.billing_model === 'time_and_materials'
+      ? rawExpenseBudget * Number(project?.estimated_duration || 0)
+      : rawExpenseBudget;
 
-    // Special handling for percentage: If budget is 0 (e.g. non-billable), usage is technically N/A or infinite? 
-    // Let's safe guard.
-    const percentUsed = budget > 0 ? (totalSpent / budget) * 100 : 0;
+    const remaining = expenseBudgetValue - totalSpent;
+    const percentUsed = expenseBudgetValue > 0 ? (totalSpent / expenseBudgetValue) * 100 : 0;
 
     return {
       totalLaborCost,
@@ -360,90 +378,144 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
       budget,
       budgetLabel,
       remaining,
-      percentUsed
+      percentUsed,
+      expenseBudgetValue
     };
   }, [timesheets, users, expenses, conversionRates, targetCurrency, project]);
 
-  const { totalSpent, remaining, percentUsed, pendingNonLaborCost, budget, budgetLabel, totalLaborCost, totalNonLaborCost } = calculatedFinancials;
+  const { totalSpent, remaining, percentUsed, pendingNonLaborCost, budget, budgetLabel, totalLaborCost, totalNonLaborCost, expenseBudgetValue } = calculatedFinancials;
+
+  const expenseBudget = Number(project?.expense_budget || 0);
+
+  const getCurrencySymbol = (code) => {
+    const map = { INR: '₹', USD: '$', EUR: '€', GBP: '£', AUD: 'A$', CAD: 'C$', SGD: 'S$', AED: 'dh' };
+    return map[code] || code;
+  };
+  const currSymbol = getCurrencySymbol(targetCurrency);
 
   return (
     <div className="space-y-6">
       {/* Budget Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm text-slate-600">{budgetLabel}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
 
-                </div>
-                <p className="text-2xl font-bold text-slate-900">
-                  {targetCurrency} {budget.toLocaleString()}
+        {/* Contract Budget */}
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">{budgetLabel}</p>
+                <p className="text-lg font-bold text-slate-900 truncate">
+                  {targetCurrency} {budget.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-blue-500" />
+              <div className="p-1.5 bg-green-50 rounded-lg ml-2 shrink-0">
+                <DollarSign className="h-4 w-4 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expense Budget */}
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Expense Budget</p>
+                <p className={`text-lg font-bold truncate ${expenseBudgetValue > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
+                  {expenseBudgetValue > 0
+                    ? `${targetCurrency} ${expenseBudgetValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+                    : '—'}
+                </p>
+              </div>
+              <div className="p-1.5 bg-blue-50 rounded-lg ml-2 shrink-0">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Labor Cost */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total Labor Cost</p>
-                <p className="text-2xl font-bold text-indigo-900">
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Labor Cost</p>
+                <p className="text-lg font-bold text-indigo-900 truncate">
                   {targetCurrency} {totalLaborCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-indigo-500" />
+              <div className="p-1.5 bg-indigo-50 rounded-lg ml-2 shrink-0">
+                <TrendingUp className="h-4 w-4 text-indigo-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Non-Labor Cost */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total Non-Labor Cost</p>
-                <p className="text-2xl font-bold text-orange-900">
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Non-Labor Cost</p>
+                <p className="text-lg font-bold text-orange-900 truncate">
                   {targetCurrency} {totalNonLaborCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-orange-500" />
+              <div className="p-1.5 bg-orange-50 rounded-lg ml-2 shrink-0">
+                <DollarSign className="h-4 w-4 text-orange-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Remaining</p>
-                <p className={`text-2xl font-bold ${remaining < 0 ? 'text-red-900' : 'text-slate-900'}`}>
+        {/* Remaining */}
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Remaining</p>
+                <p className={`text-lg font-bold truncate ${remaining < 0 ? 'text-red-600' : 'text-slate-900'}`}>
                   {targetCurrency} {remaining.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
               </div>
-              <AlertCircle className={`h-8 w-8 ${remaining < 0 ? 'text-red-500' : 'text-amber-500'}`} />
+              <div className={`p-1.5 rounded-lg ml-2 shrink-0 ${remaining < 0 ? 'bg-red-50' : 'bg-amber-50'}`}>
+                <AlertCircle className={`h-4 w-4 ${remaining < 0 ? 'text-red-500' : 'text-amber-500'}`} />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Budget Used</p>
-                <p className="text-2xl font-bold text-slate-900">{percentUsed.toFixed(1)}%</p>
+        {/* Budget Used % */}
+        <Card className="shadow-sm hover:shadow-md transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Budget Used</p>
+                <p className={`text-lg font-bold ${percentUsed > 100 ? 'text-red-600' :
+                  percentUsed > 80 ? 'text-amber-600' :
+                    'text-green-600'
+                  }`}>
+                  {percentUsed.toFixed(1)}%
+                </p>
+                <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1.5">
+                  <div
+                    className={`h-1.5 rounded-full ${percentUsed > 100 ? 'bg-red-500' :
+                      percentUsed > 80 ? 'bg-amber-500' :
+                        'bg-green-500'
+                      }`}
+                    style={{ width: `${Math.min(percentUsed, 100)}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                <span className="text-sm font-bold">{Math.round(percentUsed)}%</span>
+              <div className={`p-1.5 rounded-lg ml-2 shrink-0 ${percentUsed > 100 ? 'bg-red-50' : percentUsed > 80 ? 'bg-amber-50' : 'bg-green-50'
+                }`}>
+                <AlertCircle className={`h-4 w-4 ${percentUsed > 100 ? 'text-red-500' : percentUsed > 80 ? 'text-amber-500' : 'text-green-500'
+                  }`} />
               </div>
             </div>
           </CardContent>
         </Card>
+
       </div>
 
       {/* Progress Bar */}
@@ -518,6 +590,15 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
                       <span>{format(new Date(expense.date), 'MMM d, yyyy')}</span>
                       <span>•</span>
                       <span>By {expense.incurred_by_name}</span>
+                      {expense.milestone_id && (
+                        <>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Settings className="w-3 h-3" />
+                            {milestones.find(m => (m.id || m._id) === expense.milestone_id)?.name || 'Unknown Milestone'}
+                          </span>
+                        </>
+                      )}
                     </div>
                     {expense.notes && (
                       <p className="text-xs text-slate-500 mt-1">{expense.notes}</p>
@@ -525,34 +606,51 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
                   </div>
 
                   <div className="flex gap-2">
-                    {expense.status === 'pending' && (
-                      <PermissionGuard permission="can_manage_project_expenses" context={{ project }}>
-                        <Button size="sm" variant="outline" onClick={() => handleApprove(expense)}>
-                          <Check className="h-3 w-3 mr-1" />
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleReject(expense)}>
-                          <X className="h-3 w-3 mr-1" />
-                          Reject
-                        </Button>
-                      </PermissionGuard>
-                    )}
-                    <PermissionGuard permission="can_manage_project_expenses" context={{ project }}>
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(expense)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (confirm('Delete this expense?')) {
-                            deleteExpenseMutation.mutate(expense.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-600" />
-                      </Button>
-                    </PermissionGuard>
+                    {(() => {
+                      const isLocked = (expense.milestone_id && milestones.find(m => (m.id || m._id) === expense.milestone_id)?.status === 'completed') || project?.status === 'completed';
+
+                      if (isLocked) {
+                        return (
+                          <div className="flex items-center text-slate-400 bg-slate-100 px-3 py-1 rounded-md border border-slate-200 gap-2 opacity-70">
+                            <Lock className="h-3.5 w-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Settled</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {expense.status === 'pending' && (
+                            <PermissionGuard permission="can_manage_project_expenses" context={{ project }}>
+                              <Button size="sm" variant="outline" onClick={() => handleApprove(expense)}>
+                                <Check className="h-3 w-3 mr-1" />
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => handleReject(expense)}>
+                                <X className="h-3 w-3 mr-1" />
+                                Reject
+                              </Button>
+                            </PermissionGuard>
+                          )}
+                          <PermissionGuard permission="can_manage_project_expenses" context={{ project }}>
+                            <Button size="sm" variant="ghost" onClick={() => handleEdit(expense)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm('Delete this expense?')) {
+                                  deleteExpenseMutation.mutate(expense.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </PermissionGuard>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
@@ -625,6 +723,25 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
               />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Milestone (Optional)</label>
+              <Select value={formData.milestone_id} onValueChange={(val) => setFormData({ ...formData, milestone_id: val })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Milestone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">General Project / No Milestone</SelectItem>
+                  {milestones
+                    .filter(m => m.status === 'in_progress' || (formData.milestone_id && (m.id === formData.milestone_id || m._id === formData.milestone_id)))
+                    .map((m) => (
+                      <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

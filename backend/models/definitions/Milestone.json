@@ -1,23 +1,90 @@
 {
   "name": "Milestone",
   "properties": {
-    "project_id": { "type": "string" },
-    "tenant_id": { "type": "string" },
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "start_date": { "type": "string", "format": "date" },
-    "due_date": { "type": "string", "format": "date" },
-    "status": { 
-      "type": "string", 
-      "enum": ["pending", "in_progress", "completed", "missed"],
+    "project_id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "completed"
+      ],
       "default": "pending"
     },
-    "progress": { "type": "number", "default": 0 },
-    "color": { "type": "string", "default": "#3b82f6" },
+    "progress": {
+      "type": "number",
+      "default": 0
+    },
+    "color": {
+      "type": "string",
+      "default": "#3b82f6"
+    },
+    "budget_value": {
+      "type": "number",
+      "default": 0,
+      "description": "Allocated revenue/budget for this milestone"
+    },
+    "expense_budget": {
+      "type": "number",
+      "default": 0,
+      "description": "Budget allocated for non-labor expenses in this phase"
+    },
+    "is_financial": {
+      "type": "boolean",
+      "default": false
+    },
+    "billing_model": {
+      "type": "string",
+      "default": "time_and_materials"
+    },
+    "estimated_duration": {
+      "type": "number",
+      "default": 0,
+      "description": "Estimated duration in hours for T&M"
+    },
+    "retainer_period": {
+      "type": "string",
+      "enum": [
+        "week",
+        "month",
+        "quarter",
+        "year"
+      ],
+      "default": "month"
+    },
+    "currency": {
+      "type": "string",
+      "default": "INR"
+    },
     "dependencies": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     }
   },
-  "required": ["project_id", "name", "due_date"]
+  "required": [
+    "project_id",
+    "name",
+    "due_date"
+  ]
 }

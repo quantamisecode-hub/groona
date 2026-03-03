@@ -20,6 +20,7 @@ import {
   Building2,
   Loader2,
   ArrowLeft,
+  ArrowRight,
   Eye,
   BarChart3,
   ClipboardList,
@@ -492,6 +493,7 @@ function LayoutContent({ children, currentPageName }) {
     { title: "AI Subscription Manager", url: createPageUrl("AISubscriptionManagement"), icon: Sparkles, show: true },
     { title: "Deep Analytics", url: createPageUrl("AIAnalyticsDashboard"), icon: BarChart3, show: true },
     { title: "Subscription Plans", url: createPageUrl("SubscriptionManagement"), icon: CreditCard, show: true },
+    { title: "Payment Gateways", url: createPageUrl("PaymentGateways"), icon: CreditCard, show: true },
     { title: "System Notifications", url: createPageUrl("SystemNotificationManager"), icon: Bell, show: true },
   ];
 
@@ -595,6 +597,7 @@ function LayoutContent({ children, currentPageName }) {
     { title: "Productivity Dashboard", url: createPageUrl("AdminBIDashboard"), icon: BarChart3, show: true },
     { title: "Client Management", url: createPageUrl("ClientManagement"), icon: Briefcase, show: true },
     { title: "User Management", url: createPageUrl("UserManagement"), icon: Users, show: true },
+    { title: "Payments", url: createPageUrl("PaymentsHistory"), icon: CreditCard, show: true },
   ].filter(item => item.show) : [];
 
   const getInitials = (name) => {
@@ -1077,23 +1080,34 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
               </div>
 
               <div className="relative z-10 space-y-4">
-                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20">
-                  <Crown className="w-5 h-5 text-white" />
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20">
+                    <Crown className="w-5 h-5 text-white" />
+                  </div>
+                  <button
+                    onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
+                    className="text-[11px] font-bold text-blue-200 hover:text-white flex items-center transition-all group-hover:underline"
+                  >
+                    Upgrade Plan <ArrowRight className="h-3 w-3 ml-0.5" />
+                  </button>
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="text-white font-bold text-sm leading-tight">Upgrade to Premium!</h3>
-                  <p className="text-blue-200/70 text-[10px] font-medium leading-relaxed">
-                    Unlock advanced AI analytics, deep insights and unlimited projects.
-                  </p>
+                  <h3 className="text-white font-bold text-sm leading-tight flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-blue-300" /> Professional
+                  </h3>
                 </div>
 
-                <Button
-                  onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
-                  className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-blue-900/50 border border-blue-400/30 transition-all active:scale-95"
-                >
-                  Upgrade premium
-                </Button>
+                <div className="flex flex-col gap-1.5 w-full mt-1">
+                  <div className="flex justify-between items-center w-full">
+                    <span className="text-[10px] font-medium text-blue-200/70">Subscription Progress</span>
+                    <span className="text-[11px] font-bold text-emerald-400">22 days left</span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-emerald-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" style={{ width: '30%' }} />
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -1403,7 +1417,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate(createPageUrl("GroonaAssistant"))}
-                  className="hidden sm:flex items-center gap-2 h-10 px-4 rounded-lg bg-gradient-to-r from-blue-600 to-slate-900 text-white font-semibold border-0 shadow-lg shadow-blue-500/20 hover:opacity-90 transition-all active:scale-95"
+                  className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95"
                 >
                   <Sparkles className="h-4 w-4 text-white/90" />
                   <span>Groona AI</span>
@@ -1412,7 +1426,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                 <Button
                   variant="ghost"
                   onClick={() => setShowReportBug(true)}
-                  className="hidden md:flex items-center gap-2 h-10 px-4 rounded-lg border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+                  className="hidden rounded-lg md:flex items-center gap-2 h-10 px-4 border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
                 >
                   <AlertCircle className="h-4 w-4" />
                   <span>Report Bug</span>

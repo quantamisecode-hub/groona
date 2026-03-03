@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useUser } from "@/components/shared/UserContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -393,11 +393,12 @@ export default function SprintBoard() {
   const isCurrentProjectManager = projectRoles.some(r => r.project_id === selectedProjectId);
   const isProjectManager = projectRoles.length > 0;
   const isOwner = currentUser?.custom_role === 'owner';
-  const canSeeMemberFilter = isAdmin || isCurrentProjectManager || isOwner;
+  const isMemberRole = currentUser?.role === 'member';
+  const canSeeMemberFilter = isAdmin || isCurrentProjectManager || isOwner || isViewer || isMemberRole;
   const userRole = isAdmin ? 'admin' : (isProjectManager ? 'project_manager' : 'user');
 
-  // Filter tasks: For team members (not admin, not project manager), only show assigned tasks
-  const isTeamMember = !isAdmin && !isProjectManager;
+  // Filter tasks: For team members (not admin, not project manager, not viewer, not member), only show assigned tasks
+  const isTeamMember = !isAdmin && !isProjectManager && !isViewer && !isMemberRole;
   const userEmail = currentUser?.email?.toLowerCase();
 
   // Projects are already filtered at line 62-66 to show projects where user is a team member
@@ -2298,10 +2299,10 @@ export default function SprintBoard() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-          </Tabs>
-        </div>
-      </div>
-    </OnboardingProvider>
+          </Tabs >
+        </div >
+      </div >
+    </OnboardingProvider >
   );
 }
 

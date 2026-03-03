@@ -14,7 +14,7 @@ const getHoursFromPoints = (points) => {
 
 export default function AISuggestionsPanel({ taskData, setTaskData, tasks, currentUser }) {
   const [loadingAction, setLoadingAction] = useState(null);
-  
+
   const [suggestions, setSuggestions] = useState({
     priority: null,
     effort: null,
@@ -33,12 +33,16 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       const prompt = `You are a project management expert. Based on the task title "${taskData.title}", generate comprehensive task details.
       
       Output JSON strictly.
-      1. detailed description (2-3 sentences)
-      2. priority (low/medium/high/urgent)
-      3. story_points (Fibonacci: 1, 2, 3, 5, 8, 13)
-      4. labels (array of strings)
-      5. acceptance_criteria (plain text bullet points, DO NOT use bolding or markdown stars like **text**)
-      6. subtasks (array of strings)
+      1. title: A concise, refined task title based on the user's input
+      2. description (2-3 sentences)
+      3. priority (low/medium/high/urgent)
+      4. story_points (Fibonacci: 1, 2, 3, 5, 8, 13)
+      5. due_date: (YYYY-MM-DD format, estimate a reasonable deadline if not obvious)
+      6. labels (array of strings)
+      7. acceptance_criteria (plain text bullet points, DO NOT use bolding or markdown stars like **text**)
+      8. subtasks (array of strings)
+      
+      CRITICAL: Return ONLY valid JSON. Do NOT wrap the response in \`\`\`json blocks or any other markdown.
       
       Context: Software development task.`;
 
@@ -47,34 +51,43 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
         response_json_schema: {
           type: "object",
           properties: {
+            title: { type: "string" },
             description: { type: "string" },
             priority: { type: "string" },
             story_points: { type: "number" },
+            due_date: { type: "string" },
             labels: { type: "array", items: { type: "string" } },
             acceptance_criteria: { type: "string" },
             subtasks: { type: "array", items: { type: "string" } }
-          }
+          },
+          required: ["title", "description", "priority", "story_points", "due_date", "labels", "acceptance_criteria", "subtasks"]
         }
       });
-
-      // FIXED: Calculate hours from AI suggested points
+      // Process and apply data
       const suggestedPoints = typeof result.story_points === 'number' ? result.story_points : (taskData.story_points || 0);
       const calculatedHours = getHoursFromPoints(suggestedPoints);
 
-      setTaskData(prev => ({
-        ...prev,
-        description: result.description || prev.description,
-        priority: ['low', 'medium', 'high', 'urgent'].includes(result.priority?.toLowerCase()) ? result.priority.toLowerCase() : prev.priority,
-        story_points: suggestedPoints,
-        estimated_hours: calculatedHours, // <--- SYNCED HOURS
-        labels: [...new Set([...(prev.labels || []), ...(result.labels || [])])],
-        acceptance_criteria: result.acceptance_criteria || prev.acceptance_criteria,
-        subtasks: [
-          ...(prev.subtasks || []),
-          ...(result.subtasks || []).map(title => ({ title, completed: false }))
-        ],
-        ai_generated: true,
-      }));
+      setTaskData(prev => {
+        const priorityVal = result.priority?.toLowerCase();
+        const validPriority = ['low', 'medium', 'high', 'urgent'].includes(priorityVal) ? priorityVal : prev.priority;
+
+        return {
+          ...prev,
+          title: result.title || prev.title,
+          description: result.description || prev.description,
+          priority: validPriority,
+          story_points: suggestedPoints,
+          estimated_hours: calculatedHours,
+          due_date: result.due_date || prev.due_date,
+          labels: [...new Set([...(prev.labels || []), ...(result.labels || [])])],
+          acceptance_criteria: result.acceptance_criteria || prev.acceptance_criteria,
+          subtasks: [
+            ...(prev.subtasks || []),
+            ...(result.subtasks || []).map(title => ({ title, completed: false }))
+          ],
+          ai_generated: true,
+        };
+      });
 
       toast.success('Task details generated with AI!');
     } catch (error) {
@@ -96,7 +109,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
 
     setLoadingAction('predictPriority');
     try {
-      const existingTasks = (tasks || []).slice(0, 5).map(t => 
+      const existingTasks = (tasks || []).slice(0, 5).map(t =>
         `Title: ${t.title}, Priority: ${t.priority}`
       ).join('\n');
 
@@ -124,7 +137,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
 
       if (result?.priority && ['low', 'medium', 'high', 'urgent'].includes(result.priority.toLowerCase())) {
         const priorityVal = result.priority.toLowerCase();
-        
+
         setTaskData(prev => ({
           ...prev,
           priority: priorityVal,
@@ -133,12 +146,12 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
             priority_confidence: result.confidence,
           }
         }));
-        
+
         setSuggestions(prev => ({
           ...prev,
           priority: { value: priorityVal, reasoning: result.reasoning, confidence: result.confidence }
         }));
-        
+
         toast.success(`Priority predicted: ${priorityVal}`);
       } else {
         toast.error('Could not confidently predict priority');
@@ -243,7 +256,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
       });
 
       const newTags = result?.tags || [];
-      
+
       setSuggestions(prev => ({
         ...prev,
         tags: newTags
@@ -276,7 +289,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
 
     setLoadingAction('detectDependencies');
     try {
-      const tasksList = currentTasks.slice(0, 40).map(t => 
+      const tasksList = currentTasks.slice(0, 40).map(t =>
         `- ID: "${t.id}", Title: "${t.title}"`
       ).join('\n');
 
@@ -469,7 +482,7 @@ export default function AISuggestionsPanel({ taskData, setTaskData, tasks, curre
               </Button>
             </div>
           ) : (
-             <div className="mt-2 text-xs text-slate-400 italic text-center">No tags generated yet</div>
+            <div className="mt-2 text-xs text-slate-400 italic text-center">No tags generated yet</div>
           )}
         </Card>
 

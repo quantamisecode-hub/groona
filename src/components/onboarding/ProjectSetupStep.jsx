@@ -5,20 +5,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FolderKanban, Plus, Trash2, Sparkles, Loader2, ArrowRight, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack }) {
-  const [projects, setProjects] = useState([
-    { name: "", description: "", priority: "medium" },
-  ]);
+  const defaultProjectState = {
+    name: "",
+    description: "",
+    priority: "medium",
+    enableFinancialTracking: false,
+    billing_model: "time_and_materials",
+    currency: "INR",
+    estimated_duration: "",
+    contract_amount: "",
+    default_bill_rate_per_hour: "",
+    retainer_amount: "",
+    retainer_period: "month",
+    contract_start_date: "",
+    contract_end_date: "",
+    non_billable_reason: "",
+    expense_budget: ""
+  };
+
+  const [projects, setProjects] = useState([{ ...defaultProjectState }]);
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
 
   const addProject = () => {
     if (projects.length < 3) {
-      setProjects([...projects, { name: "", description: "", priority: "medium" }]);
+      setProjects([...projects, { ...defaultProjectState }]);
     }
   };
 
@@ -34,7 +51,6 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
 
   const handleAISuggestions = async (projectIndex = 0) => {
     const projectName = projects[projectIndex]?.name?.trim();
-
     if (!projectName) {
       toast.error("Please enter project name first");
       return;
@@ -102,7 +118,6 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
 
   const handleNext = async () => {
     const validProjects = projects.filter(p => p.name.trim());
-
     if (validProjects.length === 0) {
       toast.error("Please add at least one project or skip this step");
       return;
@@ -111,8 +126,68 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
     setLoading(true);
     try {
       const createdProjects = [];
-
       for (const project of validProjects) {
+        // Handle financial fields mapping if tracking is enabled
+        let billingFields = {};
+        if (project.enableFinancialTracking) {
+          switch (project.billing_model) {
+            case "time_and_materials":
+              billingFields = {
+                estimated_duration: Number(project.estimated_duration) || 0,
+                default_bill_rate_per_hour: Number(project.default_bill_rate_per_hour) || 0,
+                contract_amount: 0,
+                budget: 0,
+                retainer_amount: 0,
+                retainer_period: null,
+                non_billable_reason: null,
+                contract_start_date: null,
+                contract_end_date: null,
+              };
+              break;
+            case "fixed_price":
+              billingFields = {
+                contract_amount: Number(project.contract_amount) || 0,
+                budget: Number(project.contract_amount) || 0,
+                contract_start_date: project.contract_start_date || undefined,
+                contract_end_date: project.contract_end_date || undefined,
+                estimated_duration: 0,
+                default_bill_rate_per_hour: 0,
+                retainer_amount: 0,
+                retainer_period: null,
+                non_billable_reason: null,
+              };
+              break;
+            case "retainer":
+              billingFields = {
+                retainer_amount: Number(project.retainer_amount) || 0,
+                retainer_period: project.retainer_period || "month",
+                contract_start_date: project.contract_start_date || undefined,
+                contract_end_date: project.contract_end_date || undefined,
+                contract_amount: 0,
+                budget: 0,
+                estimated_duration: 0,
+                default_bill_rate_per_hour: 0,
+                non_billable_reason: null,
+              };
+              break;
+            case "non_billable":
+              billingFields = {
+                non_billable_reason: project.non_billable_reason?.trim() || undefined,
+                contract_amount: 0,
+                budget: 0,
+                estimated_duration: 0,
+                default_bill_rate_per_hour: 0,
+                retainer_amount: 0,
+                retainer_period: null,
+                contract_start_date: null,
+                contract_end_date: null,
+              };
+              break;
+            default:
+              break;
+          }
+        }
+
         const newProject = await groonabackend.entities.Project.create({
           tenant_id: tenant.id,
           name: project.name.trim(),
@@ -121,6 +196,12 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
           status: "planning",
           owner: user.email,
           progress: 0,
+          ...(project.enableFinancialTracking ? {
+            billing_model: project.billing_model,
+            currency: project.currency,
+            expense_budget: Number(project.expense_budget) || 0,
+            ...billingFields
+          } : {})
         });
 
         // Create activity
@@ -232,6 +313,208 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
                       </Select>
                     </div>
                   </div>
+
+                  {/* Financial Tracking Section */}
+                  <div className="mt-4 pt-4 border-t border-slate-100 space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`financial-tracking-${index}`}
+                        checked={project.enableFinancialTracking}
+                        onCheckedChange={(checked) => updateProject(index, 'enableFinancialTracking', checked)}
+                      />
+                      <Label htmlFor={`financial-tracking-${index}`} className="font-medium cursor-pointer text-sm text-slate-700">
+                        Enable Financial Tracking
+                      </Label>
+                    </div>
+
+                    {project.enableFinancialTracking && (
+                      <div className="grid md:grid-cols-2 gap-x-4 gap-y-4 pt-2 p-4 bg-slate-50/50 rounded-xl border border-slate-100">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-slate-500">Billing Model</Label>
+                          <Select
+                            value={project.billing_model}
+                            onValueChange={(v) => updateProject(index, 'billing_model', v)}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="time_and_materials">Time & Materials</SelectItem>
+                              <SelectItem value="fixed_price">Fixed Price</SelectItem>
+                              <SelectItem value="retainer">Retainer</SelectItem>
+                              <SelectItem value="non_billable">Non-Billable</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-slate-500">Currency</Label>
+                          <Select
+                            value={project.currency}
+                            onValueChange={(v) => updateProject(index, 'currency', v)}
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="INR">INR (₹)</SelectItem>
+                              <SelectItem value="USD">USD ($)</SelectItem>
+                              <SelectItem value="EUR">EUR (€)</SelectItem>
+                              <SelectItem value="GBP">GBP (£)</SelectItem>
+                              <SelectItem value="AUD">AUD (A$)</SelectItem>
+                              <SelectItem value="CAD">CAD (C$)</SelectItem>
+                              <SelectItem value="SGD">SGD (S$)</SelectItem>
+                              <SelectItem value="AED">AED (dh)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Fixed Price Specifics */}
+                        {project.billing_model === "fixed_price" && (
+                          <>
+                            <div className="col-span-2 space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Fixed Price Amount *</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={project.contract_amount}
+                                onChange={(e) => updateProject(index, 'contract_amount', e.target.value)}
+                                placeholder="0.00"
+                                className="bg-white"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Start Date *</Label>
+                              <Input
+                                type="date"
+                                value={project.contract_start_date}
+                                onChange={(e) => updateProject(index, 'contract_start_date', e.target.value)}
+                                className="bg-white text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">End Date *</Label>
+                              <Input
+                                type="date"
+                                value={project.contract_end_date}
+                                onChange={(e) => updateProject(index, 'contract_end_date', e.target.value)}
+                                className="bg-white text-sm"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Time & Materials Specifics */}
+                        {project.billing_model === "time_and_materials" && (
+                          <>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Duration (hours) *</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={project.estimated_duration}
+                                onChange={(e) => updateProject(index, 'estimated_duration', e.target.value)}
+                                placeholder="e.g. 120"
+                                className="bg-white"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Bill Rate/Hr</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={project.default_bill_rate_per_hour}
+                                onChange={(e) => updateProject(index, 'default_bill_rate_per_hour', e.target.value)}
+                                placeholder="0.00"
+                                className="bg-white"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Retainer Specifics */}
+                        {project.billing_model === "retainer" && (
+                          <>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Retainer Amount *</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={project.retainer_amount}
+                                onChange={(e) => updateProject(index, 'retainer_amount', e.target.value)}
+                                placeholder="0.00"
+                                className="bg-white"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Period</Label>
+                              <Select
+                                value={project.retainer_period}
+                                onValueChange={(v) => updateProject(index, 'retainer_period', v)}
+                              >
+                                <SelectTrigger className="bg-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="month">Monthly</SelectItem>
+                                  <SelectItem value="quarter">Quarterly</SelectItem>
+                                  <SelectItem value="year">Yearly</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">Start Date *</Label>
+                              <Input
+                                type="date"
+                                value={project.contract_start_date}
+                                onChange={(e) => updateProject(index, 'contract_start_date', e.target.value)}
+                                className="bg-white text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-slate-500">End Date *</Label>
+                              <Input
+                                type="date"
+                                value={project.contract_end_date}
+                                onChange={(e) => updateProject(index, 'contract_end_date', e.target.value)}
+                                className="bg-white text-sm"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Non-Billable Specifics */}
+                        {project.billing_model === "non_billable" && (
+                          <div className="col-span-2 space-y-2">
+                            <Label className="text-xs font-bold text-slate-500">Reason *</Label>
+                            <Input
+                              value={project.non_billable_reason}
+                              onChange={(e) => updateProject(index, 'non_billable_reason', e.target.value)}
+                              placeholder="e.g. Internal tools, Proof of concept"
+                              className="bg-white"
+                            />
+                          </div>
+                        )}
+
+                        {/* Expense Budget - Common Field */}
+                        <div className="col-span-2 space-y-2 pt-2 border-t border-slate-200/50">
+                          <Label className="text-xs font-bold text-slate-500 flex items-center justify-between">
+                            Expense Budget
+                            <span className="text-[10px] uppercase text-slate-400 font-medium tracking-wide">Optional</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={project.expense_budget}
+                            onChange={(e) => updateProject(index, 'expense_budget', e.target.value)}
+                            placeholder="0.00"
+                            className="bg-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -292,7 +575,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
-        className="pt-8 border-t border-slate-100 flex items-center justify-between"
+        className="pt-8 border-t border-slate-100 flex items-center justify-end"
       >
         <div className="flex items-center gap-4">
           <Button variant="ghost" onClick={() => onNext({ projects: [] })} className="text-slate-400 hover:text-slate-900 font-bold">
@@ -302,7 +585,7 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
             onClick={handleNext}
             disabled={loading}
             size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 h-14 font-bold group min-w-[140px]"
+            className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 hover:from-blue-700 hover:to-slate-950 text-white rounded-xl px-10 h-14 font-bold group min-w-[140px]"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Save & Continue <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" /></>}
           </Button>

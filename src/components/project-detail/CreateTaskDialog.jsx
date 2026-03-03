@@ -99,6 +99,7 @@ export default function CreateTaskDialog({ open, onClose, onSubmit, loading }) {
                 id="due_date"
                 type="date"
                 value={formData.due_date}
+                min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
               />
             </div>

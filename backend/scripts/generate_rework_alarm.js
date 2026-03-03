@@ -56,6 +56,21 @@ const runChecks = async () => {
 
             console.log(`User: ${user.email} | Total: ${(totalMinutes / 60).toFixed(1)}h | Rework: ${(reworkMinutes / 60).toFixed(1)}h | Ratio: ${formattedPercent}%`);
 
+            // --- IMPROVEMENT CHECK ---
+            let previousPercent = null;
+            try {
+                const lastLog = await UserActivityLog.findOne({
+                    user_id: user.id || user._id,
+                    event_type: 'rework_check'
+                }).sort({ timestamp: -1 });
+
+                if (lastLog && lastLog.rework_percentage !== undefined) {
+                    previousPercent = lastLog.rework_percentage;
+                }
+            } catch (err) {
+                console.error(`   -> [ERROR] Failed to fetch previous rework log:`, err.message);
+            }
+
             // --- LOG ACTIVITY ---
             try {
                 await UserActivityLog.create({
@@ -71,6 +86,44 @@ const runChecks = async () => {
                 console.log(`   -> [LOG] Rework percentage logged.`);
             } catch (logErr) {
                 console.error(`   -> [ERROR] Failed to log rework activity:`, logErr.message);
+            }
+
+            // --- REWARD IMPROVEMENT ---
+            if (previousPercent !== null && previousPercent > 0 && parseFloat(formattedPercent) < previousPercent) {
+                // To avoid spam, make sure we haven't already rewarded them in the last few days
+                // Check if a rework_improvement notification was sent in the last 5 days
+                const rewardCooldown = new Date();
+                rewardCooldown.setDate(rewardCooldown.getDate() - 5);
+
+                const recentReward = await Notification.findOne({
+                    recipient_email: user.email,
+                    type: 'rework_improvement',
+                    created_date: { $gte: rewardCooldown }
+                });
+
+                if (!recentReward) {
+                    try {
+                        await Notification.create({
+                            tenant_id: user.tenant_id,
+                            recipient_email: user.email,
+                            user_id: user.id || user._id,
+                            type: 'rework_improvement',
+                            category: 'general',
+                            title: 'Quality Improved',
+                            message: `👏 Quality improvement noticed. Keep it up! (Rework dropped from ${previousPercent}% to ${formattedPercent}%)`,
+                            entity_type: 'user',
+                            entity_id: user.id || user._id,
+                            scope: 'user',
+                            status: 'OPEN',
+                            sender_name: 'Groona Insights',
+                            read: false,
+                            created_date: new Date()
+                        });
+                        console.log(`   -> [REWARD] Triggered 'rework_improvement'. Dropped from ${previousPercent}% to ${formattedPercent}%`);
+                    } catch (rwErr) {
+                        console.error(`   -> [ERROR] Failed to send rework improvement reward:`, rwErr.message);
+                    }
+                }
             }
 
             // Always notify if ANY rework detected, but use thresholds for alarm severity

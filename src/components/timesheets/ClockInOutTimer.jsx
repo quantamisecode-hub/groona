@@ -9,14 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Play,
-  Square,
   Clock,
+  Play,
+  Pause as PauseIcon,
+  Square,
   MapPin,
-  Loader2,
+  Settings,
+  Flag,
   AlertCircle,
-  CheckCircle,
-  Pause as PauseIcon
+  RefreshCw,
+  Projector,
+  Lock
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -35,6 +38,7 @@ export default function ClockInOutTimer({
   const [selectedStory, setSelectedStory] = useState("");
   const [selectedSprint, setSelectedSprint] = useState(""); // Auto-set
   const [selectedTask, setSelectedTask] = useState("");
+  const [selectedMilestone, setSelectedMilestone] = useState("");
   const [selectedWorkType, setSelectedWorkType] = useState("development");
   const [workDescription, setWorkDescription] = useState("");
   const [remark, setRemark] = useState("");
@@ -78,6 +82,9 @@ export default function ClockInOutTimer({
       }
       if (existingClockEntry.task_id) {
         setSelectedTask(existingClockEntry.task_id);
+      }
+      if (existingClockEntry.milestone_id) {
+        setSelectedMilestone(existingClockEntry.milestone_id);
       }
       if (existingClockEntry.description) {
         setWorkDescription(existingClockEntry.description);
@@ -193,6 +200,44 @@ export default function ClockInOutTimer({
     });
   }, [rawTasks, currentUser, selectedProject, selectedStory, submittedTaskIds]);
 
+  // Fetch milestones for the selected project
+  const { data: milestones = [] } = useQuery({
+    queryKey: ['milestones', selectedProject],
+    queryFn: async () => {
+      if (!selectedProject) return [];
+      return groonabackend.entities.Milestone.filter({ project_id: selectedProject });
+    },
+    enabled: !!selectedProject,
+  });
+
+  // Fetch current project to check status
+  const { data: currentProject } = useQuery({
+    queryKey: ['project', selectedProject],
+    queryFn: async () => {
+      if (!selectedProject) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: selectedProject });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: selectedProject });
+      }
+      return projects[0] || null;
+    },
+    enabled: !!selectedProject,
+  });
+
+  const isLocked = React.useMemo(() => {
+    if (!selectedProject) return false;
+    // 1. Project-wide lock
+    if (currentProject?.status === 'completed') return true;
+
+    // 2. Milestone lock
+    if (selectedMilestone) {
+      const milestone = milestones.find(m => (m.id || m._id) === selectedMilestone);
+      return milestone?.status === 'completed';
+    }
+    return false;
+  }, [selectedProject, selectedMilestone, currentProject, milestones]);
+
+
   // rawStories is provided by hierarchy query above
 
   // Filtered Stories
@@ -239,6 +284,16 @@ export default function ClockInOutTimer({
     },
     enabled: !!selectedProject,
   });
+
+  // Milestone inheritance from Sprint
+  useEffect(() => {
+    if (selectedSprint && selectedSprint !== "unassigned" && !selectedMilestone) {
+      const sprint = sprints.find(s => (s.id || s._id) === selectedSprint);
+      if (sprint?.milestone_id) {
+        setSelectedMilestone(sprint.milestone_id);
+      }
+    }
+  }, [selectedSprint, sprints, selectedMilestone]);
 
   // Timer effect
   useEffect(() => {
@@ -318,6 +373,7 @@ export default function ClockInOutTimer({
         story_id: selectedStory || null,
         sprint_id: selectedSprint || null,
         task_id: selectedTask,
+        milestone_id: selectedMilestone || null,
         work_type: selectedWorkType,
         description: workDescription,
       });
@@ -408,6 +464,7 @@ export default function ClockInOutTimer({
       const storyId = activeClockEntry.story_id;
       const sprintId = activeClockEntry.sprint_id;
       const taskId = activeClockEntry.task_id;
+      const milestoneId = activeClockEntry.milestone_id;
 
       if (!projectId || !taskId) {
         throw new Error('Project and task information is missing from clock entry');
@@ -443,6 +500,13 @@ export default function ClockInOutTimer({
       const fetchedTasks = await groonabackend.entities.Task.filter({ _id: taskId });
       const taskTitle = fetchedTasks[0]?.title || '';
 
+      let finalMilestoneId = milestoneId;
+      let milestoneName = null;
+      if (finalMilestoneId) {
+        const fetchedMilestones = await groonabackend.entities.Milestone.filter({ _id: finalMilestoneId });
+        milestoneName = fetchedMilestones[0]?.name || null;
+      }
+
       console.log('[ClockInOutTimer] Creating timesheet entry...');
 
       // Create timesheet entry
@@ -458,6 +522,8 @@ export default function ClockInOutTimer({
         sprint_name: sprintName || null,
         task_id: taskId,
         task_title: taskTitle,
+        milestone_id: finalMilestoneId || null,
+        milestone_name: milestoneName || null,
         start_time: activeClockEntry.clock_in_time,
         end_time: endTime.toISOString(),
         hours: Math.floor(totalMinutes / 60),
@@ -512,6 +578,7 @@ export default function ClockInOutTimer({
       setSelectedStory("");
       setSelectedSprint("");
       setSelectedTask("");
+      setSelectedMilestone("");
       setSelectedWorkType("development");
       setWorkDescription("");
       setRemark("");
@@ -723,7 +790,14 @@ export default function ClockInOutTimer({
             <Label>Task *</Label>
             <Select
               value={selectedTask}
-              onValueChange={setSelectedTask}
+              onValueChange={(val) => {
+                setSelectedTask(val);
+                const task = tasks.find(t => t.id === val);
+                // Auto-inherit milestone from task if available
+                if (task?.milestone_id) {
+                  setSelectedMilestone(task.milestone_id);
+                }
+              }}
               disabled={isRunning}
             >
               <SelectTrigger>
@@ -744,6 +818,44 @@ export default function ClockInOutTimer({
           </div>
         )}
 
+        {/* Milestone Selection */}
+        {selectedProject && (
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Flag className="h-4 w-4 text-blue-500" />
+              Project Milestone
+            </Label>
+            <Select
+              value={selectedMilestone}
+              onValueChange={setSelectedMilestone}
+              disabled={isRunning}
+            >
+              <SelectTrigger className="bg-white/50 border-slate-200/60">
+                <SelectValue placeholder="Select milestone (Optional)..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Milestone</SelectItem>
+                {milestones
+                  .filter(m => m.status === 'in_progress' || (selectedMilestone && (m.id === selectedMilestone || m._id === selectedMilestone)))
+                  .map(m => (
+                    <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {isLocked && !isRunning && (
+          <div className="p-3 bg-red-50 border border-red-100 rounded-lg flex items-center gap-3 text-red-700">
+            <Lock className="h-5 w-5 text-red-500" />
+            <div className="text-sm">
+              <p className="font-bold">Project Phase Settled</p>
+              <p>Selection is locked. You cannot log time to a completed phase.</p>
+            </div>
+          </div>
+        )}
 
 
         <div className="space-y-2">
@@ -762,22 +874,17 @@ export default function ClockInOutTimer({
         {!isRunning ? (
           <div className="space-y-2">
             <Button
-              onClick={handleStartTimer}
-              disabled={startTimerMutation.isPending || !selectedProject || !selectedTask || hasTimesheetAlert}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
               size="lg"
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg shadow-emerald-500/25 h-16 text-xl font-bold"
+              onClick={() => startTimerMutation.mutate()}
+              disabled={!selectedProject || !selectedTask || startTimerMutation.isPending || isLocked}
             >
               {startTimerMutation.isPending ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Starting...
-                </>
+                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
               ) : (
-                <>
-                  <Play className="h-5 w-5 mr-2" />
-                  Start Working
-                </>
+                <Play className="h-6 w-6 mr-2" />
               )}
+              Start Work Timer
             </Button>
             {hasTimesheetAlert && (
               <p className="text-xs text-red-600 font-medium flex items-center gap-1.5 justify-center bg-red-50 p-2 rounded border border-red-100 italic">

@@ -8,22 +8,43 @@ import { useUser } from "../shared/UserContext";
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, parseISO, isSameDay } from 'date-fns';
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function WeeklyTimesheetChart({ title = "Time Logged This Week" }) {
+export default function WeeklyTimesheetChart({ title: propTitle, isAdmin, tenantId }) {
     const { user: currentUser } = useUser();
+    const title = propTitle || (isAdmin ? "Team Avg Time Logged This Week" : "Time Logged This Week");
 
-    // Fetch user's timesheets
-    const { data: timesheets = [], isLoading } = useQuery({
-        queryKey: ['my-timesheets-chart', currentUser?.email],
+    // Fetch user's timesheets or team's timesheets depending on role
+    const { data: timesheets = [], isLoading: isLoadingTimesheets } = useQuery({
+        queryKey: isAdmin ? ['tenant-timesheets-chart', tenantId] : ['my-timesheets-chart', currentUser?.email],
         queryFn: async () => {
+            if (isAdmin) {
+                if (!tenantId) return [];
+                return groonabackend.entities.Timesheet.filter(
+                    { tenant_id: tenantId },
+                    '-date'
+                );
+            }
             if (!currentUser?.email) return [];
             return groonabackend.entities.Timesheet.filter(
                 { user_email: currentUser.email },
                 '-date'
             );
         },
-        enabled: !!currentUser,
+        enabled: isAdmin ? !!tenantId : !!currentUser,
         staleTime: 60000,
     });
+
+    // If admin, fetch tenant members to calculate the average
+    const { data: members = [], isLoading: isLoadingMembers } = useQuery({
+        queryKey: ['tenant-members-weekly-chart', tenantId],
+        queryFn: async () => {
+            if (!tenantId) return [];
+            return groonabackend.entities.User.filter({ tenant_id: tenantId });
+        },
+        enabled: !!isAdmin && !!tenantId,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const isLoading = isLoadingTimesheets || (isAdmin && isLoadingMembers);
 
     // Calculate weekly data
     const chartData = useMemo(() => {
@@ -46,14 +67,19 @@ export default function WeeklyTimesheetChart({ title = "Time Logged This Week" }
 
             // Sum up the total minutes and convert to decimal hours
             const totalMinutes = dayTimesheets.reduce((sum, t) => sum + (Number(t.total_minutes) || 0), 0);
-            const totalHours = Number((totalMinutes / 60).toFixed(1));
+            let totalHours = Number((totalMinutes / 60).toFixed(1));
+
+            // If admin, calculate average per member
+            if (isAdmin && members.length > 0) {
+                totalHours = Number((totalHours / members.length).toFixed(1));
+            }
 
             return {
                 day: format(day, 'EEE'), // 'Sun', 'Mon', etc.
                 value: totalHours
             };
         });
-    }, [timesheets]);
+    }, [timesheets, isAdmin, members.length]);
 
     // Find the maximum value to scale the bars correctly
     const maxVal = useMemo(() => Math.max(...chartData.map(d => d.value), 4), [chartData]); // min scale of 4 hours
@@ -114,10 +140,10 @@ export default function WeeklyTimesheetChart({ title = "Time Logged This Week" }
                                 {/* The Pill Bar */}
                                 <div
                                     className={`w-full max-w-[48px] rounded-full transition-all duration-500 ease-out relative ${isToday
-                                            ? 'bg-blue-500 shadow-sm'
-                                            : item.value > 0 || !isFuture
-                                                ? 'bg-[#f1f3f5] hover:bg-[#e9ecef]'
-                                                : 'bg-transparent'
+                                        ? 'bg-blue-500 shadow-sm'
+                                        : item.value > 0 || !isFuture
+                                            ? 'bg-[#f1f3f5] hover:bg-[#e9ecef]'
+                                            : 'bg-transparent'
                                         }`}
                                     style={{
                                         height: `${heightPercent}%`,

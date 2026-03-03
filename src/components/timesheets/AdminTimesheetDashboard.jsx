@@ -1,28 +1,24 @@
 import React, { useState } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+
 import {
   Users,
   Search,
-  CheckCircle,
   XCircle,
   FileText,
-  Clock,
-  MapPin,
   Loader2,
-  Download,
-  Edit,
   Plus,
-  Calendar,
-  AlertCircle
+  Lock,
+  Unlock
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -33,7 +29,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import TimesheetReportGenerator from "./TimesheetReportGenerator";
 import TimesheetEntryForm from "./TimesheetEntryForm";
 
@@ -44,12 +39,12 @@ export default function AdminTimesheetDashboard({
   loading
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [approvingEntry, setApprovingEntry] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
+  const [processingLock, setProcessingLock] = useState({ type: null, id: null });
   const queryClient = useQueryClient();
 
   // Fetch all users
@@ -61,20 +56,6 @@ export default function AdminTimesheetDashboard({
       return allUsers.filter(u => u.tenant_id === effectiveTenantId);
     },
     enabled: !!effectiveTenantId,
-  });
-
-  // Fetch recent activities for the new Leave Activity tab
-  const { data: activities = [], isLoading: activitiesLoading } = useQuery({
-    queryKey: ['admin-leave-activities', effectiveTenantId],
-    queryFn: async () => {
-      if (!effectiveTenantId) return [];
-      return groonabackend.entities.Activity.filter({
-        tenant_id: effectiveTenantId,
-        entity_type: 'leave'
-      }, '-created_date', 50);
-    },
-    enabled: !!effectiveTenantId,
-    refetchInterval: 5000, // Real-time updates
   });
 
   // Approve timesheet mutation
@@ -129,7 +110,6 @@ export default function AdminTimesheetDashboard({
       }
 
       // Send notifications asynchronously after approval
-      // This ensures approval is not affected by notification failures
       const notificationData = {
         tenant_id: effectiveTenantId,
         recipient_email: timesheet.user_email,
@@ -151,20 +131,16 @@ export default function AdminTimesheetDashboard({
         comment: ''
       };
 
-      // Fire and forget - send notifications asynchronously
       setTimeout(async () => {
         try {
-          // In-app notification
           await groonabackend.entities.Notification.create(notificationData);
-
-          // Email notification using template
           await groonabackend.email.sendTemplate({
             to: timesheet.user_email,
             templateType: 'timesheet_approved',
             data: emailData
           });
 
-          // === NEW: Notify PM(s) about final decision ===
+          // Notify PM(s)
           const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
             project_id: timesheet.project_id?.id || timesheet.project_id?._id || timesheet.project_id,
             role: 'project_manager'
@@ -185,7 +161,6 @@ export default function AdminTimesheetDashboard({
           ));
         } catch (notifError) {
           console.error('[AdminTimesheetDashboard] Failed to send notifications:', notifError);
-          // failure does not affect final status
         }
       }, 0);
 
@@ -193,11 +168,6 @@ export default function AdminTimesheetDashboard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['bi-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['report-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['project-timesheets'] });
       toast.success('Timesheet approved');
       setApprovingEntry(null);
     },
@@ -210,7 +180,6 @@ export default function AdminTimesheetDashboard({
   // Reject timesheet mutation
   const rejectTimesheetMutation = useMutation({
     mutationFn: async ({ entry, reason }) => {
-      // Get the full timesheet data
       let timesheet = entry;
       if (!timesheet || !timesheet.user_email) {
         try {
@@ -225,7 +194,6 @@ export default function AdminTimesheetDashboard({
         throw new Error('Timesheet not found');
       }
 
-      // Update timesheet
       await groonabackend.entities.Timesheet.update(entry.id, {
         status: 'rejected',
         approved_by: currentUser.full_name,
@@ -233,7 +201,6 @@ export default function AdminTimesheetDashboard({
         rejection_reason: reason,
       });
 
-      // Create approval record
       try {
         await groonabackend.entities.TimesheetApproval.create({
           tenant_id: effectiveTenantId,
@@ -249,8 +216,6 @@ export default function AdminTimesheetDashboard({
         console.warn("Approval record creation skipped:", e);
       }
 
-      // Send notifications asynchronously after rejection
-      // This ensures rejection is not affected by notification failures
       const rejectNotificationData = {
         tenant_id: effectiveTenantId,
         recipient_email: timesheet.user_email,
@@ -273,20 +238,15 @@ export default function AdminTimesheetDashboard({
         reason: reason || 'No reason provided'
       };
 
-      // Fire and forget - send notifications asynchronously
       setTimeout(async () => {
         try {
-          // In-app notification
           await groonabackend.entities.Notification.create(rejectNotificationData);
-
-          // Email notification using template
           await groonabackend.email.sendTemplate({
             to: timesheet.user_email,
             templateType: 'timesheet_rejected',
             data: rejectEmailData
           });
 
-          // === NEW: Notify PM(s) about final decision ===
           const pmRoles = await groonabackend.entities.ProjectUserRole.filter({
             project_id: timesheet.project_id?.id || timesheet.project_id?._id || timesheet.project_id,
             role: 'project_manager'
@@ -307,7 +267,6 @@ export default function AdminTimesheetDashboard({
           ));
         } catch (notifError) {
           console.error('[AdminTimesheetDashboard] Failed to send rejection notifications:', notifError);
-          // failure does not affect status
         }
       }, 0);
 
@@ -315,11 +274,6 @@ export default function AdminTimesheetDashboard({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['bi-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['report-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['project-timesheets'] });
       toast.success('Timesheet rejected');
       setApprovingEntry(null);
       setRejectionReason("");
@@ -330,11 +284,10 @@ export default function AdminTimesheetDashboard({
     },
   });
 
-  // Save/Update timesheet mutation (for admin edits)
+  // Save/Update timesheet mutation
   const saveTimesheetMutation = useMutation({
     mutationFn: async (data) => {
       if (editingEntry) {
-        // Add audit fields on update
         const auditData = {
           ...data,
           last_modified_by_name: currentUser.full_name,
@@ -356,6 +309,62 @@ export default function AdminTimesheetDashboard({
       toast.error('Failed to save timesheet');
     },
   });
+
+  // Audit Lock Mutation
+  const auditLockMutation = useMutation({
+    mutationFn: async ({ userIds, locked }) => {
+      const response = await fetch(`${groonabackend.apiBaseUrl}/audit-lock/toggle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          userIds,
+          locked,
+          tenantId: effectiveTenantId
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to toggle lock');
+      }
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      const status = variables.locked ? 'locked' : 'unlocked';
+      toast.success(`User(s) ${status} successfully`);
+    },
+    onError: (error) => {
+      console.error('Audit Lock error:', error);
+      toast.error(`Failed: ${error.message}`);
+    },
+    onSettled: () => {
+      setProcessingLock({ type: null, id: null });
+    }
+  });
+
+  const handleToggleLock = (user, locked) => {
+    setProcessingLock({ type: 'single', id: user._id || user.id });
+    auditLockMutation.mutate({
+      userIds: [user._id || user.id],
+      locked
+    });
+  };
+
+  const handleLockAll = (locked) => {
+    const allUserIds = users.filter(u => u.role !== 'admin' && u.custom_role !== 'owner' && u.custom_role !== 'client').map(u => u._id || u.id);
+    if (confirm(`Are you sure you want to ${locked ? 'LOCK' : 'UNLOCK'} timesheets for ALL ${allUserIds.length} members?`)) {
+      setProcessingLock({ type: 'all' });
+      auditLockMutation.mutate({
+        userIds: allUserIds,
+        locked
+      });
+    }
+  };
+
 
   const handleApprove = (entry) => {
     if (confirm('Approve this timesheet entry?')) {
@@ -395,39 +404,24 @@ export default function AdminTimesheetDashboard({
     return acc;
   }, {});
 
-  // Filter users - RESTRICTED TO MEMBERS ONLY (No Admins, No Clients)
-  // Filter users - RESTRICTED TO MEMBERS ONLY (No Admins, No Clients)
   const filteredUsers = users.filter(user => {
     const isClient = user.custom_role === 'client';
     const matchesSearch = user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
 
-    // 1. Always hide clients
     if (isClient) return false;
 
-    // 2. If Owner+Admin, show EVERYONE (Admins, PMs, Members)
     if (currentUser?.custom_role === 'owner' && currentUser?.role === 'admin') {
       return matchesSearch;
     }
 
-    // 3. For others (Standard Admin), keep restrict to 'member' (or expand if desired, but sticking to request)
-    // Actually, "Team Overview" usually implies everyone. 
-    // But to be safe and strictly follow: "if owner... show all... except client"
-    // I will apply the broad filter just for Owner+Admin, and maybe keep restricted for others?
-    // Let's assume the user wants this "Show All" capability specifically for the Owner.
     return user.role === 'member' && matchesSearch;
   });
 
+  const isAllLocked = filteredUsers.length > 0 && filteredUsers.every(u => u.is_timesheet_locked);
+
   const getInitials = (name) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
-  };
-
-  const formatDuration = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins}m`;
-    if (mins === 0) return `${hours}h`;
-    return `${hours}h ${mins}m`;
   };
 
   if (loading) {
@@ -452,18 +446,35 @@ export default function AdminTimesheetDashboard({
           </TabsTrigger>
         </TabsList>
 
-        {/* All Employees Tab */}
         <TabsContent value="employees" className="space-y-4 mt-6">
           <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
             <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search employees..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search employees..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                  {processingLock.type === 'all' && (
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  )}
+                  <span className={`text-sm font-medium flex items-center gap-2 ${isAllLocked ? 'text-red-700' : 'text-slate-700'}`}>
+                    {isAllLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4 text-slate-500" />}
+                    {isAllLocked ? 'All Users Locked' : 'Audit Lock All'}
+                  </span>
+                  <Switch
+                    checked={isAllLocked}
+                    onCheckedChange={(checked) => handleLockAll(checked)}
+                    className="data-[state=checked]:bg-red-600"
+                    disabled={processingLock.type === 'all'}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -480,6 +491,7 @@ export default function AdminTimesheetDashboard({
                   .filter(t => t.status === 'approved')
                   .reduce((sum, t) => sum + (t.total_minutes || 0), 0);
                 const pendingCount = userTimesheets.filter(t => t.status === 'submitted').length;
+                const isThisUserLoading = processingLock.type === 'single' && processingLock.id === (user._id || user.id);
 
                 return (
                   <Card key={user.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-shadow">
@@ -508,6 +520,24 @@ export default function AdminTimesheetDashboard({
                             )}
                           </div>
 
+                          <div className="flex items-center justify-between mt-3 bg-slate-50 p-2 rounded border border-slate-100">
+                            <div className="flex items-center gap-2">
+                              {isThisUserLoading && (
+                                <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
+                              )}
+                              <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                                {user.is_timesheet_locked ? <Lock className="w-3 h-3 text-red-500" /> : <Unlock className="w-3 h-3 text-slate-400" />}
+                                Audit Lock
+                              </span>
+                            </div>
+                            <Switch
+                              checked={!!user.is_timesheet_locked}
+                              onCheckedChange={(checked) => handleToggleLock(user, checked)}
+                              className="scale-75"
+                              disabled={isThisUserLoading}
+                            />
+                          </div>
+
                           <Button
                             size="sm"
                             variant="outline"
@@ -527,7 +557,6 @@ export default function AdminTimesheetDashboard({
           </div>
         </TabsContent>
 
-        {/* Reports Tab */}
         <TabsContent value="reports" className="mt-6">
           <TimesheetReportGenerator
             currentUser={currentUser}
@@ -538,7 +567,6 @@ export default function AdminTimesheetDashboard({
         </TabsContent>
       </Tabs>
 
-      {/* Rejection Dialog */}
       <Dialog open={!!approvingEntry} onOpenChange={() => {
         setApprovingEntry(null);
         setRejectionReason("");
@@ -586,7 +614,6 @@ export default function AdminTimesheetDashboard({
         </DialogContent>
       </Dialog>
 
-      {/* Edit/Create Timesheet Dialog */}
       <Dialog open={showEditForm} onOpenChange={(open) => {
         if (!open) {
           setShowEditForm(false);
@@ -622,7 +649,6 @@ export default function AdminTimesheetDashboard({
           />
         </DialogContent>
       </Dialog>
-    </div >
+    </div>
   );
 }
-

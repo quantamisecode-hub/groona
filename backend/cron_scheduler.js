@@ -23,6 +23,7 @@ console.info(`[Scheduler] ⏰ Schedule: ${SCHEDULE} (${IS_PRODUCTION ? 'Every 8 
 console.log('=================================================');
 
 const SCRIPTS = [
+    'user_consistent_compliance.js',
     'sync_user_timesheets.js',
     'sync_sprint_velocity.js',
     'generate_alarm.js',
@@ -43,6 +44,7 @@ const SCRIPTS = [
     'alert_pending_timesheets.js',
     'check_team_utilization.js',
     'check_user_overload.js',
+
     'rework_escalation_workflow.js'
 ];
 

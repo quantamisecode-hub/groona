@@ -2,19 +2,19 @@ import React, { useState } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Bell, Loader2, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
 export default function NotificationStep({ tenant, onNext, onSkip, onBack }) {
-  const [preferences, setPreferences] = useState({
+  const [loading, setLoading] = useState(false);
+
+  const preferences = {
     email_notifications: tenant.notification_preferences?.email_notifications ?? true,
     weekly_digest: tenant.notification_preferences?.weekly_digest ?? true,
     project_updates: tenant.notification_preferences?.project_updates ?? true,
     system_announcements: tenant.notification_preferences?.system_announcements ?? true,
-  });
-  const [loading, setLoading] = useState(false);
+  };
 
   const handleNext = async () => {
     setLoading(true);
@@ -63,7 +63,7 @@ export default function NotificationStep({ tenant, onNext, onSkip, onBack }) {
         className="space-y-4"
       >
         <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
-          Stay <span className="text-blue-600">informed.</span>
+          How you will get <span className="text-blue-600">informed.</span>
         </h2>
         <p className="text-slate-500 text-xl max-w-2xl">
           Control how and when you receive updates. These settings determine the baseline for your workspace.
@@ -83,23 +83,16 @@ export default function NotificationStep({ tenant, onNext, onSkip, onBack }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 + (index * 0.05) }}
-              className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 bg-white hover:border-blue-100 hover:shadow-sm transition-all group"
+              className="flex items-start p-6 rounded-2xl border border-slate-100 bg-white shadow-sm"
             >
-              <div className="space-y-1 pr-4">
-                <Label className="text-lg font-bold text-slate-900 cursor-pointer">
+              <div className="space-y-1">
+                <Label className="text-lg font-bold text-slate-900">
                   {option.title}
                 </Label>
-                <p className="text-sm text-slate-400 group-hover:text-slate-500 transition-colors leading-snug">
+                <p className="text-sm text-slate-500 leading-snug">
                   {option.description}
                 </p>
               </div>
-              <Switch
-                checked={preferences[option.key]}
-                onCheckedChange={(checked) =>
-                  setPreferences({ ...preferences, [option.key]: checked })
-                }
-                className="data-[state=checked]:bg-blue-600 scale-110"
-              />
             </motion.div>
           ))}
         </motion.div>
@@ -150,12 +143,9 @@ export default function NotificationStep({ tenant, onNext, onSkip, onBack }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="pt-8 border-t border-slate-100 flex items-center justify-between"
+        className="pt-8 border-t border-slate-100 flex items-center justify-end"
       >
         <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={onBack} className="text-slate-400 hover:text-slate-900 font-bold">
-            Previous
-          </Button>
           <Button variant="ghost" onClick={() => onNext({ notifications: preferences })} className="text-slate-400 hover:text-slate-900 font-bold">
             Skip
           </Button>
@@ -163,7 +153,7 @@ export default function NotificationStep({ tenant, onNext, onSkip, onBack }) {
             onClick={handleNext}
             disabled={loading}
             size="lg"
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 h-14 font-semibold group flex items-center gap-2"
+            className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 hover:from-blue-700 hover:to-slate-950 text-white rounded-xl px-10 h-14 font-semibold group flex items-center gap-2"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Finish Setup <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" /></>}
           </Button>

@@ -35,7 +35,6 @@ export default function Projects() {
 
   const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
 
-
   // 1. Fetch Tenant (Cached via React Query)
   const { data: tenantData } = useQuery({
     queryKey: ['tenant', effectiveTenantId],

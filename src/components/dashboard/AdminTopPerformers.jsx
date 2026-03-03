@@ -2,16 +2,18 @@ import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { groonabackend } from '@/api/groonabackend';
 import { useUser } from '@/components/shared/UserContext';
-import { Trophy, TrendingUp, UserCheck, Star, BadgeCheck, DollarSign, Loader2, ArrowUpRight } from "lucide-react";
+import { Banknote, TrendingUp, UserCheck, Star, BadgeCheck, DollarSign, Loader2, ArrowUpRight, User } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
-export default function AdminTopPerformers() {
+export default function AdminTopPerformers({ tasks: propTasks = null, projects: propProjects = null }) {
     const { user: currentUser, effectiveTenantId } = useUser();
 
-    const { data: projects = [], isLoading: pLoading } = useQuery({
+    const { data: fetchProjects = [], isLoading: pLoading } = useQuery({
         queryKey: ['prof-projects', effectiveTenantId],
         queryFn: () => groonabackend.entities.Project.filter({ tenant_id: effectiveTenantId }),
-        enabled: !!currentUser && !!effectiveTenantId,
+        enabled: !!currentUser && !!effectiveTenantId && !propProjects,
     });
+    const projects = propProjects || fetchProjects;
 
     const { data: users = [], isLoading: uLoading } = useQuery({
         queryKey: ['prof-users', effectiveTenantId],
@@ -34,7 +36,17 @@ export default function AdminTopPerformers() {
         enabled: !!currentUser && !!effectiveTenantId,
     });
 
-    const isLoading = pLoading || uLoading || tLoading || eLoading;
+    const { data: fetchTasks = [], isLoading: tsLoading } = useQuery({
+        queryKey: ['prof-tasks', effectiveTenantId],
+        queryFn: async () => {
+            if (!effectiveTenantId) return groonabackend.entities.Task.list();
+            return groonabackend.entities.Task.filter({ tenant_id: effectiveTenantId });
+        },
+        enabled: !!currentUser && !!effectiveTenantId && !propTasks,
+    });
+    const tasks = propTasks || fetchTasks;
+
+    const isLoading = (!propProjects && pLoading) || uLoading || tLoading || eLoading || (!propTasks && tsLoading);
 
     const { topProjects, topUsers } = useMemo(() => {
         if (!projects.length || !users.length) return { topProjects: [], topUsers: [] };
@@ -42,8 +54,27 @@ export default function AdminTopPerformers() {
         // --- Calculate Top Projects ---
         const projectStats = {};
         projects.forEach(p => {
-            const budget = Number(p.budget || p.contract_amount || p.retainer_amount || 0);
-            projectStats[p.id] = { id: p.id, name: p.name, revenue: budget, laborCost: 0, expense: 0, profit: 0, margin: 0 };
+            let revenueAmount = 0;
+            switch (p.billing_model) {
+                case 'fixed_price':
+                    revenueAmount = Number(p.contract_amount || p.budget || 0);
+                    break;
+                case 'retainer':
+                    revenueAmount = Number(p.retainer_amount || p.contract_amount || p.budget || 0);
+                    break;
+                case 'time_and_materials': {
+                    const duration = Number(p.estimated_duration || 0);
+                    const rate = Number(p.default_bill_rate_per_hour || 0);
+                    revenueAmount = duration * rate;
+                    break;
+                }
+                case 'non_billable':
+                    revenueAmount = 0;
+                    break;
+                default:
+                    revenueAmount = Number(p.contract_amount || p.budget || 0);
+            }
+            projectStats[p.id] = { id: p.id, name: p.name, revenue: revenueAmount, laborCost: 0, expense: 0, profit: 0, margin: 0 };
         });
 
         const userRates = {};
@@ -73,37 +104,33 @@ export default function AdminTopPerformers() {
             p.profit = p.revenue - p.totalCost;
             p.margin = p.revenue > 0 ? (p.profit / p.revenue) * 100 : 0;
             return p;
-        }).sort((a, b) => b.margin - a.margin).slice(0, 3); // 🥇 Top 3 by profit margin
+        }).filter(p => p.totalCost > 0).sort((a, b) => b.margin - a.margin).slice(0, 3); // 🥇 Top 3 by profit margin
 
         // --- Calculate Top Team Members ---
-        // Efficiency = Billable Hours
+        // Top users by completed tasks
         const userStats = {};
         users.forEach(u => {
-            userStats[u.email] = { name: u.full_name || u.email, email: u.email, billableMinutes: 0, totalMinutes: 0, generatedValue: 0 };
+            userStats[u.email] = { name: u.full_name || u.email, email: u.email, completedTasksCount: 0 };
         });
 
-        timesheets.forEach(t => {
-            if (t.status === 'approved') {
-                const email = t.user_email;
-                if (userStats[email]) {
-                    userStats[email].totalMinutes += (t.total_minutes || 0);
-                    if (t.is_billable) {
-                        userStats[email].billableMinutes += (t.total_minutes || 0);
-                        const rate = t.snapshot_hourly_rate || t.hourly_rate || userRates[email] || 0;
-                        userStats[email].generatedValue += ((t.total_minutes || 0) / 60) * rate;
+        tasks.forEach(task => {
+            if (task.status === 'completed') {
+                const assignees = Array.isArray(task.assigned_to) ? task.assigned_to : (task.assigned_to ? [task.assigned_to] : []);
+                assignees.forEach(email => {
+                    if (userStats[email]) {
+                        userStats[email].completedTasksCount += 1;
                     }
-                }
+                });
             }
         });
 
-        let topUsersArray = Object.values(userStats).map(u => {
-            u.efficiency = u.totalMinutes > 0 ? (u.billableMinutes / u.totalMinutes) * 100 : 0;
-            u.billableHours = u.billableMinutes / 60;
-            return u;
-        }).sort((a, b) => b.generatedValue - a.generatedValue).slice(0, 3); // 🥇 Top 3 by generated billable value
+        let topUsersArray = Object.values(userStats)
+            .filter(u => u.completedTasksCount > 0)
+            .sort((a, b) => b.completedTasksCount - a.completedTasksCount)
+            .slice(0, 3);
 
         return { topProjects: topProjectsArray, topUsers: topUsersArray };
-    }, [projects, users, timesheets, expenses]);
+    }, [projects, users, timesheets, expenses, tasks]);
 
     if (isLoading) {
         return (
@@ -112,8 +139,6 @@ export default function AdminTopPerformers() {
             </div>
         );
     }
-
-    if (!topProjects.length && !topUsers.length) return null;
 
     const formatCurrency = (amount) => {
         if (Math.abs(amount) >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
@@ -134,7 +159,7 @@ export default function AdminTopPerformers() {
                         <p className="text-[14px] text-slate-500 mt-1 font-medium">Ranked by net margin</p>
                     </div>
                     <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Trophy className="w-5 h-5" />
+                        <Banknote className="w-5 h-5" />
                     </div>
                 </div>
 
@@ -173,10 +198,10 @@ export default function AdminTopPerformers() {
                 <div className="flex justify-between items-center mb-8 relative z-10">
                     <div>
                         <h3 className="text-[18px] font-bold text-slate-900 tracking-tight">Top Performing Members</h3>
-                        <p className="text-[14px] text-slate-500 mt-1 font-medium">Ranked by billable value</p>
+                        <p className="text-[14px] text-slate-500 mt-1 font-medium">Ranked by completed tasks</p>
                     </div>
                     <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <Star className="w-5 h-5" />
+                        <User className="w-5 h-5" />
                     </div>
                 </div>
 
@@ -187,25 +212,31 @@ export default function AdminTopPerformers() {
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold ${idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700'}`}>
                                     #{idx + 1}
                                 </div>
+                                <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm border border-slate-100">
+                                    <AvatarImage src={user.profile_picture || '/default-avatar.png'} />
+                                    <AvatarFallback className="text-sm font-bold text-slate-600 bg-slate-100">
+                                        {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                    </AvatarFallback>
+                                </Avatar>
                                 <div className="flex flex-col">
                                     <span className="font-bold text-slate-900 text-[15px] max-w-[150px] truncate">{user.name}</span>
                                     <span className="text-[13px] font-medium text-slate-500 flex items-center gap-1">
                                         <BadgeCheck className="w-3.5 h-3.5 text-indigo-500" />
-                                        {user.billableHours.toFixed(1)} billable hrs
+                                        Task Champion
                                     </span>
                                 </div>
                             </div>
                             <div className="text-right flex flex-col items-end">
                                 <div className="flex items-center gap-1 font-bold text-slate-900 text-[16px]">
-                                    {formatCurrency(user.generatedValue)}
+                                    {user.completedTasksCount}
                                     <ArrowUpRight className="w-4 h-4 text-emerald-500" />
                                 </div>
-                                <span className="text-[12px] font-medium text-slate-400">Value Generated</span>
+                                <span className="text-[12px] font-medium text-slate-400">Tasks Completed</span>
                             </div>
                         </div>
                     ))}
                     {topUsers.length === 0 && (
-                        <div className="text-sm text-slate-500 text-center py-4">Not enough timesheet data yet.</div>
+                        <div className="text-sm text-slate-500 text-center py-4">Not enough task data yet.</div>
                     )}
                 </div>
             </div>

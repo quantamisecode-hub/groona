@@ -1,9 +1,117 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const WebSocket = require('ws');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Models = require('../models/SchemaDefinitions');
+const emailService = require('../services/emailService');
+const modelHelper = require('../helpers/geminiModelHelper');
+
+// === SUPER ADMIN ENDPOINTS ===
+
+// GET razorpay config explicitly from .env
+router.get('/admin/razorpay-config', async (req, res) => {
+  try {
+    // Only super admin Check (assuming req.user comes from token verify, if applicable)
+    // Note: If you need stronger protection, ensure your auth middleware sets req.user.is_super_admin
+    const envPath = path.resolve(__dirname, '../.env');
+    let razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
+    let razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
+
+    // If you want to mask the secret before sending to frontend:
+    if (razorpayKeySecret) {
+      razorpayKeySecret = '********' + razorpayKeySecret.slice(-4);
+    }
+
+    res.json({
+      RAZORPAY_KEY_ID: razorpayKeyId,
+      RAZORPAY_KEY_SECRET: razorpayKeySecret,
+    });
+  } catch (error) {
+    console.error('[Admin] Error fetching Razorpay config:', error);
+    res.status(500).json({ error: 'Failed to fetch config' });
+  }
+});
+
+// POST update razorpay config explicitly to .env
+router.post('/admin/razorpay-config', async (req, res) => {
+  try {
+    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = req.body;
+    const envPath = path.resolve(__dirname, '../.env');
+
+    if (!fs.existsSync(envPath)) {
+      return res.status(500).json({ error: '.env file not found on server' });
+    }
+
+    let envContent = fs.readFileSync(envPath, 'utf8');
+
+    const updateOrAddEnv = (key, value) => {
+      // If they send masked secret, do not overwrite the real one
+      if (key === 'RAZORPAY_KEY_SECRET' && value.startsWith('********')) return;
+
+      const regex = new RegExp(`^${key}=.*$`, 'm');
+      if (regex.test(envContent)) {
+        envContent = envContent.replace(regex, `${key}=${value}`);
+      } else {
+        envContent += `\n${key}=${value}`;
+      }
+      process.env[key] = value; // Update running process
+    };
+
+    if (RAZORPAY_KEY_ID) updateOrAddEnv('RAZORPAY_KEY_ID', RAZORPAY_KEY_ID);
+    if (RAZORPAY_KEY_SECRET) updateOrAddEnv('RAZORPAY_KEY_SECRET', RAZORPAY_KEY_SECRET);
+
+    fs.writeFileSync(envPath, envContent.trim() + '\n', 'utf8');
+
+    res.json({ success: true, message: 'Razorpay keys updated successfully.' });
+  } catch (error) {
+    console.error('[Admin] Error updating Razorpay config:', error);
+    res.status(500).json({ error: 'Failed to update config' });
+  }
+});
+
+
+// === GET SUBSCRIPTION HISTORY (SUPER ADMIN) ===
+router.get('/admin/subscriptions-history', async (req, res) => {
+  try {
+    const TenantSubscription = Models.TenantSubscription;
+    const Tenant = Models.Tenant;
+    const SubscriptionPlan = Models.SubscriptionPlan;
+
+    const subscriptions = await TenantSubscription.find({}).sort({ created_at: -1, created_date: -1 }).lean();
+    const tenants = await Tenant.find({}).lean();
+    const plans = await SubscriptionPlan.find({}).lean();
+
+    const tenantMap = tenants.reduce((acc, t) => { acc[t._id.toString()] = t; return acc; }, {});
+    const planMap = plans.reduce((acc, p) => { acc[p._id.toString()] = p; return acc; }, {});
+
+    const enriched = subscriptions.map(sub => {
+      const t = tenantMap[sub.tenant_id?.toString()] || {};
+      const p = planMap[sub.subscription_plan_id?.toString()] || {};
+      return {
+        ...sub,
+        tenant_name: t.company_name || 'Unknown Tenant',
+        contact_email: t.contact_email || '',
+        plan_name: p.name || sub.plan_name || 'Unknown Plan',
+        monthly_price: p.monthly_price || 0,
+        currency: p.currency || 'USD'
+      };
+    });
+
+    res.json(enriched);
+  } catch (error) {
+    console.error('[Admin] Error fetching subscriptions history:', error);
+    res.status(500).json({ error: 'Failed to fetch subscriptions' });
+  }
+});
 
 // === CURRENCY CONVERSION ENDPOINT ===
+// === CURRENCY CONVERSION ENDPOINT ===
+// === CURRENCY CONVERSION ENDPOINT ===
+
 router.get('/currency/convert', async (req, res) => {
   const { from, to, amount } = req.query;
 
@@ -140,14 +248,6 @@ router.get('/currency/convert', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-// nodemailer removed - using Resend SDK now
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const WebSocket = require('ws');
-const modelHelper = require('../helpers/geminiModelHelper');
-const emailService = require('../services/emailService');
 
 // --- CONFIGURATION ---
 // Use helper to get default model (gemini-2.5-flash-native-audio-dialog)
@@ -172,7 +272,16 @@ async function syncUserTimesheetDay(userEmail, date, tenantId) {
     if (!user) return;
 
     // 1. Calculate cumulative total minutes for this user on this date (only SUBMITTED/APPROVED)
-    const dateStr = date instanceof Date ? date.toISOString().split('T')[0] : date;
+    // FORCE UTC MIDNIGHT NORMALIZATION
+    let dateStr = date;
+    if (date instanceof Date) {
+      dateStr = date.toISOString().split('T')[0];
+    } else if (typeof date === 'string' && date.includes('T')) {
+      dateStr = date.split('T')[0];
+    } else if (typeof date === 'string') {
+      dateStr = date.substring(0, 10);
+    }
+
     const startOfDay = new Date(dateStr + 'T00:00:00.000Z');
     const endOfDay = new Date(dateStr + 'T23:59:59.999Z');
 
@@ -366,6 +475,7 @@ async function syncSprintVelocity(sprintId, tenantId) {
                 project_id: sprint.project_id,
                 sender_name: 'System',
                 read: false,
+                created_date: new Date()
               });
 
               // Send email notification
@@ -701,16 +811,32 @@ async function buildDeepContext(tenant_id, user_id, content) {
 }
 
 // ... (GENERIC ROUTES) ...
-router.post('/entities/:entity/filter', async (req, res) => { try { const Model = Models[req.params.entity]; if (!Model) return res.status(400).json({ msg: `Entity not found` }); const { filters = {}, sort } = req.body; let query = Model.find(filters); if (sort) { const sortObj = {}; if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1; else sortObj[sort] = 1; query = query.sort(sortObj); } res.json(await query.exec()); } catch (err) { res.json([]); } });
-router.post('/entities/:entity/get/:id', async (req, res) => {
+router.post('/entities/:entity/filter', async (req, res) => {
   try {
-    const Model = Models[req.params.entity];
-    if (!Model) return res.status(400).json({ msg: `Entity not found` });
-    const item = await Model.findById(req.params.id);
-    if (!item) return res.status(404).json({ msg: `Item not found` });
-    res.json(item);
+    const entityName = req.params.entity;
+    const Model = Models[entityName];
+    if (!Model) {
+      console.warn(`[API] Entity Not Found: ${entityName}`);
+      return res.status(400).json({ msg: `Entity not found` });
+    }
+    const { filters = {}, sort } = req.body;
+    let query = Model.find(filters);
+    if (sort) {
+      const sortObj = {};
+      if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1;
+      else sortObj[sort] = 1;
+      query = query.sort(sortObj);
+    }
+    const results = await query.exec();
+    if (entityName === 'ProjectExpense' || entityName === 'Timesheet') {
+      console.log(`[DEBUG-BACKEND] Entity: ${entityName} | Filters:`, filters, `| Count: ${results.length}`);
+    }
+    res.json(results);
   } catch (err) {
-    res.status(500).send(err.message);
+    if (req.params.entity === 'ProjectExpense') {
+      console.error(`[DEBUG-BACKEND] Error fetching ${req.params.entity}:`, err);
+    }
+    res.json([]);
   }
 });
 router.post('/entities/:entity/create', async (req, res) => {
@@ -775,6 +901,16 @@ router.post('/entities/:entity/create', async (req, res) => {
         const user = await User.findOne({ email: userEmail });
 
         // Only enforce if the user is currently locked
+        // ALLOW "draft" status even if locked (so they can save work)
+        const isDraft = req.body.status === 'draft';
+
+        if (user && user.is_timesheet_locked && !isDraft) {
+          return res.status(403).json({
+            error: 'Your timesheet access is temporarily locked. Please contact your manager.'
+          });
+        }
+
+        // Existing logic for missing days check (only if locked)
         if (user && user.is_timesheet_locked) {
           const UserTimesheets = Models.User_timesheets;
 
@@ -944,6 +1080,7 @@ router.post('/entities/:entity/create', async (req, res) => {
                 entity_id: savedItem._id,
                 sender_name: 'System',
                 read: false,
+                created_date: new Date()
               });
               log(`Notification created: ${notif._id}`);
 
@@ -981,6 +1118,7 @@ router.post('/entities/:entity/create', async (req, res) => {
                 entity_id: savedItem._id,
                 sender_name: 'System',
                 read: false,
+                created_date: new Date()
               });
               log(`OnTime Notification created: ${notif._id}`);
 
@@ -1353,6 +1491,7 @@ router.post('/entities/:entity/create', async (req, res) => {
             // deep_link: deepLink, // Removed for reporter as per request
             sender_name: 'System',
             read: false,
+            created_date: createdDate
           });
 
           console.log(`[API] Inserting ${notifications.length} notifications.`);
@@ -1377,6 +1516,57 @@ router.post('/entities/:entity/create', async (req, res) => {
 
         } catch (err) {
           console.error('[Impediment] Notification Error:', err);
+        }
+      });
+    }
+
+    // --- PEER REVIEW NOTIFICATIONS ---
+    if (entityName === 'PeerReviewRequest') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+          const emailService = require('../services/emailService');
+
+          // 1. Create In-App Notification for Reviewer
+          const notif = await Notification.create({
+            tenant_id: savedItem.tenant_id,
+            recipient_email: savedItem.reviewer_email,
+            type: 'rework_peer_review',
+            category: 'alert',
+            title: 'Peer Review Requested',
+            message: `${savedItem.requester_name} has requested a peer review for ${savedItem.task_title}. Click to view in Rework Reviews tab.`,
+            entity_type: 'peer_review_request',
+            entity_id: savedItem._id,
+            link: '/Timesheets?tab=rework-reviews',
+            scope: 'user',
+            sender_name: savedItem.requester_name,
+            status: 'OPEN'
+          });
+
+          if (req.io) {
+            req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+          }
+
+          // 2. Send Email to Reviewer
+          const reviewer = await User.findOne({ email: savedItem.reviewer_email });
+          const reviewerName = reviewer?.full_name || savedItem.reviewer_email;
+
+          await emailService.sendEmail({
+            to: savedItem.reviewer_email,
+            templateType: 'peer_review_requested',
+            data: {
+              reviewerName,
+              reviewerEmail: savedItem.reviewer_email,
+              requesterName: savedItem.requester_name,
+              taskTitle: savedItem.task_title,
+              projectName: savedItem.project_name,
+              message: savedItem.message,
+              dashboardUrl: `${process.env.FRONTEND_URL}/Timesheets?tab=rework-reviews`
+            }
+          });
+        } catch (err) {
+          console.error('[PeerReview] Notification Error:', err);
         }
       });
     }
@@ -1532,6 +1722,7 @@ router.post('/entities/:entity/update', async (req, res) => {
               entity_id: updatedDoc._id,
               sender_name: 'System',
               read: false,
+              created_date: new Date()
             });
 
             if (req.io) {
@@ -1540,6 +1731,70 @@ router.post('/entities/:entity/update', async (req, res) => {
           }
         } catch (notifErr) {
           console.error('[TimesheetUpdate] Notification Error:', notifErr);
+        }
+      });
+    }
+
+    // --- TIMESHEET REJECTION NOTIFICATION (Update Route) ---
+    if (entityName === 'Timesheet' && updatedDoc.status === 'rejected' && oldDoc.status !== 'rejected') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+
+          // Requirement: Check if the user who performed the rejection is an Admin/PM
+          const actorRole = req.user.role;
+          const actorCustomRole = req.user.custom_role;
+
+          const isAdminOrPM = actorRole === 'admin' || actorCustomRole === 'project_manager' || actorCustomRole === 'owner';
+
+          if (isAdminOrPM) {
+            const user = await User.findOne({ email: updatedDoc.user_email });
+            if (user) {
+              const notif = await Notification.create({
+                tenant_id: updatedDoc.tenant_id,
+                recipient_email: updatedDoc.user_email,
+                user_id: user._id,
+                type: 'timesheet_rejected',
+                category: 'general',
+                title: 'Time Entry Rejected',
+                message: 'A time entry was rejected. Please correct and resubmit.',
+                entity_type: 'timesheet',
+                entity_id: updatedDoc._id,
+                project_id: updatedDoc.project_id || data.project_id,
+                link: `/Timesheets?tab=my-timesheets&editId=${updatedDoc._id}`,
+                sender_name: req.user.full_name || 'System',
+                read: false,
+                created_date: new Date()
+              });
+
+              if (req.io) {
+                req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+              }
+
+              // Send Email notification
+              try {
+                await emailService.sendEmail({
+                  to: updatedDoc.user_email,
+                  templateType: 'timesheet_rejected',
+                  data: {
+                    memberName: user.full_name || updatedDoc.user_email,
+                    memberEmail: updatedDoc.user_email,
+                    taskTitle: updatedDoc.task_title || 'N/A',
+                    date: updatedDoc.date,
+                    hours: updatedDoc.hours,
+                    minutes: updatedDoc.minutes,
+                    rejectedBy: req.user.full_name || 'Project Manager',
+                    comment: updatedDoc.rejection_reason || data.rejection_reason || 'No reason provided'
+                  }
+                });
+              } catch (emailErr) {
+                console.error('[Timesheet rejection] Email Error:', emailErr);
+              }
+            }
+          }
+        } catch (notifErr) {
+          console.error('[TimesheetUpdate] Rejection Notification Error:', notifErr);
         }
       });
     }
@@ -2118,6 +2373,202 @@ router.post('/entities/:entity/update', async (req, res) => {
         }
       });
     }
+
+    // --- TASK STATUS CHANGE NOTIFICATIONS ---
+    if (entityName === 'Task' && data.status && oldDoc.status !== data.status) {
+      setImmediate(async () => {
+        try {
+          const emailService = require('../services/emailService');
+          const frontendUrl = process.env.FRONTEND_URL;
+          if (!frontendUrl) {
+            console.warn('FRONTEND_URL not set in environment variables');
+            return;
+          }
+
+          const newStatus = data.status.toLowerCase();
+          const oldStatus = oldDoc.status.toLowerCase();
+
+          // Define relevant transitions
+          const isStarted = oldStatus === 'todo' && newStatus === 'in_progress';
+          const isReview = oldStatus === 'in_progress' && newStatus === 'review';
+          const isReverted = oldStatus === 'in_progress' && newStatus === 'todo';
+
+          if (isStarted || isReview || isReverted) {
+            // Get Project to find Project Managers
+            const Project = Models.Project;
+            const project = await Project.findById(updatedDoc.project_id);
+            if (!project) return;
+
+            const projectName = project.name;
+            const projectId = project._id;
+            const taskTitle = updatedDoc.title;
+            const taskUrl = `${frontendUrl}/projects/${projectId}?tab=board`;
+
+            // Identify PMs
+            const pmEmails = new Set();
+            const User = Models.User;
+            const ProjectUserRole = Models.ProjectUserRole;
+
+            // 1. Project Owner
+            if (project.owner) {
+              if (project.owner.includes('@')) {
+                pmEmails.add(project.owner);
+              } else {
+                const ownerUser = await User.findById(project.owner);
+                if (ownerUser && ownerUser.email) pmEmails.add(ownerUser.email);
+              }
+            }
+
+            // 2. Team Members with PM role
+            if (project.team_members && Array.isArray(project.team_members)) {
+              for (const member of project.team_members) {
+                if (member.role === 'project_manager' || member.custom_role === 'project_manager') {
+                  if (member.email) pmEmails.add(member.email);
+                  else if (member.user_id) {
+                    const u = await User.findById(member.user_id);
+                    if (u && u.email) pmEmails.add(u.email);
+                  }
+                }
+              }
+            }
+
+            // 3. ProjectUserRole
+            const pmRoles = await ProjectUserRole.find({ project_id: projectId, role: 'project_manager' });
+            for (const role of pmRoles) {
+              if (role.user_id) {
+                const u = await User.findById(role.user_id);
+                if (u && u.email) pmEmails.add(u.email);
+              }
+            }
+
+            // Get user who made the change
+            let changedByName = 'A team member';
+            let changedByEmail = 'System';
+            let userId = null;
+
+            if (req.user) {
+              changedByName = req.user.full_name || req.user.name || 'A team member';
+              changedByEmail = req.user.email || 'System';
+            } else if (req.headers && req.headers.authorization) {
+              const token = req.headers.authorization.split(' ')[1];
+              if (token) {
+                const jwt = require('jsonwebtoken');
+                try {
+                  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                  if (decoded.user && decoded.user.id) {
+                    userId = decoded.user.id;
+                  } else if (decoded.id) {
+                    userId = decoded.id;
+                  }
+                } catch (e) {
+                  console.error('[TaskStatusEmail] Token verification error:', e.message);
+                }
+              }
+            }
+
+            if (userId) {
+              const changedByUser = await User.findById(userId);
+              if (changedByUser) {
+                changedByName = changedByUser.full_name || changedByUser.name || 'A team member';
+                changedByEmail = changedByUser.email || 'System';
+              }
+            } else if (changedByEmail && changedByEmail !== 'System') {
+              const changedByUser = await User.findOne({ email: changedByEmail });
+              if (changedByUser) {
+                changedByName = changedByUser.full_name || changedByUser.name || 'A team member';
+              }
+            }
+
+            // Fallback to "A team member" to avoid showing an email address
+            if (!changedByName || changedByName.includes('@')) {
+              changedByName = 'A team member';
+            }
+
+            // Send Emails
+            for (const pmEmail of pmEmails) {
+              // Don't send email to the person who made the change themselves
+              if (pmEmail === changedByEmail) continue;
+
+              try {
+                const pmUser = await User.findOne({ email: pmEmail });
+                const pmName = pmUser?.full_name || pmEmail;
+
+                await emailService.sendEmail({
+                  to: pmEmail,
+                  templateType: 'task_status_changed',
+                  data: {
+                    recipientName: pmName,
+                    recipientEmail: pmEmail,
+                    taskTitle,
+                    projectName,
+                    oldStatus,
+                    newStatus,
+                    changedBy: changedByName,
+                    taskUrl,
+                    isReverted
+                  }
+                });
+                console.log(`[TaskStatusEmail] Sent status change email to PM ${pmEmail} for task ${taskTitle} (${oldStatus} -> ${newStatus})`);
+              } catch (err) {
+                console.error(`[TaskStatusEmail] Failed to send to ${pmEmail}:`, err);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[TaskStatusEmail] Error processing task status change emails:', error);
+        }
+      });
+    }
+
+    // --- PEER REVIEW DECLINE NOTIFICATIONS ---
+    if (entityName === 'PeerReviewRequest' && updatedDoc.status === 'DECLINED' && oldDoc.status !== 'DECLINED') {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+
+          // 1. Create In-App Notification for Requester
+          const notif = await Notification.create({
+            tenant_id: updatedDoc.tenant_id,
+            recipient_email: updatedDoc.requester_email,
+            type: 'rework_peer_review_declined',
+            category: 'alert',
+            title: 'Peer Review Declined',
+            message: `Your peer review request for "${updatedDoc.task_title}" has been declined by ${updatedDoc.reviewer_email}.`,
+            entity_type: 'peer_review_request',
+            entity_id: updatedDoc._id,
+            link: '/Timesheets?tab=my-requests',
+            scope: 'user',
+            sender_name: updatedDoc.reviewer_email,
+            status: 'OPEN'
+          });
+
+          if (req.io) {
+            req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+          }
+
+          // 2. Send Email to Requester
+          const reviewer = await User.findOne({ email: updatedDoc.reviewer_email });
+          const reviewerName = reviewer?.full_name || updatedDoc.reviewer_email;
+
+          await emailService.sendEmail({
+            to: updatedDoc.requester_email,
+            templateType: 'peer_review_declined',
+            data: {
+              requesterName: updatedDoc.requester_name,
+              requesterEmail: updatedDoc.requester_email,
+              reviewerName,
+              taskTitle: updatedDoc.task_title,
+              projectName: updatedDoc.project_name,
+              dashboardUrl: `${process.env.FRONTEND_URL}/Timesheets?tab=my-requests`
+            }
+          });
+        } catch (err) {
+          console.error('[PeerReviewDecline] Notification Error:', err);
+        }
+      });
+    }
+
   } catch (err) {
     res.status(500).send(err.message);
   }
@@ -2154,7 +2605,7 @@ router.post('/entities/:entity/delete', async (req, res) => {
           let sprintId = null;
           if (entity === 'Sprint') {
             await Models.SprintVelocity.findOneAndDelete({ sprint_id: docToDelete._id });
-            console.log(`[VelocitySync] Deleted velocity record for sprint: ${docToDelete.name} `);
+            console.log(`[VelocitySync] Deleted velocity record for sprint: ${docToDelete.name}`);
             return;
           } else if (docToDelete.sprint_id) {
             sprintId = docToDelete.sprint_id;
@@ -2173,6 +2624,17 @@ router.post('/entities/:entity/delete', async (req, res) => {
     }
 
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+router.post('/entities/:entity/get/:id', async (req, res) => {
+  try {
+    const Model = Models[req.params.entity];
+    if (!Model) return res.status(400).json({ error: 'Entity not found' });
+    const item = await Model.findById(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+    res.json(item);
   } catch (err) {
     res.status(500).send(err.message);
   }
@@ -2203,16 +2665,16 @@ router.post('/ai/chat', async (req, res) => {
     const fileParts = await processFilesForGemini(file_urls, req);
 
     let contextBlock = "";
-    if (context) contextBlock += `${context} \n`;
-    if (deepContext) contextBlock += `${deepContext} \n`;
+    if (context) contextBlock += `${context}\n`;
+    if (deepContext) contextBlock += `${deepContext}\n`;
 
     const finalParts = [
       ...fileParts,
-      { text: contextBlock ? `SYSTEM DATA: \n${contextBlock} \n\nUSER QUERY: ${content} ` : content }
+      { text: contextBlock ? `SYSTEM DATA:\n${contextBlock}\n\nUSER QUERY: ${content}` : content }
     ];
 
     const systemInstruction = {
-      parts: [{ text: `You are Aivora.Concise, helpful, professional.` }]
+      parts: [{ text: `You are Aivora. Concise, helpful, professional.` }]
     };
 
     const result = await generateController(genAI, {
@@ -2231,6 +2693,7 @@ router.post('/ai/chat', async (req, res) => {
       await Models.TokenUsage.create({
         tenant_id, user_id, model: result.model,
         total_tokens: result.usage.totalTokenCount,
+        created_date: new Date()
       });
     }
 
@@ -2249,7 +2712,7 @@ router.post('/ai/generate-sprint-tasks', async (req, res) => {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const prompt = `Create tasks.Goal: "${goal}".Return JSON { "tasks": [] }.`;
+    const prompt = `Create tasks. Goal: "${goal}". Return JSON { "tasks": [] }.`;
 
     // Use default model (gemini-2.5-flash-native-audio-dialog) from helper
     const result = await generateController(genAI, {
@@ -2303,14 +2766,17 @@ router.post('/integrations/llm', async (req, res) => {
 
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const generationConfig = response_json_schema ? { responseMimeType: "application/json" } : {};
+    const generationConfig = response_json_schema ? {
+      responseMimeType: "application/json",
+      responseSchema: response_json_schema
+    } : {};
 
     const fileParts = await processFilesForGemini(file_urls, req);
 
     // 2. Handle undefined context safely
-    let textPart = `USER QUERY: ${prompt} `;
+    let textPart = `USER QUERY: ${prompt}`;
     if (context && typeof context === 'string' && context.trim()) {
-      textPart = `CONTEXT: \n${context} \n\n${textPart} `;
+      textPart = `CONTEXT:\n${context}\n\n${textPart}`;
     }
 
     const parts = [...fileParts, { text: textPart }];
@@ -2326,8 +2792,18 @@ router.post('/integrations/llm', async (req, res) => {
 
     if (response_json_schema) {
       // 3. Robust JSON Parsing & Fallback for Plain Text
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : text;
+      let jsonStr = text;
+
+      // If it's wrapped in a code block, strip that out
+      if (text.includes('```json')) {
+        jsonStr = text.split('```json')[1].split('```')[0].trim();
+      } else if (text.includes('```')) {
+        jsonStr = text.split('```')[1].split('```')[0].trim();
+      } else {
+        // Fallback to a regex match if it's just raw text with json somewhere in it
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        jsonStr = jsonMatch ? jsonMatch[0] : text;
+      }
 
       try {
         const jsonObj = JSON.parse(jsonStr);
@@ -2339,9 +2815,12 @@ router.post('/integrations/llm', async (req, res) => {
         // If the user requested a description and we got text, assume the text IS the description
         if (response_json_schema?.properties?.description) {
           return res.json({
+            title: text.substring(0, 50).replace(/[*#]/g, ''), // Provide a fallback title
             description: text.replace(/[*#]/g, ''), // Strip markdown artifacts
             priority: "medium",
-            story_points: 1
+            story_points: 1,
+            labels: ["ai-generated"],
+            subtasks: []
           });
         }
 
@@ -2403,72 +2882,347 @@ router.post('/email/send-template', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// === DUE DATE ACTIVITY ROUTES ===
-router.post('/tasks/:id/due-date-log', async (req, res) => {
-  const { id } = req.params;
-  const { previousDueDate, newDueDate, reason, changedBy, tenant_id } = req.body;
-
+// === AUDIT LOCK ENDPOINT ===
+router.post('/audit-lock/toggle', async (req, res) => {
   try {
-    const Task = Models.Task;
-    const DueDateActivity = Models.DueDateActivity;
+    const { userIds, locked, tenantId } = req.body;
+    // Ensure emailService is available
+    const emailService = require('../services/emailService');
 
-    if (!Task || !DueDateActivity) {
-      return res.status(500).json({ error: "Models not initialized correctly" });
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ error: 'Invalid userIds' });
     }
 
-    // 1. Update Task Due Date (Try ObjectId first, then string ID)
-    let updatedTask = await Task.findOneAndUpdate(
-      { _id: req.params.id },
-      { due_date: newDueDate, updated_date: new Date() },
-      { new: true }
+    // Update users
+    await Models.User.updateMany(
+      { _id: { $in: userIds } },
+      { $set: { is_timesheet_locked: locked } }
     );
 
-    if (!updatedTask) {
-      updatedTask = await Task.findOneAndUpdate(
-        { id: req.params.id },
-        { due_date: newDueDate, updated_date: new Date() },
-        { new: true }
-      );
+    // Send Notifications & Emails
+    const users = await Models.User.find({ _id: { $in: userIds } });
+
+    for (const user of users) {
+      // In-App Notification
+      await Models.Notification.create({
+        tenant_id: tenantId,
+        recipient_email: user.email,
+        user_id: user._id,
+        type: 'timesheet_lock',
+        category: 'alert',
+        title: locked ? 'Timesheet Access Locked' : 'Timesheet Access Unlocked',
+        message: locked
+          ? 'Your timesheet access is temporarily locked. Please contact your manager.'
+          : 'Your timesheet access has been restored.',
+        entity_type: 'user',
+        entity_id: user._id,
+        sender_name: 'System',
+        read: false,
+        created_date: new Date()
+      });
+
+      // Email
+      try {
+        const managerName = "Manager";
+
+        await emailService.sendEmail({
+          to: user.email,
+          templateType: 'audit_lock_toggle',
+          data: {
+            userName: user.full_name,
+            userEmail: user.email,
+            locked: locked,
+            managerName: managerName
+          }
+        });
+      } catch (e) {
+        console.error(`Failed to send lock/unlock email to ${user.email}`, e);
+      }
     }
 
-    if (!updatedTask) {
-      return res.status(404).json({ error: 'Task not found' });
-    }
+    res.json({ success: true, message: `Updated lock status for ${userIds.length} users.` });
 
-    // 2. Insert Activity Log
-    const activityData = {
-      taskId: id,
-      tenant_id: tenant_id || updatedTask.tenant_id,
-      previousDueDate,
-      newDueDate,
-      changedBy,
-      reason,
-      changedAt: new Date()
-    };
-
-    const newLog = new DueDateActivity(activityData);
-    await newLog.save();
-
-    res.json({ success: true, log: newLog });
-  } catch (err) {
-    console.error("Error updating due date:", err);
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Audit lock toggle error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-router.get('/tasks/:id/due-date-log', async (req, res) => {
-  const { id } = req.params;
+// === RAZORPAY INTEGRATIONS ===
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
+
+router.post('/integrations/razorpay/create-order', async (req, res) => {
   try {
-    const DueDateActivity = Models.DueDateActivity;
-    if (!DueDateActivity) {
-      return res.status(500).json({ error: "DueDateActivity model not found" });
+    const { amount, plan_id, currency } = req.body;
+
+    // Check if keys are configured
+    const key_id = process.env.RAZORPAY_KEY_ID;
+    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!key_id || !key_secret) {
+      console.warn('[Razorpay] Gateway credentials not found in environment.');
+      return res.status(500).json({ error: 'Payment gateway is not currently configured by the administrator.' });
     }
 
-    const logs = await DueDateActivity.find({ taskId: id }).sort({ changedAt: -1 });
-    res.json(logs);
-  } catch (err) {
-    console.error("Error fetching due date logs:", err);
-    res.status(500).json({ error: err.message });
+    const instance = new Razorpay({ key_id, key_secret });
+
+    // Amount usually in smallest currency unit (paise for INR)
+    // Here we assume amount is in dollars or standard units, so we multiply by 100 for Razorpay
+    const options = {
+      amount: Math.round(Number(amount) * 100),
+      currency: currency || "USD",
+      receipt: `receipt_order_${Date.now()}`
+    };
+
+    const order = await instance.orders.create(options);
+    if (!order) return res.status(500).send("Some error occured while creating razorpay order");
+
+    res.json({
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key_id: key_id
+    });
+
+  } catch (error) {
+    console.error("[Razorpay] Order Creation Error:", error);
+    res.status(500).json({ error: 'Failed to initiate payment gateway.' });
+  }
+});
+
+router.post('/integrations/razorpay/verify-payment', async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      plan_id,
+      tenant_id
+    } = req.body;
+
+    const secret = process.env.RAZORPAY_KEY_SECRET;
+
+    // Creating hmac object
+    const hmac = crypto.createHmac('sha256', secret);
+
+    // Passing the data to be hashed
+    hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
+
+    // Creating the hmac in the required format
+    const generated_signature = hmac.digest('hex');
+
+
+    let isSignatureValid = false;
+    try {
+      // Using crypto.timingSafeEqual for secure comparison
+      isSignatureValid = crypto.timingSafeEqual(
+        Buffer.from(generated_signature),
+        Buffer.from(razorpay_signature)
+      );
+    } catch (e) {
+      // Fallback string compare if timingSafeEqual fails due to length issues (very rare)
+      isSignatureValid = generated_signature === razorpay_signature;
+    }
+
+
+    if (isSignatureValid) {
+      // ==========================================
+      // PAYMENT SUCCESS: UPGRADE SUBSCRIPTION
+      // ==========================================
+
+      // 1. Fetch Plan Details
+      const SubscriptionPlan = Models.SubscriptionPlan;
+      const plan = await SubscriptionPlan.findById(plan_id);
+      if (!plan) throw new Error("Plan not found");
+
+      // 2. Update Tenant
+      const Tenant = Models.Tenant;
+      const tenant = await Tenant.findById(tenant_id);
+      if (!tenant) throw new Error("Tenant not found");
+
+      const TenantSubscription = Models.TenantSubscription;
+      const Payment = Models.Payment;
+      const now = new Date();
+      const nextMonth = new Date(now);
+      nextMonth.setMonth(now.getMonth() + 1);
+
+      await Tenant.findByIdAndUpdate(tenant_id, {
+        subscription_plan_id: plan._id,
+        subscription_plan: plan.name,
+        subscription_status: 'active',
+        subscription_type: 'monthly', // Set by verify-payment logic
+        subscription_start_date: now.toISOString(),
+        subscription_ends_at: nextMonth.toISOString(),
+        trial_ends_at: nextMonth.toISOString(), // Match subscription end date as requested
+        status: 'active', // Dynamically lift suspension/past_due status
+        max_users: plan.features?.max_users,
+        max_projects: plan.features?.max_projects,
+        max_workspaces: plan.features?.max_workspaces,
+        max_storage_gb: plan.features?.max_storage_gb
+      });
+
+
+
+      // 3. Create Payment Transaction Record (History)
+      await Payment.create({
+        tenant_id: tenant._id,
+        tenant_name: tenant.name,
+        plan_id: plan._id,
+        plan_name: plan.name,
+        amount: plan.monthly_price, // Assuming monthly for now as per verify-payment logic
+        currency: plan.currency || 'USD',
+        razorpay_order_id: razorpay_order_id,
+        razorpay_payment_id: razorpay_payment_id,
+        payment_status: 'captured',
+        billing_cycle: 'monthly',
+        payment_date: now.toISOString()
+      });
+
+      // 4. Update/Create Tenant Subscription Record (Active State)
+      const subData = {
+        tenant_id: tenant._id,
+        subscription_plan_id: plan._id,
+        plan_name: plan.name,
+        subscription_type: 'monthly',
+        payment_status: 'active',
+        start_date: now.toISOString(),
+        end_date: nextMonth.toISOString(),
+        trial_ends_at: nextMonth.toISOString(), // Match subscription end date
+        max_users: plan.features?.max_users,
+        max_projects: plan.features?.max_projects,
+        max_workspaces: plan.features?.max_workspaces,
+        max_storage_gb: plan.features?.max_storage_gb
+      };
+
+      const existingSub = await TenantSubscription.findOne({ tenant_id: tenant._id });
+      if (existingSub) {
+        await TenantSubscription.findByIdAndUpdate(existingSub._id, subData);
+      } else {
+        await TenantSubscription.create(subData);
+      }
+
+      // Return Success Signal
+      return res.json({ success: true, message: "Payment verified successfully and subscription activated" });
+    } else {
+      return res.status(400).json({ success: false, message: "Payment verification failed: Invalid Signature" });
+    }
+  } catch (error) {
+    console.error("[Razorpay] Verification Error:", error);
+    res.status(500).json({ success: false, message: "Internal Server Error during verification" });
+  }
+});
+
+// Admin: Get all payment history
+router.get('/admin/payments-history', async (req, res) => {
+  try {
+    const Payment = Models.Payment;
+    const history = await Payment.find().sort({ payment_date: -1 }).limit(100);
+    res.json(history);
+  } catch (error) {
+    console.error('[API] Admin Payment History error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tenant: Get my payment history
+router.get('/tenant/payments-history/:tenantId', async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+    const Payment = Models.Payment;
+    const history = await Payment.find({ tenant_id: tenantId }).sort({ payment_date: -1 }).limit(50);
+    res.json(history);
+  } catch (error) {
+    console.error('[API] Tenant Payment History error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// === AI PROFITABILITY ANALYSIS ENDPOINT ===
+router.post('/ai/analyze-profitability', async (req, res) => {
+  const { project, metrics } = req.body;
+
+  if (!project || !metrics) {
+    return res.status(400).json({ error: 'Missing project or metrics data' });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY_2;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'AI Service (Gemini) not configured' });
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelName = modelHelper.getDefaultModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const prompt = `
+      You are "Groona AI", a senior financial analyst and project management consultant. 
+      Analyze the following project profitability data and provide deep, real-time insights targeting both OVERALL PROJECT VISION and PHASE-SPECIFIC performance.
+      
+      PROJECT: ${project.name}
+      STATUS: ${project.status}
+      BILLING MODEL: ${project.billing_model}
+      TOTAL BUDGET: ${metrics.currency} ${metrics.projectBudget}
+      TOTAL ACTUAL COST: ${metrics.currency} ${metrics.totalCost}
+      NET PROFIT/LOSS: ${metrics.currency} ${metrics.netProfit}
+      
+      BREAKDOWN:
+      - Labor Cost: ${metrics.currency} ${metrics.breakdown.laborCost}
+      - Non-Labor (Expenses): ${metrics.currency} ${metrics.breakdown.nonLaborCost}
+      - Non-Billable Efficiency Impact: ${metrics.currency} ${metrics.breakdown.nonBillableCost}
+      
+      PHASE-WISE PERFORMANCE:
+      ${(metrics.breakdown.phases || []).map(p => `- Phase: ${p.phaseName}, Status: ${p.status}, Cost: ${metrics.currency} ${p.totalPhaseCost}, Profit/Loss: ${metrics.currency} ${p.profitPoint}, Health: ${p.healthStatus}`).join('\n')}
+
+      TIMELINE:
+      - Days Overdue: ${metrics.daysOverdue}
+      - Estimated Cost Impact of Delay: ${metrics.currency} ${metrics.costImpact}
+      
+      TASK:
+      Provide a comprehensive 4-5 point analysis of project and phase health in EASY, PLAIN WORDS (Layman's terms). 
+      
+      ADAPT YOUR ANALYSIS & TONE BASED ON STATUS:
+      - IF IN PLANNING/NOT STARTED (Advisory Tone): Focus on budget realism, estimation risks, and resource readiness. Use a supportive, cautionary tone.
+      - IF ACTIVE (Urgent/Proactive Tone): Focus on burn rate, leakage, timeline buffers, and proactive warnings about overruns. Use a fast-paced, intervention-focused tone.
+      - IF COMPLETED (Forensic/Evaluative Tone): Focus on post-mortem efficiency, final margin vs estimate, and lessons for future projects. Use a reflective, analytical, and critical-but-constructive tone.
+      
+      CONTENT REQUIREMENTS:
+      1. Overall Performance: Identify the primary driver of project profit or loss.
+      2. Phase Insight: Specifically highlight the best performing and most concerning phases.
+      3. Strategic Advice (What/Why/How):
+         - WHAT: Clear summary of current financial health.
+         - WHY: Specific reasons (e.g., "labor cost exceeded estimate by INR X due to non-billable hours").
+         - HOW: Tactical steps to correct or prevent issues in future phases.
+      4. Clear Recommendations: Provide 2-3 specific, actionable recommendations (directly improving profitability).
+      
+      Formatting: Use **bold text** to highlight critical figures, phase names, or key terms for easy scanning.
+      
+      Format your response as a JSON object:
+      {
+        "primaryDriver": "string (Short, effective name for the main cause)",
+        "analysisPoints": ["string (Layman friendly explanation point)"],
+        "recommendations": ["string (Actionable point)"],
+        "overallHealth": "Healthy | At Risk | High Risk | Critical"
+      }
+    `;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+
+    // Clean JSON from response in case of markdown blocks
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : {
+      primaryDriver: "Unknown",
+      analysisPoints: ["Failed to parse AI response"],
+      recommendations: ["Review metrics manually"],
+      overallHealth: "N/A"
+    };
+
+    res.json(analysis);
+  } catch (error) {
+    console.error('[AI Analysis] Error:', error);
+    res.status(500).json({ error: 'Failed to generate AI analysis' });
   }
 });
 

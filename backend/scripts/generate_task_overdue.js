@@ -83,7 +83,8 @@ const runChecks = async () => {
                                 entity_id: task._id.toString(),
                                 project_id: task.project_id,
                                 read: false,
-                                created_date: new Date()
+                                created_date: new Date(),
+                                link: `/ProjectDetail?id=${task.project_id}&taskId=${task._id.toString()}`
                             });
                             console.log(`      -> Created alert for ${user.email}`);
                         } else {
@@ -95,7 +96,8 @@ const runChecks = async () => {
                                         title: `🚨 Task Overdue (${diffDays} Days)`,
                                         message: message,
                                         read: false,
-                                        created_date: new Date() // Bump to top
+                                        created_date: new Date(), // Bump to top
+                                        link: `/ProjectDetail?id=${task.project_id}&taskId=${task._id.toString()}`
                                     }
                                 }
                             );
@@ -220,9 +222,8 @@ const runChecks = async () => {
                             project_id: task.project_id,
                             read: false,
                             created_date: new Date(),
-                            // Deep Link to Blockers/Task view? Or just project detail
-                            // Usually: /ProjectDetail?id={projectId}&tab=planning (to see task?) or Backlog?
-                            deep_link: `/ProjectDetail?id=${task.project_id}`
+                            // Deep Link to Task Detail
+                            link: `/ProjectDetail?id=${task.project_id}&taskId=${task._id.toString()}`
                         });
                         console.log(`      -> Sent escalation to ${email}`);
                     } else {
@@ -233,7 +234,8 @@ const runChecks = async () => {
                                     title: `🔥 Escalation: Task Overdue (${diffDays} Days)`,
                                     message: message,
                                     read: false,
-                                    created_date: new Date()
+                                    created_date: new Date(),
+                                    link: `/ProjectDetail?id=${task.project_id}&taskId=${task._id.toString()}`
                                 }
                             }
                         );

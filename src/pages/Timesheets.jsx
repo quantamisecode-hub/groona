@@ -1164,6 +1164,7 @@ export default function TimesheetsPage() {
                     canEditLocked={isAdmin}
                     groupByDate={true}
                     highlightedId={editIdParam}
+                    effectiveTenantId={effectiveTenantId}
                   />
                 )}
               </TabsContent>
@@ -1219,6 +1220,7 @@ export default function TimesheetsPage() {
                   showActions={true}
                   groupByDate={true}
                   highlightedId={editIdParam}
+                  effectiveTenantId={effectiveTenantId}
                 />
               </TabsContent>
 

@@ -89,6 +89,11 @@
       "type": "number",
       "default": 0
     },
+    "expense_budget": {
+      "type": "number",
+      "default": 0,
+      "description": "Planned budget for project expenses"
+    },
     "currency": {
       "type": "string",
       "default": "INR"

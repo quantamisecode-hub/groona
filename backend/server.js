@@ -29,6 +29,7 @@ const allowedOrigins = corsOrigins
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "https://41be-2409-4091-4095-a02-c1fe-ef1e-c95d-e8f5.ngrok-free.app",
     // Production origins
     process.env.FRONTEND_URL || "https://app.quantemisecode.com",
     "https://app.quantumisecode.com",
@@ -116,6 +117,8 @@ app.use('/api/groona-assistant', require('./routes/groonaAssistant'));
 app.use('/api/leave-management', require('./routes/leaveManagement'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/sprint-velocity', require('./routes/sprintVelocity'));
+
+
 
 // Socket.IO Logic
 io.on('connection', (socket) => {

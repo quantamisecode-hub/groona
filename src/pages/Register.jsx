@@ -207,18 +207,18 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
+    <div className="h-[100dvh] bg-white flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
       {/* Left Panel: Branding & Value Proposition */}
       <div className="hidden md:flex md:w-[35%] lg:w-[30%] bg-slate-950 relative flex-col justify-between p-12 text-white overflow-hidden">
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-24">
+          <div className="flex items-center gap-3 mb-12 lg:mb-16">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
               <Rocket className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-xl tracking-tight">Groona</span>
           </div>
 
-          <div className="space-y-12">
+          <div className="space-y-8 lg:space-y-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -232,7 +232,7 @@ export default function Register() {
               </p>
             </motion.div>
 
-            <div className="space-y-8 pt-12 border-t border-white/10">
+            <div className="space-y-6 pt-8 border-t border-white/10">
               {[
                 { icon: TrendingUp, title: "Velocity Tracking", desc: "Real-time delivery health monitoring." },
                 { icon: Users, title: "Client Portals", desc: "Seamless transparency for partners." },
@@ -248,21 +248,6 @@ export default function Register() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10">
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-            <p className="text-xs font-medium text-slate-400 italic">
-              "Groona has completely transformed how our team manages complex projects. The AI insights are a game changer."
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-slate-800 border border-white/10" />
-              <div>
-                <p className="text-[10px] font-bold">Sarah Chen</p>
-                <p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">VP of Ops at TechFlow</p>
-              </div>
             </div>
           </div>
         </div>
@@ -289,7 +274,7 @@ export default function Register() {
         </div>
 
         {/* Top Header */}
-        <header className="hidden md:flex h-20 items-center justify-between px-12 shrink-0">
+        <header className="hidden md:flex h-14 lg:h-16 items-center justify-between px-12 shrink-0">
           <Link to={createPageUrl("SignIn")} className="group flex items-center gap-4 text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors">
             <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center group-hover:bg-slate-50 transition-colors">
               <ArrowLeft className="w-4 h-4" />
@@ -308,8 +293,8 @@ export default function Register() {
         </header>
 
         {/* Form Area */}
-        <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 py-12 md:py-20 space-y-12">
-          <div className="space-y-4">
+        <div className="flex-1 flex flex-col max-w-2xl mx-auto w-full px-8 py-4 lg:py-6 space-y-4 lg:space-y-6 justify-center">
+          <div className="space-y-1 lg:space-y-3">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -317,18 +302,18 @@ export default function Register() {
             >
               Get Started for Free
             </motion.div>
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
               Create your <span className="text-blue-600">workspace.</span>
             </h2>
-            <p className="text-slate-500 text-xl max-w-md leading-relaxed">
+            <p className="text-slate-500 text-sm md:text-base lg:text-lg max-w-md leading-relaxed lg:leading-relaxed">
               Let's set up your environment and invite your team. No credit card required.
             </p>
           </div>
 
-          <form onSubmit={handleSignUp} className="space-y-10">
+          <form onSubmit={handleSignUp} className="space-y-4 lg:space-y-6">
             {/* Identity Group */}
-            <div className="space-y-8">
-              <div className="grid grid-cols-2 gap-6">
+            <div className="space-y-3 lg:space-y-5">
+              <div className="grid grid-cols-2 gap-4 lg:gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="fname" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 ml-1">First Name</Label>
                   <Input
@@ -337,7 +322,7 @@ export default function Register() {
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                     required
                     placeholder="John"
-                    className="h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all"
+                    className="h-11 lg:h-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all"
                   />
                 </div>
                 <div className="space-y-2">
@@ -348,7 +333,7 @@ export default function Register() {
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     required
                     placeholder="Doe"
-                    className="h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all"
+                    className="h-11 lg:h-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all"
                   />
                 </div>
               </div>
@@ -365,7 +350,7 @@ export default function Register() {
                     required
                     disabled={emailVerified}
                     placeholder="name@company.com"
-                    className={`h-14 pl-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all pr-28 ${emailVerified ? 'bg-green-50/30' : ''}`}
+                    className={`h-11 lg:h-12 pl-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all pr-28 ${emailVerified ? 'bg-green-50/30' : ''}`}
                   />
                   <div className="absolute inset-y-0 right-3 flex items-center">
                     {emailVerified ? (
@@ -451,7 +436,7 @@ export default function Register() {
                     minLength={8}
                     required
                     placeholder="••••••••"
-                    className="h-14 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-2xl transition-all pr-12"
+                    className="h-11 lg:h-12 border-slate-100 bg-slate-50/50 focus:bg-white focus:border-blue-600 focus:ring-blue-600 rounded-xl lg:rounded-2xl transition-all pr-12"
                   />
                   <button
                     type="button"
@@ -466,25 +451,25 @@ export default function Register() {
             </div>
 
             {/* Terms and Action */}
-            <div className="space-y-8">
-              <div className="flex items-start gap-4 p-5 rounded-2xl bg-blue-50/30 border border-blue-100/50">
+            <div className="space-y-4 lg:space-y-6">
+              <div className="flex items-start gap-4 p-3 lg:p-4 rounded-xl bg-blue-50/30 border border-blue-100/50">
                 <Checkbox
                   id="terms"
                   checked={formData.acceptTerms}
                   onCheckedChange={(checked) => setFormData({ ...formData, acceptTerms: checked })}
                   required
-                  className="mt-1 border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md"
+                  className="mt-1 border-blue-200 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md shrink-0"
                 />
-                <Label htmlFor="terms" className="text-xs font-medium text-slate-500 leading-relaxed cursor-pointer select-none">
-                  By clicking Create Account, I agree to Groona's <a href="#" className="font-bold text-blue-600 hover:underline">Terms of Service</a> and acknowledge the <a href="#" className="font-bold text-blue-600 hover:underline">Privacy Policy</a>.
+                <Label htmlFor="terms" className="text-[11px] lg:text-xs font-medium text-slate-500 leading-relaxed cursor-pointer select-none">
+                  By clicking Create Account, I agree to Groona's <a href="#" className="font-bold text-blue-600 hover:underline">Terms of Service</a> and <a href="#" className="font-bold text-blue-600 hover:underline">Privacy Policy</a>.
                 </Label>
               </div>
 
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-4 lg:gap-6">
                 <Button
                   type="submit"
                   disabled={loading || !emailVerified}
-                  className={`h-16 text-lg font-bold rounded-2xl shadow-xl transition-all hover:scale-[1.02] active:scale-95 group flex items-center justify-center gap-3 ${emailVerified
+                  className={`h-12 lg:h-14 text-base lg:text-lg font-bold rounded-xl shadow-xl transition-all hover:scale-[1.02] active:scale-95 group flex items-center justify-center gap-3 ${emailVerified
                     ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                     : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
                     }`}
@@ -499,24 +484,9 @@ export default function Register() {
                   )}
                 </Button>
 
-                <p className="text-center text-sm font-medium text-slate-400">
-                  Secured by enterprise-grade encryption and AI guardrails.
-                </p>
               </div>
             </div>
           </form>
-
-          <footer className="pt-12 text-center">
-            <div className="flex items-center justify-center gap-8 opacity-20 filter grayscale mb-8">
-              {/* Visual Brand logos mockup */}
-              <div className="h-6 w-20 bg-slate-900 rounded" />
-              <div className="h-6 w-20 bg-slate-900 rounded" />
-              <div className="h-6 w-20 bg-slate-900 rounded" />
-            </div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-200">
-              Powered by Groona Intelligence Platform
-            </p>
-          </footer>
         </div>
       </main>
     </div>

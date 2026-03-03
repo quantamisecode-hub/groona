@@ -6,38 +6,69 @@ import { useQuery } from "@tanstack/react-query";
 import { groonabackend } from "@/api/groonabackend";
 import { useUser } from "../shared/UserContext";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
-export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
+export default function SprintVelocityChart({ title: propTitle, isAdmin, tenantId, className }) {
     const { user: currentUser } = useUser();
+    const navigate = useNavigate();
+    const title = propTitle || (isAdmin ? "Team Sprint Velocity" : "Sprint Velocity");
 
-    // Fetch user's sprints to calculate velocity
-    const { data: sprints = [], isLoading } = useQuery({
-        queryKey: ['my-sprints-velocity', currentUser?.email],
+    // Fetch relevant sprints
+    const { data: sprints = [], isLoading: isLoadingSprints } = useQuery({
+        queryKey: isAdmin ? ['tenant-sprints-velocity', tenantId] : ['my-sprints-velocity', currentUser?.email],
         queryFn: async () => {
-            if (!currentUser?.email) return [];
-            // Ideally, we'd fetch sprints related to the user's projects.
-            // For now, let's fetch recent sprints.
-            return groonabackend.entities.Sprint.list();
+            if (isAdmin) {
+                if (!tenantId) return [];
+                return groonabackend.entities.Sprint.filter({ tenant_id: tenantId });
+            }
+            // For a regular user, ideally we'd filter by projects they belong to.
+            // But since the API requires filtering, we fetch all tenant ones and will filter locally if we had project membership.
+            // Assuming tenant_id is available on currentUser, or we fetch all and let the endpoint handle scoping if secured.
+            if (!currentUser?.tenant_id) return [];
+            return groonabackend.entities.Sprint.filter({ tenant_id: currentUser.tenant_id });
         },
-        enabled: !!currentUser,
+        enabled: isAdmin ? !!tenantId : !!currentUser?.tenant_id,
         staleTime: 60000,
     });
+
+    // Fetch all stories for the tenant to calculate points
+    const { data: stories = [], isLoading: isLoadingStories } = useQuery({
+        queryKey: isAdmin ? ['tenant-stories-velocity', tenantId] : ['my-stories-velocity', currentUser?.tenant_id],
+        queryFn: async () => {
+            const tId = isAdmin ? tenantId : currentUser?.tenant_id;
+            if (!tId) return [];
+            return groonabackend.entities.Story.filter({ tenant_id: tId });
+        },
+        enabled: isAdmin ? !!tenantId : !!currentUser?.tenant_id,
+        staleTime: 60000,
+    });
+
+    const isLoading = isLoadingSprints || isLoadingStories;
 
     const chartData = useMemo(() => {
         if (!sprints.length) return [];
 
-        // Sort sprints by start date (descending) and take the last 5
-        const sortedSprints = [...sprints]
-            .sort((a, b) => new Date(b.start_date) - new Date(a.start_date))
-            .slice(0, 5)
-            .reverse(); // Reverse to show chronological order (oldest to newest)
+        // First, calculate points for ALL sprints
+        const processedSprints = sprints.map((sprint, index) => {
+            const sprintStories = stories.filter(story => story.sprint_id === sprint.id);
 
-        return sortedSprints.map((sprint, index) => {
-            const completed = Number(sprint.completed_points) || 0;
-            const planned = Number(sprint.total_points) || 10; // Default to 10 if missing to show something
+            const planned = sprintStories.reduce((sum, story) => sum + (Number(story.story_points) || 0), 0) || 0;
+            const completed = sprintStories
+                .filter(story => {
+                    const status = (story.status || '').toLowerCase();
+                    return status === 'done' || status === 'completed';
+                })
+                .reduce((sum, story) => sum + (Number(story.story_points) || 0), 0) || 0;
+
+            const finalPlanned = planned > 0 ? planned : (Number(sprint.total_points) || 0);
+            const finalCompleted = completed > 0 || planned > 0 ? completed : (Number(sprint.completed_points) || 0);
+
+            // Calculate completion percentage, avoiding division by zero
+            const completionRate = finalPlanned > 0 ? (finalCompleted / finalPlanned) : 0;
 
             // Ensure planned is at least as big as completed for realistic visualization
-            const adjustedPlanned = Math.max(planned, completed);
+            const adjustedPlanned = Math.max(finalPlanned, finalCompleted);
 
             let shortName = `S${index + 1}`;
             let fullName = sprint.name || `Sprint ${index + 1}`;
@@ -53,11 +84,31 @@ export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
             return {
                 name: fullName,
                 shortName,
-                completed,
-                planned: adjustedPlanned
+                completed: finalCompleted,
+                planned: adjustedPlanned,
+                completionRate,
+                startDate: new Date(sprint.start_date || 0) // Keep date for secondary sorting if needed
             };
         });
-    }, [sprints]);
+
+        // Now sort by best performance (highest completion rate first), and take top 5
+        const topPerformers = processedSprints
+            .sort((a, b) => {
+                if (b.completionRate !== a.completionRate) {
+                    return b.completionRate - a.completionRate; // Highest rate first
+                }
+                // If rates are equal, show the one with more completed points
+                if (b.completed !== a.completed) {
+                    return b.completed - a.completed;
+                }
+                // Finally, fallback to most recent date
+                return b.startDate - a.startDate;
+            })
+            .slice(0, 10)
+            .reverse(); // Reverse so they display left-to-right (maybe you want ascending order on the chart)
+
+        return topPerformers;
+    }, [sprints, stories]);
 
     // Calculate maximum value for Y-axis scaling
     const maxVal = useMemo(() => {
@@ -67,7 +118,7 @@ export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
 
     if (isLoading) {
         return (
-            <Card className="w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden">
+            <Card className={`w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden ${className || ''}`}>
                 <CardHeader className="p-6 pb-2">
                     <CardTitle className="text-[17px] font-semibold text-slate-900 tracking-tight">{title}</CardTitle>
                 </CardHeader>
@@ -79,7 +130,7 @@ export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
     }
 
     return (
-        <Card className="w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden">
+        <Card className={`w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden ${className || ''}`}>
             <CardHeader className="p-6 pb-0 flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="text-[17px] font-semibold text-slate-900 tracking-tight mb-1">{title}</CardTitle>
@@ -92,7 +143,13 @@ export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
                         </div>
                     </div>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full mt-[-10px]">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full mt-[-10px]"
+                    onClick={() => navigate('/projects')}
+                    title="View Projects"
+                >
                     <MoreHorizontal className="h-5 w-5" />
                 </Button>
             </CardHeader>
@@ -132,7 +189,7 @@ export default function SprintVelocityChart({ title = "Sprint Velocity" }) {
                                         {/* Planned Background Bar */}
                                         <div
                                             className="absolute bottom-0 w-full max-w-[32px] rounded-t-xl bg-slate-100 transition-all duration-500 will-change-transform z-0"
-                                            style={{ height: `${plannedHeight}%` }}
+                                            style={{ height: `${Math.max(plannedHeight, completedHeight)}%` }}
                                         />
 
                                         {/* Completed Foreground Bar */}

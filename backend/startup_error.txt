@@ -1,0 +1,158 @@
+﻿[Server] CORS Allowed Origins: [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'https://app.quantumisecode.com',
+  'https://quantemisecode.com',
+  'https://quantumisecode.com',
+  'https://www.quantemisecode.com',
+  'https://www.quantumisecode.com',
+  'https://api.quantumisecode.com'
+]
+Γ£à Model Loaded: Activity
+Γ£à Model Loaded: AIInsightsReport
+Γ£à Model Loaded: AuditLog
+Γ£à Model Loaded: ChatMessage
+Γ£à Model Loaded: Client
+Γ£à Model Loaded: ClockEntry
+Γ£à Model Loaded: Comment
+Γ£à Model Loaded: CompOffCredit
+Γ£à Model Loaded: Conversation
+Γ£à Model Loaded: Document
+Γ£à Model Loaded: Epic
+Γ£à Model Loaded: ExchangeRate
+Γ£à Model Loaded: FailedLoginAttempt
+Γ£à Model Loaded: Holiday
+Γ£à Model Loaded: Impediment
+Γ£à Model Loaded: Leave
+Γ£à Model Loaded: LeaveApproval
+Γ£à Model Loaded: LeaveBalance
+Γ£à Model Loaded: LeaveType
+Γ£à Model Loaded: Mention
+Γ£à Model Loaded: MetricSnapshot
+Γ£à Model Loaded: Milestone
+Γ£à Model Loaded: Notification
+Γ£à Model Loaded: OTPVerification
+Γ£à Model Loaded: PeerReviewRequest
+Γ£à Model Loaded: Project
+Γ£à Model Loaded: ProjectClient
+Γ£à Model Loaded: ProjectExpense
+Γ£à Model Loaded: ProjectFile
+Γ£à Model Loaded: ProjectReport
+Γ£à Model Loaded: ProjectTemplate
+Γ£à Model Loaded: ProjectUserRole
+Γ£à Model Loaded: RecurringTask
+Γ£à Model Loaded: ReportConfig
+Γ£à Model Loaded: Retrospective
+Γ£à Model Loaded: SLAConfig
+Γ£à Model Loaded: Sprint
+Γ£à Model Loaded: SprintVelocity
+Γ£à Model Loaded: Story
+Γ£à Model Loaded: SubscriptionPlan
+Γ£à Model Loaded: Subtask
+Γ£à Model Loaded: SystemNotification
+Γ£à Model Loaded: Task
+Γ£à Model Loaded: Tenant
+Γ£à Model Loaded: TenantSubscription
+Γ£à Model Loaded: Ticket
+Γ£à Model Loaded: TicketComment
+Γ£à Model Loaded: Timesheet
+Γ£à Model Loaded: TokenUsage
+Γ£à Model Loaded: User
+Γ£à Model Loaded: UserActivityLog
+Γ£à Model Loaded: UserGroup
+Γ£à Model Loaded: UserGroupMembership
+Γ£à Model Loaded: UserLog
+Γ£à Model Loaded: UserPermission
+Γ£à Model Loaded: UserPresence
+Γ£à Model Loaded: UserProfile
+Γ£à Model Loaded: UserSession
+Γ£à Model Loaded: User_timesheets
+Γ£à Model Loaded: WorkLocation
+Γ£à Model Loaded: Workspace
+node : C:\Users\91620\
+OneDrive\Desktop\Groon
+a\groona\backend\route
+s\api.js:151
+At line:1 char:1
++ node server.js 2>&1 
+| Out-File -FilePath 
+startup_error.txt 
+-Encoding  ...
++ ~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (C:\Users\9   
+ 1620\...utes\api.    
+js:151:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+const modelHelper = re
+quire('../helpers/gemi
+niModelHelper');
+      ^
+
+SyntaxError: 
+Identifier 
+'modelHelper' has 
+already been declared
+    at wrapSafe (node:
+internal/modules/cjs/l
+oader:1515:18)
+    at 
+Module._compile (node:
+internal/modules/cjs/l
+oader:1537:20)
+    at Object..js (nod
+e:internal/modules/cjs
+/loader:1708:10)
+    at Module.load (no
+de:internal/modules/cj
+s/loader:1318:32)
+    at Function._load 
+(node:internal/modules
+/cjs/loader:1128:12)
+    at TracingChannel.
+traceSync (node:diagno
+stics_channel:322:14)
+    at wrapModuleLoad 
+(node:internal/modules
+/cjs/loader:219:24)
+    at Module.require 
+(node:internal/modules
+/cjs/loader:1340:12)
+    at require (node:i
+nternal/modules/helper
+s:138:16)
+    at 
+Object.<anonymous> (C:
+\Users\91620\OneDrive\
+Desktop\Groona\groona\
+backend\server.js:111:
+17)
+    at 
+Module._compile (node:
+internal/modules/cjs/l
+oader:1565:14)
+    at Object..js (nod
+e:internal/modules/cjs
+/loader:1708:10)
+    at Module.load (no
+de:internal/modules/cj
+s/loader:1318:32)
+    at Function._load 
+(node:internal/modules
+/cjs/loader:1128:12)
+    at TracingChannel.
+traceSync (node:diagno
+stics_channel:322:14)
+    at wrapModuleLoad 
+(node:internal/modules
+/cjs/loader:219:24)
+
+Node.js v22.12.0

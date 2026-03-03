@@ -113,7 +113,7 @@ export default function WelcomeStep({ onNext, user }) {
                 <Button
                     onClick={() => onNext({})}
                     size="lg"
-                    className="h-14 px-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-base group shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="h-14 px-10 bg-gradient-to-r from-blue-600 to-slate-900 border-0 text-white rounded-xl font-bold text-base group shadow-xl shadow-blue-500/20 transition-all hover:scale-[1.02] hover:from-blue-700 hover:to-slate-950 active:scale-[0.98]"
                 >
                     Start Interaction
                     <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />

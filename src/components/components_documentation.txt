@@ -1,0 +1,113 @@
+Components Folder Documentation (src/components)
+
+Purpose
+-------
+The `src/components` directory contains all reusable UI components for the Groona application. Each sub‑directory groups related components by feature area, following a domain‑driven structure. Components are built with Vue (or React) and styled using the project's design system.
+
+Top‑Level Sub‑folders
+--------------------
+- **ai** – AI‑assistant UI (chat windows, model selectors).
+- **audit** – Audit trail visualisation components.
+- **automation** – UI for automation rules and triggers.
+- **bi** – Business‑intelligence dashboards and charts.
+- **chat** – Real‑time chat widgets.
+- **client** – Client‑side utilities and wrappers.
+- **collaboration** – Team collaboration tools (comments, mentions).
+- **dashboard** – Main user dashboard layout and widgets.
+- **epics** – Epic management UI.
+- **financials** – Financial overview components.
+- **insights** – Insight cards and analytics views.
+- **leaves** – Leave request and approval screens.
+- **notifications** – Notification centre component.
+- **onboarding** – New‑user onboarding flows.
+- **profile** – User profile view and edit forms.
+- **profitability** – Profitability analysis widgets.
+- **project-detail** – Detailed project view pages.
+- **projects** – Project list and creation components.
+- **reports** – Reporting UI (export, filters).
+- **sales** – Sales pipeline components.
+- **shared** – Shared UI primitives (buttons, modals, icons).
+- **sprint** – Sprint planning and board components.
+- **stories** – Story management UI.
+- **subscription** / **subscriptions** – Subscription plan components.
+- **super-admin** – Administration panels for super‑admin users.
+- **support** – Support ticket UI.
+- **tasks** – Task list, kanban board, and detail view.
+- **timesheets** – Timesheet entry and review components.
+- **ui** – Core UI building blocks (layout, grid, typography).
+- **user-management** – User list, role assignment, and permissions.
+- **user-onboarding** – Steps for onboarding new users.
+- **workspaces** – Workspace selector and management UI.
+
+Typical Component Pattern
+------------------------
+Each feature folder usually contains:
+1. **<Feature>.vue** – The main view component.
+2. Sub‑components such as **<Feature>Header.vue**, **<Feature>List.vue**, etc.
+3. **index.js** – Re‑exports for easy imports (e.g., `export { default as ProjectList } from './ProjectList.vue'`).
+4. Optional **styles.css** – Scoped CSS for the feature.
+
+How to Use
+----------
+Import components via the folder’s index file, for example:
+```javascript
+import { ProjectList, ProjectDetail } from '@/components/projects';
+```
+All components rely on the global design tokens defined in `src/design-system` (colors, spacing, typography) to maintain a consistent premium look.
+
+Adding a New Component
+----------------------
+1. Create a new sub‑folder under the appropriate domain.
+2. Add the `.vue` file(s) and an `index.js` that re‑exports them.
+3. Follow the existing naming conventions (PascalCase for component names).
+4. Update any related route or store entries.
+5. Run `npm run dev` to verify the component renders correctly.
+
+Notes
+-----
+- The folder is intentionally granular to keep the codebase modular and maintainable.
+- Shared UI primitives in `ui/` should be used instead of duplicating styles.
+- All components are written in ES‑module syntax and assume a Vite‑powered build.
+
+Tree Structure (partial)
+-----------------------
+src/components
+├─ ai
+│   ├─ ConversationSuggestions.jsx
+│   ├─ EnhancedMessageBubble.jsx
+│   ├─ FileUploadButton.jsx
+│   └─ MessageBubble.jsx
+├─ audit
+│   ├─ AuditLogFilters.jsx
+│   ├─ AuditLogTable.jsx
+│   └─ createAuditLog.jsx
+├─ automation
+│   ├─ AutoAssignment.jsx
+│   ├─ AutoReminders.jsx
+│   ├─ ProjectProposal.jsx
+│   └─ RecurringTasks.jsx
+├─ bi
+│   ├─ AIInsights.jsx
+│   ├─ CustomReportBuilder.jsx
+│   ├─ DeepAnalytics.jsx
+│   ├─ GanttChart.jsx
+│   └─ ... (other BI components)
+├─ chat
+│   ├─ ChatSidebar.jsx
+│   ├─ ChatWindow.jsx
+│   └─ NewChatDialog.jsx
+├─ client
+│   ├─ ClientManagement.jsx
+│   ├─ EditClientDialog.jsx
+│   └─ InviteClientDialog.jsx
+├─ collaboration
+│   ├─ ChatRoom.jsx
+│   ├─ DocumentEditor.jsx
+│   └─ ...
+├─ dashboard
+│   ├─ DashboardInsights.jsx
+│   ├─ ProjectsList.jsx
+│   └─ ...
+├─ ... (other sub‑folders follow similar pattern)
+
+(Only a subset of files is shown for brevity; each sub‑folder contains its own component files.)

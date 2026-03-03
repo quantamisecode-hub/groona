@@ -24,7 +24,7 @@ const priorityColors = {
   urgent: "bg-red-100 text-red-600",
 };
 
-export default function ProjectHeader({ project, tasksCount, projectTimesheets = [] }) {
+export default function ProjectHeader({ project, tasks = [], tasksCount, projectTimesheets = [] }) {
   const { user: currentUser } = useUser();
   // Fetch stories to calculate progress based on Story Points
   const { data: stories = [] } = useQuery({
@@ -38,56 +38,21 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
     staleTime: 0,
   });
 
-  // Fetch tasks to calculate completion rate for health score
-  const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks', project.id],
-    queryFn: async () => {
-      if (!project.id) return [];
-      return await groonabackend.entities.Task.filter({ project_id: project.id });
-    },
-    enabled: !!project.id,
-    refetchInterval: 2000,
-    staleTime: 0,
-  });
-
   const getProjectProgress = () => {
     if (!stories.length) return 0;
-    const totalPoints = stories.reduce((sum, story) => sum + (parseInt(story.story_points) || 0), 0);
-    const completedPoints = stories
-      .filter(s => s.status === 'done')
-      .reduce((sum, story) => sum + (parseInt(story.story_points) || 0), 0);
 
-    if (totalPoints === 0) return 0;
-    return Math.round((completedPoints / totalPoints) * 100);
+    const completedStoryPoints = stories
+      .filter(s => {
+        const status = (s.status || '').toLowerCase();
+        return status === 'done' || status === 'completed';
+      })
+      .reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+
+    const totalStoryPoints = stories.reduce((sum, story) => sum + (Number(story.story_points) || 0), 0);
+    return totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
   };
 
   const projectProgress = getProjectProgress();
-
-  // Project Health Calculation (Mirroring Backend & Matrix)
-  const healthScore = React.useMemo(() => {
-    let score = 70;
-    score += (project.progress || 0) * 0.3;
-
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
-    const taskCompletionRate = tasks.length > 0 ? completedTasks / tasks.length : 0;
-    score += taskCompletionRate * 20;
-
-    if (project.deadline) {
-      const daysUntilDeadline = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysUntilDeadline < 0) score -= 20;
-      else if (daysUntilDeadline < 7) score -= 10;
-    }
-    if (project.status === 'on_hold') score -= 15;
-    if (project.status === 'completed') score = 100;
-    if (project.risk_level === 'critical') score -= 20;
-    else if (project.risk_level === 'high') score -= 15;
-    else if (project.risk_level === 'medium') score -= 5;
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }, [project, tasks]);
-
-  const isCritical = healthScore < 50;
-  const isWarning = healthScore < 70 && healthScore >= 50;
 
   // 1. Initialize Stats
   let approvedHours = 0;
@@ -143,23 +108,8 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
   const hasRateWarning = approvedHours > 0 && approvedAmount === 0;
 
   return (
-    <Card className={`p-6 border-slate-200/60 overflow-hidden ${isCritical ? 'bg-red-50/80 border-red-200' : isWarning ? 'bg-amber-50/80 border-amber-200' : 'bg-white/60 backdrop-blur-xl'
-      }`} >
+    <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
       <div className="space-y-6">
-        {(isCritical || isWarning) && (
-          <div className={`p-4 rounded-xl border flex items-start gap-4 mb-2 ${isCritical ? 'bg-red-100 border-red-200 text-red-900' : 'bg-amber-100 border-amber-200 text-amber-900'
-            }`}>
-            <AlertCircle className={`h-6 w-6 flex-shrink-0 ${isCritical ? 'text-red-600' : 'text-amber-600'}`} />
-            <div>
-              <p className="font-bold text-lg">
-                {isCritical ? '🚨 Critical Health Risk' : '⚠️ Declining Health Risk'}
-              </p>
-              <p className="text-sm opacity-90">
-                Project health index is {healthScore}%. Review root cause indicators in the dashboard below.
-              </p>
-            </div>
-          </div>
-        )}
         <div className="flex flex-wrap gap-3">
           <Badge className={`${statusColors[project.status]} border capitalize`}>
             {project.status.replace('_', ' ')}
@@ -250,7 +200,7 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
                     <div className="space-y-2 lg:min-w-[150px]">
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <DollarSign className="h-4 w-4" />
-                        <span>Fixed Price Amount</span>
+                        <span>Contract Amount</span>
                       </div>
                       <p className="text-2xl font-bold text-green-600">
                         {getCurrencySymbol(project.currency || 'USD')}{Number(project.contract_amount || project.budget || project.budget_amount || 0).toLocaleString()}
@@ -421,6 +371,19 @@ export default function ProjectHeader({ project, tasksCount, projectTimesheets =
                 );
             }
           })()}
+
+          {/* Expense Budget — shown when financial tracking is enabled */}
+          {project.expense_budget > 0 && (
+            <div className="space-y-2 lg:min-w-[150px]">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <DollarSign className="h-4 w-4" />
+                <span>Expense Budget</span>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">
+                {getCurrencySymbol(project.currency || 'USD')}{Number(project.expense_budget).toLocaleString()}
+              </p>
+            </div>
+          )}
 
         </div>
       </div>
