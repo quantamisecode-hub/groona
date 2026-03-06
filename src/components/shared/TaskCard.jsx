@@ -121,40 +121,58 @@ export default function TaskCard({ task, onUpdate = null, onUpdateTask = null, o
   };
 
   const getProgressInfo = () => {
-    if (!task.due_date) return null;
+    const status = (task.status || '').toLowerCase();
 
-    const now = new Date();
-    const due = new Date(task.due_date);
-    // Use created_date if available, otherwise default to a 7-day window before due date for calculation
-    const created = new Date(task.created_date || task._created_at || (due.getTime() - 7 * 24 * 60 * 60 * 1000));
-
-    const total = due.getTime() - created.getTime();
-    if (total <= 0) return { percentage: 100, color: "bg-red-500" };
-
-    const elapsed = now.getTime() - created.getTime();
-    let percentage = Math.min(100, Math.max(0, (elapsed / total) * 100));
-
-    // Status-based overrides to ensure visibility and accuracy
-    if (task.status === 'completed') {
-      percentage = 100;
-    } else if (task.status === 'review') {
-      percentage = Math.max(80, percentage);
-    } else if (task.status === 'in_progress') {
-      percentage = Math.max(20, percentage);
+    // 1. Status-based overrides: If completed/done, progress is 100%
+    if (status === 'completed' || status === 'done') {
+      return { percentage: 100, color: "bg-green-500" };
     }
 
-    const remainingDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    // 2. Calculation based on subtasks completion
+    if (task.subtasks && task.subtasks.length > 0) {
+      const total = task.subtasks.length;
+      const completed = task.subtasks.filter(s => s.completed).length;
+      const percentage = (completed / total) * 100;
 
-    let color = "bg-green-500";
-    if (task.status === 'completed') {
-      color = "bg-green-500";
-    } else if (remainingDays < 1) {
-      color = "bg-red-500";
-    } else if (remainingDays < 3) {
-      color = "bg-orange-500";
+      let color = "bg-blue-500";
+      if (percentage >= 100) color = "bg-green-500";
+      else if (percentage > 50) color = "bg-indigo-500";
+      else if (percentage > 0) color = "bg-blue-400";
+      else color = "bg-slate-300";
+
+      return { percentage, color };
     }
 
-    return { percentage, color };
+    // 3. Fallback to manually set task.progress
+    if (task.progress !== undefined && task.progress !== null && task.progress > 0) {
+      const percentage = Math.min(100, Math.max(0, task.progress));
+      return {
+        percentage,
+        color: percentage === 100 ? "bg-green-500" : (percentage > 50 ? "bg-blue-500" : "bg-blue-400")
+      };
+    }
+
+    // 4. Time-based calculation for tasks with due dates (if no other data)
+    if (task.due_date) {
+      const now = new Date();
+      const due = new Date(task.due_date);
+      const created = new Date(task.created_date || task._created_at || (due.getTime() - 7 * 24 * 60 * 60 * 1000));
+
+      const totalTime = due.getTime() - created.getTime();
+      if (totalTime > 0) {
+        const elapsed = now.getTime() - created.getTime();
+        const percentage = Math.min(95, Math.max(0, (elapsed / totalTime) * 100)); // Cap at 95% for time-based
+
+        const remainingDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+        let color = "bg-blue-300";
+        if (remainingDays < 1) color = "bg-red-500";
+        else if (remainingDays < 3) color = "bg-orange-500";
+
+        return { percentage, color };
+      }
+    }
+
+    return { percentage: 0, color: "bg-slate-300" };
   };
 
   const progressInfo = getProgressInfo();

@@ -30,26 +30,37 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
   };
 
   const [projects, setProjects] = useState([{ ...defaultProjectState }]);
+  const [projectErrors, setProjectErrors] = useState([{}]);
   const [loading, setLoading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
 
   const addProject = () => {
     if (projects.length < 3) {
       setProjects([...projects, { ...defaultProjectState }]);
+      setProjectErrors([...projectErrors, {}]);
     }
   };
 
   const removeProject = (index) => {
     setProjects(projects.filter((_, i) => i !== index));
+    setProjectErrors(projectErrors.filter((_, i) => i !== index));
   };
 
   const updateProject = (index, field, value) => {
     const updated = [...projects];
     updated[index][field] = value;
     setProjects(updated);
+
+    // Clear error for this field
+    if (projectErrors[index][field]) {
+      const updatedErrors = [...projectErrors];
+      updatedErrors[index] = { ...updatedErrors[index], [field]: false };
+      setProjectErrors(updatedErrors);
+    }
   };
 
   const handleAISuggestions = async (projectIndex = 0) => {
+    // ... (rest of the handleAISuggestions logic remains the same)
     const projectName = projects[projectIndex]?.name?.trim();
     if (!projectName) {
       toast.error("Please enter project name first");
@@ -117,6 +128,21 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
   };
 
   const handleNext = async () => {
+    const newErrors = projects.map(project => {
+      const errors = {};
+      if (!project.name.trim()) errors.name = true;
+      if (project.enableFinancialTracking && !String(project.expense_budget).trim()) errors.expense_budget = true;
+      return errors;
+    });
+
+    setProjectErrors(newErrors);
+
+    const hasErrors = newErrors.some(error => Object.values(error).includes(true));
+    if (hasErrors) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
     const validProjects = projects.filter(p => p.name.trim());
     if (validProjects.length === 0) {
       toast.error("Please add at least one project or skip this step");
@@ -268,7 +294,9 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
                 <div className="space-y-5">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-bold uppercase text-slate-400 ml-1">Title</Label>
+                      <Label className={`text-xs font-bold uppercase ml-1 ${projectErrors[index]?.name ? "text-red-500" : "text-slate-400"}`}>
+                        Title {projectErrors[index]?.name && <span className="ml-1">— Required</span>}
+                      </Label>
                       <button
                         onClick={() => handleAISuggestions(index)}
                         className="text-[10px] font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 flex items-center gap-1.5 px-2 py-1 rounded-full bg-blue-50 transition-colors disabled:opacity-50"
@@ -282,7 +310,8 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
                       placeholder="e.g. Q1 Product Roadmap"
                       value={project.name}
                       onChange={(e) => updateProject(index, 'name', e.target.value)}
-                      className="h-12 border-slate-100 focus:border-blue-600 rounded-xl"
+                      className={`h-12 border-slate-100 focus:border-blue-600 rounded-xl transition-all ${projectErrors[index]?.name ? "border-red-500 ring-red-500/20" : ""
+                        }`}
                     />
                   </div>
 
@@ -499,9 +528,11 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
 
                         {/* Expense Budget - Common Field */}
                         <div className="col-span-2 space-y-2 pt-2 border-t border-slate-200/50">
-                          <Label className="text-xs font-bold text-slate-500 flex items-center justify-between">
+                          <Label className={`text-xs font-bold flex items-center justify-between ${projectErrors[index]?.expense_budget ? "text-red-500" : "text-slate-500"}`}>
                             Expense Budget
-                            <span className="text-[10px] uppercase text-slate-400 font-medium tracking-wide">Optional</span>
+                            <span className={`text-[10px] uppercase font-medium tracking-wide ${projectErrors[index]?.expense_budget ? "text-red-500" : "text-slate-400"}`}>
+                              {projectErrors[index]?.expense_budget ? "Required" : "Required"}
+                            </span>
                           </Label>
                           <Input
                             type="number"
@@ -509,7 +540,8 @@ export default function ProjectSetupStep({ tenant, user, onNext, onSkip, onBack 
                             value={project.expense_budget}
                             onChange={(e) => updateProject(index, 'expense_budget', e.target.value)}
                             placeholder="0.00"
-                            className="bg-white"
+                            className={`bg-white transition-all ${projectErrors[index]?.expense_budget ? "border-red-500 ring-red-500/20" : ""
+                              }`}
                           />
                         </div>
                       </div>

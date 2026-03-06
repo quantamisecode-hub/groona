@@ -149,7 +149,7 @@ export default function AdminTopPerformers({ tasks: propTasks = null, projects: 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mt-6">
 
             {/* Top Projects Leaderboard */}
-            <div className="bg-white border border-slate-100/80 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative overflow-hidden group">
+            <div className="bg-white border border-slate-100/80 rounded-[32px] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative overflow-hidden group">
                 {/* Decorative Background */}
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-emerald-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity"></div>
 
@@ -191,7 +191,7 @@ export default function AdminTopPerformers({ tasks: propTasks = null, projects: 
             </div>
 
             {/* Top Team Members Leaderboard */}
-            <div className="bg-white border border-slate-100/80 rounded-[32px] p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative overflow-hidden group">
+            <div className="bg-white border border-slate-100/80 rounded-[32px] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.02)] relative overflow-hidden group">
                 {/* Decorative Background */}
                 <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-50 rounded-full blur-3xl opacity-50 group-hover:opacity-80 transition-opacity"></div>
 

@@ -7,21 +7,18 @@ export default function ResourcePlanning() {
   const highlightUser = searchParams.get('highlightUser');
 
   return (
-    <div className="flex flex-col w-full h-full relative overflow-hidden">
-      {/* Fixed Header Section */}
-      <div className="bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0 z-20">
-        <div className="px-4 md:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-2 mb-4">
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Resource Planning</h1>
-            <p className="text-slate-600 text-lg">Monitor team workload and optimize resource allocation</p>
+    <div className="flex flex-col bg-[#f8f9fa] w-full relative min-h-screen">
+      <div className="max-w-screen-2xl mx-auto w-full flex flex-col relative">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-6 pb-8 space-y-6 lg:space-y-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight">Resource Planning</h1>
+              <p className="text-sm sm:text-base text-slate-500 font-medium">Monitor team workload and optimize resource allocation</p>
+            </div>
           </div>
-          <ResourceAllocation showSummaryOnly={true} />
-        </div>
-      </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto min-h-0 bg-slate-50/50">
-        <div className="p-3 pb-24">
+          <ResourceAllocation showSummaryOnly={true} />
+
           <ResourceAllocation showResourceListOnly={true} highlightUserId={highlightUser} />
         </div>
       </div>

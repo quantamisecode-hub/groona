@@ -870,6 +870,15 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     enabled: !!taskId,
   });
 
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['project-sprints', task?.project_id],
+    queryFn: async () => {
+      if (!task?.project_id) return [];
+      return await groonabackend.entities.Sprint.filter({ project_id: task.project_id });
+    },
+    enabled: !!task?.project_id,
+  });
+
   const getStatusConfig = (status) => {
     const configs = {
       todo: {
@@ -931,6 +940,18 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     }
     queryClient.invalidateQueries({ queryKey: ["task-detail", taskId] });
     if (onTaskUpdate) onTaskUpdate(updatedTask);
+  };
+
+  const handleSprintChange = async (newSprintId) => {
+    if (!task) return;
+    try {
+      const finalId = newSprintId === "unassigned" ? null : newSprintId;
+      const updated = await groonabackend.entities.Task.update(task.id || task._id, { sprint_id: finalId });
+      handleTaskUpdateFromEdit(updated);
+      toast.success(finalId ? "Sprint updated" : "Moved to backlog");
+    } catch (error) {
+      toast.error("Failed to update sprint");
+    }
   };
 
   const handleDeleteSubtask = async (index) => {
@@ -1323,6 +1344,39 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                         <p className="text-[15px] font-semibold text-slate-900">
                           {task.estimated_hours || 0} hrs
                         </p>
+                      </div>
+
+                      <div className="pt-2">
+                        <p className="text-[13px] text-slate-500 font-medium mb-2">Sprint</p>
+                        <Select
+                          value={task.sprint_id || "unassigned"}
+                          onValueChange={handleSprintChange}
+                          disabled={readOnly || isViewer}
+                        >
+                          <SelectTrigger className="h-9 text-[14px] font-medium border-slate-200">
+                            <SelectValue placeholder="Select Sprint" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">No Sprint (Backlog)</SelectItem>
+                            {sprints
+                              .filter(s => {
+                                const isAdmin = currentUser?.is_super_admin || currentUser?.custom_role === 'admin';
+                                if (isAdmin) return true;
+                                return s.status !== 'completed' || s.id === task.sprint_id;
+                              })
+                              .map(sprint => (
+                                <SelectItem key={sprint.id || sprint._id} value={sprint.id || sprint._id}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${sprint.status === 'active' ? 'bg-green-500' :
+                                      sprint.status === 'completed' ? 'bg-slate-300' : 'bg-slate-300'
+                                      }`} />
+                                    {sprint.name}
+                                    {sprint.status === 'active' && <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] ml-2">Active</Badge>}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 

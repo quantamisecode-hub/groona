@@ -27,7 +27,7 @@ import {
 
 export default function ProjectHealthMatrix({ projects, tasks, activities }) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("health_score");
+  const [sortField, setSortField] = useState("healthScore");
   const [sortDirection, setSortDirection] = useState("desc");
   const projectRefs = useRef({});
 
@@ -43,36 +43,9 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
     }
   }, [projects]);
 
-  // Calculate health score for each project
-  const calculateHealthScore = (project) => {
-    let score = 70; // Base score
-
-    // Progress contribution (30 points)
-    score += (project.progress || 0) * 0.3;
-
-    // Task completion rate (20 points)
-    const projectTasks = tasks.filter(t => t.project_id === project.id);
-    const completedTasks = projectTasks.filter(t => t.status === 'completed').length;
-    const taskCompletionRate = projectTasks.length > 0 ? completedTasks / projectTasks.length : 0;
-    score += taskCompletionRate * 20;
-
-    // Deadline check (deduct up to 20 points if overdue)
-    if (project.deadline) {
-      const daysUntilDeadline = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysUntilDeadline < 0) score -= 20; // Overdue
-      else if (daysUntilDeadline < 7) score -= 10; // Close to deadline
-    }
-
-    // Status check
-    if (project.status === 'on_hold') score -= 15;
-    if (project.status === 'completed') score = 100;
-
-    // Risk level
-    if (project.risk_level === 'critical') score -= 20;
-    else if (project.risk_level === 'high') score -= 15;
-    else if (project.risk_level === 'medium') score -= 5;
-
-    return Math.max(0, Math.min(100, Math.round(score)));
+  // Get health score for each project from backend calculation
+  const getHealthScore = (project) => {
+    return (project.health_score !== undefined && project.health_score !== null) ? project.health_score : null;
   };
 
   // Calculate budget health
@@ -91,7 +64,7 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
 
   // Enhance projects with health metrics
   const enhancedProjects = projects.map(project => {
-    const projectTasks = tasks.filter(t => t.project_id === project.id);
+    const projectTasks = tasks.filter(t => t.project_id === (project.id || project._id));
     const completedTasks = projectTasks.filter(t => t.status === 'completed').length;
     const overdueTasks = projectTasks.filter(t =>
       t.due_date &&
@@ -99,7 +72,7 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
       t.status !== 'completed'
     ).length;
 
-    const healthScore = calculateHealthScore(project);
+    const healthScore = getHealthScore(project);
     const budgetHealth = calculateBudgetHealth(project);
 
     return {
@@ -109,16 +82,34 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
       totalTasks: projectTasks.length,
       completedTasks,
       overdueTasks,
-      taskCompletionRate: projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : 0,
+      taskCompletionRate: projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : (project.progress || 0),
     };
   });
+
+  const getHealthBadge = (score) => {
+    if (score === null) return <Badge variant="outline" className="bg-slate-50 text-slate-400">No Data</Badge>;
+    if (score >= 85) return <Badge className="bg-emerald-500">Low Risk</Badge>;
+    if (score >= 70) return <Badge className="bg-blue-500">Medium Risk</Badge>;
+    if (score >= 50) return <Badge className="bg-amber-500">High Risk</Badge>;
+    return <Badge className="bg-red-500">Critical</Badge>;
+  };
+
+  const getBudgetBadge = (budgetHealth) => {
+    if (budgetHealth.status === 'unknown') return <Badge variant="outline">N/A</Badge>;
+    if (budgetHealth.status === 'good') return <Badge className="bg-emerald-500">On Budget</Badge>;
+    if (budgetHealth.status === 'caution') return <Badge className="bg-blue-500">Within Range</Badge>;
+    if (budgetHealth.status === 'warning') return <Badge className="bg-amber-500">Over Budget</Badge>;
+    return <Badge className="bg-red-500">Critical</Badge>;
+  };
 
   // Filter and sort
   const filteredProjects = enhancedProjects
     .filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => {
       const multiplier = sortDirection === 'asc' ? 1 : -1;
-      return (a[sortField] > b[sortField] ? 1 : -1) * multiplier;
+      const valA = a[sortField];
+      const valB = b[sortField];
+      return (valA > valB ? 1 : -1) * multiplier;
     });
 
   const handleSort = (field) => {
@@ -130,25 +121,11 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
     }
   };
 
-  const getHealthBadge = (score) => {
-    if (score >= 80) return <Badge className="bg-emerald-500">Excellent</Badge>;
-    if (score >= 60) return <Badge className="bg-blue-500">Good</Badge>;
-    if (score >= 40) return <Badge className="bg-amber-500">Fair</Badge>;
-    return <Badge className="bg-red-500">At Risk</Badge>;
-  };
-
-  const getBudgetBadge = (budgetHealth) => {
-    if (budgetHealth.status === 'unknown') return <Badge variant="outline">N/A</Badge>;
-    if (budgetHealth.status === 'good') return <Badge className="bg-emerald-500">On Budget</Badge>;
-    if (budgetHealth.status === 'caution') return <Badge className="bg-blue-500">Within Range</Badge>;
-    if (budgetHealth.status === 'warning') return <Badge className="bg-amber-500">Over Budget</Badge>;
-    return <Badge className="bg-red-500">Critical</Badge>;
-  };
-
   // Calculate summary stats
-  const criticalProjects = enhancedProjects.filter(p => p.healthScore < 40).length;
-  const atRiskProjects = enhancedProjects.filter(p => p.healthScore >= 40 && p.healthScore < 60).length;
-  const healthyProjects = enhancedProjects.filter(p => p.healthScore >= 80).length;
+  const criticalProjects = enhancedProjects.filter(p => p.healthScore !== null && p.healthScore < 50).length;
+  const highRiskProjects = enhancedProjects.filter(p => p.healthScore !== null && p.healthScore >= 50 && p.healthScore < 70).length;
+  const mediumRiskProjects = enhancedProjects.filter(p => p.healthScore !== null && p.healthScore >= 70 && p.healthScore < 85).length;
+  const lowRiskProjects = enhancedProjects.filter(p => p.healthScore !== null && p.healthScore >= 85).length;
   const budgetIssues = enhancedProjects.filter(p =>
     p.budgetHealth.status === 'warning' || p.budgetHealth.status === 'critical'
   ).length;
@@ -161,8 +138,8 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Healthy Projects</p>
-                <p className="text-3xl font-bold text-emerald-600">{healthyProjects}</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Low Risk</p>
+                <p className="text-3xl font-bold text-emerald-600">{lowRiskProjects}</p>
               </div>
               <CheckCircle2 className="h-10 w-10 text-emerald-600 opacity-20" />
             </div>
@@ -173,8 +150,20 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">At Risk</p>
-                <p className="text-3xl font-bold text-amber-600">{atRiskProjects}</p>
+                <p className="text-sm font-medium text-slate-600 mb-1">Medium Risk</p>
+                <p className="text-3xl font-bold text-blue-600">{mediumRiskProjects}</p>
+              </div>
+              <TrendingUp className="h-10 w-10 text-blue-600 opacity-20" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-slate-600 mb-1">High Risk</p>
+                <p className="text-3xl font-bold text-amber-600">{highRiskProjects}</p>
               </div>
               <AlertCircle className="h-10 w-10 text-amber-600 opacity-20" />
             </div>
@@ -189,18 +178,6 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
                 <p className="text-3xl font-bold text-red-600">{criticalProjects}</p>
               </div>
               <TrendingDown className="h-10 w-10 text-red-600 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">Budget Issues</p>
-                <p className="text-3xl font-bold text-orange-600">{budgetIssues}</p>
-              </div>
-              <DollarSign className="h-10 w-10 text-orange-600 opacity-20" />
             </div>
           </CardContent>
         </Card>
@@ -258,20 +235,24 @@ export default function ProjectHealthMatrix({ projects, tasks, activities }) {
               </TableHeader>
               <TableBody>
                 {filteredProjects.map((project) => (
-                  <TableRow key={project.id} className="hover:bg-slate-50/50">
+                  <TableRow key={project.id || project._id} className="hover:bg-slate-50/50" ref={el => projectRefs.current[project.id || project._id] = el}>
                     <TableCell className="font-medium">{project.name}</TableCell>
                     <TableCell>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg">{project.healthScore}</span>
+                          <span className="font-bold text-lg">{project.healthScore !== null ? project.healthScore : "--"}</span>
                           {getHealthBadge(project.healthScore)}
                         </div>
-                        <Progress value={project.healthScore} className="h-2 w-24" />
+                        {project.healthScore !== null ? (
+                          <Progress value={project.healthScore} className="h-2 w-24" />
+                        ) : (
+                          <div className="h-2 w-24 bg-slate-100 rounded-full" />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize">
-                        {project.status.replace('_', ' ')}
+                        {project.status?.replace('_', ' ')}
                       </Badge>
                     </TableCell>
                     <TableCell>

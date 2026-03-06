@@ -523,6 +523,12 @@ function LayoutContent({ children, currentPageName }) {
       show: canViewProjects || isProjectManager,
       subItems: [
         {
+          title: "Tasks",
+          url: createPageUrl("Tasks"),
+          icon: ClipboardList,
+          show: true,
+        },
+        {
           title: isMarketingCompany ? "Campaign Board" : "Sprint Board",
           url: createPageUrl("SprintBoard"),
           icon: Calendar,
@@ -1071,43 +1077,37 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
           </SidebarContent>
 
           <SidebarFooter className="p-4 space-y-4">
-            {/* Premium Upgrade Card */}
-            <div className="mx-2 p-5 rounded-3xl bg-gradient-to-br from-[#1E40AF] via-[#1E3A8A] to-[#0F172A] relative overflow-hidden group shadow-xl">
+            {/* Compact Premium Upgrade Card (Belt Size) */}
+            <div className="mx-2 p-3 rounded-2xl bg-gradient-to-br from-[#1E40AF] via-[#1E3A8A] to-[#0F172A] relative overflow-hidden group shadow-lg border border-white/5">
               {/* Background pattern */}
               <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full blur-2xl -mr-16 -mt-16" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-blue-400 rounded-full blur-2xl -ml-12 -mb-12" />
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white rounded-full blur-2xl -mr-12 -mt-12" />
               </div>
 
-              <div className="relative z-10 space-y-4">
+              <div className="relative z-10 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shadow-inner border border-white/20">
-                    <Crown className="w-5 h-5 text-white" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-inner">
+                      <Crown className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <h3 className="text-white font-bold text-[11px] leading-tight flex items-center gap-1">
+                        Professional
+                      </h3>
+                      <span className="text-emerald-400 font-bold text-[9px]">22 days left</span>
+                    </div>
                   </div>
                   <button
                     onClick={() => navigate(createPageUrl('SubscriptionManagement'))}
-                    className="text-[11px] font-bold text-blue-200 hover:text-white flex items-center transition-all group-hover:underline"
+                    className="text-[10px] font-bold text-blue-200 hover:text-white flex items-center transition-all group-hover:underline"
                   >
-                    Upgrade Plan <ArrowRight className="h-3 w-3 ml-0.5" />
+                    Upgrade <ArrowRight className="h-2.5 w-2.5 ml-0.5" />
                   </button>
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="text-white font-bold text-sm leading-tight flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-blue-300" /> Professional
-                  </h3>
+                <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+                  <div className="bg-emerald-400 h-full rounded-full shadow-[0_0_8px_rgba(52,211,153,0.4)]" style={{ width: '30%' }} />
                 </div>
-
-                <div className="flex flex-col gap-1.5 w-full mt-1">
-                  <div className="flex justify-between items-center w-full">
-                    <span className="text-[10px] font-medium text-blue-200/70">Subscription Progress</span>
-                    <span className="text-[11px] font-bold text-emerald-400">22 days left</span>
-                  </div>
-                  <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-emerald-400 h-full rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]" style={{ width: '30%' }} />
-                  </div>
-                </div>
-
               </div>
             </div>
 
@@ -1439,7 +1439,7 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden relative" style={{ maxWidth: '100vw', width: '100%' }}>
+          <div className="flex-1 overflow-y-auto overflow-x-hidden relative" style={{ width: '100%' }}>
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}

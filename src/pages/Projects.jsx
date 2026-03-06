@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, ArrowDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ProjectCard from "../components/projects/ProjectCard";
 import CreateProjectDialog from "../components/projects/CreateProjectDialog";
@@ -202,48 +202,7 @@ export default function Projects() {
 
   const deleteProjectMutation = useMutation({
     mutationFn: async (id) => {
-      // 1. Clean up all child entities first to avoid "orphans" and stale stats
-      const entitiesToCleanup = [
-        { name: 'Task', filter: { project_id: id } },
-        { name: 'Story', filter: { project_id: id } },
-        { name: 'Sprint', filter: { project_id: id } },
-        { name: 'Epic', filter: { project_id: id } },
-        { name: 'Activity', filter: { project_id: id } },
-        { name: 'Timesheet', filter: { project_id: id } },
-        { name: 'Milestone', filter: { project_id: id } },
-        { name: 'ProjectExpense', filter: { project_id: id } }
-      ];
-
-      for (const entity of entitiesToCleanup) {
-        try {
-          const items = await groonabackend.entities[entity.name].filter(entity.filter);
-          if (items.length > 0) {
-            await Promise.all(
-              items.map(item => groonabackend.entities[entity.name].delete(item.id || item._id))
-            );
-          }
-        } catch (e) {
-          console.error(`Cleanup failed for ${entity.name}:`, e);
-          // Continue with next entity even if one fails
-        }
-      }
-
-      // Also clean up project-level comments
-      try {
-        const comments = await groonabackend.entities.Comment.filter({
-          entity_type: 'project',
-          entity_id: id
-        });
-        if (comments.length > 0) {
-          await Promise.all(
-            comments.map(c => groonabackend.entities.Comment.delete(c.id || c._id))
-          );
-        }
-      } catch (e) {
-        console.error('Comment cleanup failed:', e);
-      }
-
-      // 2. Finally delete the project itself
+      // Deletion is now centrally handled by the backend with robust cascade cleanup
       await groonabackend.entities.Project.delete(id);
       return id;
     },
@@ -319,137 +278,133 @@ export default function Projects() {
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="projects">
       <FeatureOnboarding currentUser={currentUser} featureArea="projects" userRole={userRole} />
-      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-7xl mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
-          {/* Sticky Header Section */}
-          <div className="sticky top-0 z-30 bg-white border-b border-slate-200/60 pb-4 pt-8">
-            <div className="px-4 md:px-6 lg:px-8 pt-0 pb-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">{termPlural}</h1>
-                  <div className="text-slate-600">
-                    {isPageLoading
-                      ? <Skeleton className="h-4 w-32 inline-block" />
-                      : <span>{filteredProjects.length} {filteredProjects.length === 1 ? termSingular.toLowerCase() : termPlural.toLowerCase()}</span>
-                    }
-                    {!isPageLoading && selectedWorkspaceId && <span> in selected workspace</span>}
-                    {!isPageLoading && !selectedWorkspaceId && projects.length > 0 && <span> (all workspaces)</span>}
-                    {isRefetching && !isPageLoading && <span className="ml-2 text-xs text-blue-500 animate-pulse font-medium">Syncing...</span>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <WorkspaceSelector
-                    currentUser={currentUser}
-                    onWorkspaceChange={setSelectedWorkspaceId}
-                    selectedWorkspaceId={selectedWorkspaceId}
-                  />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleManualRefresh}
-                    disabled={isPageLoading || isRefetching}
-                    title={`Refresh ${termPlural.toLowerCase()}`}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin text-blue-600' : ''}`} />
-                  </Button>
-                  {canCreateProject && (
-                    <Button
-                      onClick={() => handleCreateProject(null)}
-                      disabled={isPageLoading}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      New {termSingular}
-                    </Button>
-                  )}
+      <div className="flex flex-col bg-[#f8f9fa] w-full relative min-h-screen">
+        <div className="max-w-[1800px] mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
+
+          <div className="flex-1 px-6 md:px-8 pt-6 pb-6 md:pb-8 space-y-8">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-2">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">{termPlural}</h1>
+                <div className="text-slate-600">
+                  {isPageLoading
+                    ? <Skeleton className="h-4 w-32 inline-block" />
+                    : <span>{filteredProjects.length} {filteredProjects.length === 1 ? termSingular.toLowerCase() : termPlural.toLowerCase()}</span>
+                  }
+                  {!isPageLoading && selectedWorkspaceId && <span> in selected workspace</span>}
+                  {!isPageLoading && !selectedWorkspaceId && projects.length > 0 && <span> (all workspaces)</span>}
+                  {isRefetching && !isPageLoading && <span className="ml-2 text-xs text-blue-500 animate-pulse font-medium">Syncing...</span>}
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                <WorkspaceSelector
+                  currentUser={currentUser}
+                  onWorkspaceChange={setSelectedWorkspaceId}
+                  selectedWorkspaceId={selectedWorkspaceId}
+                />
+                <Button
+                  variant="outline"
+                  className="h-10 px-3 bg-white border-slate-200 shadow-sm rounded-lg hover:bg-slate-50 text-slate-600"
+                  onClick={handleManualRefresh}
+                  disabled={isPageLoading || isRefetching}
+                  title={`Refresh ${termPlural.toLowerCase()}`}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin text-blue-600' : ''}`} />
+                </Button>
+                {canCreateProject && (
+                  <Button
+                    onClick={() => handleCreateProject(null)}
+                    disabled={isPageLoading}
+                    className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-[0_4px_14px_rgba(37,99,235,0.2)] hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New {termSingular}
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Scrollable Content */}
-          <div className="flex-1">
-            <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
-              {/* LOADING STATE: Shimmering Skeletons */}
-              {isPageLoading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-                      <div className="flex justify-between items-start">
-                        <Skeleton className="h-12 w-12 rounded-lg" />
-                        <Skeleton className="h-8 w-8 rounded-full" />
-                      </div>
-                      <div className="space-y-3 pt-2">
-                        <Skeleton className="h-6 w-3/4 rounded" />
-                        <Skeleton className="h-4 w-full rounded" />
-                        <Skeleton className="h-4 w-2/3 rounded" />
-                      </div>
-                      <div className="pt-4 border-t border-slate-100 flex gap-4 mt-auto">
-                        <Skeleton className="h-4 w-16 rounded" />
-                        <Skeleton className="h-4 w-16 rounded" />
-                      </div>
+            {/* Scrollable Content */}
+            {/* LOADING STATE: Shimmering Skeletons */}
+            {isPageLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[24px] p-6 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <Skeleton className="h-12 w-12 rounded-lg" />
+                      <Skeleton className="h-8 w-8 rounded-full" />
                     </div>
-                  ))}
-                </div>
-              ) : filteredProjects.length === 0 ? (
-                <div className="text-center py-20 bg-slate-50/50 rounded-xl border-2 border-dashed border-slate-200">
-                  <p className="text-slate-600 mb-4">
-                    {!isAdmin && projects.length > 0
-                      ? `You haven't been assigned to any ${termPlural.toLowerCase()} yet.`
-                      : (selectedWorkspaceId
-                        ? `No ${termPlural.toLowerCase()} in this workspace yet.`
-                        : `No ${termPlural.toLowerCase()} yet. Create your first ${termSingular.toLowerCase()} to get started!`)
-                    }
-                  </p>
-                  {canCreateProject && (
-                    <Button
-                      onClick={() => handleCreateProject(null)}
-                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create {termSingular}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-onboarding="projects-list">
-                  {filteredProjects.map(project => {
-                    // Extract project ID safely
-                    const pId = project.id || project._id;
-                    return (
-                      <div key={pId} ref={el => projectsRef.current[pId] = el}>
-                        <ProjectCard
-                          project={project}
-                          onDelete={() => handleDeleteProject(project)}
-                          termSingular={termSingular}
-                          highlighted={new URLSearchParams(window.location.search).get('highlightId') === pId}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                    <div className="space-y-3 pt-2">
+                      <Skeleton className="h-6 w-3/4 rounded" />
+                      <Skeleton className="h-4 w-full rounded" />
+                      <Skeleton className="h-4 w-2/3 rounded" />
+                    </div>
+                    <div className="pt-4 border-t border-slate-100 flex gap-4 mt-auto">
+                      <Skeleton className="h-4 w-16 rounded" />
+                      <Skeleton className="h-4 w-16 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="text-center py-20 bg-slate-50/50 rounded-xl border-2 border-dashed border-slate-200">
+                <p className="text-slate-600 mb-4">
+                  {!isAdmin && projects.length > 0
+                    ? `You haven't been assigned to any ${termPlural.toLowerCase()} yet.`
+                    : (selectedWorkspaceId
+                      ? `No ${termPlural.toLowerCase()} in this workspace yet.`
+                      : `No ${termPlural.toLowerCase()} yet. Create your first ${termSingular.toLowerCase()} to get started!`)
+                  }
+                </p>
+                {canCreateProject && (
+                  <Button
+                    onClick={() => handleCreateProject(null)}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create {termSingular}
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-onboarding="projects-list">
+                {filteredProjects.map(project => {
+                  // Extract project ID safely
+                  const pId = project.id || project._id;
+                  return (
+                    <div key={pId} ref={el => projectsRef.current[pId] = el}>
+                      <ProjectCard
+                        project={project}
+                        onDelete={() => handleDeleteProject(project)}
+                        termSingular={termSingular}
+                        highlighted={new URLSearchParams(window.location.search).get('highlightId') === pId}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {canCreateProject && (
-        <CreateProjectDialog
-          open={showCreateDialog}
-          onClose={() => {
-            setShowCreateDialog(false);
-            setSelectedTemplate(null);
-          }}
-          onSubmit={(data) => createProjectMutation.mutate(data)}
-          loading={createProjectMutation.isPending}
-          error={createProjectMutation.error}
-          selectedTemplate={selectedTemplate}
-          preselectedWorkspaceId={selectedWorkspaceId}
-          title={`Create New ${termSingular}`}
-          termSingular={termSingular}
-        />
-      )}
+      {
+        canCreateProject && (
+          <CreateProjectDialog
+            open={showCreateDialog}
+            onClose={() => {
+              setShowCreateDialog(false);
+              setSelectedTemplate(null);
+            }}
+            onSubmit={(data) => createProjectMutation.mutate(data)}
+            loading={createProjectMutation.isPending}
+            error={createProjectMutation.error}
+            selectedTemplate={selectedTemplate}
+            preselectedWorkspaceId={selectedWorkspaceId}
+            title={`Create New ${termSingular}`}
+            termSingular={termSingular}
+          />
+        )
+      }
 
       <ConfirmationDialog
         open={!!deletingProject}
@@ -463,6 +418,6 @@ export default function Projects() {
         keyword="DELETE"
         loading={deleteProjectMutation.isPending}
       />
-    </OnboardingProvider>
+    </OnboardingProvider >
   );
 }

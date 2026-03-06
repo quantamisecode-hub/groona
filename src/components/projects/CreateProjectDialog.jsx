@@ -469,9 +469,9 @@ Keep it clear, actionable, and suitable for a project management tool.`;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-3xl h-[90vh] max-h-[900px] flex flex-col p-0 gap-0 bg-white">
-        <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-          <DialogTitle className="text-2xl font-bold text-slate-900">
+      <DialogContent className="max-w-[95vw] sm:max-w-3xl h-[90vh] max-h-[900px] flex flex-col p-0 gap-0 bg-white border-zinc-200 shadow-xl sm:rounded-2xl">
+        <DialogHeader className="px-6 py-5 border-b border-zinc-100 flex-shrink-0">
+          <DialogTitle className="text-xl font-semibold text-zinc-900 tracking-tight">
             {selectedTemplate ? `Create Project from "${selectedTemplate.name}"` : "Create New Project"}
           </DialogTitle>
         </DialogHeader>
@@ -504,15 +504,15 @@ Keep it clear, actionable, and suitable for a project management tool.`;
                   disabled={loading || uploadingLogo}
                 />
                 <div className="flex items-center gap-4">
-                  <Avatar className="h-20 w-20 border-2 border-slate-200 shadow-md">
+                  <Avatar className="h-20 w-20 border border-zinc-200/50 shadow-sm rounded-2xl">
                     {formData.logo_url ? (
-                      <AvatarImage src={formData.logo_url} alt="Project logo" />
+                      <AvatarImage src={formData.logo_url} alt="Project logo" className="object-cover" />
                     ) : (
                       <AvatarFallback
-                        className="text-white font-bold text-xl"
-                        style={{ background: `linear-gradient(135deg, ${formData.color}, ${formData.color}dd)` }}
+                        className="font-bold text-xl"
+                        style={{ color: formData.color || '#3b82f6', backgroundColor: '#f4f4f5' }}
                       >
-                        {formData.name ? getProjectInitials(formData.name) : <ImageIcon className="h-8 w-8" />}
+                        {formData.name ? getProjectInitials(formData.name) : <ImageIcon className="h-8 w-8 text-zinc-400" />}
                       </AvatarFallback>
                     )}
                   </Avatar>
@@ -552,7 +552,7 @@ Keep it clear, actionable, and suitable for a project management tool.`;
                       </Button>
                     )}
 
-                    <p className="text-xs text-slate-500">PNG, JPG or GIF (max 5MB)</p>
+                    <p className="text-xs text-zinc-400 font-medium">PNG, JPG or GIF (max 5MB)</p>
                   </div>
                 </div>
               </div>
@@ -740,9 +740,10 @@ Keep it clear, actionable, and suitable for a project management tool.`;
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                placeholder="What is this project about? (AI can help generate it)"
+                placeholder="What is this project about?"
                 rows={3}
                 disabled={loading || generatingDescription}
+                className="resize-none"
               />
             </div>
 
@@ -800,7 +801,7 @@ Keep it clear, actionable, and suitable for a project management tool.`;
             </div>
 
             {currentUser?.custom_role !== "project_manager" && (
-              <div className="border rounded-lg p-5 bg-slate-50/70 space-y-4">
+              <div className="border border-zinc-200/70 rounded-xl p-5 bg-zinc-50/50 space-y-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="financial-tracking"
@@ -1122,14 +1123,14 @@ Keep it clear, actionable, and suitable for a project management tool.`;
             )}
           </div>
 
-          <div className="flex justify-end gap-3 px-6 py-4 border-t bg-slate-50/70 flex-shrink-0">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+          <div className="flex justify-end gap-3 px-6 py-4 border-t border-zinc-100 bg-zinc-50/50 flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading} className="font-medium">
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || generatingDescription || uploadingLogo || accessibleWorkspaces.length === 0}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white min-w-[140px]"
+              className="bg-zinc-900 hover:bg-zinc-800 text-white font-medium min-w-[140px]"
             >
               {loading ? (
                 <>

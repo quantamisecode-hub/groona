@@ -57,28 +57,28 @@ export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onS
     }, [tasks]);
 
     return (
-        <Card className="w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden">
+        <Card className="w-full flex flex-col bg-white border-0 shadow-sm ring-1 ring-slate-100/80 rounded-3xl overflow-hidden">
             <CardHeader className="p-6 pb-2">
-                <CardTitle className="text-[17px] font-semibold text-slate-900 tracking-tight">{title}</CardTitle>
+                <CardTitle className="text-lg font-bold text-slate-900 tracking-tight">{title}</CardTitle>
             </CardHeader>
 
-            <CardContent className="px-6 pb-8 pt-4 flex flex-col items-center flex-1">
+            <CardContent className="px-6 pb-10 pt-6 flex flex-col items-center flex-1">
                 {total === 0 ? (
-                    <div className="h-[220px] w-full flex items-center justify-center bg-slate-50/50 rounded-[20px]">
-                        <p className="text-[14px] text-slate-500 font-medium">No active tasks.</p>
+                    <div className="h-56 w-full flex items-center justify-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-100">
+                        <p className="text-sm text-slate-500 font-bold">No active tasks.</p>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center w-full">
                         {/* Donut Chart Container */}
-                        <div className="relative w-48 h-48 mb-6 flex items-center justify-center">
+                        <div className="relative w-48 h-48 sm:w-56 sm:h-56 mb-8 flex items-center justify-center">
                             {/* Inner Typography */}
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-[36px] font-bold text-slate-900 leading-none tracking-tighter">
+                                <span className="text-4xl sm:text-5xl font-extrabold text-slate-900 leading-none tracking-tighter">
                                     {selectedStatus
                                         ? segments.find(s => s.id === selectedStatus)?.count
                                         : total}
                                 </span>
-                                <span className="text-[12px] font-medium text-slate-500 mt-1 uppercase tracking-wider">
+                                <span className="text-xs font-bold text-slate-500 mt-2 uppercase tracking-widest leading-none">
                                     {selectedStatus
                                         ? segments.find(s => s.id === selectedStatus)?.label
                                         : 'Total Tasks'}
@@ -100,18 +100,18 @@ export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onS
                                             r={seg.radius}
                                             fill="transparent"
                                             stroke={seg.color}
-                                            strokeWidth={isSelected ? 24 : 18}
+                                            strokeWidth={isSelected ? 26 : 20}
                                             strokeDasharray={seg.strokeDasharray}
                                             strokeDashoffset={seg.strokeDashoffset}
                                             strokeLinecap="round"
                                             className={cn(
-                                                "transition-all duration-300 cursor-pointer origin-center hover:opacity-90 outline-none",
+                                                "transition-all duration-300 cursor-pointer origin-center hover:opacity-90 outline-none shadow-sm",
                                                 isDimmed ? "opacity-30" : "opacity-100"
                                             )}
                                             onClick={() => onSelectStatus(isSelected ? null : seg.id)}
                                             initial={{ opacity: 0, scale: 0.9 }}
                                             animate={{ opacity: isDimmed ? 0.3 : 1, scale: 1 }}
-                                            transition={{ delay: i * 0.1, duration: 0.5, type: 'spring' }}
+                                            transition={{ delay: i * 0.1, duration: 0.6, type: 'spring', bounce: 0.4 }}
                                         />
                                     );
                                 })}
@@ -119,7 +119,7 @@ export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onS
                         </div>
 
                         {/* Interactive Legend (Apple-style Pills) */}
-                        <div className="flex flex-wrap justify-center gap-2">
+                        <div className="flex flex-wrap justify-center gap-2.5">
                             {segments.map((seg) => {
                                 if (seg.count === 0) return null;
                                 const isSelected = selectedStatus === seg.id;
@@ -130,20 +130,20 @@ export default function TaskOverviewDonutChart({ tasks = [], selectedStatus, onS
                                         key={seg.id}
                                         onClick={() => onSelectStatus(isSelected ? null : seg.id)}
                                         className={cn(
-                                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-300 border focus:outline-none",
+                                            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 border focus:outline-none",
                                             isSelected
-                                                ? `bg-slate-50 border-slate-200 text-slate-900 shadow-sm shadow-${seg.color}/10 scale-105`
+                                                ? `bg-slate-50 border-slate-200 text-slate-900 shadow-sm scale-110 z-10 font-extrabold`
                                                 : isDimmed
                                                     ? "bg-transparent border-transparent text-slate-400 opacity-60"
-                                                    : "bg-transparent border-transparent text-slate-600 hover:bg-slate-50"
+                                                    : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50 hover:border-slate-200 shadow-sm"
                                         )}
                                     >
                                         <div
-                                            className={cn("w-2 h-2 rounded-full", seg.tailwind)}
+                                            className={cn("w-2.5 h-2.5 rounded-full shadow-sm", seg.tailwind)}
                                             style={{ backgroundColor: seg.color }}
                                         />
                                         {seg.label}
-                                        <span className="opacity-70 font-medium ml-0.5">{seg.percentage}%</span>
+                                        <span className="opacity-60 font-medium ml-1">{seg.percentage}%</span>
                                     </button>
                                 );
                             })}

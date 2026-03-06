@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
@@ -17,8 +17,15 @@ import {
   ChevronRight,
   Calendar,
   Filter,
-  AlertCircle
+  AlertCircle,
+  LayoutGrid,
+  PieChart,
+  ArrowUpRight,
+  BarChart3,
+  Layers,
+  Zap
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -67,7 +74,7 @@ export default function ProjectInsights() {
   });
 
   // 2. Fetch Projects scoped to Tenant (Matches Dashboard Logic & StaleTime)
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return groonabackend.entities.Project.list('-updated_date');
@@ -78,7 +85,7 @@ export default function ProjectInsights() {
   });
 
   // 3. Fetch Tasks scoped to Tenant (Matches Dashboard Logic & StaleTime)
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({
     queryKey: ['tasks', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return groonabackend.entities.Task.list('-updated_date');
@@ -94,6 +101,17 @@ export default function ProjectInsights() {
     queryFn: async () => {
       if (!effectiveTenantId) return groonabackend.entities.Story.list();
       return groonabackend.entities.Story.filter({ tenant_id: effectiveTenantId });
+    },
+    enabled: !!currentUser,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // 4a. Fetch Sprints scoped to Tenant (for accurate velocity calculation)
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['sprints', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Sprint.list();
+      return groonabackend.entities.Sprint.filter({ tenant_id: effectiveTenantId });
     },
     enabled: !!currentUser,
     staleTime: 5 * 60 * 1000,
@@ -146,7 +164,6 @@ export default function ProjectInsights() {
     const map = {};
     accessibleProjects.forEach(project => {
       const projectStories = stories.filter(s => s.project_id === project.id);
-      const projectTasks = accessibleTasks.filter(t => t.project_id === project.id);
 
       if (projectStories.length === 0) {
         map[project.id] = project.progress || 0;
@@ -164,28 +181,113 @@ export default function ProjectInsights() {
       map[project.id] = totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
     });
     return map;
-  }, [accessibleProjects, stories, accessibleTasks]);
+  }, [accessibleProjects, stories]);
+
+  // 9. Calculate Velocity for each project (Sprint Story Point logic from VelocityTracker)
+  const projectVelocityMap = useMemo(() => {
+    const map = {};
+    accessibleProjects.forEach(project => {
+      // Get sprints for this project
+      const projectSprints = sprints.filter(s => String(s.project_id) === String(project.id));
+
+      // Include ALL sprints (active, planned, completed, etc.) as requested to sum up velocity
+      const validSprints = projectSprints;
+
+      if (validSprints.length === 0) {
+        map[project.id] = "0.00";
+        return;
+      }
+
+      // Calculate velocity for each valid sprint
+      const sprintVelocities = validSprints.map(sprint => {
+        const sprintStories = stories.filter(s => {
+          const storySprintId = s.sprint_id?.id || s.sprint_id?._id || s.sprint_id;
+          return String(storySprintId) === String(sprint.id);
+        });
+
+        // Calculate completed points using partial completion
+        return sprintStories.reduce((sum, story) => {
+          const storyId = story.id || story._id;
+          const storyStatus = (story.status || '').toLowerCase();
+          const storyPoints = Number(story.story_points) || 0;
+
+          if (storyStatus === 'done' || storyStatus === 'completed') {
+            return sum + storyPoints;
+          }
+
+          const storyTasks = tasks.filter(t => {
+            const taskStoryId = t.story_id?.id || t.story_id?._id || t.story_id;
+            return String(taskStoryId) === String(storyId);
+          });
+
+          if (storyTasks.length === 0) {
+            return sum;
+          }
+
+          const completedTasksCount = storyTasks.filter(t => t.status === 'completed').length;
+          const totalTasksCount = storyTasks.length;
+          const taskCompletionPercentage = totalTasksCount > 0 ? (completedTasksCount / totalTasksCount) : 0;
+
+          return sum + (storyPoints * taskCompletionPercentage);
+        }, 0);
+      });
+
+      // We calculate average velocity from valid (active locked or completed) sprints
+      // Or we can just sum up the last sprint if we want "Live Velocity", but let's just 
+      // take the average across applicable sprints or the latest sprint.
+      // E.g., recent sprint velocity as Live Velocity:
+      const totalVelocity = sprintVelocities.reduce((sum, v) => sum + v, 0);
+      map[project.id] = Number(totalVelocity).toFixed(2);
+    });
+    return map;
+  }, [accessibleProjects, sprints, stories, tasks]);
+
+
+  // 10. Calculate Blockers for each project (Aligned with Dashboard Bottleneck logic: Review + Blocked)
+  const projectBlockersData = useMemo(() => {
+    const map = {};
+    accessibleProjects.forEach(project => {
+      const projectTasks = accessibleTasks.filter(t => t.project_id === project.id);
+      const blocked = projectTasks.filter(t => t.status === 'blocked').length;
+      const review = projectTasks.filter(t => t.status === 'review').length;
+      map[project.id] = {
+        total: blocked + review,
+        blocked: blocked,
+        review: review
+      };
+    });
+    return map;
+  }, [accessibleProjects, accessibleTasks]);
 
   const selectedProject = accessibleProjects.find(p => p.id === selectedProjectId);
   const selectedProjectTasks = accessibleTasks.filter(t => t.project_id === selectedProjectId);
   const selectedProjectStories = useMemo(() => stories.filter(s => s.project_id === selectedProjectId), [stories, selectedProjectId]);
 
-  // New Overview Modal Analytics Logic
-  const activeProjectIdSet = new Set(accessibleProjects.filter(p => p.status === 'active').map(p => p.id));
-  const activeProjectsTasks = accessibleTasks.filter(t => activeProjectIdSet.has(t.project_id));
 
   const analyticsSummary = useMemo(() => {
+    // Top-level velocity: sum of all accessible projects' velocities to match the list tabs
+    let totalVelocity = 0;
+
+    accessibleProjects.forEach(project => {
+      const v = parseFloat(projectVelocityMap[project.id]);
+      if (!isNaN(v)) {
+        totalVelocity += v;
+      }
+    });
+
+    const overallVelocity = totalVelocity.toFixed(2);
+
     return {
-      activeProjects: activeProjectIdSet.size,
-      critical: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent').length,
-      high: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length,
-      medium: activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'medium').length,
-      pendingTasks: activeProjectsTasks.filter(t => t.status === 'todo').length,
-      doneTasks: activeProjectsTasks.filter(t => t.status === 'completed').length,
-      velocity: Math.round(activeProjectsTasks.filter(t => t.status === 'completed').length / 7) || 0,
-      bottlenecks: activeProjectsTasks.filter(t => t.status === 'review').length
+      activeProjects: accessibleProjects.filter(p => p.status === 'active').length,
+      critical: accessibleTasks.filter(t => t.status !== 'completed' && (t.priority === 'urgent' || t.priority === 'critical')).length,
+      high: accessibleTasks.filter(t => t.status !== 'completed' && t.priority === 'high').length,
+      medium: accessibleTasks.filter(t => t.status !== 'completed' && t.priority === 'medium').length,
+      pendingTasks: accessibleTasks.filter(t => t.status === 'todo').length,
+      doneTasks: accessibleTasks.filter(t => t.status === 'completed').length,
+      velocity: overallVelocity,
+      bottlenecks: accessibleTasks.filter(t => t.status === 'review' || t.status === 'blocked').length
     };
-  }, [activeProjectIdSet.size, activeProjectsTasks]);
+  }, [accessibleProjects, accessibleTasks, projectVelocityMap]);
 
   const handleOpenOverviewModal = (type) => {
     setOverviewModalType(type);
@@ -198,17 +300,17 @@ export default function ProjectInsights() {
       return accessibleProjects.filter(p => p.status === 'active').map(p => {
         const pTasks = accessibleTasks.filter(t => t.project_id === p.id);
         const pendingCount = pTasks.filter(t => t.status !== 'completed').length;
-        const criticalCount = pTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent').length;
+        const criticalCount = pTasks.filter(t => t.status !== 'completed' && (t.priority === 'urgent' || t.priority === 'critical')).length;
         return { ...p, pendingCount, criticalCount };
       });
     }
 
     let filtered = [];
-    if (overviewModalType === 'critical') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'urgent');
-    else if (overviewModalType === 'high') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'high');
-    else if (overviewModalType === 'medium') filtered = activeProjectsTasks.filter(t => t.status !== 'completed' && t.priority === 'medium');
-    else if (overviewModalType === 'pending') filtered = activeProjectsTasks.filter(t => t.status === 'todo');
-    else if (overviewModalType === 'done') filtered = activeProjectsTasks.filter(t => t.status === 'completed');
+    if (overviewModalType === 'critical') filtered = accessibleTasks.filter(t => t.status !== 'completed' && (t.priority === 'urgent' || t.priority === 'critical'));
+    else if (overviewModalType === 'high') filtered = accessibleTasks.filter(t => t.status !== 'completed' && t.priority === 'high');
+    else if (overviewModalType === 'medium') filtered = accessibleTasks.filter(t => t.status !== 'completed' && t.priority === 'medium');
+    else if (overviewModalType === 'pending') filtered = accessibleTasks.filter(t => t.status === 'todo');
+    else if (overviewModalType === 'done') filtered = accessibleTasks.filter(t => t.status === 'completed');
 
     return filtered.map(task => {
       const p = accessibleProjects.find(pr => pr.id === task.project_id);
@@ -217,418 +319,456 @@ export default function ProjectInsights() {
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const overviewModalData = useMemo(() => getOverviewModalData(), [overviewModalType, accessibleTasks, accessibleProjects, activeProjectsTasks]);
+  const overviewModalData = useMemo(() => getOverviewModalData(), [overviewModalType, accessibleTasks, accessibleProjects]);
   const overviewModalTotalPages = Math.ceil(overviewModalData.length / overviewModalItemsPerPage);
   const overviewModalStartIndex = (overviewModalPage - 1) * overviewModalItemsPerPage;
   const paginatedOverviewData = overviewModalData.slice(overviewModalStartIndex, overviewModalStartIndex + overviewModalItemsPerPage);
 
+  const isDataLoading = projectsLoading || tasksLoading;
+
+  if (isDataLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] w-full">
+        <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-5" />
+        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Gathering Insights</h3>
+        <p className="text-sm text-slate-500 font-medium animate-pulse mt-1">Analyzing cross-project metrics...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <Sparkles className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Project Insights</h1>
-              <p className="text-slate-600">AI-powered analytics and predictions</p>
-            </div>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+      >
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <Sparkles className="h-7 w-7 text-purple-600 relative z-10" />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-normal leading-none mb-1">Project Insights</h1>
+            <p className="text-slate-500 text-sm font-medium">AI-powered predictive analytics & team performance metrics</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Metric Card 1: Active Projects */}
-        <Card
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
           onClick={() => analyticsSummary.activeProjects > 0 && handleOpenOverviewModal('projects')}
-          className={cn("p-5 bg-gradient-to-br from-indigo-500 to-blue-600 text-white border-0 shadow-lg flex items-center gap-5", analyticsSummary.activeProjects > 0 && "cursor-pointer hover:scale-105 hover:shadow-indigo-500/50 transition-all active:scale-95")}
+          className={cn(
+            "group relative overflow-hidden p-6 bg-white border border-slate-200 rounded-[32px] shadow-sm hover:shadow-xl hover:shadow-indigo-500/5 hover:border-indigo-400 transition-all duration-500",
+            analyticsSummary.activeProjects > 0 && "cursor-pointer active:scale-[0.98]"
+          )}
         >
-          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
-            <TrendingUp className="h-7 w-7 text-white" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-bl-[4rem] -z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="h-12 w-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform duration-500">
+                <LayoutGrid className="h-6 w-6" strokeWidth={2.5} />
+              </div>
+              <TrendingUp className="h-5 w-5 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-indigo-600 transition-colors">Active Projects</h3>
+            <p className="text-5xl font-black text-slate-900 tracking-normal">{analyticsSummary.activeProjects}</p>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Active Projects</h3>
-            <p className="text-4xl font-black">{analyticsSummary.activeProjects}</p>
-          </div>
-        </Card>
+        </motion.div>
 
         {/* Metric Card 2: Velocity */}
-        <Card className="p-5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white border-0 shadow-lg flex items-center gap-5">
-          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
-            <Activity className="h-7 w-7 text-white" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="group relative overflow-hidden p-6 bg-white border border-slate-200 rounded-[32px] shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 hover:border-emerald-400 transition-all duration-500"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50/50 rounded-bl-[4rem] -z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform duration-500">
+                <Activity className="h-6 w-6" strokeWidth={2.5} />
+              </div>
+              <TrendingUp className="h-5 w-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-emerald-600 transition-colors">Velocity</h3>
+            <div className="flex items-baseline gap-2">
+              <p className="text-5xl font-black text-slate-900 tracking-normal">{analyticsSummary.velocity}</p>
+              <span className="text-sm font-bold text-slate-400 uppercase tracking-wider group-hover:text-emerald-500">pts</span>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Weekly Velocity</h3>
-            <p className="text-4xl font-black text-white">{analyticsSummary.velocity} <span className="text-sm font-medium opacity-80">tasks/day</span></p>
-          </div>
-        </Card>
+        </motion.div>
 
         {/* Metric Card 3: Bottlenecks */}
-        <Card className="p-5 bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 shadow-lg flex items-center gap-5">
-          <div className="h-14 w-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/20">
-            <AlertTriangle className="h-7 w-7 text-white" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="group relative overflow-hidden p-6 bg-white border border-slate-200 rounded-[32px] shadow-sm hover:shadow-xl hover:shadow-amber-500/5 hover:border-amber-400 transition-all duration-500"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50/50 rounded-bl-[4rem] -z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-8">
+              <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform duration-500">
+                <AlertCircle className="h-6 w-6" strokeWidth={2.5} />
+              </div>
+              <div className="px-2 py-0.5 rounded-full bg-amber-100 text-[10px] font-black text-amber-600 uppercase tracking-normal">Needs Attention</div>
+            </div>
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 group-hover:text-amber-600 transition-colors">Blockers & Bottlenecks</h3>
+            <div className="flex items-baseline gap-2">
+              <p className="text-5xl font-black text-slate-900 tracking-normal">{analyticsSummary.bottlenecks}</p>
+              <span className="text-sm font-bold text-slate-400 uppercase tracking-wider group-hover:text-amber-500">waiting</span>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Bottlenecks</h3>
-            <p className="text-4xl font-black text-white">{analyticsSummary.bottlenecks} <span className="text-sm font-medium opacity-80">in review</span></p>
-          </div>
-        </Card>
+        </motion.div>
       </div>
 
       {/* Unified Task Overview Card */}
-      <Card className="p-6 bg-white/40 backdrop-blur-2xl border-slate-200/40 shadow-xl overflow-hidden relative group">
-        <div className="absolute top-0 right-0 p-8 opacity-10 -mr-4 -mt-4 transition-transform group-hover:scale-110">
-          <Target className="h-24 w-24 text-slate-400" />
-        </div>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+      >
+        <Card className="p-8 bg-white border border-slate-200 rounded-[40px] shadow-sm relative overflow-hidden group">
+          {/* Subtle decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50/50 rounded-full blur-3xl -z-10 -mr-20 -mt-20 group-hover:bg-indigo-50/50 transition-colors duration-1000" />
 
-        <div className="relative">
-          <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
-            <Filter className="h-5 w-5 text-indigo-500" />
-            Task Details Overall
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            <Card
-              onClick={() => analyticsSummary.critical > 0 && handleOpenOverviewModal('critical')}
-              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.critical > 0 ? "cursor-pointer hover:shadow-md hover:border-red-200" : "opacity-75")}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest flex items-center gap-1.5"><AlertTriangle className="h-3 w-3" /> Critical</span>
-                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.critical > 0 ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-500")}>
-                  {analyticsSummary.critical}
+          <div className="relative">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:border-indigo-200 transition-colors">
+                  <Filter className="h-5 w-5 text-slate-500 group-hover:text-indigo-500" />
                 </div>
+                <h3 className="text-xl font-bold text-slate-900 tracking-normal">Task Details Overall</h3>
               </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
-                <div className={cn("h-full transition-all duration-1000", analyticsSummary.critical > 0 ? "bg-red-500 group-hover:bg-red-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.critical / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
-              </div>
-            </Card>
+              <div className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Full Lifecycle Overview</div>
+            </div>
 
-            <Card
-              onClick={() => analyticsSummary.high > 0 && handleOpenOverviewModal('high')}
-              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.high > 0 ? "cursor-pointer hover:shadow-md hover:border-orange-200" : "opacity-75")}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-widest flex items-center gap-1.5"><AlertCircle className="h-3 w-3" /> High</span>
-                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.high > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500")}>
-                  {analyticsSummary.high}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[
+                { label: 'Critical', value: analyticsSummary.critical, icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-50', border: 'hover:border-rose-200', handler: 'critical' },
+                { label: 'High', value: analyticsSummary.high, icon: AlertCircle, color: 'text-orange-500', bg: 'bg-orange-50', border: 'hover:border-orange-200', handler: 'high' },
+                { label: 'Medium', value: analyticsSummary.medium, icon: Activity, color: 'text-amber-500', bg: 'bg-amber-50', border: 'hover:border-amber-200', handler: 'medium' },
+                { label: 'Pending', value: analyticsSummary.pendingTasks, icon: Clock, color: 'text-blue-500', bg: 'bg-blue-50', border: 'hover:border-blue-200', handler: 'pending' },
+                { label: 'Done', value: analyticsSummary.doneTasks, icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'hover:border-emerald-200', handler: 'done' },
+              ].map((item, idx) => (
+                <div
+                  key={item.label}
+                  onClick={() => item.value > 0 && handleOpenOverviewModal(item.handler)}
+                  className={cn(
+                    "flex flex-col p-5 rounded-3xl border border-slate-200/60 bg-white shadow-sm transition-all duration-300 group/card",
+                    item.value > 0 ? "cursor-pointer hover:shadow-xl hover:shadow-slate-200/40 " + item.border : "opacity-60"
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center group-hover/card:scale-110 transition-transform", item.bg)}>
+                      <item.icon className={cn("h-5 w-5", item.color)} strokeWidth={2.5} />
+                    </div>
+                    <div className="h-6 min-w-[24px] px-2 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-xs font-black text-slate-700">
+                      {item.value}
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{item.label}</span>
+                  <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (item.value / Math.max(1, accessibleTasks.length)) * 100)}%` }}
+                      transition={{ duration: 1, delay: 0.5 + (idx * 0.1) }}
+                      className={cn("h-full rounded-full transition-colors", item.color.replace('text-', 'bg-'))}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
-                <div className={cn("h-full transition-all duration-1000", analyticsSummary.high > 0 ? "bg-orange-500 group-hover:bg-orange-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.high / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
-              </div>
-            </Card>
-
-            <Card
-              onClick={() => analyticsSummary.medium > 0 && handleOpenOverviewModal('medium')}
-              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.medium > 0 ? "cursor-pointer hover:shadow-md hover:border-amber-200" : "opacity-75")}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1.5"><Activity className="h-3 w-3" /> Medium</span>
-                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.medium > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500")}>
-                  {analyticsSummary.medium}
-                </div>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
-                <div className={cn("h-full transition-all duration-1000", analyticsSummary.medium > 0 ? "bg-amber-500 group-hover:bg-amber-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.medium / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
-              </div>
-            </Card>
-
-            <Card
-              onClick={() => analyticsSummary.pendingTasks > 0 && handleOpenOverviewModal('pending')}
-              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.pendingTasks > 0 ? "cursor-pointer hover:shadow-md hover:border-blue-200" : "opacity-75")}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="h-3 w-3" /> Pending</span>
-                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.pendingTasks > 0 ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-500")}>
-                  {analyticsSummary.pendingTasks}
-                </div>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
-                <div className={cn("h-full transition-all duration-1000", analyticsSummary.pendingTasks > 0 ? "bg-blue-500 group-hover:bg-blue-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.pendingTasks / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
-              </div>
-            </Card>
-
-            <Card
-              onClick={() => analyticsSummary.doneTasks > 0 && handleOpenOverviewModal('done')}
-              className={cn("p-4 border-slate-100 shadow-sm transition-all flex flex-col justify-between group h-full", analyticsSummary.doneTasks > 0 ? "cursor-pointer hover:shadow-md hover:border-emerald-200" : "opacity-75")}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Done</span>
-                <div className={cn("h-6 min-w-[24px] px-2 rounded-full flex items-center justify-center text-xs font-black", analyticsSummary.doneTasks > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>
-                  {analyticsSummary.doneTasks}
-                </div>
-              </div>
-              <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden mt-auto">
-                <div className={cn("h-full transition-all duration-1000", analyticsSummary.doneTasks > 0 ? "bg-emerald-500 group-hover:bg-emerald-400" : "bg-transparent")} style={{ width: `${Math.min(100, (analyticsSummary.doneTasks / Math.max(1, accessibleTasks.length)) * 100)}%` }} />
-              </div>
-            </Card>
+              ))}
+            </div>
           </div>
+        </Card>
+      </motion.div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+        <div className="flex justify-center sm:justify-start">
+          <TabsList className="bg-slate-50 p-1.5 rounded-full border border-slate-200 h-auto gap-1 overflow-x-auto hide-scrollbar sm:overflow-visible flex-wrap sm:flex-nowrap">
+            {[
+              { value: "project_list", label: "Project List" },
+              { value: "overview", label: "Overview" },
+              { value: "risk", label: "Risk Assessment" },
+              { value: "velocity", label: "Velocity" },
+              { value: "blockers", label: "Blockers" },
+              { value: "timeline", label: "Timeline Prediction" },
+              { value: "reports", label: "Reports" },
+              { value: "ai", label: "Ask AI" },
+            ].map((tab) => (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="rounded-full px-5 py-2 text-[11px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-800 data-[state=active]:bg-white data-[state=active]:text-slate-900 border-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:shadow-sm transition-all duration-300 whitespace-nowrap"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </div>
-      </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white/60 backdrop-blur-xl border border-slate-200/60">
-          <TabsTrigger value="project_list">Project List</TabsTrigger>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="risk">Risk Assessment</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline Prediction</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="ai">Ask AI</TabsTrigger>
-        </TabsList>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, scale: 0.99, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="w-full"
+        >
+          <TabsContent value="project_list" className="mt-0 outline-none">
+            <ProjectDataTable
+              projects={accessibleProjects}
+              tasks={accessibleTasks}
+              onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+            />
+          </TabsContent>
+        </motion.div>
 
-        <TabsContent value="project_list" className="space-y-6">
-          <ProjectDataTable
-            projects={accessibleProjects}
-            tasks={accessibleTasks}
-            onTaskClick={(taskId) => setSelectedTaskId(taskId)}
-          />
+        <TabsContent value="overview" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <ProjectAnalyticsOverview tasks={accessibleTasks} projects={accessibleProjects} />
+                <TasksByStatus tasks={accessibleTasks} />
+              </div>
+            </Card>
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="overview" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Project Overview</h2>
-                <p className="text-sm text-slate-500">Select a project to view detailed analytics and insights.</p>
-              </div>
-              <div className="w-full sm:w-[360px]">
-                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
-                    {accessibleProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
-                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
-                              {project.name.substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={cn(
-                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
-                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
-                                    "bg-slate-100 text-slate-600"
-                              )}>
-                                {project.status}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                • {projectProgressMap[project.id] || 0}% Progress
-                              </span>
+        <TabsContent value="velocity" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <VelocityAnalytics projects={accessibleProjects} velocityMap={projectVelocityMap} />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="blockers" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <BlockerInsights projects={accessibleProjects} tasks={accessibleTasks} blockersData={projectBlockersData} />
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="risk" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            <Card className="py-3 pr-3 pl-6 bg-white border border-slate-200 rounded-full shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[17px] font-bold text-slate-900 tracking-tight mb-0.5">Risk Assessment</h2>
+                  <p className="text-xs text-slate-500 font-medium whitespace-nowrap">Analyze potential bottlenecks and high-risk tasks.</p>
+                </div>
+                <div className="w-full sm:w-[320px]">
+                  <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger className="w-full h-auto min-h-[48px] py-1 bg-white border border-slate-200/60 hover:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-full shadow-none px-4">
+                      <SelectValue placeholder="Choose a project..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 shadow-xl p-2 max-h-[400px]">
+                      {accessibleProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id} className="rounded-xl py-3 px-4 focus:bg-slate-50 transition-colors cursor-pointer mb-1 last:mb-0">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border border-slate-100 shadow-sm rounded-xl bg-white">
+                              <AvatarImage src={project.logo_url} className="object-cover" />
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 font-bold tracking-wider text-xs rounded-xl">
+                                {project.name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-bold text-slate-900 text-[15px] tracking-tight">{project.name}</span>
+                              <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 mt-1">
+                                <Badge variant="outline" className={cn(
+                                  "text-[10px] uppercase font-bold tracking-wider px-2 py-0 border-0 rounded-md",
+                                  project.status === 'active' ? "bg-emerald-50 text-emerald-700" :
+                                    project.status === 'completed' ? "bg-blue-50 text-blue-700" :
+                                      "bg-slate-100 text-slate-600"
+                                )}>
+                                  {project.status || 'PLANNING'}
+                                </Badge>
+                                <span>•</span>
+                                <span>{projectProgressMap[project.id] || 0}% Progress</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {selectedProject && (
-            <div className="grid lg:grid-cols-2 gap-6">
+            {selectedProject && (
               <RiskAssessment
                 project={selectedProject}
                 tasks={selectedProjectTasks}
-                compact={true}
               />
+            )}
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="timeline" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            <Card className="py-3 pr-3 pl-6 bg-white border border-slate-200 rounded-full shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[17px] font-bold text-slate-900 tracking-tight mb-0.5">Timeline Prediction</h2>
+                  <p className="text-xs text-slate-500 font-medium whitespace-nowrap">Forecast estimated completion dates using AI models.</p>
+                </div>
+                <div className="w-full sm:w-[320px]">
+                  <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger className="w-full h-auto min-h-[48px] py-1 bg-white border border-slate-200/60 hover:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-full shadow-none px-4">
+                      <SelectValue placeholder="Choose a project..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 shadow-xl p-2 max-h-[400px]">
+                      {accessibleProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id} className="rounded-xl py-3 px-4 focus:bg-slate-50 transition-colors cursor-pointer mb-1 last:mb-0">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border border-slate-100 shadow-sm rounded-xl bg-white">
+                              <AvatarImage src={project.logo_url} className="object-cover" />
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 font-bold tracking-wider text-xs rounded-xl">
+                                {project.name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-bold text-slate-900 text-[15px] tracking-tight">{project.name}</span>
+                              <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 mt-1">
+                                <Badge variant="outline" className={cn(
+                                  "text-[10px] uppercase font-bold tracking-wider px-2 py-0 border-0 rounded-md",
+                                  project.status === 'active' ? "bg-emerald-50 text-emerald-700" :
+                                    project.status === 'completed' ? "bg-blue-50 text-blue-700" :
+                                      "bg-slate-100 text-slate-600"
+                                )}>
+                                  {project.status || 'PLANNING'}
+                                </Badge>
+                                <span>•</span>
+                                <span>{projectProgressMap[project.id] || 0}% Progress</span>
+                              </div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
+
+            {selectedProject && (
               <TimelinePrediction
                 project={selectedProject}
                 tasks={selectedProjectTasks}
-                compact={true}
+                activities={accessibleActivities.filter(a => a.project_id === selectedProjectId)}
               />
-            </div>
-          )}
+            )}
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="risk" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Risk Assessment</h2>
-                <p className="text-sm text-slate-500">Select a project to view its risk profile and open issues.</p>
-              </div>
-              <div className="w-full sm:w-[360px]">
-                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
-                    {accessibleProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
-                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
-                              {project.name.substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={cn(
-                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
-                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
-                                    "bg-slate-100 text-slate-600"
-                              )}>
-                                {project.status}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                • {projectProgressMap[project.id] || 0}% Progress
-                              </span>
+        <TabsContent value="reports" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-6"
+          >
+            <Card className="py-3 pr-3 pl-6 bg-white border border-slate-200 rounded-full shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[17px] font-bold text-slate-900 tracking-tight mb-0.5">Project Reports</h2>
+                  <p className="text-xs text-slate-500 font-medium whitespace-nowrap">Generate comprehensive analytics reports for your projects.</p>
+                </div>
+                <div className="w-full sm:w-[320px]">
+                  <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger className="w-full h-auto min-h-[48px] py-1 bg-white border border-slate-200/60 hover:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-full shadow-none px-4">
+                      <SelectValue placeholder="Choose a project..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl border-slate-200 shadow-xl p-2 max-h-[400px]">
+                      {accessibleProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id} className="rounded-xl py-3 px-4 focus:bg-slate-50 transition-colors cursor-pointer mb-1 last:mb-0">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border border-slate-100 shadow-sm rounded-xl bg-white">
+                              <AvatarImage src={project.logo_url} className="object-cover" />
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 font-bold tracking-wider text-xs rounded-xl">
+                                {project.name.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-bold text-slate-900 text-[15px] tracking-tight">{project.name}</span>
+                              <div className="flex items-center gap-2 text-[13px] font-medium text-slate-500 mt-1">
+                                <Badge variant="outline" className={cn(
+                                  "text-[10px] uppercase font-bold tracking-wider px-2 py-0 border-0 rounded-md",
+                                  project.status === 'active' ? "bg-emerald-50 text-emerald-700" :
+                                    project.status === 'completed' ? "bg-blue-50 text-blue-700" :
+                                      "bg-slate-100 text-slate-600"
+                                )}>
+                                  {project.status || 'PLANNING'}
+                                </Badge>
+                                <span>•</span>
+                                <span>{projectProgressMap[project.id] || 0}% Progress</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          {selectedProject && (
-            <RiskAssessment
-              project={selectedProject}
-              tasks={selectedProjectTasks}
-            />
-          )}
+            {selectedProject && (
+              <ProjectReport
+                project={selectedProject}
+                tasks={selectedProjectTasks}
+                stories={selectedProjectStories}
+                activities={accessibleActivities.filter(a => a.project_id === selectedProjectId)}
+              />
+            )}
+          </motion.div>
         </TabsContent>
 
-        <TabsContent value="timeline" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Timeline Prediction</h2>
-                <p className="text-sm text-slate-500">Select a project to forecast its estimated completion.</p>
-              </div>
-              <div className="w-full sm:w-[360px]">
-                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
-                    {accessibleProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
-                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
-                              {project.name.substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={cn(
-                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
-                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
-                                    "bg-slate-100 text-slate-600"
-                              )}>
-                                {project.status}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                • {projectProgressMap[project.id] || 0}% Progress
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </Card>
-
-          {selectedProject && (
-            <TimelinePrediction
-              project={selectedProject}
-              tasks={selectedProjectTasks}
-              activities={accessibleActivities.filter(a => a.project_id === selectedProjectId)}
+        <TabsContent value="ai" className="mt-0 outline-none">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <AskAIInsights
+              projects={accessibleProjects}
+              tasks={accessibleTasks}
+              activities={accessibleActivities}
             />
-          )}
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6">
-          <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-1">Project Reports</h2>
-                <p className="text-sm text-slate-500">Select a project to generate and download comprehensive reports.</p>
-              </div>
-              <div className="w-full sm:w-[360px]">
-                <Select value={selectedProjectId || ""} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger className="w-full h-14 bg-white border-2 border-transparent hover:border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all rounded-xl shadow-sm text-left px-4">
-                    <SelectValue placeholder="Choose a project..." />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[320px] rounded-xl border-slate-200 shadow-xl overflow-y-auto">
-                    {accessibleProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id} className="cursor-pointer py-3 px-4 focus:bg-indigo-50 rounded-lg my-0.5 transition-colors">
-                        <div className="flex items-center gap-3 w-full">
-                          <Avatar className="h-10 w-10 shrink-0 rounded-lg border-2 border-white shadow-sm ring-1 ring-slate-100">
-                            <AvatarImage src={project.logo_url} alt={project.name} className="object-cover" />
-                            <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-700 font-bold text-xs uppercase">
-                              {project.name.substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="font-semibold text-slate-900 truncate">{project.name}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={cn(
-                                "text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-md",
-                                project.status === 'active' ? "bg-emerald-100 text-emerald-700" :
-                                  project.status === 'completed' ? "bg-blue-100 text-blue-700" :
-                                    "bg-slate-100 text-slate-600"
-                              )}>
-                                {project.status}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                • {projectProgressMap[project.id] || 0}% Progress
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </Card>
-
-          {selectedProject && (
-            <ProjectReport
-              project={selectedProject}
-              tasks={selectedProjectTasks}
-              stories={selectedProjectStories}
-              activities={accessibleActivities.filter(a => a.project_id === selectedProjectId)}
-            />
-          )}
-        </TabsContent>
-
-        <TabsContent value="ai" className="space-y-6">
-          <AskAIInsights
-            projects={accessibleProjects}
-            tasks={accessibleTasks}
-            activities={accessibleActivities}
-          />
+          </motion.div>
         </TabsContent>
       </Tabs>
 
       {/* Overview Modal Dialog */}
       <Dialog open={isOverviewModalOpen} onOpenChange={setIsOverviewModalOpen}>
-        <DialogContent className="sm:max-w-[750px] max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-3 border-b border-slate-100 bg-slate-50/50">
+        <DialogContent className="sm:max-w-[750px] max-h-[90vh] flex flex-col p-0 border border-slate-200 shadow-2xl rounded-[32px] overflow-hidden">
+          <DialogHeader className="p-4 pb-3 border-b border-slate-200 bg-slate-50/50">
             <DialogTitle className="flex items-center gap-2 text-xl">
               {overviewModalType === 'projects' ? (
                 <span className="capitalize text-slate-800">Active Projects Overall</span>
@@ -653,7 +793,7 @@ export default function ProjectInsights() {
               <div className="space-y-3">
                 {overviewModalType === 'projects' ? (
                   paginatedOverviewData.map((project) => (
-                    <div key={project.id} className="group p-4 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer flex items-center justify-between gap-4">
+                    <div key={project.id} className="group p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <Avatar className="h-12 w-12 border-2 border-slate-100 shadow-sm group-hover:border-indigo-100 transition-colors">
                           <AvatarImage src={project.logo_url} className="object-cover" />
@@ -700,7 +840,7 @@ export default function ProjectInsights() {
                   paginatedOverviewData.map((task) => (
                     <div
                       key={task.id}
-                      className="group relative p-4 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer overflow-hidden"
+                      className="group relative p-4 rounded-xl border border-slate-200 bg-white hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer overflow-hidden"
                       onClick={() => setSelectedTaskId(task.id)}
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-indigo-400 transition-colors" />
@@ -815,6 +955,227 @@ export default function ProjectInsights() {
         />
       )}
     </div>
+  );
+}
+
+// --- Sub-components to fix the ReferenceError and provide Apple-style analytics ---
+
+function ProjectAnalyticsOverview({ tasks = [], projects = [] }) {
+  const activeCount = projects.filter(p => p.status === 'active').length;
+  const completedCount = projects.filter(p => p.status === 'completed').length;
+
+  return (
+    <div className="space-y-10 group/overview">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Platform Summary</h4>
+          <h3 className="text-3xl font-black text-slate-900 tracking-normal">Insights Hub</h3>
+        </div>
+        <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+          <PieChart className="h-6 w-6" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-indigo-500" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Ongoing</span>
+          </div>
+          <p className="text-4xl font-black text-slate-900">{activeCount}</p>
+          <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+            <Activity className="h-3 w-3" />
+            <span>Active Live</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Settled</span>
+          </div>
+          <p className="text-4xl font-black text-slate-900">{completedCount}</p>
+          <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+            <CheckCircle2 className="h-3 w-3" />
+            <span>Archived</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-200 group-hover/overview:border-indigo-200 transition-colors">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Resource Load</span>
+          <ArrowUpRight className="h-4 w-4 text-slate-300" />
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+            <Layers className="h-5 w-5 text-indigo-500" />
+          </div>
+          <div>
+            <p className="text-xl font-black text-slate-900 leading-none">{tasks.length}</p>
+            <p className="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider text-xs">Lifecycle Managed Tasks</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TasksByStatus({ tasks = [] }) {
+  const statuses = [
+    { key: 'completed', label: 'Completed', color: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+    { key: 'in_progress', label: 'In Progress', color: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700' },
+    { key: 'review', label: 'In Review', color: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700' },
+    { key: 'todo', label: 'Pending', color: 'bg-slate-400', bg: 'bg-slate-50', text: 'text-slate-700' },
+    { key: 'blocked', label: 'Blocked', color: 'bg-rose-500', bg: 'bg-rose-50', text: 'text-rose-700' },
+  ];
+
+  const counts = statuses.reduce((acc, status) => {
+    acc[status.key] = tasks.filter(t => t.status === status.key).length;
+    return acc;
+  }, {});
+
+  const maxVal = Math.max(...Object.values(counts), 1);
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Load Distribution</h4>
+        <h3 className="text-3xl font-black text-slate-900 tracking-normal">Task Statuses</h3>
+      </div>
+
+      <div className="space-y-5">
+        {statuses.map((status) => (
+          <div key={status.key} className="space-y-2 group/status">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">{status.label}</span>
+              <span className={cn("text-xs font-black px-2 py-0.5 rounded-lg", status.bg, status.text)}>{counts[status.key]}</span>
+            </div>
+            <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden border border-slate-100/50">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(counts[status.key] / tasks.length) * 100 || 0}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className={cn("h-full rounded-full group-hover/status:brightness-110 transition-all", status.color)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VelocityAnalytics({ projects = [], velocityMap = {} }) {
+  return (
+    <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-50/30 rounded-full blur-3xl -z-10 -mr-40 -mt-40 transition-colors duration-1000 group-hover:bg-emerald-50/50" />
+
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 border border-emerald-200 shadow-sm">
+            <BarChart3 className="h-7 w-7" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-normal">Velocity Performance</h2>
+            <p className="text-slate-500 font-medium">Live story point throughput per project</p>
+          </div>
+        </div>
+        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 uppercase tracking-widest font-black text-[10px] px-3 py-1">
+          <Zap className="h-3 w-3 mr-1" /> Real-time
+        </Badge>
+      </div>
+
+      <div className="grid gap-6">
+        {projects.length === 0 ? (
+          <div className="py-20 text-center text-slate-400">No telemetry data available.</div>
+        ) : (
+          projects.map(project => {
+            const velocity = velocityMap[project.id] || "0.00";
+            return (
+              <div key={project.id} className="group/item flex items-center justify-between p-6 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-emerald-200 hover:bg-white hover:shadow-xl hover:shadow-emerald-500/5 transition-all duration-300">
+                <div className="flex items-center gap-5">
+                  <Avatar className="h-14 w-14 rounded-2xl border-2 border-white shadow-md">
+                    <AvatarImage src={project.logo_url} />
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-50 to-teal-100 text-emerald-700 font-bold uppercase">
+                      {project.name.substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-lg group-hover/item:text-emerald-700 transition-colors">{project.name}</h4>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none block mt-1">Status: {project.status}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-2 bg-white px-5 py-3 rounded-2xl border border-slate-200/60 shadow-sm group-hover/item:border-emerald-200 group-hover/item:scale-105 transition-all">
+                  <span className="text-3xl font-black text-slate-900 tracking-normal">{velocity}</span>
+                  <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">PTS</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function BlockerInsights({ projects = [], tasks = [], blockersData = {} }) {
+  return (
+    <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm relative overflow-hidden group">
+      <div className="absolute top-0 right-0 w-80 h-80 bg-rose-50/30 rounded-full blur-3xl -z-10 -mr-40 -mt-40 transition-colors duration-1000 group-hover:bg-rose-50/50" />
+
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 border border-rose-200 shadow-sm">
+            <AlertTriangle className="h-7 w-7" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 tracking-normal">Blockers & Bottlenecks</h2>
+            <p className="text-slate-500 font-medium">Critical issues requiring immediate team intervention</p>
+          </div>
+        </div>
+        <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center border border-rose-100 animate-pulse">
+          <div className="h-2 w-2 rounded-full bg-rose-600" />
+        </div>
+      </div>
+
+      <div className="grid gap-6">
+        {projects.length === 0 ? (
+          <div className="py-20 text-center text-slate-400">No blockers detected across projects.</div>
+        ) : (
+          projects.map(project => {
+            const data = blockersData[project.id] || { total: 0, blocked: 0, review: 0 };
+            return (
+              <div key={project.id} className="group/item flex items-center justify-between p-6 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-rose-200 hover:bg-white hover:shadow-xl hover:shadow-rose-500/5 transition-all duration-300">
+                <div className="flex items-center gap-5">
+                  <Avatar className="h-14 w-14 rounded-2xl border-2 border-white shadow-md">
+                    <AvatarImage src={project.logo_url} />
+                    <AvatarFallback className="bg-gradient-to-br from-rose-50 to-orange-100 text-rose-700 font-bold uppercase">
+                      {project.name.substring(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-lg group-hover/item:text-rose-700 transition-colors">{project.name}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{data.blocked} Blocked</span>
+                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                      <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">{data.review} Review</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-baseline gap-2 bg-white px-5 py-3 rounded-2xl border border-slate-200/60 shadow-sm group-hover/item:border-rose-200 group-hover/item:scale-105 transition-all">
+                  <span className={cn("text-3xl font-black tracking-normal", data.total > 0 ? "text-rose-600" : "text-emerald-600")}>
+                    {data.total}
+                  </span>
+                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">ISSUES</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </Card>
   );
 }
 

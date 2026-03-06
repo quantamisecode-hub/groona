@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Users, AlertTriangle, CheckCircle2, TrendingUp, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@/components/shared/UserContext";
+import StatsCard from "../dashboard/StatsCard";
 
 export default function ResourceAllocation({ showSummaryOnly = false, showResourceListOnly = false, highlightUserId = null }) {
   // Use global user context instead of local state to prevent loading spinner on every visit
@@ -240,64 +241,31 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
     <>
       {!showResourceListOnly && (
         <div className="space-y-6">
-          {/* Summary Cards */}
-          {/* Summary Cards */}
-          <div className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar snap-x snap-mandatory">
-            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-100">
-                    <Users className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Total Resources</p>
-                    <p className="text-xl font-bold text-slate-900">{users.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-red-100">
-                    <AlertTriangle className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Overloaded</p>
-                    <p className="text-xl font-bold text-red-600">{overloadedUsers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-green-100">
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Underutilized</p>
-                    <p className="text-xl font-bold text-blue-600">{underutilizedUsers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/60 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-100">
-                    <TrendingUp className="h-5 w-5 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-600">Avg Workload</p>
-                    <p className="text-xl font-bold text-slate-900">{avgWorkload.toFixed(0)}%</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
+            <StatsCard
+              title="Total Resources"
+              value={users.length}
+              icon={Users}
+              iconColor="text-blue-600"
+            />
+            <StatsCard
+              title="Overloaded"
+              value={overloadedUsers.length}
+              icon={AlertTriangle}
+              iconColor="text-red-600"
+            />
+            <StatsCard
+              title="Underutilized"
+              value={underutilizedUsers.length}
+              icon={CheckCircle2}
+              iconColor="text-green-600"
+            />
+            <StatsCard
+              title="Avg Workload"
+              value={`${avgWorkload.toFixed(0)}%`}
+              icon={TrendingUp}
+              iconColor="text-purple-600"
+            />
           </div>
         </div>
       )}
@@ -305,14 +273,14 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
       {!showSummaryOnly && (
         <div className="space-y-6">
           {/* Resource List */}
-          <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-slate-600" />
+          <Card className="bg-white border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow duration-300 rounded-[28px] overflow-hidden">
+            <CardHeader className="px-6 py-5 border-b border-slate-100/60 bg-slate-50/30">
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+                <Users className="h-5 w-5 text-blue-500" />
                 Resource Allocation Overview
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               {users.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
                   No team members found for this organization.
@@ -324,10 +292,10 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                     const isCritical = isHighlighted && resource.rawWorkloadPercentage > 120;
 
                     const cardClass = isCritical
-                      ? "p-4 rounded-lg border bg-red-50 hover:bg-red-100 border-red-200 transition-colors duration-1000 shadow-md"
+                      ? "p-5 sm:p-6 rounded-2xl border border-red-100 bg-red-50/50 hover:bg-red-50 transition-all duration-300 shadow-sm"
                       : isHighlighted
-                        ? "p-4 rounded-lg border bg-amber-100 hover:bg-amber-200 border-amber-300 transition-colors duration-1000 shadow-md"
-                        : "p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-shadow";
+                        ? "p-5 sm:p-6 rounded-2xl border border-amber-100 bg-amber-50/50 hover:bg-amber-50 transition-all duration-300 shadow-sm"
+                        : "p-5 sm:p-6 rounded-2xl border border-slate-100/60 bg-white hover:border-slate-200/80 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300";
 
                     return (
                       <div
@@ -335,76 +303,80 @@ export default function ResourceAllocation({ showSummaryOnly = false, showResour
                         id={`resource-card-${resource.user._id}`}
                         className={cardClass}
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-10 w-10 flex-shrink-0 relative">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                          <div className="flex items-center gap-4 min-w-0">
+                            <Avatar className="h-12 w-12 flex-shrink-0 relative shadow-sm border border-slate-100">
                               {isHighlighted && (
                                 <div className="absolute -top-1 -right-1 z-10">
-                                  <AlertTriangle className={`h-4 w-4 animate-pulse ${isCritical ? 'text-red-600' : 'text-amber-600'}`} />
+                                  <AlertTriangle className={`h-4 w-4 animate-pulse ${isCritical ? 'text-red-500' : 'text-amber-500'}`} />
                                 </div>
                               )}
                               <AvatarImage src={resource.user.profile_image_url} />
-                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-medium">
                                 {getInitials(resource.user.full_name)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <p className="font-semibold text-slate-900 truncate">{resource.user.full_name || 'Unknown User'}</p>
-                              <p className="text-sm text-slate-600 truncate">{resource.user.email}</p>
+                              <p className="text-[16px] font-semibold text-slate-900 tracking-tight truncate">
+                                {resource.user.full_name || 'Unknown User'}
+                              </p>
+                              <p className="text-[13px] font-medium text-slate-500 truncate mt-0.5">
+                                {resource.user.email}
+                              </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-                            <Badge variant="outline" className="whitespace-nowrap">
+                          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap">
+                            <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-0 font-medium px-3 py-1 text-xs">
                               {resource.activeTasks} Active Tasks
                             </Badge>
                             <Badge
                               className={`${resource.workloadLevel === 'overloaded'
-                                ? 'bg-red-100 text-red-700 border-red-200'
+                                ? 'bg-red-50 text-red-600 border-red-100'
                                 : resource.workloadLevel === 'high'
-                                  ? 'bg-amber-100 text-amber-700 border-amber-200'
+                                  ? 'bg-amber-50 text-amber-600 border-amber-100'
                                   : resource.workloadLevel === 'underutilized'
-                                    ? 'bg-blue-100 text-blue-700 border-blue-200'
-                                    : 'bg-green-100 text-green-700 border-green-200'
-                                } border capitalize whitespace-nowrap`}
+                                    ? 'bg-blue-50 text-blue-600 border-blue-100'
+                                    : 'bg-green-50 text-green-600 border-green-100'
+                                } border capitalize font-medium px-3 py-1 shadow-none text-xs`}
                             >
                               {resource.workloadLevel.replace('_', ' ')}
                             </Badge>
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-600">
-                              Workload Capacity ({resource.totalEstimatedHours.toFixed(1)}h / 40h)
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[13px] font-medium text-slate-500">
+                              Workload Capacity <span className="text-slate-400 font-normal ml-1">({resource.totalEstimatedHours.toFixed(1)}h / 40h)</span>
                             </span>
-                            <span className="font-semibold text-slate-900">
+                            <span className="text-[14px] font-semibold text-slate-900 tracking-tight">
                               {resource.rawWorkloadPercentage.toFixed(0)}%
                             </span>
                           </div>
                           <Progress
                             value={resource.workloadPercentage}
-                            className="h-2"
-                            indicatorClassName={workloadColors[resource.workloadLevel]}
+                            className="h-2.5 bg-slate-100 rounded-full overflow-hidden"
+                            indicatorClassName={`${workloadColors[resource.workloadLevel]} rounded-full transition-all duration-700 ease-in-out`}
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-slate-100">
-                          <div>
-                            <p className="text-xs text-slate-600">Active Tasks</p>
-                            <p className="text-lg font-bold text-slate-900">{resource.activeTasks}</p>
+                        <div className="flex flex-wrap gap-6 sm:gap-12 mt-6 pt-5 border-t border-slate-100/60">
+                          <div className="flex flex-col">
+                            <span className="text-[12px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Active Tasks</span>
+                            <span className="text-xl font-bold text-slate-800">{resource.activeTasks}</span>
                           </div>
-                          <div>
-                            <p className="text-xs text-slate-600">Completed</p>
-                            <p className="text-lg font-bold text-green-600">{resource.completedTasks}</p>
+                          <div className="flex flex-col">
+                            <span className="text-[12px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Completed</span>
+                            <span className="text-xl font-bold text-slate-800">{resource.completedTasks}</span>
                           </div>
-                          <div>
-                            <p className="text-xs text-slate-600">Projects</p>
-                            <p className="text-lg font-bold text-purple-600">{resource.projectCount}</p>
+                          <div className="flex flex-col">
+                            <span className="text-[12px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Projects</span>
+                            <span className="text-xl font-bold text-slate-800">{resource.projectCount}</span>
                           </div>
-                          <div>
-                            <p className="text-xs text-slate-600">Sprints</p>
-                            <p className="text-lg font-bold text-indigo-600">{resource.sprintCount}</p>
+                          <div className="flex flex-col">
+                            <span className="text-[12px] uppercase tracking-wider font-semibold text-slate-400 mb-1">Sprints</span>
+                            <span className="text-xl font-bold text-slate-800">{resource.sprintCount}</span>
                           </div>
                         </div>
                       </div>

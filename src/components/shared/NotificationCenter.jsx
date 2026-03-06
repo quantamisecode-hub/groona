@@ -39,7 +39,8 @@ export default function NotificationCenter({ currentUser }) {
       return groonabackend.entities.Notification.filter(
         { recipient_email: currentUser.email },
         '-created_date',
-        50
+        null, // page
+        50    // limit
       );
     },
     enabled: !!currentUser?.email,
@@ -135,12 +136,14 @@ export default function NotificationCenter({ currentUser }) {
     }
   };
 
+  const notifications = Array.isArray(taskNotifications) ? taskNotifications : (taskNotifications.results || []);
+
   const categorized = React.useMemo(() => {
     const general = [];
     const alerts = [];
     const alarms = [];
 
-    taskNotifications.forEach(n => {
+    notifications.forEach(n => {
       const shouldShow = !n.status || n.status === 'OPEN' || n.status === 'ACKNOWLEDGED';
       if (!shouldShow) return;
 
@@ -151,11 +154,11 @@ export default function NotificationCenter({ currentUser }) {
     });
 
     return { general, alerts, alarms };
-  }, [taskNotifications]);
+  }, [notifications]);
 
   const allUnreadCount = React.useMemo(() => {
-    return taskNotifications.filter(n => !n.read && (!n.status || n.status !== 'RESOLVED')).length;
-  }, [taskNotifications]);
+    return notifications.filter(n => !n.read && (!n.status || n.status !== 'RESOLVED')).length;
+  }, [notifications]);
 
   const handleNotificationClick = async (notification) => {
     if (notification.id.toString().startsWith('m') || notification.id.toString().startsWith('a')) return;

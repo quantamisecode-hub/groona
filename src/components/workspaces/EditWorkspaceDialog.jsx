@@ -33,14 +33,14 @@ export default function EditWorkspaceDialog({ open, onClose, onSubmit, loading, 
   };
 
   const colors = [
-    { value: "blue", label: "Blue", class: "bg-gradient-to-br from-blue-500 to-cyan-500" },
-    { value: "green", label: "Green", class: "bg-gradient-to-br from-green-500 to-emerald-500" },
-    { value: "purple", label: "Purple", class: "bg-gradient-to-br from-purple-500 to-pink-500" },
-    { value: "orange", label: "Orange", class: "bg-gradient-to-br from-orange-500 to-amber-500" },
-    { value: "red", label: "Red", class: "bg-gradient-to-br from-red-500 to-rose-500" },
-    { value: "indigo", label: "Indigo", class: "bg-gradient-to-br from-indigo-500 to-purple-500" },
-    { value: "teal", label: "Teal", class: "bg-gradient-to-br from-teal-500 to-cyan-500" },
-    { value: "pink", label: "Pink", class: "bg-gradient-to-br from-pink-500 to-rose-500" },
+    { value: "blue", label: "Blue", class: "bg-blue-100 border border-blue-200" },
+    { value: "green", label: "Green", class: "bg-emerald-100 border border-emerald-200" },
+    { value: "purple", label: "Purple", class: "bg-purple-100 border border-purple-200" },
+    { value: "orange", label: "Orange", class: "bg-orange-100 border border-orange-200" },
+    { value: "red", label: "Red", class: "bg-rose-100 border border-rose-200" },
+    { value: "indigo", label: "Indigo", class: "bg-indigo-100 border border-indigo-200" },
+    { value: "teal", label: "Teal", class: "bg-teal-100 border border-teal-200" },
+    { value: "pink", label: "Pink", class: "bg-pink-100 border border-pink-200" },
   ];
 
   const selectedColor = colors.find(c => c.value === formData.color);
@@ -49,11 +49,13 @@ export default function EditWorkspaceDialog({ open, onClose, onSubmit, loading, 
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Folder className="h-5 w-5 text-blue-600" />
+          <DialogTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-900">
+            <div className="h-8 w-8 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0">
+              <Folder className="h-4 w-4 text-zinc-700" strokeWidth={1.5} />
+            </div>
             Edit Workspace
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-zinc-500 mt-1">
             Update your workspace details
           </DialogDescription>
         </DialogHeader>
@@ -95,28 +97,27 @@ export default function EditWorkspaceDialog({ open, onClose, onSubmit, loading, 
                   type="button"
                   onClick={() => setFormData({ ...formData, color: color.value })}
                   disabled={loading}
-                  className={`h-12 rounded-lg ${color.class} transition-all ${
-                    formData.color === color.value 
-                      ? 'ring-2 ring-slate-900 ring-offset-2 scale-105' 
-                      : 'opacity-60 hover:opacity-100'
-                  }`}
+                  className={`h-12 rounded-xl ${color.class} transition-all ${formData.color === color.value
+                      ? 'ring-2 ring-zinc-900 ring-offset-2 scale-105 shadow-sm'
+                      : 'opacity-60 hover:opacity-100 hover:scale-105'
+                    }`}
                   title={color.label}
                 />
               ))}
             </div>
-            <p className="text-xs text-slate-600 mt-2">
-              Selected: <span className="font-medium">{selectedColor?.label}</span>
+            <p className="text-xs text-zinc-500 mt-2 font-medium tracking-wide">
+              Selected: <span className="text-zinc-800">{selectedColor?.label}</span>
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+          <div className="flex justify-end gap-3 pt-4 border-t border-zinc-100 mt-6">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={loading} className="rounded-lg shadow-sm border-zinc-200">
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading || !formData.name.trim()}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg shadow-sm transition-all"
             >
               {loading ? (
                 <>

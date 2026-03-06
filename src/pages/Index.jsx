@@ -60,6 +60,7 @@ import AcceptInvitation from "./AcceptInvitation";
 // IMPORT THE NEW PAGE
 import ClientChangePassword from "./ClientChangePassword";
 import PaymentsHistory from "./PaymentsHistory";
+import Tasks from "./Tasks"; // New Page
 
 import ProjectProfitabilityDetail from "./ProjectProfitabilityDetail"; // New Page
 
@@ -68,6 +69,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 const PAGES = {
     Dashboard: Dashboard,
     Projects: Projects,
+    Tasks: Tasks, // Register Tasks page
     ProjectDetail: ProjectDetail,
     ProjectProfitabilityDetail: ProjectProfitabilityDetail, // Register new page
     AIAssistant: AIAssistant,
@@ -215,6 +217,7 @@ function PagesContent() {
             <Routes>
                 <Route path="/Dashboard" element={<Dashboard />} />
                 <Route path="/Projects" element={<Projects />} />
+                <Route path="/Tasks" element={<Tasks />} />
                 <Route path="/ProjectDetail" element={<ProjectDetail />} />
                 <Route path="/AIAssistant" element={<AIAssistant />} />
                 <Route path="/groonaassistant" element={<GroonaAssistant />} />

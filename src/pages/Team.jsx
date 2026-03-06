@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Crown, Filter, X, Briefcase, Eye, TrendingUp, Building2, Search } from "lucide-react";
+import { Users, Crown, Filter, X, Briefcase, Eye, TrendingUp, Building2, Search, Mail, ExternalLink, Sparkles, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import PresenceIndicator from "../components/shared/PresenceIndicator";
 import { OnboardingProvider } from "../components/onboarding/OnboardingProvider";
@@ -20,9 +20,7 @@ import FeatureOnboarding from "../components/onboarding/FeatureOnboarding";
 import { useUser } from "../components/shared/UserContext";
 
 export default function Team() {
-  // Use global user context to prevent loading spinner on navigation
   const { user: currentUser, effectiveTenantId } = useUser();
-
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
@@ -30,16 +28,8 @@ export default function Team() {
     queryKey: ['users', effectiveTenantId],
     queryFn: async () => {
       const allUsers = await groonabackend.entities.User.list();
+      let filteredUsers = effectiveTenantId ? allUsers.filter(u => u.tenant_id === effectiveTenantId) : (currentUser?.is_super_admin ? allUsers : []);
 
-      let filteredUsers = [];
-      if (effectiveTenantId) {
-        filteredUsers = allUsers.filter(u => u.tenant_id === effectiveTenantId);
-      } else {
-        // If Super Admin in platform mode, show all (or handle as needed)
-        filteredUsers = currentUser?.is_super_admin ? allUsers : [];
-      }
-
-      // Fetch all UserProfile data at once for better performance
       let allProfiles = [];
       try {
         allProfiles = await groonabackend.entities.UserProfile.list();
@@ -47,18 +37,13 @@ export default function Team() {
         console.error('[Team] Error fetching user profiles:', error);
       }
 
-      // Create a map of user_id to profile for quick lookup
       const profileMap = new Map();
       allProfiles.forEach(profile => {
-        if (profile.user_id) {
-          profileMap.set(profile.user_id, profile);
-        }
+        if (profile.user_id) profileMap.set(profile.user_id, profile);
       });
 
-      // Merge UserProfile data with User data, prioritizing UserProfile
-      const usersWithProfiles = filteredUsers.map((user) => {
+      return filteredUsers.map((user) => {
         const profile = profileMap.get(user.id) || profileMap.get(user._id);
-
         return {
           ...user,
           job_title: profile?.job_title || user.job_title || '',
@@ -67,18 +52,15 @@ export default function Team() {
           phone: profile?.phone || user.phone || '',
         };
       });
-
-      return usersWithProfiles;
     },
     enabled: !!currentUser,
-    refetchInterval: 5000, // Poll every 5 seconds for real-time updates
+    refetchInterval: 10000,
   });
 
-  // Filter users
   const filteredUsers = useMemo(() => {
     return users
-      .filter(user => !user.is_super_admin) // Exclude Super Admins
-      .filter(user => !(user.role === 'member' && user.custom_role === 'client')) // Exclude Clients
+      .filter(user => !user.is_super_admin)
+      .filter(user => !(user.role === 'member' && user.custom_role === 'client'))
       .filter(user => {
         const searchLower = searchQuery.toLowerCase();
         const searchMatch = (
@@ -89,16 +71,12 @@ export default function Team() {
           user.department?.toLowerCase().includes(searchLower)
         );
 
-        // Check against both system role and custom_role for flexible filtering
         let roleMatch = true;
         if (roleFilter !== "all") {
-          if (roleFilter === "project_manager") {
-            roleMatch = user.role === 'project_manager' || user.custom_role === 'project_manager';
-          } else {
-            roleMatch = user.role === roleFilter || user.custom_role === roleFilter;
-          }
+          roleMatch = (roleFilter === "project_manager")
+            ? (user.role === 'project_manager' || user.custom_role === 'project_manager')
+            : (user.role === roleFilter || user.custom_role === roleFilter);
         }
-
         return searchMatch && roleMatch;
       });
   }, [users, searchQuery, roleFilter]);
@@ -109,226 +87,173 @@ export default function Team() {
   };
 
   const hasActiveFilters = searchQuery !== "" || roleFilter !== "all";
+  const userRole = currentUser?.is_super_admin || currentUser?.role === 'admin' ? 'admin' : 'member';
 
-  const userRole = currentUser?.is_super_admin || currentUser?.role === 'admin' ? 'admin' : 'user';
-
-  if (!currentUser) {
-    return null; // Don't show loader, assume context handles initial load or is ready
-  }
+  if (!currentUser) return null;
 
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="team">
-      <FeatureOnboarding
-        currentUser={currentUser}
-        featureArea="team"
-        userRole={userRole}
-      />
-      <div className="h-[calc(100vh-64px)] flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 overflow-hidden w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-7xl mx-auto w-full flex flex-col h-full overflow-hidden relative" style={{ maxWidth: '100%' }}>
-          {/* Fixed Header Section */}
-          <div className="flex-none z-20 bg-white border-b border-slate-200/60 shadow-sm">
-            <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">Team Members</h1>
-                  <p className="text-slate-600">
-                    {filteredUsers.length} {filteredUsers.length === 1 ? 'member' : 'members'} in your organization
-                  </p>
+      <FeatureOnboarding currentUser={currentUser} featureArea="team" userRole={userRole} />
+
+      <div className="min-h-screen bg-[#f8f9fa] w-full flex flex-col">
+        {/* Apple-style Premium Header */}
+        <header className="pt-8 pb-8 px-6 md:px-12 lg:px-16 sticky top-0 z-30 bg-[#f8f9fa]">
+          <div className="max-w-[1400px] mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div className="space-y-1 mt-2">
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                  Team Members
+                </h1>
+                <p className="text-[15px] text-slate-500 font-medium">
+                  {filteredUsers.length} active {filteredUsers.length === 1 ? 'member' : 'members'} in your workspace
+                </p>
+              </div>
+
+              {/* Refined Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full sm:w-[300px]">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search by name, role, or department..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-11 bg-white border-slate-200/80 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-all rounded-[14px] text-[15px] placeholder:text-slate-400 shadow-sm"
+                  />
                 </div>
 
-                {/* Search and Filter aligned to the right */}
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                  <div className="relative flex-1 md:flex-initial md:w-[300px]">
-                    <Input
-                      placeholder="Search by name, email, role, or department..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 bg-white/80 backdrop-blur-xl h-9"
-                    />
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="h-11 w-full sm:w-[150px] rounded-[14px] bg-white border-slate-200/80 shadow-sm hover:border-slate-300 transition-colors text-[15px]">
+                      <SelectValue placeholder="All Roles" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="member">Members</SelectItem>
+                      <SelectItem value="admin">Admins</SelectItem>
+                      <SelectItem value="project_manager">Project Managers</SelectItem>
+                    </SelectContent>
+                  </Select>
 
                   {hasActiveFilters && (
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
                       onClick={clearFilters}
-                      className="h-9 px-3 text-sm text-slate-600 hover:shadow-sm flex-shrink-0"
+                      className="h-11 w-11 rounded-[14px] hover:bg-slate-200/50 hover:text-slate-700 transition-colors bg-white border border-slate-200/80 shadow-sm text-slate-400"
                     >
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
+                      <X className="h-4 w-4" />
                     </Button>
                   )}
-
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="h-9 w-[140px] text-sm bg-white/80 flex-shrink-0">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="project_manager">Project Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
               </div>
             </div>
           </div>
+        </header>
 
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
-            <div className="px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8 pt-4">
-
-              {/* Team Grid */}
-              {isLoading && users.length === 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="h-48 bg-white/60 backdrop-blur-xl rounded-2xl animate-pulse" />
-                  ))}
+        {/* Members Grid Section */}
+        <main className="flex-1 px-6 md:px-12 lg:px-16 py-4">
+          <div className="max-w-[1400px] mx-auto h-full">
+            {isLoading && users.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                  <div key={i} className="bg-white border text-center border-slate-200/60 rounded-[28px] p-8 shadow-sm flex flex-col items-center">
+                    <div className="w-24 h-24 rounded-full bg-slate-100 animate-pulse mb-6" />
+                    <div className="h-5 w-3/4 bg-slate-100 animate-pulse rounded-md mb-3" />
+                    <div className="h-4 w-1/2 bg-slate-100 animate-pulse rounded-md mb-6" />
+                    <div className="w-full flex justify-center gap-3">
+                      <div className="h-8 w-8 bg-slate-100 animate-pulse rounded-full" />
+                      <div className="h-8 w-8 bg-slate-100 animate-pulse rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div className="h-[50vh] flex flex-col items-center justify-center text-center">
+                <div className="w-20 h-20 bg-white border border-slate-200 rounded-3xl flex items-center justify-center shadow-sm mb-5">
+                  <Users className="h-8 w-8 text-slate-400" />
                 </div>
-              ) : filteredUsers.length === 0 ? (
-                <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                  <CardContent className="py-12 text-center">
-                    <Users className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-                    <p className="text-slate-600">
-                      {searchQuery ? 'No members found matching your search' : 'No team members yet'}
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredUsers.map((member) => (
-                    <Card key={member.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-lg transition-all">
-                      <CardContent className="p-5">
-                        <div className="flex items-start gap-4">
-                          {/* Avatar on Left Side */}
-                          <div className="relative flex-shrink-0">
-                            <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-md">
-                              <AvatarImage src={member.profile_image_url || member.profile_picture_url} alt={member.full_name} />
-                              <AvatarFallback className="text-base font-bold bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                                {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="absolute -bottom-1 -right-1">
-                              <PresenceIndicator status={member.presence_status || 'offline'} size="sm" />
-                            </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">No members found</h3>
+                <p className="text-[15px] text-slate-500 mb-6 max-w-[300px]">
+                  Try adjusting your search or filters to discover other team members.
+                </p>
+                <Button
+                  onClick={clearFilters}
+                  variant="outline"
+                  className="bg-white border-slate-200 hover:bg-slate-50 text-slate-700 h-10 px-6 rounded-xl font-medium"
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 content-start pb-20">
+                {filteredUsers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="group relative bg-white border border-slate-200/60 rounded-[28px] p-8 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:border-slate-300 transition-all duration-300 flex flex-col items-center text-center cursor-pointer"
+                  >
+                    {/* Role Badges */}
+                    <div className="absolute top-4 right-4 flex flex-col gap-1.5 z-10">
+                      {member.custom_role === 'owner' ? (
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-200/50 hover:bg-amber-100 font-semibold px-2 py-0.5 mt-0 rounded-lg text-[10px] shadow-none uppercase tracking-wide">
+                          <Crown className="w-3 h-3 mr-1" /> Admin
+                        </Badge>
+                      ) : (member.role === 'project_manager' || member.custom_role === 'project_manager') ? (
+                        <Badge className="bg-purple-50 text-purple-700 border-purple-200/50 hover:bg-purple-100 font-semibold px-2 py-0.5 mt-0 rounded-lg text-[10px] shadow-none uppercase tracking-wide">
+                          Project Manager
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-50 text-blue-700 border-blue-200/50 hover:bg-blue-100 font-semibold px-2 py-0.5 mt-0 rounded-lg text-[10px] shadow-none uppercase tracking-wide">
+                          Member
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Avatar with Presence */}
+                    <div className="relative mb-5 transition-transform duration-300 group-hover:scale-105">
+                      <div className="w-[100px] h-[100px] rounded-full p-[3px] bg-gradient-to-tr from-slate-100 to-slate-200 mx-auto shadow-sm">
+                        <Avatar className="w-full h-full rounded-full border-[3px] border-white bg-white">
+                          <AvatarImage
+                            src={member.profile_image_url || member.profile_picture_url}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-slate-50 text-slate-400 text-2xl font-semibold">
+                            {member.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <div className="absolute right-1 bottom-2 ring-4 ring-white rounded-full">
+                        <PresenceIndicator status={member.presence_status || 'offline'} size="md" />
+                      </div>
+                    </div>
+
+                    {/* Member Details */}
+                    <div className="w-full flex-1 flex flex-col items-center min-h-[90px]">
+                      <h3 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate w-full px-2 mb-1">
+                        {member.full_name || 'Anonymous User'}
+                      </h3>
+                      <p className="text-[13px] font-medium text-slate-500 mb-3 px-2 line-clamp-1 w-full">
+                        {member.job_title || 'Team Member'}
+                      </p>
+
+                      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 mt-auto w-full">
+                        {member.department && (
+                          <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md">
+                            <Building2 className="h-3 w-3" />
+                            <span className="truncate max-w-[90px]">{member.department}</span>
                           </div>
-
-                          {/* Information on Right Side */}
-                          <div className="flex-1 min-w-0">
-                            {/* Name and Role Badges */}
-                            <div className="flex items-start gap-2 mb-2 flex-wrap">
-                              <h3 className="font-semibold text-slate-900 text-base leading-tight">{member.full_name || 'No Name'}</h3>
-
-                              {/* Role Badges */}
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* Owner: Show both Admin and Owner badges */}
-                                {member.custom_role === 'owner' && (
-                                  <>
-                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
-                                      <Crown className="h-3 w-3 mr-1" />
-                                      Admin
-                                    </Badge>
-                                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-xs px-1.5 py-0">
-                                      <Crown className="h-3 w-3 mr-1" />
-                                      Owner
-                                    </Badge>
-                                  </>
-                                )}
-
-                                {/* Project Manager: Only show Project Manager badge, NOT Admin */}
-                                {member.custom_role === 'project_manager' && (
-                                  <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-xs px-1.5 py-0">
-                                    <Briefcase className="h-3 w-3 mr-1" />
-                                    Project Manager
-                                  </Badge>
-                                )}
-
-                                {/* Admin: Only show if NOT owner and NOT project_manager */}
-                                {member.role === 'admin' && member.custom_role !== 'owner' && member.custom_role !== 'project_manager' && (
-                                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs px-1.5 py-0">
-                                    <Crown className="h-3 w-3 mr-1" />
-                                    Admin
-                                  </Badge>
-                                )}
-
-                                {/* Sales */}
-                                {(member.role === 'sales' || member.custom_role === 'sales') && (
-                                  <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200 text-xs px-1.5 py-0">
-                                    <TrendingUp className="h-3 w-3 mr-1" />
-                                    Sales
-                                  </Badge>
-                                )}
-
-                                {/* Team Member: Show for regular members */}
-                                {((member.role === 'member' || member.role === 'user' || member.role === 'viewer' || member.custom_role === 'member') &&
-                                  !['owner', 'sales', 'project_manager', 'admin', 'client'].includes(member.custom_role) &&
-                                  member.role !== 'admin' &&
-                                  member.custom_role !== 'project_manager') && (
-                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-xs px-1.5 py-0">
-                                      <Users className="h-3 w-3 mr-1" />
-                                      Member
-                                    </Badge>
-                                  )}
-                              </div>
-                            </div>
-
-                            {/* Email */}
-                            <p className="text-sm text-slate-600 mb-3 truncate">{member.email}</p>
-
-                            {/* Job Title */}
-                            {member.job_title && (
-                              <div className="mb-2">
-                                <p className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-                                  <Briefcase className="h-3.5 w-3.5 text-slate-500" />
-                                  {member.job_title}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Department */}
-                            {member.department && (
-                              <div className="mb-2">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                                  <Building2 className="h-3 w-3 text-slate-500" />
-                                  {member.department}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Bio */}
-                            {member.bio && (
-                              <p className="text-xs text-slate-500 mt-3 line-clamp-2 leading-relaxed">
-                                {member.bio}
-                              </p>
-                            )}
-
-                            {/* Presence Status */}
-                            {member.presence_status && (
-                              <div className="mt-3">
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs px-2 py-0.5 ${member.presence_status === 'online' ? 'bg-green-50 text-green-700 border-green-200' :
-                                    member.presence_status === 'busy' ? 'bg-red-50 text-red-700 border-red-200' :
-                                      member.presence_status === 'away' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                                        'bg-slate-50 text-slate-700 border-slate-200'
-                                    }`}
-                                >
-                                  {member.presence_status.charAt(0).toUpperCase() + member.presence_status.slice(1)}
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 bg-slate-50 px-2 py-1 rounded-md" title={member.email}>
+                          <Mail className="h-3 w-3" />
+                          <span className="truncate max-w-[120px]">{member.email}</span>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
+        </main>
       </div>
     </OnboardingProvider>
   );

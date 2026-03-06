@@ -4,11 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  FolderKanban, 
-  TrendingUp, 
-  AlertCircle, 
-  Clock, 
+import {
+  FolderKanban,
+  TrendingUp,
+  AlertCircle,
+  Clock,
   CheckCircle2,
   Users,
   Calendar,
@@ -24,11 +24,11 @@ export default function ProjectManagerDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => { });
   }, []);
 
-  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-    ? currentUser.active_tenant_id 
+  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+    ? currentUser.active_tenant_id
     : currentUser?.tenant_id;
 
   // Fetch projects where user is assigned as Project Manager
@@ -49,7 +49,7 @@ export default function ProjectManagerDashboard() {
   });
 
   // Filter projects where user is PM
-  const managedProjects = allProjects.filter(project => 
+  const managedProjects = allProjects.filter(project =>
     projectRoles.some(role => role.project_id === project.id)
   );
 
@@ -58,7 +58,7 @@ export default function ProjectManagerDashboard() {
     queryKey: ['pm-tasks', managedProjects.map(p => p.id)],
     queryFn: async () => {
       if (managedProjects.length === 0) return [];
-      const taskPromises = managedProjects.map(p => 
+      const taskPromises = managedProjects.map(p =>
         groonabackend.entities.Task.filter({ project_id: p.id })
       );
       const results = await Promise.all(taskPromises);
@@ -72,7 +72,7 @@ export default function ProjectManagerDashboard() {
     queryKey: ['pm-expenses', managedProjects.map(p => p.id)],
     queryFn: async () => {
       if (managedProjects.length === 0) return [];
-      const expensePromises = managedProjects.map(p => 
+      const expensePromises = managedProjects.map(p =>
         groonabackend.entities.ProjectExpense.filter({ project_id: p.id })
       );
       const results = await Promise.all(expensePromises);
@@ -96,49 +96,50 @@ export default function ProjectManagerDashboard() {
     const completed = projectTasks.filter(t => t.status === 'completed').length;
     const total = projectTasks.length;
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
-    
+
     // Budget health
     const projectExpenses = allExpenses.filter(e => e.project_id === project.id && e.status === 'approved');
     const totalSpent = projectExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const budget = project.budget || project.budget_amount || 0;
     const budgetUsage = budget > 0 ? (totalSpent / budget) * 100 : 0;
-    
+
     // AI Health Score calculation (0-100)
-    let healthScore = 100;
-    
-    // Task completion impact (40% weight)
-    healthScore -= (100 - completionRate) * 0.4;
-    
-    // Budget adherence impact (30% weight)
-    if (budgetUsage > 100) {
-      healthScore -= (budgetUsage - 100) * 0.3; // Overrun penalty
-    } else if (budgetUsage > 90) {
-      healthScore -= 10; // Near budget limit
+    const rawHealthScore = project.health_score !== undefined ? project.health_score : null;
+    const healthScore = rawHealthScore !== null ? Math.round(rawHealthScore) : null;
+    const riskLevel = project.risk_level || (healthScore === null ? 'none' : 'low');
+
+    let statusLabel = 'On Track';
+    let statusColor = 'bg-green-100 text-green-800';
+    let scoreBg = 'bg-green-100 text-green-800';
+
+    if (healthScore === null) {
+      statusLabel = 'No Data';
+      statusColor = 'bg-slate-100 text-slate-600';
+      scoreBg = 'bg-slate-100 text-slate-600 font-bold';
+    } else if (riskLevel === 'critical' || healthScore < 50) {
+      statusLabel = 'Critical Risk';
+      statusColor = 'bg-red-100 text-red-800';
+      scoreBg = 'bg-red-100 text-red-800';
+    } else if (riskLevel === 'high' || healthScore < 70) {
+      statusLabel = 'High Risk';
+      statusColor = 'bg-amber-100 text-amber-800';
+      scoreBg = 'bg-amber-100 text-amber-800';
+    } else if (riskLevel === 'medium' || healthScore < 85) {
+      statusLabel = 'Medium Risk';
+      statusColor = 'bg-blue-100 text-blue-800';
+      scoreBg = 'bg-blue-100 text-blue-800';
     }
-    
-    // Schedule impact (30% weight)
-    if (project.deadline) {
-      const daysUntilDeadline = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysUntilDeadline < 0) {
-        healthScore -= 30; // Overdue
-      } else if (daysUntilDeadline < 7 && completionRate < 90) {
-        healthScore -= 15; // Close to deadline but not near completion
-      }
-    }
-    
-    healthScore = Math.max(0, Math.min(100, healthScore));
-    
-    let health = 'good';
-    if (healthScore < 50) health = 'at_risk';
-    else if (healthScore < 75) health = 'attention';
-    
-    return { 
-      project, 
-      health, 
-      completionRate, 
+
+    return {
+      project,
+      health: riskLevel,
+      statusLabel,
+      statusColor,
+      scoreBg,
+      completionRate,
       budgetUsage,
       totalSpent,
-      healthScore: Math.round(healthScore)
+      healthScore: healthScore !== null ? healthScore : '--'
     };
   });
 
@@ -245,26 +246,18 @@ export default function ProjectManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {projectHealthScores.map(({ project, health, completionRate, budgetUsage, totalSpent, healthScore }) => (
+              {projectHealthScores.map(({ project, health, completionRate, budgetUsage, totalSpent, healthScore, statusColor, scoreBg, statusLabel }) => (
                 <div key={project.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h4 className="font-semibold text-slate-900">{project.name}</h4>
-                      <div className={`px-3 py-1 rounded-full font-bold text-lg ${
-                        healthScore >= 75 ? 'bg-green-100 text-green-800' :
-                        healthScore >= 50 ? 'bg-amber-100 text-amber-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                      <div className={`px-3 py-1 rounded-full font-bold text-lg ${scoreBg}`}>
                         {healthScore}/100
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
-                      <Badge className={
-                        health === 'good' ? 'bg-green-100 text-green-800' :
-                        health === 'attention' ? 'bg-amber-100 text-amber-800' :
-                        'bg-red-100 text-red-800'
-                      }>
-                        {health === 'good' ? 'On Track' : health === 'attention' ? 'Needs Attention' : 'At Risk'}
+                      <Badge className={statusColor}>
+                        {statusLabel}
                       </Badge>
                       <span className="text-slate-600">
                         {completionRate.toFixed(0)}% Complete

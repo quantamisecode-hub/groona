@@ -107,7 +107,7 @@ export default function WeeklyTimesheetChart({ title: propTitle, isAdmin, tenant
         <Card className="w-full flex flex-col bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden">
             <CardHeader className="p-6 pb-2 flex flex-row items-center justify-between">
                 <CardTitle className="text-[17px] font-semibold text-slate-900 tracking-tight">{title}</CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full mt-[-10px]">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-lg mt-[-10px]">
                     <MoreHorizontal className="h-5 w-5" />
                 </Button>
             </CardHeader>

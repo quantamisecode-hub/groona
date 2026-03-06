@@ -12,17 +12,17 @@ import { Folder, MoreVertical, Users, FolderKanban, Edit, Trash2, Archive, UserP
 
 export default function WorkspaceCard({ workspace, onEdit, onDelete, onManageMembers, onSelect, isSelected, currentUser, projectCount = 0 }) {
   const colorClasses = {
-    blue: "from-blue-500 to-cyan-500",
-    green: "from-green-500 to-emerald-500",
-    purple: "from-purple-500 to-pink-500",
-    orange: "from-orange-500 to-amber-500",
-    red: "from-red-500 to-rose-500",
-    indigo: "from-indigo-500 to-purple-500",
-    teal: "from-teal-500 to-cyan-500",
-    pink: "from-pink-500 to-rose-500",
+    blue: { bg: "bg-blue-50", text: "text-blue-600" },
+    green: { bg: "bg-emerald-50", text: "text-emerald-600" },
+    purple: { bg: "bg-purple-50", text: "text-purple-600" },
+    orange: { bg: "bg-orange-50", text: "text-orange-600" },
+    red: { bg: "bg-rose-50", text: "text-rose-600" },
+    indigo: { bg: "bg-indigo-50", text: "text-indigo-600" },
+    teal: { bg: "bg-teal-50", text: "text-teal-600" },
+    pink: { bg: "bg-pink-50", text: "text-pink-600" },
   };
 
-  const gradientClass = colorClasses[workspace.color] || colorClasses.blue;
+  const themeColors = colorClasses[workspace.color] || colorClasses.blue;
   const isOwner = workspace.owner_email === currentUser?.email;
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_super_admin;
   const isProjectManager = currentUser?.custom_role === 'project_manager';
@@ -32,23 +32,22 @@ export default function WorkspaceCard({ workspace, onEdit, onDelete, onManageMem
   const memberRole = workspace.members?.find(m => m.user_email === currentUser?.email)?.role;
 
   return (
-    <Card 
-      className={`cursor-pointer transition-all hover:shadow-lg ${
-        isSelected ? 'ring-2 ring-blue-500 shadow-lg' : ''
-      }`}
+    <Card
+      className={`cursor-pointer transition-all bg-white border-zinc-200/80 rounded-2xl hover:shadow-md hover:border-zinc-300 ${isSelected ? 'ring-2 ring-zinc-900 shadow-md' : 'shadow-sm'
+        }`}
       onClick={onSelect}
     >
-      <CardContent className="pt-6">
+      <CardContent className="p-5 md:p-6">
         <div className="flex items-start justify-between mb-4">
-          <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradientClass} flex items-center justify-center shadow-lg`}>
-            <Folder className="h-6 w-6 text-white" />
+          <div className={`h-12 w-12 rounded-2xl ${themeColors.bg} flex items-center justify-center shrink-0`}>
+            <Folder className={`h-6 w-6 ${themeColors.text}`} strokeWidth={1.5} />
           </div>
-          
+
           {canManage && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-full">
+                  <MoreVertical className="h-5 w-5" strokeWidth={1.5} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -60,7 +59,7 @@ export default function WorkspaceCard({ workspace, onEdit, onDelete, onManageMem
                   <UserPlus className="h-4 w-4 mr-2" />
                   Manage Members
                 </DropdownMenuItem>
-                
+
                 {/* Archive Option (Only for Active) */}
                 {(workspace.status === 'active' || !workspace.status) && (
                   <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDelete(workspace, 'archive'); }}>
@@ -78,7 +77,7 @@ export default function WorkspaceCard({ workspace, onEdit, onDelete, onManageMem
                 )}
 
                 {isAdmin && (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={(e) => { e.stopPropagation(); onDelete(workspace, 'delete'); }}
                     className="text-red-600"
                   >
@@ -93,40 +92,40 @@ export default function WorkspaceCard({ workspace, onEdit, onDelete, onManageMem
 
         <div className="space-y-3">
           <div>
-            <h3 className="font-semibold text-slate-900 text-lg mb-1 flex items-center gap-2">
+            <h3 className="font-semibold text-zinc-900 text-lg mb-1 flex items-center gap-2 tracking-tight">
               {workspace.name}
               {workspace.is_default && (
-                <Badge className="bg-blue-100 text-blue-700 text-xs">Default</Badge>
+                <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 text-[10px] font-medium uppercase tracking-wider">Default</span>
               )}
             </h3>
             {workspace.description && (
-              <p className="text-sm text-slate-600 line-clamp-2">{workspace.description}</p>
+              <p className="text-sm text-zinc-500 line-clamp-2 mt-1">{workspace.description}</p>
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-slate-600">
-            <div className="flex items-center gap-1">
-              <Users className="h-4 w-4" />
+          <div className="flex items-center gap-4 text-[13px] text-zinc-500 font-medium mt-4">
+            <div className="flex items-center gap-1.5">
+              <Users className="h-4 w-4" strokeWidth={1.5} />
               <span>{workspace.members?.length || 0} members</span>
             </div>
-            <div className="flex items-center gap-1">
-              <FolderKanban className="h-4 w-4" />
+            <div className="flex items-center gap-1.5">
+              <FolderKanban className="h-4 w-4" strokeWidth={1.5} />
               <span>{projectCount} {projectCount === 1 ? 'project' : 'projects'}</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t">
+          <div className="flex items-center justify-between pt-4 border-t border-zinc-100 mt-2">
             <div className="flex items-center gap-2">
               {isOwner ? (
-                <Badge className="bg-amber-100 text-amber-700 text-xs">Owner</Badge>
+                <span className="px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-700 text-[11px] font-medium">Owner</span>
               ) : memberRole ? (
-                <Badge variant="outline" className="text-xs capitalize">{memberRole}</Badge>
+                <span className="px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-600 text-[11px] font-medium capitalize">{memberRole}</span>
               ) : null}
               {workspace.status === 'archived' && (
-                <Badge variant="outline" className="text-xs">Archived</Badge>
+                <span className="px-2.5 py-1 rounded-lg border border-zinc-200 text-zinc-500 text-[11px] font-medium">Archived</span>
               )}
             </div>
-            <span className="text-xs text-slate-500">
+            <span className="text-[11px] text-zinc-400 font-medium">
               by {workspace.owner_name}
             </span>
           </div>

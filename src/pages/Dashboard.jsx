@@ -145,6 +145,16 @@ export default function Dashboard() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['sprints', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Sprint.list();
+      return groonabackend.entities.Sprint.filter({ tenant_id: effectiveTenantId });
+    },
+    enabled: !!currentUser,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const uniqueAssignees = useMemo(() => {
     const assignees = new Set();
     tasks.forEach(task => {
@@ -248,15 +258,27 @@ export default function Dashboard() {
   };
   const hasActiveFilters = statusFilter !== "all" || priorityFilter !== "all" || assigneeFilter !== "all";
 
+  const isDataLoading = projectsLoading || tasksLoading;
+
+  if (isDataLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] w-full">
+        <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-5" />
+        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Crunching your data</h3>
+        <p className="text-sm text-slate-500 font-medium animate-pulse mt-1">Loading projects and tasks...</p>
+      </div>
+    );
+  }
+
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="dashboard">
       <FeatureOnboarding currentUser={currentUser} featureArea="dashboard" userRole={userRole} />
 
-      <div className="flex flex-col bg-[#f8f9fa] w-full relative" style={{ maxWidth: '100vw', left: 0, right: 0 }}>
-        <div className="max-w-[1800px] mx-auto w-full flex flex-col relative" style={{ maxWidth: '100%' }}>
+      <div className="flex flex-col bg-[#f8f9fa] w-full relative min-h-screen">
+        <div className="max-w-screen-2xl mx-auto w-full flex flex-col relative">
 
           {/* Scrollable Content */}
-          <div className="flex-1 px-6 md:px-8 pt-6 pb-6 md:pb-8 space-y-8" data-onboarding="stats-cards">
+          <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-6 pb-8 space-y-6 lg:space-y-8" data-onboarding="stats-cards">
 
             {tenant && tenant.onboarding_completed === false && currentUser && !currentUser.is_super_admin && (
               <OnboardingChecklist
@@ -266,18 +288,22 @@ export default function Dashboard() {
               />
             )}
 
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-2">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">Welcome back, {firstName}</h1>
-                <p className="text-sm text-slate-500">Here's what's happening with your projects today.</p>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-4">
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight">
+                  Welcome back, {firstName}
+                </h1>
+                <p className="text-sm sm:text-base text-slate-500 font-medium">
+                  Here's what's happening with your projects today.
+                </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
                 {/* 1. Filters */}
-                <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl p-1 px-3 h-10">
-                  <Filter className="h-4 w-4 text-slate-400" />
+                <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg p-1 px-3 h-11 w-full sm:w-auto">
+                  <Filter className="h-4 w-4 text-slate-400 flex-shrink-0" />
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-8 w-[120px] text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
+                    <SelectTrigger className="h-9 w-full sm:w-32 text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
                       <SelectValue placeholder="All Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -287,29 +313,31 @@ export default function Dashboard() {
                     </SelectContent>
                   </Select>
                   {hasActiveFilters && (
-                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-xs text-slate-500 hover:text-slate-700">
-                      <X className="h-3 w-3 mr-1" /> Clear
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-xs text-slate-500 hover:text-slate-700 flex-shrink-0">
+                      <X className="h-3.5 w-3.5 mr-1" /> Clear
                     </Button>
                   )}
                 </div>
 
                 {/* 2. Workspace Selector */}
-                <WorkspaceSelector currentUser={currentUser} onWorkspaceChange={setSelectedWorkspaceId} selectedWorkspaceId={selectedWorkspaceId} />
+                <div className="w-full sm:w-auto">
+                  <WorkspaceSelector currentUser={currentUser} onWorkspaceChange={setSelectedWorkspaceId} selectedWorkspaceId={selectedWorkspaceId} />
+                </div>
 
                 {/* 3. Action Button */}
                 {canCreateProject ? (
-                  <Button onClick={() => setShowCreateProject(true)} className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">
-                    <Plus className="w-4 h-4 mr-2" /> New Project
+                  <Button onClick={() => setShowCreateProject(true)} className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-11 rounded-lg px-5 font-bold transition-all active:scale-[0.98] w-full sm:w-auto">
+                    <Plus className="w-4.5 h-4.5 mr-2" /> New Project
                   </Button>
                 ) : (
-                  <Link to={createPageUrl("Projects")}>
-                    <Button className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95">View Projects</Button>
+                  <Link to={createPageUrl("Projects")} className="w-full sm:w-auto">
+                    <Button className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-11 rounded-lg px-5 font-bold transition-all active:scale-[0.98] w-full">View Projects</Button>
                   </Link>
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
               <StatsCard title="Total Projects" value={stats.totalProjects} icon={TrendingUp} iconColor="text-blue-600" loading={projectsLoading} />
               <StatsCard title="Active Projects" value={stats.activeProjects} icon={Clock} iconColor="text-purple-600" loading={projectsLoading} />
               <StatsCard title="Total Completed Tasks" value={stats.completedTasks} icon={CheckCircle2} iconColor="text-green-600" loading={tasksLoading} />
@@ -318,7 +346,7 @@ export default function Dashboard() {
 
             {isAdmin && (
               <div className="flex flex-col gap-6">
-                <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
+                <DashboardInsights projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
                 <AdminTopPerformers projects={filteredProjects} tasks={filteredTasks} />
                 <CompanyProfitabilityChart />
                 <AdminLostRevenueWidget />
@@ -327,11 +355,11 @@ export default function Dashboard() {
 
             {/* CONDITIONALLY RENDER ADMIN WIDGETS */}            {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
             {canViewInsights && !isAdmin && (
-              <DashboardInsights projects={filteredProjects} tasks={filteredTasks} activities={activities} loading={projectsLoading || tasksLoading} />
+              <DashboardInsights projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
             )}
 
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+              <div className="lg:col-span-2 space-y-6 lg:space-y-8">
                 {!isAdmin && (
                   <>
                     <UpcomingDeadlines

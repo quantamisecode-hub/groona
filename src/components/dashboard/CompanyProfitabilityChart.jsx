@@ -380,15 +380,15 @@ export default function CompanyProfitabilityChart() {
     else off = dataMax / (dataMax - dataMin);
 
     return (
-        <div className="w-full bg-white border border-slate-100 rounded-[32px] overflow-hidden p-[32px] flex flex-col gap-10 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        <div className="w-full bg-white border border-slate-100 rounded-[24px] sm:rounded-[32px] overflow-hidden p-4 sm:p-6 lg:p-8 flex flex-col gap-6 sm:gap-8 lg:gap-10 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
             {/* Top Section: Metrics + Chart */}
-            <div className="flex flex-col lg:flex-row gap-8 items-stretch">
-                {/* Left Left: Metrics */}
-                <div className="lg:w-1/3 flex flex-col justify-start pt-2">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-[18px] font-bold text-slate-900">{isPositive ? 'Total Net Profit' : 'Total Net Loss'}</h2>
+            <div className="flex flex-col xl:flex-row gap-6 sm:gap-8 items-stretch">
+                {/* Left Side: Metrics */}
+                <div className="xl:w-1/3 flex flex-col justify-start pt-2">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                        <h2 className="text-base sm:text-lg font-bold text-slate-900">{isPositive ? 'Total Net Profit' : 'Total Net Loss'}</h2>
                         <Select value={targetCurrency} onValueChange={setTargetCurrency}>
-                            <SelectTrigger className="w-[80px] h-8 text-xs bg-white border-slate-200">
+                            <SelectTrigger className="w-[70px] sm:w-[80px] h-7 sm:h-8 text-[10px] sm:text-xs bg-white border-slate-200">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -399,8 +399,8 @@ export default function CompanyProfitabilityChart() {
                         </Select>
                     </div>
 
-                    <div className="flex flex-col gap-4 mt-8">
-                        <div className={`text-[64px] font-extrabold tracking-tighter leading-none ${isPositive ? 'text-[#0B1120]' : 'text-red-600'}`}>
+                    <div className="flex flex-col gap-2 sm:gap-4 mt-2 sm:mt-8">
+                        <div className={`text-4xl sm:text-5xl lg:text-4xl xl:text-5xl 2xl:text-6xl font-extrabold tracking-tighter leading-none ${isPositive ? 'text-[#0B1120]' : 'text-red-600'}`}>
                             {formatCurrency(processedData.totalProfit)}
                         </div>
 
@@ -415,7 +415,7 @@ export default function CompanyProfitabilityChart() {
                 </div>
 
                 {/* Right Side: Graph */}
-                <div className="lg:w-2/3 h-[240px]">
+                <div className="xl:w-2/3 h-[200px] sm:h-[240px] xl:h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <defs>
@@ -444,58 +444,58 @@ export default function CompanyProfitabilityChart() {
             </div>
 
             {/* Bottom Section: Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                        <p className="text-[13px] font-medium text-slate-500">Total Labor Cost ({targetCurrency})</p>
-                        <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg"><Banknote className="w-4 h-4" /></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+                <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[24px] p-3 sm:p-4 xl:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
+                    <div className="flex justify-between items-start mb-2 sm:mb-4">
+                        <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 leading-tight">Labor Cost ({targetCurrency})</p>
+                        <div className="p-1 sm:p-1.5 bg-blue-50 text-blue-500 rounded-lg"><Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></div>
                     </div>
-                    <div className="text-[24px] font-bold text-slate-900 tracking-tight">
+                    <div className="text-lg sm:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight">
                         {symbol}{(processedData.totalLaborCost || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
-                <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                        <p className="text-[13px] font-medium text-slate-500">Total Non-Labor ({targetCurrency})</p>
-                        <div className="p-1.5 bg-amber-50 text-amber-500 rounded-lg"><Banknote className="w-4 h-4" /></div>
+                <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[24px] p-3 sm:p-4 xl:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
+                    <div className="flex justify-between items-start mb-2 sm:mb-4">
+                        <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 leading-tight">Non-Labor ({targetCurrency})</p>
+                        <div className="p-1 sm:p-1.5 bg-amber-50 text-amber-500 rounded-lg"><Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></div>
                     </div>
-                    <div className="text-[24px] font-bold text-slate-900 tracking-tight">
+                    <div className="text-lg sm:text-xl xl:text-2xl font-bold text-slate-900 tracking-tight">
                         {symbol}{(processedData.totalExpense || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
-                <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                        <p className="text-[13px] font-medium text-slate-500">Total P/L ({targetCurrency})</p>
-                        <div className={`p-1.5 rounded-lg ${processedData.totalProfit >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                            {processedData.totalProfit >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[24px] p-3 sm:p-4 xl:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
+                    <div className="flex justify-between items-start mb-2 sm:mb-4">
+                        <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 leading-tight">Total P/L ({targetCurrency})</p>
+                        <div className={`p-1 sm:p-1.5 rounded-lg ${processedData.totalProfit >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
+                            {processedData.totalProfit >= 0 ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                         </div>
                     </div>
-                    <div className={`text-[24px] font-bold tracking-tight ${(processedData.totalProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`text-lg sm:text-xl xl:text-2xl font-bold tracking-tight ${(processedData.totalProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                         {symbol}{(processedData.totalProfit || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
-                <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                        <p className="text-[13px] font-medium text-slate-500">Profit Margin %</p>
-                        <div className="p-1.5 bg-purple-50 text-purple-500 rounded-lg"><AlertCircle className="w-4 h-4" /></div>
+                <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[24px] p-3 sm:p-4 xl:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
+                    <div className="flex justify-between items-start mb-2 sm:mb-4">
+                        <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 leading-tight">Margin %</p>
+                        <div className="p-1 sm:p-1.5 bg-purple-50 text-purple-500 rounded-lg"><AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></div>
                     </div>
-                    <div className={`text-[24px] font-bold tracking-tight ${processedData.margin >= 20 ? 'text-green-600' : processedData.margin >= 0 ? 'text-green-500' : 'text-red-600'}`}>
+                    <div className={`text-lg sm:text-xl xl:text-2xl font-bold tracking-tight ${processedData.margin >= 20 ? 'text-green-600' : processedData.margin >= 0 ? 'text-green-500' : 'text-red-600'}`}>
                         {processedData.margin.toFixed(1)}%
                     </div>
                 </div>
 
-                <div className="bg-white border border-slate-100 rounded-[24px] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                        <p className="text-[13px] font-medium text-slate-500">Status</p>
-                        <div className={`p-1.5 rounded-lg ${processedData.margin >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
-                            {processedData.margin >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-[24px] p-3 sm:p-4 xl:p-6 shadow-[0_2px_8px_rgba(0,0,0,0.015)] flex flex-col justify-between group hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] transition-all col-span-2 sm:col-span-1">
+                    <div className="flex justify-between items-start mb-2 sm:mb-4">
+                        <p className="text-[11px] sm:text-[13px] font-medium text-slate-500 leading-tight">Status</p>
+                        <div className={`p-1 sm:p-1.5 rounded-lg ${processedData.margin >= 0 ? 'bg-green-50 text-green-500' : 'bg-red-50 text-red-500'}`}>
+                            {processedData.margin >= 0 ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                         </div>
                     </div>
                     <div className="flex items-end h-full">
-                        <span className={`px-3 py-1 text-[13px] font-bold rounded-md ${processedData.margin >= 20 ? 'bg-green-100 text-green-700' : processedData.margin >= 10 ? 'bg-green-50 text-green-600' : processedData.margin >= 0 ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-700'}`}>
+                        <span className={`px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-[13px] font-bold rounded-md ${processedData.margin >= 20 ? 'bg-green-100 text-green-700' : processedData.margin >= 10 ? 'bg-green-50 text-green-600' : processedData.margin >= 0 ? 'bg-orange-100 text-orange-600' : 'bg-red-100 text-red-700'}`}>
                             {processedData.margin >= 20 ? 'Healthy' : processedData.margin >= 10 ? 'Good' : processedData.margin >= 0 ? 'Risk' : 'Loss'}
                         </span>
                     </div>

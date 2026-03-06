@@ -69,37 +69,37 @@ export default function UpcomingDeadlines({ tasks = [], onDateSelect, selectedDa
     const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
     return (
-        <Card className="w-full bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[28px] overflow-hidden">
-            <CardHeader className="p-6 pb-2 border-slate-50">
+        <Card className="w-full bg-white border-0 shadow-sm ring-1 ring-slate-100/80 rounded-3xl overflow-hidden">
+            <CardHeader className="p-6 pb-4 border-slate-50">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-[17px] font-semibold text-slate-900 tracking-tight">
-                        <CalendarIcon className="w-5 h-5" /> Calendar
+                    <CardTitle className="flex items-center gap-2.5 text-lg font-bold text-slate-900 tracking-tight">
+                        <CalendarIcon className="w-5 h-5 text-blue-600" /> Deadline Calendar
                     </CardTitle>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center bg-slate-50 rounded-full p-0.5">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-500 hover:text-slate-900 focus:bg-white focus:shadow-sm" onClick={prevMonth}>
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-slate-50 rounded-full p-1 border border-slate-100 shadow-sm">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-white focus:bg-white focus:shadow-sm transition-all" onClick={prevMonth}>
                                 <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="text-[13px] font-medium text-slate-700 w-16 text-center">
-                                {format(currentMonth, 'MMM')}
+                            <span className="text-sm font-bold text-slate-800 w-20 text-center uppercase tracking-tight">
+                                {format(currentMonth, 'MMMM')}
                             </span>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full text-slate-500 hover:text-slate-900 focus:bg-white focus:shadow-sm" onClick={nextMonth}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-white focus:bg-white focus:shadow-sm transition-all" onClick={nextMonth}>
                                 <ChevronRight className="h-4 w-4" />
                             </Button>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full bg-slate-50 ml-1">
-                            <MoreHorizontal className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-600 rounded-lg bg-slate-50 ml-1">
+                            <MoreHorizontal className="h-5 w-5" />
                         </Button>
                     </div>
                 </div>
             </CardHeader>
 
             <CardContent className="p-6 pt-2">
-                <div className="grid grid-cols-7 gap-y-2 mt-2">
+                <div className="grid grid-cols-7 gap-y-3 mt-4">
                     {/* Weekdays */}
-                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-                        <div key={d} className="text-center text-[12px] font-medium text-slate-400 mb-2">
-                            {d}
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                        <div key={d} className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                            {d.slice(0, 1)}
                         </div>
                     ))}
 
@@ -130,37 +130,37 @@ export default function UpcomingDeadlines({ tasks = [], onDateSelect, selectedDa
                             spanClasses = `absolute inset-y-1 inset-x-0 ${cfg.spanBg} pointer-events-none `;
 
                             // Bounds calculation
-                            if (isPillStart) spanClasses += "rounded-l-full ml-1 ";
-                            if (isPillEnd) spanClasses += "rounded-r-full mr-1 ";
+                            if (isPillStart) spanClasses += "rounded-l-full ml-1.5 ";
+                            if (isPillEnd) spanClasses += "rounded-r-full mr-1.5 ";
                             // Week wrap bounds
-                            if (!isPillStart && day.getDay() === 0) spanClasses += "rounded-l-full ml-1 ";
-                            if (!isPillEnd && day.getDay() === 6) spanClasses += "rounded-r-full mr-1 ";
+                            if (!isPillStart && day.getDay() === 0) spanClasses += "rounded-l-full ml-1.5 ";
+                            if (!isPillEnd && day.getDay() === 6) spanClasses += "rounded-r-full mr-1.5 ";
 
                             if (isPillStart || isPillEnd) {
-                                activeBgClass = `${cfg.activeBg} ${cfg.activeText} shadow-md border border-white/20`; // Apple style soft solid
+                                activeBgClass = `${cfg.activeBg} ${cfg.activeText} shadow-lg shadow-blue-500/10 border border-white/20`; // Apple style soft solid
                             }
                         }
 
                         // Determine main button classes layer by layer
-                        let buttonClass = "relative z-10 w-9 h-9 mx-auto flex items-center justify-center rounded-full text-[15px] transition-all outline-none ";
+                        let buttonClass = "relative z-10 w-10 h-10 mx-auto flex items-center justify-center rounded-full text-base transition-all duration-300 outline-none ";
 
                         if (!isCurrentMonth) {
-                            buttonClass += "text-slate-300 ";
+                            buttonClass += "text-slate-200 pointer-events-none ";
                         } else {
                             if (isSelected) {
                                 // Explicit user selection overrides visual (or highlights it further)
-                                buttonClass += "bg-blue-600 text-white shadow-md ring-2 ring-blue-600 ring-offset-2 font-semibold ";
+                                buttonClass += "bg-blue-600 text-white shadow-xl shadow-blue-500/20 ring-2 ring-blue-600 ring-offset-2 font-bold scale-110 ";
                             } else if (activeBgClass) {
-                                buttonClass += activeBgClass + " font-semibold ";
+                                buttonClass += activeBgClass + " font-bold ";
                             } else if (isToday) {
-                                buttonClass += "font-bold text-slate-900 border border-slate-200 bg-white shadow-sm ";
+                                buttonClass += "font-extrabold text-blue-600 border border-blue-100 bg-blue-50/50 shadow-sm ";
                             } else {
-                                buttonClass += "text-slate-600 hover:bg-slate-100/70 ";
+                                buttonClass += "text-slate-600 hover:bg-slate-100/80 font-medium ";
                             }
                         }
 
                         return (
-                            <div key={dateStr} className="relative h-11 w-full flex justify-center items-center">
+                            <div key={dateStr} className="relative h-12 w-full flex justify-center items-center">
                                 {/* Spanning background for multi-day events */}
                                 {multiDayTask && isCurrentMonth && (
                                     <div className={spanClasses} />
@@ -175,9 +175,9 @@ export default function UpcomingDeadlines({ tasks = [], onDateSelect, selectedDa
 
                                 {/* Dot indicators for single day tasks directly underneath */}
                                 {(!multiDayTask || (!isPillStart && !isPillEnd)) && singleDayTasks.length > 0 && isCurrentMonth && (
-                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-0.5 mt-0.5">
+                                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-1 mt-1">
                                         {Array.from({ length: Math.min(singleDayTasks.length, 3) }).map((_, i) => (
-                                            <div key={i} className="w-1 h-1 rounded-full bg-slate-300" />
+                                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300 shadow-sm" />
                                         ))}
                                     </div>
                                 )}

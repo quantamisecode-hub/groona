@@ -564,29 +564,44 @@ async function handleCascadeDelete(entity, id) {
   try {
     if (entity === 'Project') {
       const filter = { project_id: id };
-      await Models.Task.deleteMany(filter);
-      await Models.Story.deleteMany(filter);
-      await Models.Sprint.deleteMany(filter);
-      await Models.Epic.deleteMany(filter);
-      await Models.Activity.deleteMany(filter);
-      await Models.Milestone.deleteMany(filter);
-      await Models.ProjectExpense.deleteMany(filter);
-      await Models.ProjectFile.deleteMany(filter);
-      await Models.ProjectClient.deleteMany(filter);
-      await Models.ProjectReport.deleteMany(filter);
-      await Models.Timesheet.deleteMany(filter);
-      await Models.ProjectUserRole.deleteMany(filter);
-      await Models.Impediment.deleteMany(filter);
-      await Models.Comment.deleteMany({ entity_type: 'project', entity_id: id });
-    } else if (entity === 'Epic') {
-      const stories = await Models.Story.find({ epic_id: id });
-      for (const story of stories) {
-        await Models.Task.deleteMany({ story_id: story._id });
-        await Models.Story.findByIdAndDelete(story._id);
-        await Models.Impediment.deleteMany({ story_id: story._id });
-        await Models.Comment.deleteMany({ entity_type: 'story', entity_id: story._id });
+      const modelsToClean = [
+        'Task', 'Story', 'Sprint', 'Epic', 'Activity', 'Milestone',
+        'ProjectExpense', 'ProjectFile', 'ProjectClient', 'ProjectReport',
+        'Timesheet', 'ProjectUserRole', 'Impediment'
+      ];
+
+      for (const mName of modelsToClean) {
+        try {
+          if (Models[mName]) {
+            await Models[mName].deleteMany(filter);
+          }
+        } catch (e) {
+          console.error(`[CascadeDelete] Failed to clean ${mName} for project ${id}:`, e.message);
+        }
       }
-      await Models.Impediment.deleteMany({ epic_id: id });
+
+      try {
+        await Models.Comment.deleteMany({ entity_type: 'project', entity_id: id });
+      } catch (e) {
+        console.error(`[CascadeDelete] Failed to clean Comments for project ${id}:`, e.message);
+      }
+    } else if (entity === 'Epic') {
+      try {
+        const stories = await Models.Story.find({ epic_id: id });
+        for (const story of stories) {
+          try {
+            await Models.Task.deleteMany({ story_id: story._id });
+            await Models.Story.findByIdAndDelete(story._id);
+            await Models.Impediment.deleteMany({ story_id: story._id });
+            await Models.Comment.deleteMany({ entity_type: 'story', entity_id: story._id });
+          } catch (e) {
+            console.error(`[CascadeDelete] Failed to clean story ${story._id} for epic ${id}:`, e.message);
+          }
+        }
+        await Models.Impediment.deleteMany({ epic_id: id });
+      } catch (e) {
+        console.error(`[CascadeDelete] Failed to clean Epic ${id}:`, e.message);
+      }
     } else if (entity === 'Story') {
       await Models.Task.deleteMany({ story_id: id });
       await Models.Impediment.deleteMany({ story_id: id });
@@ -599,7 +614,7 @@ async function handleCascadeDelete(entity, id) {
       await Models.Impediment.deleteMany({ task_id: id });
     }
   } catch (err) {
-    console.error(`[CascadeDelete] Error cleaning up ${entity} ${id}:`, err);
+    console.error(`[CascadeDelete] General error cleaning up ${entity} ${id}:`, err);
   }
 }
 
@@ -819,23 +834,94 @@ router.post('/entities/:entity/filter', async (req, res) => {
       console.warn(`[API] Entity Not Found: ${entityName}`);
       return res.status(400).json({ msg: `Entity not found` });
     }
-    const { filters = {}, sort } = req.body;
-    let query = Model.find(filters);
+    const { filters = {}, sort, page, limit, cursor } = req.body;
+    let queryFilters = { ...filters };
+    const limitNum = parseInt(limit) || 10;
+
+    // --- CURSOR-BASED PAGINATION ---
+    if (cursor) {
+      // If we have a cursor, we filter for items "older" than the cursor (assuming descending order)
+      // This works best with MongoDB's _id which contains a timestamp
+      if (typeof sort === 'string' && sort.startsWith('-')) {
+        queryFilters._id = { $lt: cursor };
+      } else {
+        queryFilters._id = { $gt: cursor };
+      }
+    }
+
+    // --- OFFSET-BASED PAGINATION (Backwards Compatible) ---
+    if (page && limit && !cursor) {
+      const pageNum = parseInt(page);
+      const limitNum = parseInt(limit);
+      const skip = (pageNum - 1) * limitNum;
+      const totalCount = await Model.countDocuments(filters);
+
+      let query = Model.find(queryFilters);
+      if (sort) {
+        const sortObj = {};
+        if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1;
+        else sortObj[sort] = 1;
+        query = query.sort(sortObj);
+      }
+
+      const results = await query.skip(skip).limit(limitNum).exec();
+
+      return res.json({
+        results,
+        totalCount,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(totalCount / limitNum)
+      });
+    }
+
+    // --- EXECUTE QUERY (Cursor or Full List) ---
+    let query = Model.find(queryFilters);
+
     if (sort) {
       const sortObj = {};
       if (sort.startsWith('-')) sortObj[sort.substring(1)] = -1;
       else sortObj[sort] = 1;
+      // Always add _id to sort for stable cursor pagination if not already there
+      if (!sortObj._id && (cursor || limit)) {
+        sortObj._id = sort.startsWith('-') ? -1 : 1;
+      }
       query = query.sort(sortObj);
+    } else if (cursor || limit) {
+      query = query.sort({ _id: -1 }); // Default to Newest
     }
+
+    // Limit the results if limit or cursor pagination is active
+    if (limit) {
+      query = query.limit(limitNum);
+    }
+
     const results = await query.exec();
+
+    // Determine the next cursor if limit was provided
+    let nextCursor = null;
+    if (limit && results.length === limitNum) {
+      nextCursor = results[results.length - 1]._id;
+    }
+
     if (entityName === 'ProjectExpense' || entityName === 'Timesheet') {
       console.log(`[DEBUG-BACKEND] Entity: ${entityName} | Filters:`, filters, `| Count: ${results.length}`);
     }
-    res.json(results);
-  } catch (err) {
-    if (req.params.entity === 'ProjectExpense') {
-      console.error(`[DEBUG-BACKEND] Error fetching ${req.params.entity}:`, err);
+
+    // Return in a paginated format if limit or cursor was explicitly provided
+    if (limit || cursor) {
+      const totalCount = await Model.countDocuments(filters);
+      res.json({
+        results,
+        totalCount,
+        nextCursor,
+        limit: limitNum
+      });
+    } else {
+      res.json(results);
     }
+  } catch (err) {
+    console.error(`[API] Error in filter route for ${req.params.entity}:`, err);
     res.json([]);
   }
 });
@@ -1028,6 +1114,24 @@ router.post('/entities/:entity/create', async (req, res) => {
     const savedItem = await item.save();
 
     res.json(savedItem);
+
+    // --- PROJECT HEALTH SYNC ---
+    if (['Task', 'ProjectExpense'].includes(entityName) && savedItem.project_id) {
+      setImmediate(async () => {
+        try {
+          const { updateProjectHealth } = require('../utils/projectHealth');
+          await updateProjectHealth(savedItem.project_id);
+        } catch (err) { console.error('Project Health Sync Error (Create):', err); }
+      });
+    }
+    if (entityName === 'Project') {
+      setImmediate(async () => {
+        try {
+          const { updateProjectHealth } = require('../utils/projectHealth');
+          await updateProjectHealth(savedItem._id);
+        } catch (err) { console.error('Project Health Sync Error (Create Project):', err); }
+      });
+    }
 
     // --- TIMESHEET LOGGING: Dynamic Sync ---
     if (entityName === 'Timesheet') {
@@ -1815,6 +1919,27 @@ router.post('/entities/:entity/update', async (req, res) => {
     // Send response immediately after update
     res.json(updatedDoc);
 
+    // --- PROJECT HEALTH SYNC ---
+    if (['Task', 'ProjectExpense'].includes(entityName)) {
+      setImmediate(async () => {
+        try {
+          const { updateProjectHealth } = require('../utils/projectHealth');
+          if (updatedDoc.project_id) await updateProjectHealth(updatedDoc.project_id);
+          if (oldDoc.project_id && oldDoc.project_id.toString() !== (updatedDoc.project_id || '').toString()) {
+            await updateProjectHealth(oldDoc.project_id);
+          }
+        } catch (err) { console.error('Project Health Sync Error (Update):', err); }
+      });
+    }
+    if (entityName === 'Project') {
+      setImmediate(async () => {
+        try {
+          const { updateProjectHealth } = require('../utils/projectHealth');
+          await updateProjectHealth(updatedDoc._id);
+        } catch (err) { console.error('Project Health Sync Error (Update Project):', err); }
+      });
+    }
+
     // --- SPRINT VELOCITY SYNC (Update) ---
     if (['Task', 'Story', 'Sprint'].includes(entityName)) {
       setImmediate(async () => {
@@ -2579,12 +2704,20 @@ router.post('/entities/:entity/delete', async (req, res) => {
     const { entity } = req.params;
     const { id } = req.body;
 
-    // 1. Perform cascade deletion first
-    await handleCascadeDelete(entity, id);
+    // 1. Perform cascade deletion first (wrapped in try/catch to ensure main deletion proceeds)
+    try {
+      await handleCascadeDelete(entity, id);
+    } catch (cascadeErr) {
+      console.error(`[DeleteRoute] Cascade deletion failed for ${entity} ${id}:`, cascadeErr);
+    }
 
     // 2. Fetch doc before deletion for sync
     const Model = Models[entity];
     const docToDelete = await Model.findById(id);
+
+    if (!docToDelete) {
+      return res.status(404).send(`${entity} not found`);
+    }
 
     // 3. Delete the entity itself
     await Model.findByIdAndDelete(id);
@@ -2620,6 +2753,15 @@ router.post('/entities/:entity/delete', async (req, res) => {
         } catch (err) {
           console.error("[VelocitySync] Error in delete trigger:", err);
         }
+      });
+    }
+    // --- PROJECT HEALTH SYNC ---
+    if (['Task', 'ProjectExpense'].includes(entity) && docToDelete && docToDelete.project_id) {
+      setImmediate(async () => {
+        try {
+          const { updateProjectHealth } = require('../utils/projectHealth');
+          await updateProjectHealth(docToDelete.project_id);
+        } catch (err) { console.error('Project Health Sync Error (Delete):', err); }
       });
     }
 

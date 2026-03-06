@@ -716,38 +716,43 @@ Keep it extremely brief and focused.`;
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
-            Ask AI for Insights
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
+    <div className="space-y-8">
+      {/* Input Area */}
+      <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-200/60 shadow-sm relative overflow-hidden">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-10 w-10 rounded-[14px] bg-blue-50 flex items-center justify-center text-blue-600 shadow-sm border border-blue-100/50">
+            <Sparkles className="h-5 w-5" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-normal mb-0.5">Ask AI for Insights</h2>
+            <p className="text-sm font-semibold text-slate-500">Query your project telemetry naturally</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="relative group">
             <Textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask anything about your projects, tasks, risks, timelines, or team performance..."
+              placeholder="Ask me anything about your projects, tasks, risks, timelines, or team performance..."
               rows={4}
-              className="bg-white border-slate-200"
+              className="resize-none bg-[#F9FAFB] border-slate-200/80 rounded-[20px] focus:ring-0 focus:border-blue-300 placeholder:text-slate-400 font-medium text-slate-700 py-4 px-5 text-base transition-all group-focus-within:bg-white group-focus-within:shadow-sm"
               disabled={isLoading}
             />
-            <div className="flex justify-end">
+            <div className="absolute bottom-3 right-3">
               <Button
                 onClick={() => handleAsk()}
                 disabled={!question.trim() || isLoading}
-                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-sm px-5 transition-all"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing...
+                    Analyzing Data...
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
+                    <Sparkles className="h-4 w-4 mr-2" />
                     Ask AI
                   </>
                 )}
@@ -757,181 +762,177 @@ Keep it extremely brief and focused.`;
 
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Lightbulb className="h-4 w-4 text-amber-600" />
-              <p className="text-sm font-medium text-slate-700">Suggested Questions:</p>
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Suggested Questions</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {suggestedQuestions.map((q, index) => (
-                <Button
+                <button
                   key={index}
-                  variant="outline"
-                  size="sm"
                   onClick={() => {
                     setQuestion(q);
                     handleAsk(q);
                   }}
                   disabled={isLoading}
-                  className="text-xs border-slate-200 hover:bg-slate-50"
+                  className="text-[13px] font-semibold text-slate-600 bg-white border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 px-4 py-2 rounded-xl transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
                 >
                   {q}
-                </Button>
+                </button>
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Two-column layout: Answer on left, History on right */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Results layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column - AI Answer */}
         <div className="lg:col-span-2" ref={answerContainerRef}>
           {(answer || displayedAnswer || isLoading) && (
-            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-purple-600" />
-                  AI Insights
-                  {currentQuestion && (
-                    <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-200 text-xs">
-                      {currentQuestion.length > 50 ? currentQuestion.substring(0, 50) + '...' : currentQuestion}
-                    </Badge>
-                  )}
-                  {isStreaming && (
-                    <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-200 text-xs animate-pulse">
-                      Generating...
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm max-w-none" ref={answerRef}>
-                  <ReactMarkdown
-                    components={{
-                      h1: ({ children }) => <h1 className="text-xl font-bold text-slate-900 mt-4 mb-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-900 mt-3 mb-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-base font-semibold text-slate-900 mt-2 mb-1">{children}</h3>,
-                      p: ({ children }) => <p className="text-slate-700 mb-2 leading-relaxed">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc list-inside text-slate-700 space-y-1 mb-2">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal list-inside text-slate-700 space-y-1 mb-2">{children}</ol>,
-                      li: ({ children }) => <li className="text-slate-700">{children}</li>,
-                      strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
-                      code: ({ children }) => <code className="px-1 py-0.5 rounded bg-slate-200 text-slate-800 text-sm font-mono">{children}</code>,
-                    }}
-                  >
-                    {preprocessMarkdown(displayedAnswer || answer || "")}
-                  </ReactMarkdown>
-                  {isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
-                  )}
-                  {/* Precise scroll anchor */}
-                  <div ref={scrollAnchorRef} className="h-px w-full" />
-                </div>
-              </CardContent>
-            </Card>
+            <div className="p-6 md:p-10 rounded-[32px] bg-white border border-slate-200 shadow-sm relative">
+              <div className="flex items-center gap-2 mb-6 border-b border-slate-200/60 pb-4">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-black text-slate-900 tracking-normal">AI Insights</h3>
+                {currentQuestion && (
+                  <Badge variant="outline" className="ml-2 bg-slate-50 text-slate-600 border-slate-200 text-xs font-semibold px-3 py-1 rounded-full shadow-none">
+                    {currentQuestion.length > 50 ? currentQuestion.substring(0, 50) + '...' : currentQuestion}
+                  </Badge>
+                )}
+                {isStreaming && (
+                  <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-600 border-none shadow-none text-[10px] font-bold uppercase tracking-widest px-2 animate-pulse">
+                    Generating...
+                  </Badge>
+                )}
+              </div>
+              <div className="prose prose-sm max-w-none" ref={answerRef}>
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => <h1 className="text-3xl font-black text-slate-900 mt-2 mb-6 tracking-normal">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-xl font-bold text-slate-900 mt-8 mb-4 tracking-normal">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mt-8 mb-3">{children}</h3>,
+                    p: ({ children }) => <p className="text-slate-600 mb-5 leading-relaxed font-medium">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc list-outside ml-4 text-slate-600 space-y-2 mb-6 font-medium">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-outside ml-4 text-slate-600 space-y-2 mb-6 font-medium">{children}</ol>,
+                    li: ({ children }) => <li className="pl-1 text-slate-600 marker:text-slate-400">{children}</li>,
+                    strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
+                    code: ({ children }) => <code className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800 text-[13px] font-mono">{children}</code>,
+                  }}
+                >
+                  {preprocessMarkdown(displayedAnswer || answer || "")}
+                </ReactMarkdown>
+                {isStreaming && (
+                  <span className="inline-block w-2 h-4 bg-blue-600 ml-1 animate-pulse">|</span>
+                )}
+                {/* Precise scroll anchor */}
+                <div ref={scrollAnchorRef} className="h-px w-full" />
+              </div>
+            </div>
           )}
           {!answer && (
-            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
-              <CardContent className="p-12 text-center">
-                <Sparkles className="h-16 w-16 mx-auto mb-4 text-purple-300" />
-                <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Insights</h4>
-                <p className="text-slate-600">
-                  Ask a question above to get AI-generated insights about your projects, tasks, and team performance.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="p-16 text-center border border-slate-200 rounded-[32px] bg-[#F9FAFB] flex flex-col items-center justify-center min-h-[400px]">
+              <div className="h-16 w-16 mb-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                <Sparkles className="h-8 w-8 text-slate-400" />
+              </div>
+              <h4 className="font-black text-slate-900 mb-3 tracking-normal text-xl">AI-Powered Insights</h4>
+              <p className="text-sm font-medium text-slate-500 mb-8 max-w-sm mx-auto leading-relaxed">
+                Ask a question above to get AI-generated insights about your projects, tasks, and team performance.
+              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 max-w-md mx-auto leading-relaxed">
+                Fast • Context-Aware • Data-Driven
+              </p>
+            </div>
           )}
         </div>
 
         {/* Right Column - History */}
         <div className="lg:col-span-1">
-          <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <History className="h-4 w-4 text-purple-600" />
-                  Report History
-                </CardTitle>
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  {previousReports.length}
-                </Badge>
+          <div className="sticky top-4">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <History className="h-4 w-4" strokeWidth={2.5} />
+                </div>
+                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Query History</h3>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-[600px] overflow-y-auto">
-                {previousReports.length > 0 ? (
-                  <div className="space-y-2">
-                    {previousReports.map((report) => (
-                      <div
-                        key={report.id || report._id}
-                        onClick={() => {
-                          setSelectedReport(report);
-                          setAnswer(report.report_content);
-                          setDisplayedAnswer(report.report_content);
-                          setCurrentQuestion(report.question);
-                        }}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all ${(selectedReport?.id === report.id || selectedReport?._id === report._id)
-                          ? 'bg-purple-100 border-purple-400 shadow-md'
-                          : 'bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                          }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <FileText className="h-4 w-4 text-purple-600 flex-shrink-0" />
-                              <p className="text-sm font-semibold text-slate-900 truncate">
-                                {report.question.length > 40 ? report.question.substring(0, 40) + '...' : report.question}
-                              </p>
-                            </div>
-                            <div className="text-xs text-slate-600 space-y-1">
-                              <p className="truncate">
-                                By: {report.generated_by_name || report.generated_by}
-                              </p>
-                              <p>{format(new Date(report.created_date || report.createdDate), 'MMM d, yyyy HH:mm')}</p>
-                            </div>
+              <Badge className="bg-slate-100 text-slate-600 font-bold text-[10px] px-2 shadow-none border-none">
+                {previousReports.length}
+              </Badge>
+            </div>
+
+            <div className="max-h-[300px] lg:max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
+              {previousReports.length > 0 ? (
+                <div className="space-y-3">
+                  {previousReports.map((report) => (
+                    <div
+                      key={report.id || report._id}
+                      onClick={() => {
+                        setSelectedReport(report);
+                        setAnswer(report.report_content);
+                        setDisplayedAnswer(report.report_content);
+                        setCurrentQuestion(report.question);
+                      }}
+                      className={`p-4 rounded-[20px] border cursor-pointer transition-all ${(selectedReport?.id === report.id || selectedReport?._id === report._id)
+                        ? 'bg-[#F9FAFB] border-slate-300 shadow-sm ring-1 ring-slate-200'
+                        : 'bg-white border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Sparkles className={`h-4 w-4 flex-shrink-0 ${(selectedReport?.id === report.id || selectedReport?._id === report._id) ? 'text-blue-600' : 'text-slate-400'}`} />
+                            <p className="text-sm font-bold text-slate-900 truncate tracking-normal">
+                              {report.question.length > 40 ? report.question.substring(0, 40) + '...' : report.question}
+                            </p>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                downloadPDF(report);
-                              }}
-                              className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
-                              title="Download PDF"
-                            >
-                              <Download className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm('Are you sure you want to delete this report?')) {
-                                  deleteReportMutation.mutate(report.id || report._id);
-                                }
-                              }}
-                              disabled={deleteReportMutation.isPending}
-                              className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
-                              title="Delete report"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider space-y-1">
+                            <p className="truncate">
+                              By: {report.generated_by_name || report.generated_by}
+                            </p>
+                            <p>{format(new Date(report.created_date || report.createdDate), 'MMM d, pyyy HH:mm')}</p>
                           </div>
                         </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadPDF(report);
+                            }}
+                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                            title="Download PDF"
+                          >
+                            <Download className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm('Are you sure you want to delete this report?')) {
+                                deleteReportMutation.mutate(report.id || report._id);
+                              }
+                            }}
+                            disabled={deleteReportMutation.isPending}
+                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                            title="Delete report"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                    <p className="text-sm text-slate-600">No reports yet</p>
-                    <p className="text-xs text-slate-500 mt-1">Generated reports will appear here</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 px-4 rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50">
+                  <FileText className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-900 tracking-normal">No activity yet</p>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mt-1">Ask your first question</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

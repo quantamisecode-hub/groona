@@ -28,6 +28,12 @@ const getToken = () => localStorage.getItem('auth_token');
 const fixId = (item) => {
   if (!item) return item;
   if (Array.isArray(item)) return item.map(fixId);
+  if (item.results && Array.isArray(item.results)) {
+    return {
+      ...item,
+      results: item.results.map(fixId)
+    };
+  }
   if (item._id && !item.id) return { ...item, id: item._id, ...item };
   return item;
 };
@@ -50,8 +56,8 @@ const createEntityHandler = (entityName) => ({
     const res = await api.post(`/entities/${entityName}/filter`, { sort, filters: {} });
     return fixId(res.data);
   },
-  filter: async (filters, sort) => {
-    const res = await api.post(`/entities/${entityName}/filter`, { filters, sort });
+  filter: async (filters, sort, page, limit, cursor) => {
+    const res = await api.post(`/entities/${entityName}/filter`, { filters, sort, page, limit, cursor });
     return fixId(res.data);
   },
   get: async (id) => {

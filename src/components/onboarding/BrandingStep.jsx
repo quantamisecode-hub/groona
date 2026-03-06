@@ -10,7 +10,6 @@ import { motion } from "framer-motion";
 export default function BrandingStep({ tenant, onNext, onBack }) {
   const [branding, setBranding] = useState({
     logo_url: tenant.branding?.logo_url || "",
-    primary_color: tenant.branding?.primary_color || "#2563eb",
     company_website: tenant.branding?.company_website || "",
   });
   const [uploading, setUploading] = useState(false);
@@ -58,10 +57,10 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-4"
       >
-        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+        <h2 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight text-left">
           Make it <span className="text-blue-600">yours.</span>
         </h2>
-        <p className="text-slate-500 text-xl max-w-2xl">
+        <p className="text-slate-500 text-xl max-w-2xl text-left">
           Personalize your workspace with your company's visual identity. This will be visible to all invited members.
         </p>
       </motion.header>
@@ -74,7 +73,7 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
           className="space-y-10"
         >
           {/* Logo Section */}
-          <div className="space-y-4">
+          <div className="space-y-4 text-left">
             <Label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">Company Logo</Label>
             <div
               className="relative aspect-video w-full max-w-md rounded-3xl border-2 border-dashed border-slate-100 bg-slate-50/50 flex flex-col items-center justify-center cursor-pointer hover:border-blue-200 hover:bg-blue-50/30 transition-all overflow-hidden group shadow-sm"
@@ -102,35 +101,7 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
             <input id="logo-upload" type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} />
           </div>
 
-          {/* Color Section */}
-          <div className="space-y-4">
-            <Label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">Brand Identity Color</Label>
-            <div className="flex items-center gap-4">
-              <div
-                className="w-16 h-16 rounded-2xl border border-slate-100 shadow-sm shrink-0 cursor-pointer overflow-hidden hover:scale-105 transition-transform"
-                style={{ backgroundColor: branding.primary_color }}
-                onClick={() => document.getElementById('color-picker').click()}
-              />
-              <div className="flex-1 space-y-2">
-                <Input
-                  type="text"
-                  value={branding.primary_color}
-                  onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
-                  className="h-14 border-slate-100 focus:border-blue-600 rounded-2xl font-mono text-lg uppercase px-6"
-                />
-              </div>
-              <input
-                id="color-picker"
-                type="color"
-                className="hidden"
-                value={branding.primary_color}
-                onChange={(e) => setBranding({ ...branding, primary_color: e.target.value })}
-              />
-            </div>
-            <p className="text-xs text-slate-400 font-medium">This color will be used for buttons, links, and primary UI elements.</p>
-          </div>
-
-          <div className="space-y-4">
+          <div className="space-y-4 text-left">
             <Label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1">Company Website</Label>
             <div className="relative">
               <div className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300">
@@ -152,7 +123,7 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="space-y-8 lg:sticky lg:top-8"
+          className="space-y-8 lg:sticky lg:top-8 text-left"
         >
           <div className="p-8 md:p-12 rounded-[2.5rem] bg-slate-950 text-white shadow-2xl relative overflow-hidden group">
             <header className="relative z-10 flex items-center justify-between mb-12">
@@ -161,7 +132,7 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
                   {branding.logo_url ? (
                     <img src={branding.logo_url} className="w-full h-full object-contain p-2" />
                   ) : (
-                    <div className="w-6 h-6 rounded-md shadow-inner" style={{ backgroundColor: branding.primary_color }} />
+                    <div className="w-6 h-6 rounded-md shadow-inner bg-blue-600" />
                   )}
                 </div>
                 <div className="space-y-1.5">
@@ -186,8 +157,7 @@ export default function BrandingStep({ tenant, onNext, onBack }) {
                 <div className="h-14 rounded-2xl border border-white/10 flex items-center justify-center">
                   <div className="h-2 w-12 bg-white/20 rounded-full" />
                 </div>
-                <div className="h-14 rounded-2xl flex items-center justify-center shadow-lg hover:brightness-110 transition-all cursor-default"
-                  style={{ backgroundColor: branding.primary_color }}>
+                <div className="h-14 rounded-2xl flex items-center justify-center shadow-lg hover:brightness-110 transition-all cursor-default bg-blue-600">
                   <div className="h-2 w-12 bg-white/40 rounded-full" />
                 </div>
               </div>

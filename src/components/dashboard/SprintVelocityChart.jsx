@@ -146,7 +146,7 @@ export default function SprintVelocityChart({ title: propTitle, isAdmin, tenantI
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-full mt-[-10px]"
+                    className="h-8 w-8 text-slate-400 hover:text-slate-600 rounded-lg mt-[-10px]"
                     onClick={() => navigate('/projects')}
                     title="View Projects"
                 >
@@ -156,17 +156,17 @@ export default function SprintVelocityChart({ title: propTitle, isAdmin, tenantI
 
             <CardContent className="px-6 pb-8 pt-6 flex-1 flex flex-col justify-end">
                 {chartData.length === 0 ? (
-                    <div className="h-[220px] flex items-center justify-center bg-slate-50/50 rounded-[20px]">
-                        <p className="text-[14px] text-slate-500 font-medium">Not enough sprint data.</p>
+                    <div className="h-[180px] sm:h-[220px] flex items-center justify-center bg-slate-50/50 rounded-[24px]">
+                        <p className="text-[14px] text-slate-500 font-medium px-4 text-center">Not enough sprint data.</p>
                     </div>
                 ) : (
-                    <div className="flex items-end justify-between h-[220px] gap-2 md:gap-4 relative w-full group">
+                    <div className="flex items-end justify-between h-[180px] sm:h-[220px] xl:h-[240px] gap-1 sm:gap-2 md:gap-4 relative w-full group overflow-x-auto scrollbar-hide pb-2">
                         {/* Background lines mapping to maxVal */}
                         <div className="absolute inset-0 flex flex-col justify-between pointer-events-none -z-10 py-1">
-                            <div className="border-b border-slate-100 w-full h-[1px]"></div>
-                            <div className="border-b border-slate-100 w-full h-[1px]"></div>
-                            <div className="border-b border-slate-100 w-full h-[1px]"></div>
-                            <div className="border-b border-slate-100 w-full h-[1px]"></div>
+                            <div className="border-b border-slate-100/60 w-full h-[1px]"></div>
+                            <div className="border-b border-slate-100/60 w-full h-[1px]"></div>
+                            <div className="border-b border-slate-100/60 w-full h-[1px]"></div>
+                            <div className="border-b border-slate-100/60 w-full h-[1px]"></div>
                         </div>
 
                         {chartData.map((item, index) => {
@@ -177,24 +177,24 @@ export default function SprintVelocityChart({ title: propTitle, isAdmin, tenantI
                             const isExcellent = item.completed >= item.planned && item.planned > 0;
 
                             return (
-                                <div key={index} className="flex flex-col items-center flex-1 justify-end h-full group/bar relative">
-                                    {/* Tooltip on Hover */}
-                                    <div className="absolute -top-10 bg-slate-800 text-white text-[11px] px-3 py-1.5 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20 pointer-events-none flex flex-col items-center">
+                                <div key={index} className="flex flex-col items-center flex-1 min-w-[30px] sm:min-w-[40px] justify-end h-full group/bar relative">
+                                    {/* Tooltip on Hover - Optimized for mobile (hidden there, shown on sm+) */}
+                                    <div className="hidden sm:flex absolute -top-10 bg-slate-800 text-white text-[11px] px-3 py-1.5 rounded-lg opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap shadow-xl z-20 pointer-events-none flex-col items-center">
                                         <span className="font-semibold">{item.name}</span>
                                         <span className="text-slate-300">{item.completed}/{item.planned} pts</span>
                                     </div>
 
                                     {/* Dual Bar Container */}
-                                    <div className="relative w-full max-w-[40px] h-full flex items-end justify-center">
+                                    <div className="relative w-full max-w-[28px] sm:max-w-[40px] h-full flex items-end justify-center">
                                         {/* Planned Background Bar */}
                                         <div
-                                            className="absolute bottom-0 w-full max-w-[32px] rounded-t-xl bg-slate-100 transition-all duration-500 will-change-transform z-0"
+                                            className="absolute bottom-0 w-full max-w-[24px] sm:max-w-[32px] rounded-t-lg sm:rounded-t-xl bg-slate-100 transition-all duration-500 will-change-transform z-0"
                                             style={{ height: `${Math.max(plannedHeight, completedHeight)}%` }}
                                         />
 
                                         {/* Completed Foreground Bar */}
                                         <div
-                                            className={`absolute bottom-0 w-full max-w-[32px] rounded-t-xl transition-all duration-700 ease-out z-10 ${isExcellent ? 'bg-emerald-500 shadow-sm' : 'bg-blue-600 shadow-sm'
+                                            className={`absolute bottom-0 w-full max-w-[24px] sm:max-w-[32px] rounded-t-lg sm:rounded-t-xl transition-all duration-700 ease-out z-10 ${isExcellent ? 'bg-emerald-500 shadow-sm' : 'bg-blue-600 shadow-sm'
                                                 }`}
                                             style={{
                                                 height: `${completedHeight}%`,
@@ -202,12 +202,12 @@ export default function SprintVelocityChart({ title: propTitle, isAdmin, tenantI
                                             }}
                                         >
                                             {/* Top gradient hit */}
-                                            <div className="absolute top-0 inset-x-0 h-4 bg-white/20 rounded-t-xl" />
+                                            <div className="absolute top-0 inset-x-0 h-2 sm:h-4 bg-white/20 rounded-t-lg sm:rounded-t-xl" />
                                         </div>
                                     </div>
 
                                     {/* X-Axis Label */}
-                                    <span className="mt-4 text-[12px] font-semibold text-slate-500 uppercase tracking-wider group-hover/bar:text-slate-800 transition-colors">
+                                    <span className="mt-2 sm:mt-4 text-[10px] sm:text-[12px] font-semibold text-slate-500 uppercase tracking-wider group-hover/bar:text-slate-800 transition-colors">
                                         {item.shortName}
                                     </span>
                                 </div>

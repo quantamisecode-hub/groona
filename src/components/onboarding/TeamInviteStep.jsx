@@ -86,9 +86,9 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="group flex flex-col sm:flex-row gap-4 p-6 rounded-2xl border border-slate-100 bg-white hover:border-blue-100 hover:shadow-md transition-all relative"
+                  className="group flex gap-4 p-6 rounded-2xl border border-slate-100 bg-white hover:border-blue-100 hover:shadow-md transition-all relative items-end"
                 >
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-2 text-left">
                     <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Email address</Label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none group-hover:text-blue-500 transition-colors" />
@@ -97,34 +97,18 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
                         placeholder="name@company.com"
                         value={invite.email}
                         onChange={(e) => setInviteData(index, 'email', e.target.value)}
-                        className="h-12 pl-11 border-slate-100 focus:border-blue-600 rounded-xl transition-all"
+                        className="h-12 pl-11 border-slate-100 focus:border-blue-600 rounded-xl transition-all w-full"
                       />
                     </div>
                   </div>
 
-                  <div className="w-full sm:w-44 space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Role</Label>
-                    <Select
-                      value={invite.role}
-                      onValueChange={(value) => setInviteData(index, 'role', value)}
-                    >
-                      <SelectTrigger className="h-12 border-slate-100 focus:border-blue-600 rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Collaborator</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {invites.length > 1 && (
-                    <div className="flex items-end pb-1">
+                    <div className="flex items-center pb-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => removeInvite(index)}
-                        className="h-10 w-10 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl"
+                        className="h-10 w-10 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl shrink-0"
                       >
                         <Trash2 className="h-5 w-5" />
                       </Button>
@@ -152,22 +136,22 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
-          className="space-y-6 lg:sticky lg:top-8"
+          className="space-y-6 lg:sticky lg:top-8 text-left"
         >
           <div className="p-8 rounded-3xl bg-blue-600 text-white space-y-6 relative overflow-hidden shadow-2xl shadow-blue-500/20">
             <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
               <Users className="w-6 h-6" />
             </div>
             <div className="relative z-10 space-y-3">
-              <h3 className="font-bold text-xl">Collaborative First</h3>
+              <h3 className="font-bold text-xl leading-none">Collaborative First</h3>
               <p className="text-blue-100 text-sm leading-relaxed">
-                Groona is designed for real-time partnership. Inviting your team now allows them to Participate in project planning from day one.
+                Groona is designed for real-time partnership. Inviting your team now allows them to participate in project planning from day one.
               </p>
             </div>
             <ul className="relative z-10 space-y-3 pt-6 border-t border-white/20">
               {[
-                "Default role: Collaborator (can edit tasks)",
-                "Admins: Full control over billing & settings",
+                "All invites default to Collaborator role",
+                "Members can edit tasks and view projects",
                 "Invite links are valid for 7 days"
               ].map((text, i) => (
                 <li key={i} className="flex items-start gap-3 text-xs text-blue-50 font-medium">
@@ -186,7 +170,7 @@ export default function TeamInviteStep({ tenant, onNext, onBack }) {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <p className="text-xs font-semibold text-slate-600 italic">
-              You can manage permissions and add custom roles later in Workspace Settings.
+              You can promote members to Admin or add custom roles later in Workspace Settings.
             </p>
           </div>
         </motion.div>

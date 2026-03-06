@@ -330,7 +330,7 @@ export default function TaskDetailsTab({
       {/* Core Fields */}
       <div className="space-y-4">
         {/* Project Selection (Hidden as requested) */}
-        {false && (
+        {!isProjectFixed && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
@@ -554,6 +554,46 @@ export default function TaskDetailsTab({
               })()}
             </div>
           )}
+        </div>
+
+        {/* Sprint Selection */}
+        <div className="md:col-span-2">
+          <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
+            <CalendarIcon className="h-4 w-4 text-purple-600" />
+            Sprint
+          </Label>
+          <Select
+            value={taskData.sprint_id || "unassigned"}
+            onValueChange={(value) => setTaskData(prev => ({ ...prev, sprint_id: value === "unassigned" ? "" : value }))}
+          >
+            <SelectTrigger className="h-10">
+              <SelectValue placeholder="Select Sprint (Optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unassigned">No Sprint (Backlog)</SelectItem>
+              {sprints
+                .filter(s => {
+                  const isAdmin = currentUser?.is_super_admin || currentUser?.custom_role === 'admin';
+                  if (isAdmin) return true;
+                  return s.status !== 'completed' || s.id === taskData.sprint_id;
+                })
+                .map(sprint => (
+                  <SelectItem key={sprint.id || sprint._id} value={sprint.id || sprint._id}>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${sprint.status === 'active' ? 'bg-green-500' :
+                          sprint.status === 'completed' ? 'bg-zinc-300' : 'bg-slate-300'
+                        }`} />
+                      {sprint.name}
+                      {sprint.status === 'active' && <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] ml-2">Active</Badge>}
+                      {sprint.status === 'completed' && <Badge variant="secondary" className="bg-zinc-100 text-zinc-600 text-[10px] ml-2">Completed</Badge>}
+                    </div>
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Assigning to a sprint will place this task in the board for that sprint.
+          </p>
         </div>
 
         {/* Assignees and Reference URL - Side by Side */}

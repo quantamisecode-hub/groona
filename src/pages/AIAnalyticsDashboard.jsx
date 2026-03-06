@@ -64,7 +64,7 @@ export default function AIAnalyticsDashboard() {
     setLoadingAnalysis(true);
     try {
       const scopeName = selectedTenant === "all" ? "Platform-Wide" : tenants.find(t => t.id === selectedTenant)?.name;
-      
+
       const prompt = `Perform a comprehensive deep analytics analysis for ${scopeName}:
 
 **User Metrics:**
@@ -82,7 +82,7 @@ export default function AIAnalyticsDashboard() {
 - Total Tasks: ${filteredTasks.length}
 - Completed: ${filteredTasks.filter(t => t.status === 'completed').length}
 - In Progress: ${filteredTasks.filter(t => t.status === 'in_progress').length}
-- Todo: ${filteredTasks.filter(t => t.status === 'todo').length}
+- To Do: ${filteredTasks.filter(t => t.status === 'todo').length}
 - Completion Rate: ${filteredTasks.length > 0 ? ((filteredTasks.filter(t => t.status === 'completed').length / filteredTasks.length) * 100).toFixed(1) : 0}%
 
 **Activity Metrics:**

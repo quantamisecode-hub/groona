@@ -1,6 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { generateProjectReportPDF } from "./PDFReportGenerator";
 import { jsPDF } from "jspdf";
@@ -796,129 +795,134 @@ FORMATTING RULES:
   };
 
   return (
-    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <CardTitle className="flex items-center gap-3">
-            <Avatar className="h-8 w-8 border border-slate-200">
-              <AvatarImage src={project.logo_url} />
-              <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
-                {project.name.substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            Project Summary Report: {project.name}
-          </CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={scheduleReport}
-              disabled={isScheduling}
-              className="border-slate-200"
-            >
-              {isScheduling ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Clock className="h-4 w-4 mr-2" />
-                  Email Report
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={downloadReport}
-              className="border-slate-200"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
+    <div className="bg-white border border-slate-200 rounded-[32px] shadow-sm p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-all duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-14 w-14 rounded-[18px] border border-slate-200/60 shadow-sm">
+            <AvatarImage src={project.logo_url} />
+            <AvatarFallback className="bg-blue-600 text-[12px] text-white font-black">
+              {project.name.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-normal mb-1">
+              Project Report
+            </h2>
+            <p className="text-sm font-bold text-slate-500">{project.name}</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6" ref={reportRef}>
-        <div className="bg-white p-2">
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={scheduleReport}
+            disabled={isScheduling}
+            className="border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl px-4 shadow-sm"
+          >
+            {isScheduling ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Email Report
+              </>
+            )}
+          </Button>
+          <Button
+            size="sm"
+            onClick={downloadReport}
+            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 shadow-sm"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-8" ref={reportRef}>
+        <div>
           {/* Overview */}
-          <div className="p-6 rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Project Overview</h3>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Status</p>
-                <Badge className="bg-blue-100 text-blue-700 border-blue-200 border capitalize">
-                  {project.status?.replace('_', ' ')}
-                </Badge>
+          <div className="p-6 md:p-8 rounded-[32px] bg-slate-50/50 border border-slate-200/60 shadow-sm relative overflow-hidden group">
+
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Project Overview</h3>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-y-10 gap-x-8">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</p>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <p className="font-black text-slate-900 text-sm uppercase tracking-wider">{project.status?.replace('_', ' ')}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Progress</p>
-                <p className="text-2xl font-bold text-slate-900">{analytics.completionRate}%</p>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Progress</p>
+                <p className="text-2xl font-black text-slate-900 tracking-normal leading-none">{analytics.completionRate}%</p>
               </div>
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Priority</p>
-                <Badge variant="outline" className="capitalize font-semibold">
-                  {project.priority || 'medium'}
-                </Badge>
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Priority</p>
+                <p className="font-black text-slate-900 text-sm uppercase tracking-wider">{project.priority || 'medium'}</p>
               </div>
 
               {project.client_id && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Client</p>
-                  <p className="font-semibold text-slate-900 text-sm">
-                    {clients.find(c => c.id === project.client_id)?.name || 'Unknown Client'}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client</p>
+                  <p className="font-black text-slate-900 text-sm tracking-normal">
+                    {clients.find(c => c.id === project.client_id)?.name || 'Unknown'}
                   </p>
                 </div>
               )}
 
               {project.workspace_id && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Workspace</p>
-                  <p className="font-semibold text-slate-900 text-sm">
-                    {workspaces.find(w => w.id === project.workspace_id)?.name || 'Default Workspace'}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace</p>
+                  <p className="font-black text-slate-900 text-sm tracking-normal">
+                    {workspaces.find(w => w.id === project.workspace_id)?.name || 'Default'}
                   </p>
                 </div>
               )}
 
               {project.billing_model && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Billing Model</p>
-                  <p className="font-semibold text-slate-900 text-sm capitalize">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Billing Model</p>
+                  <p className="font-black text-slate-900 text-sm capitalize tracking-normal">
                     {project.billing_model.replace('_', ' ')}
                   </p>
                 </div>
               )}
 
               {(project.contract_amount || project.budget) && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Budget / Contract</p>
-                  <p className="font-bold text-emerald-600">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Budget / Contract</p>
+                  <p className="font-black text-emerald-600 text-sm tracking-normal">
                     {project.currency || '$'}{Number(project.contract_amount || project.budget).toLocaleString()}
                   </p>
                 </div>
               )}
 
               {project.deadline && (
-                <div>
-                  <p className="text-sm text-slate-600 mb-1">Deadline</p>
-                  <p className="font-semibold text-slate-900">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deadline</p>
+                  <p className="font-black text-slate-900 text-sm tracking-normal">
                     {format(new Date(project.deadline), 'MMM d, yyyy')}
                   </p>
                 </div>
               )}
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Created</p>
-                <p className="font-semibold text-slate-900">
+
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Created</p>
+                <p className="font-black text-slate-600 text-sm tracking-normal">
                   {format(new Date(project.created_date), 'MMM d, yyyy')}
                 </p>
               </div>
             </div>
 
             {project.description && (
-              <div className="mt-6 pt-4 border-t border-blue-100">
-                <p className="text-sm text-slate-600 mb-1">Description</p>
-                <div className="text-slate-800 text-sm line-clamp-3">
+              <div className="mt-10 pt-6 border-t border-slate-200/60">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Project Description</p>
+                <div className="text-slate-700 text-sm font-medium leading-relaxed max-w-4xl">
                   <ReactMarkdown>{project.description}</ReactMarkdown>
                 </div>
               </div>
@@ -927,63 +931,63 @@ FORMATTING RULES:
 
           {/* Key Metrics */}
           <div>
-            <h3 className="text-lg font-bold text-slate-900 my-8 mb-4">Key Metrics</h3>
+            <h3 className="text-base font-black text-slate-900 mt-8 mb-4 tracking-normal">Key Metrics</h3>
             <div className="grid md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <p className="text-sm font-medium text-slate-600">Completed</p>
+              <div className="p-4 rounded-2xl bg-green-50/50 border border-green-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Completed</p>
                 </div>
-                <p className="text-2xl font-bold text-green-600">{analytics.completedTasks.length}</p>
+                <p className="text-3xl font-black text-green-600 tracking-normal">{analytics.completedTasks.length}</p>
               </div>
 
-              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
-                  <p className="text-sm font-medium text-slate-600">In Progress</p>
+              <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">In Progress</p>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">{analytics.tasksByStatus.in_progress}</p>
+                <p className="text-3xl font-black text-blue-600 tracking-normal">{analytics.tasksByStatus.in_progress}</p>
               </div>
 
-              <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="h-5 w-5 text-amber-600" />
-                  <p className="text-sm font-medium text-slate-600">Pending</p>
+              <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="h-4 w-4 text-amber-600" />
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Pending</p>
                 </div>
-                <p className="text-2xl font-bold text-amber-600">{analytics.tasksByStatus.todo}</p>
+                <p className="text-3xl font-black text-amber-500 tracking-normal">{analytics.tasksByStatus.todo}</p>
               </div>
 
-              <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-5 w-5 text-red-600" />
-                  <p className="text-sm font-medium text-slate-600">Overdue</p>
+              <div className="p-4 rounded-2xl bg-red-50/50 border border-red-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Overdue</p>
                 </div>
-                <p className="text-2xl font-bold text-red-600">{analytics.overdueTasks.length}</p>
+                <p className="text-3xl font-black text-red-600 tracking-normal">{analytics.overdueTasks.length}</p>
               </div>
             </div>
           </div>
 
           {/* Team Information */}
           <div>
-            <h3 className="text-lg font-bold text-slate-900 my-8 mb-4">Team</h3>
-            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-3 mb-2">
+            <h3 className="text-base font-black text-slate-900 mt-8 mb-4 tracking-normal">Team</h3>
+            <div className="p-5 sm:p-6 rounded-[32px] bg-slate-50/50 border border-slate-200">
+              <div className="flex items-center gap-3 mb-4">
                 <Users className="h-5 w-5 text-slate-600" />
-                <p className="font-semibold text-slate-900">
+                <p className="font-black text-slate-900 text-sm tracking-normal">
                   {analytics.assignedUsers.length} Team Member{analytics.assignedUsers.length !== 1 ? 's' : ''} Assigned
                 </p>
               </div>
               {analytics.assignedUsers.length > 0 ? (
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap gap-2">
                   {analytics.assignedUsers.map((email, index) => {
                     const profile = userMap[email];
                     return (
-                      <Badge key={index} variant="outline" className="bg-white px-3 py-1">
+                      <Badge key={index} variant="outline" className="bg-white px-3 py-1.5 shadow-sm border-slate-200 rounded-lg">
                         {profile ? (
-                          <span className="flex items-center gap-1">
-                            <span className="font-semibold">{profile.name}</span>
-                            <span className="text-slate-400 mx-1">|</span>
-                            <span className="text-slate-600 text-xs">{profile.title}</span>
+                          <span className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 tracking-normal">{profile.name}</span>
+                            <span className="text-slate-300">|</span>
+                            <span className="text-slate-500 text-[10px] uppercase font-black tracking-widest leading-none">{profile.title}</span>
                           </span>
                         ) : email}
                       </Badge>
@@ -991,29 +995,31 @@ FORMATTING RULES:
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-slate-600">No tasks assigned yet</p>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No tasks assigned yet</p>
               )}
             </div>
           </div>
 
           {/* Reports List Pane and AI Report Section */}
-          <div className="border-slate-200 pt-6 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="border-t border-slate-100 pt-8 mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Pane - Reports List */}
               <div className="lg:col-span-1">
                 <div className="sticky top-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                      <History className="h-5 w-5 text-purple-600" />
-                      Report History
-                    </h3>
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                        <History className="h-4 w-4" strokeWidth={2.5} />
+                      </div>
+                      <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Report History</h3>
+                    </div>
+                    <Badge className="bg-slate-100 text-slate-600 font-bold text-[10px] px-2 shadow-none border-none">
                       {previousReports.length}
                     </Badge>
                   </div>
-                  <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 max-h-[300px] lg:max-h-[600px] overflow-y-auto">
+                  <div className="max-h-[300px] lg:max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
                     {previousReports.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {previousReports.map((report) => (
                           <div
                             key={report.id}
@@ -1022,24 +1028,24 @@ FORMATTING RULES:
                               setAiReport(report.report_content);
                               setDisplayedReport(report.report_content);
                             }}
-                            className={`p-3 rounded-lg border cursor-pointer transition-all ${selectedReport?.id === report.id
-                              ? 'bg-purple-100 border-purple-400 shadow-md'
-                              : 'bg-white border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                            className={`p-4 rounded-[20px] border cursor-pointer transition-all ${selectedReport?.id === report.id
+                              ? 'bg-[#F9FAFB] border-slate-300 shadow-sm ring-1 ring-slate-200'
+                              : 'bg-white border-slate-200 hover:bg-slate-50'
                               }`}
                           >
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <FileText className="h-4 w-4 text-purple-600 flex-shrink-0" />
-                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <FileText className={`h-4 w-4 flex-shrink-0 ${selectedReport?.id === report.id ? 'text-indigo-600' : 'text-slate-400'}`} />
+                                  <p className="text-sm font-bold text-slate-900 truncate tracking-normal">
                                     {report.project_name}
                                   </p>
                                 </div>
-                                <div className="text-xs text-slate-600 space-y-1">
+                                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider space-y-1">
                                   <p className="truncate">
                                     By: {report.generated_by_name || report.generated_by}
                                   </p>
-                                  <p>{format(new Date(report.created_date), 'MMM d, yyyy HH:mm')}</p>
+                                  <p>{format(new Date(report.created_date), 'MMM d, pyyy HH:mm')}</p>
                                 </div>
                               </div>
                               <div className="flex gap-1">
@@ -1095,10 +1101,10 @@ FORMATTING RULES:
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                        <p className="text-sm text-slate-600">No reports yet</p>
-                        <p className="text-xs text-slate-500 mt-1">Generate a report to see it here</p>
+                      <div className="text-center py-12 px-4 rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50">
+                        <FileText className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+                        <p className="text-sm font-bold text-slate-900 tracking-normal">No reports yet</p>
+                        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mt-1">Generate a report</p>
                       </div>
                     )}
                   </div>
@@ -1107,11 +1113,11 @@ FORMATTING RULES:
 
               {/* Right Pane - AI Report Display */}
               <div className="lg:col-span-2" ref={reportContainerRef}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-                  <h3 className="text-lg font-bold text-slate-900 flex items-center flex-wrap gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                  <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center flex-wrap gap-2 tracking-normal">
                     AI-Generated Executive Report
                     {isStreaming && (
-                      <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-200 text-xs animate-pulse whitespace-nowrap">
+                      <Badge className="bg-blue-100 text-blue-700 font-bold text-[10px] uppercase tracking-widest px-2 animate-pulse whitespace-nowrap border-none shadow-none ml-2">
                         Generating...
                       </Badge>
                     )}
@@ -1154,7 +1160,7 @@ FORMATTING RULES:
                     <Button
                       onClick={generateAIReport}
                       disabled={isGenerating}
-                      className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white flex-1 sm:flex-none whitespace-nowrap"
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none whitespace-nowrap rounded-xl shadow-sm border border-blue-600"
                     >
                       {isGenerating ? (
                         <>
@@ -1172,21 +1178,21 @@ FORMATTING RULES:
                 </div>
 
                 {(aiReport || displayedReport || isGenerating) ? (
-                  <div className="p-6 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200">
+                  <div className="p-6 md:p-10 rounded-[32px] bg-white border border-slate-200 shadow-sm relative">
                     <div className="prose prose-sm max-w-none">
                       <ReactMarkdown
                         components={{
-                          h1: ({ children }) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4 pb-2 border-b-2 border-purple-200">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-xl font-semibold text-slate-900 mt-5 mb-3">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-lg font-semibold text-slate-900 mt-4 mb-2">{children}</h3>,
-                          p: ({ children }) => <p className="text-slate-700 mb-3 leading-relaxed">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-outside ml-5 text-slate-700 space-y-1 mb-4">{children}</ol>,
-                          li: ({ children }) => <li className="text-slate-700 pl-1">{children}</li>,
+                          h1: ({ children }) => <h1 className="text-3xl font-black text-slate-900 mt-2 mb-6 tracking-normal">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-xl font-bold text-slate-900 mt-8 mb-4 tracking-normal">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mt-8 mb-3">{children}</h3>,
+                          p: ({ children }) => <p className="text-slate-600 mb-5 leading-relaxed font-medium">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc list-outside ml-4 text-slate-600 space-y-2 mb-6 font-medium">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-outside ml-4 text-slate-600 space-y-2 mb-6 font-medium">{children}</ol>,
+                          li: ({ children }) => <li className="pl-1 text-slate-600 marker:text-slate-400">{children}</li>,
                           strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
-                          em: ({ children }) => <em className="italic text-slate-600">{children}</em>,
+                          em: ({ children }) => <em className="italic text-slate-500">{children}</em>,
                           blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-purple-400 pl-4 italic text-slate-700 my-4 bg-white/50 py-2">
+                            <blockquote className="border-l-2 border-slate-300 pl-6 py-2 italic text-slate-600 my-8 bg-slate-50/50 rounded-r-2xl">
                               {children}
                             </blockquote>
                           ),
@@ -1195,21 +1201,23 @@ FORMATTING RULES:
                         {preprocessMarkdown(displayedReport || aiReport || "")}
                       </ReactMarkdown>
                       {isStreaming && (
-                        <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
+                        <span className="inline-block w-2 h-4 bg-blue-600 ml-1 animate-pulse">|</span>
                       )}
                       {/* Precise scroll anchor */}
                       <div ref={scrollAnchorRef} className="h-px w-full" />
                     </div>
                   </div>
                 ) : (
-                  <div className="p-12 text-center border-2 border-dashed border-purple-200 rounded-xl bg-purple-50/30">
-                    <Sparkles className="h-16 w-16 mx-auto mb-4 text-purple-300" />
-                    <h4 className="font-semibold text-slate-900 mb-2">AI-Powered Executive Report</h4>
-                    <p className="text-slate-600 mb-4">
+                  <div className="p-16 text-center border border-slate-200 rounded-[32px] bg-[#F9FAFB] flex flex-col items-center justify-center min-h-[400px]">
+                    <div className="h-16 w-16 mb-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                      <Sparkles className="h-8 w-8 text-slate-400" />
+                    </div>
+                    <h4 className="font-black text-slate-900 mb-3 tracking-normal text-xl">AI-Powered Executive Report</h4>
+                    <p className="text-sm font-medium text-slate-500 mb-8 max-w-sm mx-auto leading-relaxed">
                       {selectedReport ? 'Select a report from the list to view it here' : 'Generate a comprehensive report with insights, recommendations, and strategic analysis'}
                     </p>
                     {!selectedReport && (
-                      <p className="text-sm text-slate-500">
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 max-w-md mx-auto leading-relaxed">
                         Includes: Executive Summary • Key Achievements • Bottlenecks • Risk Assessment • Team Performance • Strategic Recommendations
                       </p>
                     )}
@@ -1219,7 +1227,7 @@ FORMATTING RULES:
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

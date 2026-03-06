@@ -8,9 +8,20 @@ import { motion } from "framer-motion";
 export default function CompanyTypeStep({ tenant, user, onNext }) {
   const [companyName, setCompanyName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
+  const [errors, setErrors] = useState({ companyName: false, workspaceName: false });
 
   const handleNext = () => {
-    if (!companyName.trim() || !workspaceName.trim()) return;
+    const newErrors = {
+      companyName: !companyName.trim(),
+      workspaceName: !workspaceName.trim()
+    };
+
+    setErrors(newErrors);
+
+    if (newErrors.companyName || newErrors.workspaceName) {
+      return;
+    }
+
     onNext({
       company_type: "SOFTWARE",
       company_name: companyName.trim(),
@@ -45,28 +56,50 @@ export default function CompanyTypeStep({ tenant, user, onNext }) {
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="space-y-2 text-left">
-            <Label htmlFor="companyName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
-              Organization Name
-            </Label>
+            <div className="flex justify-between items-end mb-1">
+              <Label htmlFor="companyName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+                Organization Name
+              </Label>
+              {errors.companyName && (
+                <span className="text-[10px] font-bold uppercase text-red-500 mr-1">
+                  Field required
+                </span>
+              )}
+            </div>
             <Input
               id="companyName"
               placeholder="e.g. Acme Corp"
               value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all"
+              onChange={(e) => {
+                setCompanyName(e.target.value);
+                if (errors.companyName) setErrors({ ...errors, companyName: false });
+              }}
+              className={`h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all ${errors.companyName ? "border-red-500 ring-red-500/20" : ""
+                }`}
             />
           </div>
 
           <div className="space-y-2 text-left">
-            <Label htmlFor="workspaceName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
-              Workspace Identifier
-            </Label>
+            <div className="flex justify-between items-end mb-1">
+              <Label htmlFor="workspaceName" className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+                Workspace Identifier
+              </Label>
+              {errors.workspaceName && (
+                <span className="text-[10px] font-bold uppercase text-red-500 mr-1">
+                  Field required
+                </span>
+              )}
+            </div>
             <Input
               id="workspaceName"
               placeholder="e.g. General"
               value={workspaceName}
-              onChange={(e) => setWorkspaceName(e.target.value)}
-              className="h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all"
+              onChange={(e) => {
+                setWorkspaceName(e.target.value);
+                if (errors.workspaceName) setErrors({ ...errors, workspaceName: false });
+              }}
+              className={`h-12 border-slate-200 focus:border-blue-600 focus:ring-blue-600 rounded-xl transition-all ${errors.workspaceName ? "border-red-500 ring-red-500/20" : ""
+                }`}
             />
           </div>
         </div>
@@ -80,7 +113,6 @@ export default function CompanyTypeStep({ tenant, user, onNext }) {
       >
         <Button
           onClick={handleNext}
-          disabled={!companyName.trim() || !workspaceName.trim()}
           size="lg"
           className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 hover:from-blue-700 hover:to-slate-950 text-white rounded-xl px-10 h-14 font-semibold group"
         >

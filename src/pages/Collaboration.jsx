@@ -70,8 +70,6 @@ export default function CollaborationPage() {
   // Create document mutation
   const createDocumentMutation = useMutation({
     mutationFn: async (data) => {
-      console.log('[Collaboration] Creating document with data:', data);
-
       const doc = await groonabackend.entities.Document.create({
         ...data,
         tenant_id: effectiveTenantId,
@@ -80,9 +78,6 @@ export default function CollaborationPage() {
         last_edited_by: currentUser.email,
         last_edited_at: new Date().toISOString(),
       });
-
-      console.log('[Collaboration] Document created:', doc);
-
       // Create activity
       try {
         await groonabackend.entities.Activity.create({
@@ -95,10 +90,7 @@ export default function CollaborationPage() {
           user_email: currentUser.email,
           user_name: currentUser.full_name,
         });
-      } catch (activityError) {
-        console.error('[Collaboration] Activity creation failed:', activityError);
-      }
-
+      } catch (activityError) { }
       return doc;
     },
     onSuccess: () => {
@@ -107,7 +99,6 @@ export default function CollaborationPage() {
       toast.success("Document created successfully!");
     },
     onError: (error) => {
-      console.error('[Collaboration] Document creation error:', error);
       toast.error("Failed to create document: " + (error.message || "Unknown error"));
     },
   });
@@ -115,16 +106,11 @@ export default function CollaborationPage() {
   // Update document mutation
   const updateDocumentMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      console.log('[Collaboration] Updating document:', id, data);
-
       const doc = await groonabackend.entities.Document.update(id, {
         ...data,
         last_edited_by: currentUser.email,
         last_edited_at: new Date().toISOString(),
       });
-
-      console.log('[Collaboration] Document updated:', doc);
-
       // Create activity
       try {
         await groonabackend.entities.Activity.create({
@@ -137,10 +123,7 @@ export default function CollaborationPage() {
           user_email: currentUser.email,
           user_name: currentUser.full_name,
         });
-      } catch (activityError) {
-        console.error('[Collaboration] Activity update failed:', activityError);
-      }
-
+      } catch (activityError) { }
       return doc;
     },
     onSuccess: () => {
@@ -149,7 +132,6 @@ export default function CollaborationPage() {
       toast.success("Document updated successfully!");
     },
     onError: (error) => {
-      console.error('[Collaboration] Document update error:', error);
       toast.error("Failed to update document: " + (error.message || "Unknown error"));
     },
   });
@@ -214,82 +196,89 @@ export default function CollaborationPage() {
         featureArea="collaboration"
         userRole={userRole}
       />
-      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
-        <div className="max-w-10xl mx-auto w-full flex flex-col relative h-full">
+      <div className="flex flex-col bg-[#f8f9fa] w-full relative z-0 min-h-screen overflow-hidden">
+        <div className="max-w-[1400px] mx-auto w-full flex flex-col relative h-full">
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setView('list'); }} className="flex flex-col h-full">
             {/* Sticky Header Section */}
-            <div className="sticky top-0 z-30 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0">
-              <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
+            <div className="sticky top-0 z-30 bg-[#f8f9fa] flex-shrink-0 pt-8 pb-4">
+              <div className="px-6 md:px-12 lg:px-16">
                 {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                  <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-slate-900 mb-2">
-                      Collaboration Hub
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-6">
+                  <div className="space-y-1">
+                    <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                      Collaboration
                     </h1>
-                    <p className="text-slate-600 text-lg">
-                      Create documents, share files, and chat with your team in real-time
+                    <p className="text-[15px] font-medium text-slate-500">
+                      Create documents, share files, and organize team knowledge
                     </p>
                   </div>
-                </div>
 
-                {/* Tabs and Controls */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <TabsList className="bg-white/80 backdrop-blur-xl">
-                    <TabsTrigger value="documents" className="flex items-center gap-2">
+                  {/* Tab Toggles (Apple Style Pill) */}
+                  <TabsList className="bg-slate-200/60 p-1 rounded-2xl h-12 shadow-inner border border-slate-200/50">
+                    <TabsTrigger
+                      value="documents"
+                      className="flex items-center gap-2 rounded-xl h-10 px-6 font-semibold data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300"
+                    >
                       <FileText className="h-4 w-4" />
                       Documents
                     </TabsTrigger>
-                    <TabsTrigger value="files" className="flex items-center gap-2">
+                    <TabsTrigger
+                      value="files"
+                      className="flex items-center gap-2 rounded-xl h-10 px-6 font-semibold data-[state=active]:bg-white data-[state=active]:text-blue-700 data-[state=active]:shadow-sm transition-all duration-300"
+                    >
                       <Upload className="h-4 w-4" />
                       Files
                     </TabsTrigger>
                   </TabsList>
+                </div>
 
-                  {activeTab === 'documents' && (
-                    <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto md:ml-auto">
-                      <div className="relative w-full sm:w-[200px]">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder="Search documents..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="pl-10 h-9"
-                        />
-                      </div>
+                {/* Filter & Action Controls */}
+                {activeTab === 'documents' && (
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full">
+                    <div className="relative w-full sm:w-[320px]">
+                      <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        placeholder="Search documents by title..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 h-11 bg-white border-slate-200/80 focus-visible:ring-blue-500/20 focus-visible:border-blue-500 transition-all rounded-[14px] text-[15px] placeholder:text-slate-400 shadow-sm"
+                      />
+                    </div>
 
-                      <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                        <SelectTrigger className="w-full sm:w-[140px] h-9">
-                          <SelectValue placeholder="Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          <SelectItem value="general">General</SelectItem>
-                          <SelectItem value="requirements">Requirements</SelectItem>
-                          <SelectItem value="technical">Technical</SelectItem>
-                          <SelectItem value="meeting_notes">Meeting Notes</SelectItem>
-                          <SelectItem value="process">Process</SelectItem>
-                          <SelectItem value="guide">Guide</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="w-full sm:w-[160px] h-11 bg-white border-slate-200/80 shadow-sm hover:border-slate-300 transition-colors rounded-[14px] text-[15px]">
+                        <SelectValue placeholder="Categories" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="requirements">Requirements</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                        <SelectItem value="meeting_notes">Meeting Notes</SelectItem>
+                        <SelectItem value="process">Process</SelectItem>
+                        <SelectItem value="guide">Guide</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-                      {canCreateDocs && (
+                    {canCreateDocs && (
+                      <div className="md:ml-auto w-full sm:w-auto mt-2 sm:mt-0">
                         <Button
                           onClick={() => { setSelectedDocument(null); setView('create'); }}
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-9 w-full sm:w-auto"
+                          className="w-full sm:w-auto h-11 rounded-lg bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white font-bold transition-all active:scale-95 gap-2 px-6"
                         >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Document
+                          <Plus className="h-4 w-4" />
+                          New Document
                         </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <div className="px-3 pb-24 md:pb-32 pt-3">
+            <div className="flex-1 overflow-y-auto min-h-0 bg-[#f8f9fa]">
+              <div className="px-6 md:px-12 lg:px-16 pt-6 pb-24 md:pb-32">
                 {/* Documents Tab */}
                 <TabsContent value="documents" className="mt-0">
                   {view === 'list' && (
@@ -326,11 +315,13 @@ export default function CollaborationPage() {
 
                 {/* Files Tab */}
                 <TabsContent value="files" className="mt-0">
-                  {/* Allow all team members to upload files, not just those with can_upload_files permission */}
-                  <FileUploadManager
-                    files={files}
-                    onFileUploaded={() => queryClient.invalidateQueries({ queryKey: ['project-files', effectiveTenantId] })}
-                  />
+                  <div className="bg-white border text-center border-slate-200/60 rounded-[24px] shadow-sm p-2 w-full">
+                    {/* Allow all team members to upload files, not just those with can_upload_files permission */}
+                    <FileUploadManager
+                      files={files}
+                      onFileUploaded={() => queryClient.invalidateQueries({ queryKey: ['project-files', effectiveTenantId] })}
+                    />
+                  </div>
                 </TabsContent>
               </div>
             </div>

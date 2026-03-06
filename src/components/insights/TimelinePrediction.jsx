@@ -1,9 +1,9 @@
 import React from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Clock, TrendingUp, Calendar, Activity, Target, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { motion } from "framer-motion";
 import { format, addDays, differenceInDays, startOfDay } from "date-fns";
 
 export default function TimelinePrediction({ project, tasks, stories = [], activities = [], compact = false }) {
@@ -159,177 +159,220 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
 
   if (compact) {
     return (
-      <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            Timeline Prediction
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className={`p-4 rounded-xl ${statusStyle.bg} border ${statusStyle.border}`}>
-            <div className="flex items-center gap-3">
-              <Calendar className={`h-8 w-8 ${statusStyle.text}`} />
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Estimated Completion</p>
-                <p className="text-lg font-bold text-slate-900">
-                  {format(prediction.predictedDate, 'MMM d, yyyy')}
-                </p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {prediction.estimatedDays} days from now
-                </p>
-              </div>
-            </div>
+      <div className="bg-white border border-slate-200 rounded-[32px] shadow-sm p-6 relative overflow-hidden transition-all duration-300 hover:shadow-md">
+        <div className="flex items-center gap-4 mb-6">
+          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${statusStyle.bg} ${statusStyle.text} shadow-sm border ${statusStyle.border}`}>
+            <Clock className="h-6 w-6" />
           </div>
+          <div>
+            <h3 className="font-black text-slate-900 tracking-normal text-lg leading-tight">Timeline Prediction</h3>
+            <p className={`text-[10px] font-black uppercase tracking-widest mt-0.5 ${statusStyle.text}`}>{prediction.estimatedDays} days from now</p>
+          </div>
+        </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600">Progress</span>
-              <span className="font-semibold">{prediction.completionRate}%</span>
-            </div>
-            <Progress value={parseInt(prediction.completionRate)} className="h-2" />
+        <div className="mb-6 flex flex-col justify-center">
+          <p className="text-3xl font-black text-slate-900 tracking-normal">
+            {format(prediction.predictedDate, 'MMM d, yyyy')}
+          </p>
+        </div>
+
+        <div className="space-y-2 w-full">
+          <div className="flex justify-between items-center w-full">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Progress</span>
+            <span className="text-sm font-black text-blue-600">{prediction.completionRate}%</span>
           </div>
-        </CardContent>
-      </Card>
+          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${prediction.completionRate}%` }}
+              transition={{ duration: 1, ease: "easeOut" }}
+              className="h-full bg-blue-600 rounded-full"
+            />
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <Avatar className="h-8 w-8 border border-slate-200">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-12 w-12 rounded-2xl border-2 border-white shadow-md">
             <AvatarImage src={project.logo_url} />
-            <AvatarFallback className="bg-gradient-to-br from-purple-500 to-indigo-600 text-[10px] text-white font-bold">
+            <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-black text-xs">
               {project.name.substring(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          Advanced Timeline Prediction: {project.name}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className={`p-6 rounded-xl ${statusStyle.bg} border-2 ${statusStyle.border}`}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Calendar className={`h-12 w-12 ${statusStyle.text}`} />
+          <div>
+            <h2 className="text-2xl font-black text-slate-900 tracking-normal">Advanced Timeline Prediction</h2>
+            <p className="text-sm font-medium text-slate-500">Telemetry for <span className="text-blue-600 font-bold">{project.name}</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6">
+        {/* Main Banner */}
+        <div className={`rounded-[32px] ${statusStyle.bg} border border-2 ${statusStyle.border} p-8 flex flex-col relative overflow-hidden shadow-sm`}>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 w-full">
+            <div className="flex items-center gap-6">
+              <div className={`h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-white/60 flex items-center justify-center border border-white backdrop-blur-sm shadow-sm flex-shrink-0 ${statusStyle.text}`}>
+                <Calendar className="h-8 w-8 sm:h-10 sm:w-10" />
+              </div>
               <div>
-                <p className="text-sm font-medium text-slate-600">Predicted Completion Date</p>
-                <p className="text-3xl font-bold text-slate-900">
+                <p className={`text-[11px] font-black uppercase tracking-widest ${statusStyle.text} opacity-80 mb-1`}>Predicted Completion Date</p>
+                <p className={`text-4xl sm:text-5xl font-black tracking-normal ${statusStyle.text}`}>
                   {format(prediction.predictedDate, 'MMM d, yyyy')}
                 </p>
-                <p className="text-sm text-slate-600 mt-1">
+                <p className="text-sm font-bold opacity-60 text-slate-700 mt-1">
                   {prediction.estimatedDays} days from now
                 </p>
               </div>
             </div>
-            <div className="text-right">
-              <Badge className={`${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} border text-sm px-3 py-1 mb-2`}>
-                {prediction.status.replace('-', ' ').toUpperCase()}
+
+            <div className="flex flex-col items-start md:items-end gap-2">
+              <Badge className={`px-4 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-widest border shadow-none bg-white/60 backdrop-blur-sm ${statusStyle.text} ${statusStyle.border}`}>
+                {prediction.status.replace('-', ' ')}
               </Badge>
-              <p className="text-xs text-slate-600">Confidence: {prediction.confidence}</p>
-              <Progress value={prediction.confidenceScore} className="w-24 h-2 mt-1" />
+              <div className="w-full md:w-48 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${statusStyle.text} opacity-80`}>Confidence:</span>
+                  <span className={`text-[10px] font-black uppercase tracking-widest ${statusStyle.text} opacity-80`}>{prediction.confidence}</span>
+                </div>
+                <div className="w-full bg-white/40 h-2 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${prediction.confidenceScore}%` }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                    className={`h-full ${statusStyle.text.replace('text', 'bg')} rounded-full`}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className={`p-4 rounded-lg bg-white/70 border ${statusStyle.border}`}>
-            <p className="text-sm font-medium text-slate-900">{prediction.message}</p>
+          <div className="mt-6 relative z-10 w-full">
+            <div className={`w-full p-4 rounded-2xl bg-white/70 border backdrop-blur-md shadow-sm ${statusStyle.border}`}>
+              <p className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-current opacity-60"></span>
+                {prediction.message}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-            <div className="flex items-center gap-3 mb-2">
-              <Zap className="h-5 w-5 text-blue-600" />
-              <p className="font-semibold text-slate-900">Current Velocity</p>
+        {/* Metrics Row */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-[32px] p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Zap className="h-5 w-5 text-blue-600" />
+                <p className="text-sm font-black uppercase tracking-widest text-slate-900">Current Velocity</p>
+              </div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <p className="text-5xl font-black tracking-normal text-blue-600">{prediction.velocity}</p>
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">tasks per day (weighted avg)</p>
             </div>
-            <p className="text-2xl font-bold text-blue-600">{prediction.velocity}</p>
-            <p className="text-xs text-slate-600">tasks per day (weighted avg)</p>
-            <div className="mt-2 pt-2 border-t border-blue-200">
-              <p className="text-xs text-slate-600">Trend:
-                <span className={`font-semibold ml-1 ${prediction.velocityTrend === 'accelerating' ? 'text-green-600' :
-                  prediction.velocityTrend === 'decelerating' ? 'text-red-600' : 'text-blue-600'
-                  }`}>
-                  {prediction.velocityTrend}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
-            <div className="flex items-center gap-3 mb-2">
-              <Activity className="h-5 w-5 text-purple-600" />
-              <p className="font-semibold text-slate-900">Completion Rate</p>
-            </div>
-            <p className="text-2xl font-bold text-purple-600">{prediction.completionRate}%</p>
-            <p className="text-xs text-slate-600">of tasks completed</p>
-            <div className="mt-2 pt-2 border-t border-purple-200">
-              <p className="text-xs text-slate-600">
-                Recent: {prediction.recentWeekVelocity} tasks/week
-              </p>
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Trend:</p>
+              <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg ${prediction.velocityTrend === 'accelerating' ? 'bg-green-50 text-green-600' :
+                prediction.velocityTrend === 'decelerating' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                }`}>
+                {prediction.velocityTrend}
+              </span>
             </div>
           </div>
 
-          <div className="p-4 rounded-lg bg-green-50 border border-green-200">
-            <div className="flex items-center gap-3 mb-2">
-              <Target className="h-5 w-5 text-green-600" />
-              <p className="font-semibold text-slate-900">Confidence</p>
+          <div className="bg-white rounded-[32px] p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Activity className="h-5 w-5 text-purple-600" />
+                <p className="text-sm font-black uppercase tracking-widest text-slate-900">Completion Rate</p>
+              </div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <p className="text-5xl font-black tracking-normal text-purple-600">{prediction.completionRate}<span className="text-2xl">%</span></p>
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">of tasks completed</p>
             </div>
-            <p className="text-2xl font-bold text-green-600 capitalize">{prediction.confidence}</p>
-            <p className="text-xs text-slate-600">{prediction.confidenceScore}% accurate</p>
-            <div className="mt-2 pt-2 border-t border-green-200">
-              <Progress value={prediction.confidenceScore} className="h-2" />
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Recent Velocity:</p>
+              <span className="text-xs font-bold text-slate-700">{prediction.recentWeekVelocity} tasks/week</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[32px] p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <Target className="h-5 w-5 text-green-600" />
+                <p className="text-sm font-black uppercase tracking-widest text-slate-900">Confidence</p>
+              </div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <p className="text-5xl font-black tracking-normal text-green-600 capitalize">{prediction.confidence}</p>
+              </div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{prediction.confidenceScore}% accurate</p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
+              <Progress value={prediction.confidenceScore} className="h-2 bg-slate-100 [&>div]:bg-green-500" />
             </div>
           </div>
         </div>
 
         {/* Detailed Velocity Analysis */}
-        <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-          <h4 className="font-semibold text-slate-900 mb-3">Velocity Analysis</h4>
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-slate-600 mb-2">Recent Velocity (Last 30 days)</p>
-              <div className="flex items-center justify-between">
-                <p className="text-lg font-bold text-slate-900">{prediction.recentVelocity} tasks/day</p>
-                <Badge variant="outline" className="text-xs">
+        <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-slate-200 shadow-sm">
+          <h4 className="font-black text-slate-900 text-sm mb-6 uppercase tracking-widest">Velocity Analysis</h4>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Recent Velocity (Last 30 days)</p>
+              <div className="flex items-center gap-4">
+                <p className="text-3xl font-black tracking-normal text-slate-900">{prediction.recentVelocity} <span className="text-base font-bold text-slate-500 tracking-normal">tasks/day</span></p>
+                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200 font-bold">
                   {prediction.velocityTrend === 'accelerating' ? '↑' : prediction.velocityTrend === 'decelerating' ? '↓' : '→'}
-                </Badge>
+                </div>
               </div>
             </div>
-            <div>
-              <p className="text-sm text-slate-600 mb-2">Overall Project Velocity</p>
-              <p className="text-lg font-bold text-slate-900">{prediction.overallVelocity} tasks/day</p>
+            <div className="space-y-2">
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Overall Project Velocity</p>
+              <p className="text-3xl font-black tracking-normal text-slate-900">{prediction.overallVelocity} <span className="text-base font-bold text-slate-500 tracking-normal">tasks/day</span></p>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-slate-700">Current Progress</span>
-            <span className="text-sm font-bold text-slate-900">{prediction.completionRate}%</span>
+          <div className="mt-8 pt-8 border-t border-slate-100 space-y-4">
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Current Progress</span>
+              <span className="text-sm font-black text-slate-900">{prediction.completionRate}%</span>
+            </div>
+            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${prediction.completionRate}%` }}
+                transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
+                className="h-full bg-blue-200 rounded-full"
+              />
+            </div>
           </div>
-          <Progress value={parseInt(prediction.completionRate)} className="h-3" />
         </div>
 
         {project.deadline && (
-          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-slate-700 mb-1">Original Deadline</p>
-                <p className="font-semibold text-slate-900 text-lg">
+          <div className="bg-white rounded-[32px] p-6 sm:p-8 border border-slate-200 shadow-sm">
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Original Deadline</p>
+                <p className="text-2xl font-black tracking-normal text-slate-900">
                   {format(new Date(project.deadline), 'MMM d, yyyy')}
                 </p>
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   {differenceInDays(new Date(project.deadline), new Date())} days remaining
                 </p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-700 mb-1">Schedule Buffer</p>
-                <p className={`font-semibold text-lg ${prediction.daysBuffer < 0 ? 'text-red-600' :
-                  prediction.daysBuffer < 7 ? 'text-amber-600' : 'text-green-600'
+              <div className="space-y-2 pt-6 md:pt-0 md:border-l md:border-slate-100 md:pl-8">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Schedule Buffer</p>
+                <p className={`text-2xl font-black tracking-normal ${prediction.daysBuffer < 0 ? 'text-red-500' :
+                  prediction.daysBuffer < 7 ? 'text-amber-500' : 'text-green-500'
                   }`}>
-                  {prediction.daysBuffer >= 0 ? '+' : ''}{prediction.daysBuffer} days
+                  {prediction.daysBuffer >= 0 ? '+' : ''}{prediction.daysBuffer} <span className="text-base font-bold tracking-normal opacity-80">days</span>
                 </p>
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   {prediction.daysBuffer < 0 ? 'Behind schedule' : 'Ahead of schedule'}
                 </p>
               </div>
@@ -337,30 +380,32 @@ export default function TimelinePrediction({ project, tasks, stories = [], activ
           </div>
         )}
 
-        <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
-          <div className="flex items-start gap-3">
-            <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold text-slate-900 mb-2">Prediction Method</p>
-              <p className="text-sm text-slate-700 mb-2">
-                This prediction uses a weighted algorithm combining:
-              </p>
-              <ul className="text-sm text-slate-700 space-y-1">
-                <li>• Recent velocity (50%) - tasks completed in last 30 days</li>
-                <li>• Overall velocity (30%) - project-wide completion rate</li>
-                <li>• Progress rate (20%) - percentage completion per day</li>
-              </ul>
-              <p className="text-xs text-slate-600 mt-3">
+        <div className="bg-blue-50/50 rounded-[32px] p-6 sm:p-8 border border-blue-100 flex flex-col sm:flex-row gap-6 items-start">
+          <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center border border-blue-200 shadow-sm flex-shrink-0">
+            <TrendingUp className="h-6 w-6 text-blue-600" />
+          </div>
+          <div className="flex-1 space-y-4">
+            <p className="font-black text-slate-900 text-base uppercase tracking-widest text-sm">Prediction Method</p>
+            <p className="text-sm font-medium text-slate-600 leading-relaxed">
+              This prediction uses a heavily weighted algorithmic ensemble combining:
+            </p>
+            <ul className="text-sm font-medium text-slate-600 space-y-2">
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-400" /> <span className="font-bold text-slate-800">Recent velocity (50%)</span> - output logged in last 30 days</li>
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-300" /> <span className="font-bold text-slate-800">Overall velocity (30%)</span> - lifetime project completion rate</li>
+              <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-blue-200" /> <span className="font-bold text-slate-800">Progress rate (20%)</span> - standard % completion per day</li>
+            </ul>
+            <div className="mt-4 p-4 rounded-2xl bg-white border border-blue-100 shadow-sm">
+              <p className="text-xs font-bold text-slate-500">
                 {prediction.confidence === 'high'
-                  ? 'High confidence due to consistent recent activity and sufficient data points.'
+                  ? 'Engine Status: High confidence due to robust recent activity and sufficient historical data points.'
                   : prediction.confidence === 'medium'
-                    ? 'Medium confidence - some recent activity but limited historical data.'
-                    : 'Low confidence - limited activity data. Increase team activity for more accurate predictions.'}
+                    ? 'Engine Status: Medium confidence - moderate recent activity with limited historical data context.'
+                    : 'Engine Status: Low confidence - sparse activity data. Increase workflow telemetry for higher accuracy.'}
               </p>
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

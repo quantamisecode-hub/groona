@@ -12,52 +12,39 @@ import { format } from "date-fns";
 import { PermissionGuard } from "../shared/PermissionGuard";
 import { useQuery } from "@tanstack/react-query";
 import { groonabackend } from "@/api/groonabackend";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const statusColors = {
-  planning: "bg-blue-100 text-blue-700 border-blue-200",
-  active: "bg-green-100 text-green-700 border-green-200",
-  on_hold: "bg-amber-100 text-amber-700 border-amber-200",
-  completed: "bg-slate-100 text-slate-700 border-slate-200",
+  planning: "bg-purple-50 text-purple-700 border-purple-100",
+  active: "bg-blue-50 text-blue-700 border-blue-100",
+  on_hold: "bg-amber-50 text-amber-700 border-amber-100",
+  completed: "bg-green-50 text-green-700 border-green-100",
 };
 
 const priorityColors = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-blue-100 text-blue-700",
-  high: "bg-orange-100 text-orange-700",
-  urgent: "bg-red-100 text-red-700",
+  low: "bg-zinc-100 text-zinc-600 border-zinc-200",
+  medium: "bg-blue-50 text-blue-600 border-blue-100",
+  high: "bg-orange-50 text-orange-600 border-orange-100",
+  urgent: "bg-red-50 text-red-600 border-red-100",
 };
 
 export default function ProjectCard({ project, onDelete, highlighted }) {
-  // Health score calculation logic (mirroring backend)
+  // Use backend calculated health score
   const healthScore = useMemo(() => {
-    let score = 70;
-    score += (project.progress || 0) * 0.3;
+    return project.health_score !== undefined ? project.health_score : 100;
+  }, [project.health_score]);
 
-    // Simplistic task completion for card preview
-    if (project.tasks_count && project.completed_tasks_count) {
-      score += (project.completed_tasks_count / project.tasks_count) * 20;
-    }
-
-    if (project.deadline) {
-      const daysUntilDeadline = Math.ceil((new Date(project.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-      if (daysUntilDeadline < 0) score -= 20;
-      else if (daysUntilDeadline < 7) score -= 10;
-    }
-    if (project.status === 'on_hold') score -= 15;
-    if (project.risk_level === 'critical') score -= 20;
-    else if (project.risk_level === 'high') score -= 15;
-    else if (project.risk_level === 'medium') score -= 5;
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }, [project]);
 
   const isYellow = healthScore >= 50 && healthScore < 70;
   const isRed = healthScore < 50;
 
   const getProjectInitials = (name) => {
     if (!name) return 'PR';
-    const initials = name.split(' ').map(word => word[0]).join('').toUpperCase();
-    return initials.slice(0, 2) || 'PR';
+    const splitName = name.split(' ');
+    if (splitName.length >= 2) {
+      return (splitName[0][0] + splitName[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
   };
 
   const getUserInitials = (name) => {
@@ -104,123 +91,137 @@ export default function ProjectCard({ project, onDelete, highlighted }) {
     return Math.round((completedPoints / totalPoints) * 100);
   }, [stories, project.progress]);
 
+  // Status and color mapping for the new design
+  const getStatusColor = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'active' || s === 'planning') return 'bg-blue-500';
+    if (s === 'on_hold') return 'bg-orange-500';
+    if (s === 'completed') return 'bg-green-500';
+    return 'bg-zinc-400';
+  };
+
+  const getProgressStyles = (progress) => {
+    if (progress >= 80) return { color: 'bg-green-500', shadow: 'shadow-[0_0_8px_rgba(34,197,94,0.25)]', track: 'bg-green-50' };
+    if (progress >= 30) return { color: 'bg-yellow-500', shadow: 'shadow-[0_0_8px_rgba(234,179,8,0.25)]', track: 'bg-yellow-50' };
+    return { color: 'bg-red-500', shadow: 'shadow-[0_0_8px_rgba(239,68,68,0.25)]', track: 'bg-red-50' };
+  };
+
+  const progressStyles = getProgressStyles(projectProgress);
+
   return (
-    <Card
-      className={`group hover:shadow-xl transition-all duration-300 border-slate-200/60 overflow-hidden ${highlighted && isRed ? 'bg-red-50 border-red-200 shadow-lg ring-2 ring-red-500/20' :
-        highlighted && isYellow ? 'bg-amber-50 border-amber-200 shadow-lg ring-2 ring-amber-500/20' :
-          'bg-white/60 backdrop-blur-xl'
-        }`}
-      style={{ borderTopColor: project.color || (isRed ? '#ef4444' : isYellow ? '#f59e0b' : '#3b82f6'), borderTopWidth: '4px' }}
-    >
-      <CardHeader>
-        <div className="flex items-start gap-3">
-          {/* Project Logo/Avatar */}
-          <Avatar className="h-12 w-12 border-2 border-white shadow-md">
+    <Card className="group relative bg-white border border-zinc-200/60 rounded-[20px] p-6 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 h-full flex flex-col cursor-pointer">
+      <Link to={createPageUrl(`ProjectDetail?id=${project.id}`)} className="absolute inset-0 z-0" />
+
+      {/* Header section: Icon + Title + Badges */}
+      <div className="flex gap-4 mb-4 relative z-10">
+        <div className="relative shrink-0">
+          <div className="w-14 h-14 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center overflow-hidden">
             {project.logo_url ? (
-              <AvatarImage src={project.logo_url} alt={project.name} />
+              <img src={project.logo_url} alt={project.name} className="w-10 h-10 object-contain" />
             ) : (
-              <AvatarFallback
-                className="text-white font-bold text-sm"
-                style={{ background: `linear-gradient(135deg, ${project.color || '#3b82f6'}, ${project.color || '#3b82f6'}dd)` }}
-              >
+              <div className="w-full h-full flex items-center justify-center text-blue-600 font-bold bg-blue-50 text-xl uppercase tracking-tighter">
                 {getProjectInitials(project.name)}
-              </AvatarFallback>
+              </div>
             )}
-          </Avatar>
-
-          <div className="flex-1 min-w-0">
-            <Link to={createPageUrl(`ProjectDetail?id=${project.id}`)} className="block">
-              <CardTitle className="group-hover:text-blue-600 transition-colors line-clamp-2 text-lg">
-                {project.name}
-              </CardTitle>
-            </Link>
-            <div className="flex gap-2 flex-wrap mt-2">
-              <Badge className={`${statusColors[project.status]} border text-xs`}>
-                {project.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-              </Badge>
-              {project.priority && (
-                <Badge className={`${priorityColors[project.priority]} text-xs`}>
-                  {project.priority.charAt(0).toUpperCase() + project.priority.slice(1)}
-                </Badge>
-              )}
-            </div>
           </div>
-
-          <PermissionGuard permissionKey="can_delete_project">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDelete(project.id);
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </PermissionGuard>
+          {/* Status Dot */}
+          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${getStatusColor(project.status)} shadow-sm z-10`} />
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-4">
-        {project.description && (
-          <p className="text-slate-600 text-sm line-clamp-2">{project.description}</p>
-        )}
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-slate-600">Progress</span>
-            <span className="font-semibold text-slate-900">{projectProgress}%</span>
+        <div className="flex flex-col flex-1 min-w-0">
+          <h3 className="text-[17px] font-bold text-zinc-900 truncate group-hover:text-blue-600 transition-colors">
+            {project.name}
+          </h3>
+          <div className="flex flex-wrap gap-2 mt-1.5 focus-within:z-20">
+            <Badge variant="secondary" className={`${statusColors[project.status.toLowerCase()] || "bg-zinc-100 text-zinc-600"} border font-semibold px-2.5 py-0.5 rounded-md capitalize text-[10px] shadow-none pointer-events-none tracking-wide text-nowrap`}>
+              {project.status.split('_').join(' ')}
+            </Badge>
+            {project.priority && (
+              <Badge variant="secondary" className={`${priorityColors[project.priority.toLowerCase()] || "bg-zinc-100 text-zinc-600"} border font-semibold px-2.5 py-0.5 rounded-md capitalize text-[10px] shadow-none pointer-events-none tracking-wide text-nowrap`}>
+                {project.priority}
+              </Badge>
+            )}
           </div>
-          <Progress
-            value={projectProgress}
-            className="h-2"
-            indicatorClassName={isRed ? 'bg-red-500' : isYellow ? 'bg-amber-500' : ''}
+        </div>
+      </div>
+
+      {/* Description section */}
+      <div className="flex flex-col gap-1 mb-6 relative z-10">
+        <p className="text-zinc-500 text-[13px] font-medium truncate">
+          {project.tagline || 'Project management'}
+        </p>
+        <p className="text-zinc-500 text-[13px] line-clamp-2 leading-relaxed">
+          {project.description || 'No description provided for this project.'}
+        </p>
+      </div>
+
+      {/* Progress section */}
+      <div className="mt-auto relative z-10 pt-4">
+        <div className="flex justify-between items-center mb-2.5">
+          <span className="text-[13px] font-semibold text-zinc-400">Progress</span>
+          <span className="text-[13px] font-bold text-zinc-900">{projectProgress}%</span>
+        </div>
+        <div className={`w-full ${progressStyles.track} h-2.5 rounded-full overflow-hidden`}>
+          <div
+            className={`h-full ${progressStyles.color} rounded-full transition-all duration-500 ease-out ${progressStyles.shadow}`}
+            style={{ width: `${projectProgress}%` }}
           />
         </div>
+      </div>
 
-        {project.deadline && (
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Calendar className="h-4 w-4" />
-            <span>Due {format(new Date(project.deadline), 'MMM d, yyyy')}</span>
-          </div>
-        )}
+      {/* Date section */}
+      <div className="mt-6 flex items-center gap-2 text-zinc-500 relative z-10">
+        <Calendar className="w-4 h-4 text-zinc-400" />
+        <span className="text-[13px] font-medium">
+          Due {project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'TBD'}
+        </span>
+      </div>
 
-        {project.team_members && project.team_members.length > 0 && (
-          <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-            <TooltipProvider>
-              <div className="flex -space-x-2">
-                {project.team_members.slice(0, 4).map((member, idx) => {
-                  const user = users.find(u => u.email === member.email);
-                  return (
-                    <Tooltip key={idx}>
-                      <TooltipTrigger asChild>
-                        <Avatar className="h-7 w-7 border-2 border-white ring-1 ring-slate-200 cursor-default hover:z-10 transition-all hover:scale-110">
-                          <AvatarImage src={user?.profile_image_url} />
-                          <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-purple-600 text-white font-medium">
-                            {getUserInitials(user?.full_name || member.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p className="text-xs font-medium">{user?.full_name || member.email}</p>
-                        <p className="text-xs text-slate-500">{member.role}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            </TooltipProvider>
+      {/* Team section (Footer) */}
+      <div className="mt-6 flex items-center h-8 relative z-10">
+        {project.team_members && project.team_members.length > 0 ? (
+          <div className="flex -space-x-2">
+            {project.team_members.slice(0, 4).map((member, idx) => {
+              const user = users.find(u => u.email === member.email);
+              return (
+                <Avatar key={idx} className="h-8 w-8 border-2 border-white shadow-sm">
+                  <AvatarImage src={user?.profile_image_url} />
+                  <AvatarFallback className="text-[10px] bg-zinc-100 text-zinc-600 font-bold">
+                    {getUserInitials(user?.full_name || member.email)}
+                  </AvatarFallback>
+                </Avatar>
+              );
+            })}
             {project.team_members.length > 4 && (
-              <span className="text-xs text-slate-500 ml-1">
-                +{project.team_members.length - 4} more
-              </span>
+              <div className="h-8 w-8 rounded-full bg-zinc-50 border-2 border-white flex items-center justify-center text-[10px] font-bold text-zinc-600 shadow-sm shrink-0">
+                +{project.team_members.length - 4}
+              </div>
             )}
           </div>
+        ) : (
+          <div className="w-full h-8 flex items-center">
+            <span className="text-zinc-400 text-[11px] font-medium italic">Unassigned</span>
+          </div>
         )}
-      </CardContent>
+      </div>
+
+      {/* Delete Action (Hidden by default, shows on hover or with permission) */}
+      <PermissionGuard permissionKey="can_delete_project">
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(project.id);
+            }}
+            className="h-8 w-8 rounded-full text-zinc-400 hover:text-red-600 hover:bg-red-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </PermissionGuard>
     </Card>
   );
 }
-

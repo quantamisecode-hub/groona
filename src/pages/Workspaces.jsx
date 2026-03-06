@@ -290,137 +290,96 @@ export default function Workspaces() {
   return (
     <OnboardingProvider currentUser={currentUser} featureArea="workspaces">
       <FeatureOnboarding currentUser={currentUser} featureArea="workspaces" userRole={userRole} />
-      <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative min-h-screen">
-        <div className="max-w-8xl mx-auto w-full flex flex-col relative">
-          {/* Sticky Header Section */}
-          <div className="sticky top-0 z-30 bg-white border-b border-slate-200/60 pb-4 pt-6">
-            <div className="px-4 md:px-6 lg:px-8 pt-0 pb-4">
-              <div className="flex flex-row justify-between items-start md:items-center gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-                      <Folder className="h-5 w-5 md:h-6 md:w-6 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-xl md:text-2xl font-bold text-slate-900">Workspaces</h1>
-                      <p className="text-lg md:text-lg text-slate-600 line-clamp-1 md:line-clamp-none">
-                        Organize your projects into dedicated workspaces
-                        {isRefetching && !isPageLoading && <span className="ml-2 text-xs text-blue-500 animate-pulse font-medium">Syncing...</span>}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+      <div className="flex flex-col bg-[#f8f9fa] w-full relative min-h-screen">
+        <div className="max-w-[1800px] mx-auto w-full flex flex-col relative">
+
+          <div className="flex-1 px-6 md:px-8 pt-6 pb-6 md:pb-8 space-y-8">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 pb-2">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight mb-1">Workspaces</h1>
+                <p className="text-sm text-slate-500">
+                  Organize your projects into dedicated workspaces
+                  {isRefetching && !isPageLoading && <span className="ml-2 text-xs text-blue-500 animate-pulse font-medium">Syncing...</span>}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
                 {canCreateWorkspace && currentUser?.custom_role !== 'project_manager' && (
                   <Button
                     onClick={() => setShowCreateDialog(true)}
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 h-8 md:h-10 text-xs md:text-sm px-3 md:px-4 shrink-0"
+                    className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-[0_4px_14px_rgba(37,99,235,0.2)] hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95"
                     disabled={isPageLoading}
                   >
-                    <Plus className="h-3.5 w-3.5 md:h-4 md:w-4 md:mr-2" />
-                    <span className="hidden md:inline">Create Workspace</span>
-                    <span className="md:hidden">Workspace</span>
+                    <Plus className="h-4 w-4 mr-2" />
+                    <span>New Workspace</span>
                   </Button>
                 )}
               </div>
-
-              <div className="flex items-center gap-3 p-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-900 w-fit">
-                <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                <p className="text-sm">
-                  <strong>About Workspaces:</strong> Organize projects by team, department, or client.
-                  Each workspace can have its own members with specific roles.
-                  {workspaceLimit && !isPageLoading && (
-                    <span className="ml-2">
-                      You can create up to <strong>{workspaceLimit} workspaces</strong> on your current plan
-                      ({currentCount}/{workspaceLimit} used).
-                    </span>
-                  )}
-                </p>
-              </div>
             </div>
-          </div>
 
-          {/* Scrollable Content */}
-          <div className="flex-1">
-            <div className="px-3 pb-4 md:pb-6 lg:pb-8 pt-3">
-              {/* SKELETON LOADING STATE */}
-              {isPageLoading ? (
-                <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                  <CardHeader>
-                    <Skeleton className="h-6 w-48" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-48 rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-                          <div className="flex justify-between items-start">
-                            <Skeleton className="h-10 w-10 rounded-lg" />
-                            <Skeleton className="h-8 w-8 rounded-full" />
-                          </div>
-                          <div className="space-y-2 pt-2">
-                            <Skeleton className="h-5 w-3/4 rounded" />
-                            <Skeleton className="h-4 w-full rounded" />
-                          </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-blue-100 bg-blue-50/50 text-blue-900 shadow-sm w-fit mb-4">
+              <Info className="h-5 w-5 text-blue-500 flex-shrink-0" />
+              <p className="text-sm">
+                <strong>About Workspaces:</strong> Organize projects by team, department, or client.
+                Each workspace can have its own members with specific roles.
+                {workspaceLimit && !isPageLoading && (
+                  <span className="ml-2">
+                    You can create up to <strong>{workspaceLimit} workspaces</strong> on your current plan
+                    ({currentCount}/{workspaceLimit} used).
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Scrollable Content */}
+            {/* SKELETON LOADING STATE */}
+            {isPageLoading ? (
+              <Card className="bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[24px]">
+                <CardHeader className="p-6 pb-3">
+                  <Skeleton className="h-6 w-48" />
+                </CardHeader>
+                <CardContent className="px-6 pb-6 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-48 rounded-[20px] bg-[#f8f9fa] p-5 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <Skeleton className="h-10 w-10 rounded-lg" />
+                          <Skeleton className="h-8 w-8 rounded-full" />
                         </div>
-                      ))}
+                        <div className="space-y-2 pt-2">
+                          <Skeleton className="h-5 w-3/4 rounded" />
+                          <Skeleton className="h-4 w-full rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[24px]">
+                <CardHeader className="p-6 pb-3">
+                  <CardTitle className="text-[17px] font-semibold text-slate-900 tracking-tight flex items-center justify-between">
+                    <span>Active Workspaces <span className="text-slate-500 font-normal">({activeWorkspaces.length})</span></span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-6 pb-6 pt-0">
+                  {activeWorkspaces.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Folder className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+                      <p className="text-slate-600 mb-2">No workspaces yet</p>
+                      {canCreateWorkspace && currentUser?.custom_role !== 'project_manager' && (
+                        <Button
+                          onClick={() => setShowCreateDialog(true)}
+                          variant="outline"
+                          className="mt-2"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Your First Workspace
+                        </Button>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 transition-opacity duration-300">
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Active Workspaces ({activeWorkspaces.length})</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {activeWorkspaces.length === 0 ? (
-                      <div className="text-center py-12">
-                        <Folder className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-                        <p className="text-slate-600 mb-2">No workspaces yet</p>
-                        {canCreateWorkspace && currentUser?.custom_role !== 'project_manager' && (
-                          <Button
-                            onClick={() => setShowCreateDialog(true)}
-                            variant="outline"
-                            className="mt-2"
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Your First Workspace
-                          </Button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {activeWorkspaces.map((workspace) => (
-                          <WorkspaceCard
-                            key={workspace.id}
-                            workspace={workspace}
-                            currentUser={currentUser}
-                            projectCount={getProjectCount(workspace.id)}
-                            onEdit={setEditingWorkspace}
-                            onDelete={handleDelete}
-                            onManageMembers={setManagingMembers}
-                            onSelect={() => setSelectedWorkspace(workspace)}
-                            isSelected={selectedWorkspace?.id === workspace.id}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Archived Section */}
-              {!isPageLoading && archivedWorkspaces.length > 0 && (
-                <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 mt-6">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-slate-600">
-                      <Shield className="h-5 w-5" />
-                      Archived Workspaces ({archivedWorkspaces.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {archivedWorkspaces.map((workspace) => (
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 hover:grid-auto">
+                      {activeWorkspaces.map((workspace) => (
                         <WorkspaceCard
                           key={workspace.id}
                           workspace={workspace}
@@ -434,10 +393,39 @@ export default function Workspaces() {
                         />
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Archived Section */}
+            {!isPageLoading && archivedWorkspaces.length > 0 && (
+              <Card className="bg-white border-0 shadow-[0_2px_12px_rgba(0,0,0,0.03)] ring-1 ring-slate-100/80 rounded-[24px] mt-6">
+                <CardHeader className="p-6 pb-3">
+                  <CardTitle className="text-[17px] font-semibold text-slate-500 tracking-tight flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Archived Workspaces <span className="font-normal">({archivedWorkspaces.length})</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-6 pb-6 pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {archivedWorkspaces.map((workspace) => (
+                      <WorkspaceCard
+                        key={workspace.id}
+                        workspace={workspace}
+                        currentUser={currentUser}
+                        projectCount={getProjectCount(workspace.id)}
+                        onEdit={setEditingWorkspace}
+                        onDelete={handleDelete}
+                        onManageMembers={setManagingMembers}
+                        onSelect={() => setSelectedWorkspace(workspace)}
+                        isSelected={selectedWorkspace?.id === workspace.id}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>
@@ -451,24 +439,28 @@ export default function Workspaces() {
         currentCount={currentCount}
       />
 
-      {editingWorkspace && (
-        <EditWorkspaceDialog
-          open={!!editingWorkspace}
-          onClose={() => setEditingWorkspace(null)}
-          onSubmit={(data) => updateWorkspaceMutation.mutate({ id: editingWorkspace.id, data })}
-          loading={updateWorkspaceMutation.isPending}
-          workspace={editingWorkspace}
-        />
-      )}
+      {
+        editingWorkspace && (
+          <EditWorkspaceDialog
+            open={!!editingWorkspace}
+            onClose={() => setEditingWorkspace(null)}
+            onSubmit={(data) => updateWorkspaceMutation.mutate({ id: editingWorkspace.id, data })}
+            loading={updateWorkspaceMutation.isPending}
+            workspace={editingWorkspace}
+          />
+        )
+      }
 
-      {managingMembers && (
-        <ManageWorkspaceMembersDialog
-          open={!!managingMembers}
-          onClose={() => setManagingMembers(null)}
-          workspace={managingMembers}
-          onUpdate={(id, data) => updateWorkspaceMutation.mutate({ id, data })}
-        />
-      )}
+      {
+        managingMembers && (
+          <ManageWorkspaceMembersDialog
+            open={!!managingMembers}
+            onClose={() => setManagingMembers(null)}
+            workspace={managingMembers}
+            onUpdate={(id, data) => updateWorkspaceMutation.mutate({ id, data })}
+          />
+        )
+      }
 
       <AlertDialog
         open={deleteConfirmation.isOpen}
@@ -499,6 +491,6 @@ export default function Workspaces() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </OnboardingProvider>
+    </OnboardingProvider >
   );
 }
