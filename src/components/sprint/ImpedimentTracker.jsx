@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertTriangle, Plus, CheckCircle, Clock, X, FolderKanban, BookOpen, Calendar } from "lucide-react";
+import { AlertTriangle, Plus, CheckCircle, Clock, X, FolderKanban, BookOpen, Calendar, User, UserCheck, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUser } from "@/components/shared/UserContext";
@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function ImpedimentTracker({ sprint, projectId, impediments: propImpediments, onAdd, onUpdate, onDelete, highlightImpedimentId }) {
+export default function ImpedimentTracker({ sprint, project: propProject, projectId, impediments: propImpediments, onAdd, onUpdate, onDelete, highlightImpedimentId }) {
   const { user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
@@ -31,7 +31,10 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     title: "",
     description: "",
     severity: "medium",
-    status: "open"
+    status: "open",
+    task_id: "",
+    assigned_to: "",
+    project_manager_id: ""
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
@@ -86,6 +89,45 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     enabled: !!projectId,
   });
 
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks', projectId],
+    queryFn: () => groonabackend.entities.Task.filter({ project_id: projectId }),
+    enabled: !!projectId,
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => groonabackend.entities.User.list(),
+  });
+
+  const { data: dbProject } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      const projects = await groonabackend.entities.Project.filter({ id: projectId });
+      return projects[0] || null;
+    },
+    enabled: !!projectId && !propProject
+  });
+
+  const project = propProject || dbProject;
+
+  const projectTeamMembers = useMemo(() => {
+    if (!project?.team_members?.length) {
+      return (users || []).filter(u => u.tenant_id === effectiveTenantId).map(u => ({
+        ...u,
+        projectRole: u.role
+      }));
+    }
+    return project.team_members.map(tm => {
+      const user = users.find(u => u.email === tm.email);
+      return {
+        ...(user || { email: tm.email, full_name: tm.email }),
+        id: user?.id || user?._id || tm.email,
+        projectRole: tm.role
+      };
+    });
+  }, [project, users, effectiveTenantId]);
+
   // Use database impediments if available, otherwise fall back to prop impediments
   const impediments = dbImpediments.length > 0 ? dbImpediments : (propImpediments || []);
 
@@ -93,13 +135,23 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
   const addImpedimentMutation = useMutation({
     mutationFn: async (data) => {
       if (!effectiveTenantId) throw new Error('Tenant context is missing');
+      const assignedUser = users.find(u => (u.id || u._id) === data.assigned_to || u.email === data.assigned_to);
+      const projectManager = users.find(u => (u.id || u._id) === data.project_manager_id || u.email === data.project_manager_id);
+
       const impedimentData = {
         tenant_id: effectiveTenantId,
         project_id: projectId,
+        project_name: project?.name,
         sprint_id: sprint?.id || undefined,
+        sprint_name: sprint?.name,
+        task_id: data.task_id || undefined,
         title: data.title.trim(),
         description: data.description || "",
         severity: data.severity,
+        assigned_to: data.assigned_to,
+        assigned_to_name: assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined,
+        project_manager_id: data.project_manager_id,
+        project_manager_name: projectManager ? (projectManager.full_name || projectManager.email) : undefined,
         status: "open",
         reported_by: currentUser?.email,
         reported_by_name: currentUser?.full_name || currentUser?.email,
@@ -109,7 +161,15 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
       toast.success('Impediment reported successfully!');
-      setFormData({ title: "", description: "", severity: "medium", status: "open" });
+      setFormData({
+        title: "",
+        description: "",
+        severity: "medium",
+        status: "open",
+        task_id: "",
+        assigned_to: "",
+        project_manager_id: ""
+      });
       setShowDialog(false);
       if (onAdd) onAdd(formData);
     },
@@ -283,16 +343,49 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
-                        <span>Reported: {format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, yyyy')}</span>
-                        <span>By: {impediment.reported_by_name || impediment.reported_by || impediment.created_by}</span>
-                        {/* Show context: Sprint, Epic, Story */}
-                        {impediment.sprint_id && (() => {
+                      <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap mb-2">
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          <span>By: {impediment.reported_by_name || impediment.reported_by || impediment.created_by}</span>
+                        </div>
+                        {impediment.assigned_to_name && (
+                          <div className="flex items-center gap-1 text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                            <UserCheck className="h-3 w-3" />
+                            <span>Assigned: {impediment.assigned_to_name}</span>
+                          </div>
+                        )}
+                        {impediment.project_manager_name && (
+                          <div className="flex items-center gap-1 text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                            <ShieldCheck className="h-3 w-3" />
+                            <span>PM: {impediment.project_manager_name}</span>
+                          </div>
+                        )}
+                        <span className="text-slate-400">|</span>
+                        <span>{format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, yyyy')}</span>
+                      </div>
+
+                      {/* Context Tags */}
+                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                        {impediment.project_name && (
+                          <Badge variant="outline" className="text-xs bg-slate-50">
+                            Project: {impediment.project_name}
+                          </Badge>
+                        )}
+                        {(impediment.sprint_id || impediment.sprint_name) && (() => {
                           const relatedSprint = sprints.find(s => (s.id || s._id) === impediment.sprint_id);
-                          return relatedSprint ? (
+                          const sprintName = relatedSprint?.name || impediment.sprint_name;
+                          return sprintName ? (
                             <Badge variant="outline" className="text-xs">
                               <Calendar className="h-3 w-3 mr-1" />
-                              Sprint: {relatedSprint.name}
+                              Sprint: {sprintName}
+                            </Badge>
+                          ) : null;
+                        })()}
+                        {impediment.task_id && (() => {
+                          const relatedTask = tasks.find(t => (t.id || t._id) === impediment.task_id);
+                          return relatedTask ? (
+                            <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200">
+                              Task: {relatedTask.title}
                             </Badge>
                           ) : null;
                         })()}
@@ -377,18 +470,87 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
             </div>
 
             <div>
-              <label className="text-sm font-medium mb-2 block">Severity</label>
-              <Select value={formData.severity} onValueChange={(val) => setFormData({ ...formData, severity: val })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low - Minor inconvenience</SelectItem>
-                  <SelectItem value="medium">Medium - Slowing progress</SelectItem>
-                  <SelectItem value="high">High - Blocking work</SelectItem>
-                  <SelectItem value="critical">Critical - Sprint at risk</SelectItem>
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium mb-1 block">Current Context</label>
+              <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-slate-50/50 min-h-[40px]">
+                <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700 whitespace-nowrap py-1">
+                  <span className="opacity-70 font-bold mr-1">Project:</span> {project?.name || 'Loading...'}
+                </Badge>
+                <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700 whitespace-nowrap py-1">
+                  <span className="opacity-70 font-bold mr-1">Sprint:</span> {sprint?.name || 'Loading...'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Related Task (Optional)</label>
+                <Select value={formData.task_id} onValueChange={(val) => setFormData({ ...formData, task_id: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select task" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No specific task</SelectItem>
+                    {tasks.map(task => (
+                      <SelectItem key={task.id || task._id} value={task.id || task._id}>
+                        {task.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Severity</label>
+                <Select value={formData.severity} onValueChange={(val) => setFormData({ ...formData, severity: val })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low - Minor inconvenience</SelectItem>
+                    <SelectItem value="medium">Medium - Slowing progress</SelectItem>
+                    <SelectItem value="high">High - Blocking work</SelectItem>
+                    <SelectItem value="critical">Critical - Sprint at risk</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Assign To (Viewer Member)</label>
+                <Select value={formData.assigned_to} onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectTeamMembers
+                      .filter(u => u.role === 'member' && u.custom_role === 'viewer')
+                      .map(user => (
+                        <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                          {user.full_name || user.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Project Manager</label>
+                <Select value={formData.project_manager_id} onValueChange={(val) => setFormData({ ...formData, project_manager_id: val })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select PM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectTeamMembers
+                      .filter(u => u.projectRole === 'project_manager' || u.role === 'project_manager')
+                      .map(user => (
+                        <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                          {user.full_name || user.email}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter>

@@ -827,6 +827,7 @@ export default function SprintPlanningPage() {
             <ImpedimentTracker
               sprint={sprint}
               projectId={projectId}
+              project={project}
               impediments={sprint?.impediments || []}
               highlightImpedimentId={searchParams.get("impedimentId")}
             />
