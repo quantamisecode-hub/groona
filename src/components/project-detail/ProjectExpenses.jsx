@@ -92,6 +92,13 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
     enabled: !!projectId,
   });
 
+  // Fetch sprints to check for locking logic
+  const { data: sprints = [] } = useQuery({
+    queryKey: ['sprints', projectId],
+    queryFn: () => groonabackend.entities.Sprint.filter({ project_id: projectId }),
+    enabled: !!projectId,
+  });
+
   const createExpenseMutation = useMutation({
     mutationFn: (data) => {
       const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'owner' || currentUser?.is_super_admin;
@@ -607,13 +614,15 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
 
                   <div className="flex gap-2">
                     {(() => {
-                      const isLocked = (expense.milestone_id && milestones.find(m => (m.id || m._id) === expense.milestone_id)?.status === 'completed') || project?.status === 'completed';
+                      const mId = expense.milestone_id;
+                      const isLockedBySprint = mId && sprints.some(s => (s.milestone_id === mId) && !!s.locked_date);
+                      const isLocked = isLockedBySprint || (mId && milestones.find(m => (m.id || m._id) === mId)?.status === 'completed') || project?.status === 'completed';
 
                       if (isLocked) {
                         return (
                           <div className="flex items-center text-slate-400 bg-slate-100 px-3 py-1 rounded-md border border-slate-200 gap-2 opacity-70">
                             <Lock className="h-3.5 w-3.5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Settled</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">{isLockedBySprint ? 'Sprint Locked' : 'Settled'}</span>
                           </div>
                         );
                       }
@@ -725,24 +734,30 @@ export default function ProjectExpenses({ projectId, currentUser, project }) {
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Milestone (Optional)</label>
-              <Select value={formData.milestone_id} onValueChange={(val) => setFormData({ ...formData, milestone_id: val })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Milestone" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">General Project / No Milestone</SelectItem>
-                  {milestones
-                    .filter(m => m.status === 'in_progress' || (formData.milestone_id && (m.id === formData.milestone_id || m._id === formData.milestone_id)))
-                    .map((m) => (
-                      <SelectItem key={m.id || m._id} value={m.id || m._id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Milestone Selection - Hide for T&M and Retainer */}
+            {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Milestone (Optional)</label>
+                <Select
+                  value={formData.milestone_id || "none"}
+                  onValueChange={(val) => setFormData({ ...formData, milestone_id: val === "none" ? null : val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Milestone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">General Project / No Milestone</SelectItem>
+                    {milestones
+                      .filter(m => m.status === 'in_progress' || (formData.milestone_id && (m.id === formData.milestone_id || m._id === formData.milestone_id)))
+                      .map((m) => (
+                        <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium mb-2 block">Notes (Optional)</label>

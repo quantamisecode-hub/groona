@@ -9,6 +9,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Models = require('../models/SchemaDefinitions');
 const emailService = require('../services/emailService');
 const modelHelper = require('../helpers/geminiModelHelper');
+const auth = require('../middleware/auth');
 
 // === SUPER ADMIN ENDPOINTS ===
 
@@ -769,37 +770,56 @@ async function generateStandardWithRetry(genAI, params, modelName) {
 
 // --- DYNAMIC CONTROLLER ---
 async function generateController(genAI, params, requestedModel, retryCount = 0) {
-  // Use helper to get model (always defaults to gemini-2.5-flash-native-audio-dialog)
-  let targetModel = modelHelper.getModel(requestedModel);
-  const modelConfig = modelHelper.createModelConfig(targetModel);
+  const axios = require('axios');
+  const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY || process.env.GROQ_API;
+
+  if (!apiKey) {
+    throw new Error('GROQ_AI_API is not configured');
+  }
+
+  let fullPrompt = "";
+  if (params.systemInstruction?.parts?.[0]?.text) {
+    fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n\n`;
+  }
+
+  const messages = [];
+  if (params.history) {
+    params.history.forEach(h => {
+      messages.push({
+        role: h.role === 'model' ? 'assistant' : 'user',
+        content: h.parts?.[0]?.text || ''
+      });
+    });
+  }
+
+  let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
+  fullPrompt += currentText;
+  messages.push({ role: 'user', content: fullPrompt });
 
   try {
-    console.log(`[AI API] Attempting: ${targetModel} (Try: ${retryCount + 1})`);
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: messages,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
 
-    if (modelConfig.isLive) {
-      let fullPrompt = "";
-      if (params.systemInstruction?.parts?.[0]?.text) fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n`;
-      if (params.history) params.history.forEach(h => fullPrompt += `${h.role}: ${h.parts[0].text}\n`);
-      let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
-      fullPrompt += `User: ${currentText}`;
-
-      return await generateViaSocket(process.env.GEMINI_API_KEY, targetModel, fullPrompt);
-    } else {
-      return await generateStandardWithRetry(genAI, params, targetModel);
-    }
-
+    return {
+      text: response.data.choices[0]?.message?.content || '',
+      model: 'llama-3.3-70b-versatile'
+    };
   } catch (error) {
-    // Use helper to determine if we should fallback (only on technical errors, not quota)
-    const shouldTryFallback = modelHelper.shouldFallback(error, targetModel);
-    const fallbackModel = modelHelper.getFallbackModel(targetModel);
-
-    // Only fallback in rare cases (technical errors, not quota issues)
-    if (shouldTryFallback && fallbackModel && retryCount < 2) {
-      console.warn(`[AI API] Model ${targetModel} failed with technical error. Falling back to ${fallbackModel} (Retry: ${retryCount + 1})`);
-      return await generateController(genAI, params, fallbackModel, retryCount + 1);
-    }
-
-    throw new Error(`AI Generation Failed (${targetModel}): ${error.message}`);
+    console.error("Groq AI Error:", error.response?.data || error.message);
+    throw new Error(`AI Generation Failed: ${error.message}`);
   }
 }
 
@@ -2790,7 +2810,7 @@ router.get('/ai/usage/stats', async (req, res) => { const { user_id, tenant_id }
 // === CHAT ROUTE ===
 router.post('/ai/chat', async (req, res) => {
   const { conversation_id, content, file_urls, context, model, user_id, tenant_id } = req.body;
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "AI Configuration Error" });
+  if (!process.env.GROQ_AI_API) return res.status(500).json({ error: "AI Configuration Error" });
 
   try {
     const conversation = await Models.Conversation.findById(conversation_id);
@@ -2801,7 +2821,7 @@ router.post('/ai/chat', async (req, res) => {
     conversation.updated_date = new Date();
     await conversation.save();
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
 
     const deepContext = await buildDeepContext(tenant_id, user_id, content);
     const fileParts = await processFilesForGemini(file_urls, req);
@@ -2850,10 +2870,10 @@ router.post('/ai/chat', async (req, res) => {
 // === UPDATED SPRINT TASK GEN ROUTE (JSON FALLBACK HANDLING) ===
 router.post('/ai/generate-sprint-tasks', async (req, res) => {
   const { sprintId, projectId, workspaceId, tenantId, goal, userEmail } = req.body;
-  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ error: "AI Configuration Error" });
+  if (!process.env.GROQ_AI_API) return res.status(500).json({ error: "AI Configuration Error" });
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
     const prompt = `Create tasks. Goal: "${goal}". Return JSON { "tasks": [] }.`;
 
     // Use default model (gemini-2.5-flash-native-audio-dialog) from helper
@@ -2885,46 +2905,245 @@ router.post('/ai/generate-sprint-tasks', async (req, res) => {
   }
 });
 
-// === UPDATED INTEGRATIONS LLM ROUTE (Fixes "Failed to draft" and JSON Parse Errors) ===
-router.post('/integrations/llm', async (req, res) => {
-  const { prompt, response_json_schema, context, file_urls } = req.body;
+// === NEW: AI Sprint Report Generation ===
+router.post('/ai/sprint-report', async (req, res) => {
+  const { sprint, tasks, project } = req.body;
+  const apiKey = process.env.GROQ_AI_API;
 
-  // 1. Handle Missing API Key Gracefully
-  if (!process.env.GEMINI_API_KEY) {
-    console.warn("[AI] No API Key found. Returning mock response.");
-    if (response_json_schema) {
-      return res.json({
-        description: "This is a drafted description generated by the system (Mock Mode). Please configure your GEMINI_API_KEY to get real AI suggestions.",
-        priority: "medium",
-        story_points: 3,
-        reasoning: "Mock reasoning (API Key missing)",
-        confidence: 90,
-        tags: ["mock", "tag"],
-        dependency_ids: []
-      });
-    }
-    return res.json("AI Response (Mock): Please configure API Key.");
+  if (!sprint || !tasks || !project) {
+    return res.status(400).json({ error: 'Missing required data: sprint, tasks, or project' });
+  }
+
+  if (!apiKey) {
+    return res.status(500).json({ error: 'AI Service (Gemini) not configured' });
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = null;
+    const modelName = modelHelper.getDefaultModel();
+    const model = genAI.getGenerativeModel({ model: modelName });
+
+    const prompt = `
+You are a Professional Agile Reporting Engine.
+Generate detailed content for a PRINT-READY, PROFESSIONAL Sprint Performance PDF.
+
+CRITICAL RULES:
+1. DO NOT use markdown syntax (no **, no ##, no *). Output clean text only.
+2. DO NOT include narrative-heavy paragraphs. Be concise.
+3. Data must be 100% derived from the provided SPRINT DATA.
+4. DO NOT display email addresses, database IDs (task_id, user_id), or raw system usernames.
+5. Always use FULL NAMES of assignees and TASK TITLES for references.
+
+------------------------------------
+PROJECT: ${project.name}
+SPRINT: ${sprint.name} (${sprint.start_date} to ${sprint.end_date})
+TASKS: ${JSON.stringify(tasks)}
+------------------------------------
+
+SECTIONS TO GENERATE:
+
+1. COVER DATA:
+   - Identify team members from task assignees.
+   - Calculate an Overall Health Score (0-100).
+   - Determine Health Category (Healthy/Risk/Critical).
+
+2. EXECUTIVE DASHBOARD METRICS:
+   - Total Tasks
+   - Completed Tasks
+   - Overdue Tasks (past due date and not done)
+   - Completion Rate (%)
+   - Sprint Velocity (Total Story Points of completed tasks)
+   - Estimation Accuracy (%) (Compare actual_hours vs estimated_hours for completed tasks)
+
+3. PERFORMANCE ANALYTICS:
+   - BURNDOWN: Day-by-day Story Point trend (Ideal vs Actual).
+   - CFD: Task count per status over the sprint.
+   - WORKLOAD: Story points per assignee.
+   - EST vs ACT: Total estimated vs actual hours per assignee.
+
+4. ALERTS:
+   - Critical Issues (Red): Immediate blockers or severe delays.
+   - Risk Areas (Yellow): Potential slippage or high-aging tasks.
+   - Positive Observations (Green): Successful completions or efficiency gains.
+
+5. RECOMMENDATIONS: Categorized into 'Immediate Actions', 'Next Sprint Improvements', and 'Process Optimization'.
+
+OUTPUT JSON FORMAT (STRICT):
+{
+  "cover": {
+    "teamMembers": ["string"],
+    "healthScore": number,
+    "healthCategory": "Healthy|Risk|Critical",
+    "badgeColor": "Green|Yellow|Red"
+  },
+  "dashboard": {
+    "metrics": {
+      "total": number,
+      "completed": number,
+      "overdue": number,
+      "rate": number,
+      "velocity": number,
+      "accuracy": number
+    },
+    "statusDistribution": { "todo": number, "inProgress": number, "review": number, "done": number },
+    "priorityDistribution": { "high": number, "medium": number, "low": number }
+  },
+  "analytics": {
+    "burndown": { "days": ["string"], "ideal": [number], "actual": [number] },
+    "workload": { "assignees": ["string"], "points": [number] },
+    "estVsAct": { "assignees": ["string"], "est": [number], "act": [number] }
+  },
+  "analysis": {
+    "critical": ["string"],
+    "risks": ["string"],
+    "positive": ["string"]
+  },
+  "recommendations": {
+    "immediate": ["string"],
+    "nextSprint": ["string"],
+    "process": ["string"]
+  }
+}
+`;
+
+    // Use generateController for automatic model fallback and retry logic
+    const result = await generateController(genAI, {
+      content: prompt,
+      generationConfig: { responseMimeType: "application/json" }
+    }, modelName);
+
+    const responseText = result.text;
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const report = jsonMatch ? JSON.parse(jsonMatch[0]) : { error: "Failed to parse AI response" };
+
+    res.json(report);
+  } catch (error) {
+    console.error('[Sprint AI Report] Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// === UPDATED INTEGRATIONS LLM ROUTE (Generic & Role-Aware) ===
+router.post('/integrations/llm', auth, async (req, res) => {
+  const { prompt, response_json_schema, context, file_urls } = req.body;
+  const userId = req.user.id;
+  const tenantId = req.user.tenant_id;
+
+  if (!process.env.GROQ_AI_API) {
+    console.warn("[AI] No API Key found. Returning mock response.");
+    if (response_json_schema) {
+      return res.json({ description: "Mock AI response. Configure GROQ_AI_API." });
+    }
+    return res.json("AI Response (Mock): Please configure GROQ_AI_API.");
+  }
+
+  try {
+    const genAI = null;
+    const user = await Models.User.findById(userId).lean();
+    const isRestricted = user?.role === 'member' && user?.custom_role === 'viewer';
+    const isProjectManager = user?.role === 'admin' && user?.custom_role === 'project_manager';
+
+    // === ROLE BASED SECURITY ACCESS CONTROL ===
+    if (isRestricted || isProjectManager) {
+      const viewerKeywords = [
+        'all projects', 'team members', 'overloaded', 'productivity',
+        'bottlenecks', 'delivery speed', 'milestones', 'predict',
+        'across all', 'team performance', 'everyone', 'each task'
+      ];
+      const financialKeywords = [
+        'budget', 'contract', 'money', 'cost', 'billing', 'price',
+        'financial', 'amount', 'currency', 'revenue', 'profit'
+      ];
+
+      const lowerPrompt = prompt.toLowerCase();
+
+      // Restricted Viewers have broad access limitations
+      if (isRestricted && viewerKeywords.some(kw => lowerPrompt.includes(kw))) {
+        return res.json("I don't have access to that information. Access restricted.");
+      }
+
+      // Both Viewers and Project Managers are restricted from financial data
+      if (financialKeywords.some(kw => lowerPrompt.includes(kw))) {
+        return res.json("I don't have access to that information. Access restricted.");
+      }
+    }
+
+    // === 1. BUILD DEEP CONTEXT ===
+    let projects = [];
+    let tasks = [];
+    let tasksQuery = { tenant_id: tenantId };
+
+    if (isRestricted) {
+      tasksQuery.$or = [{ assigned_to: user.email }, { assignee: user.email }, { assignee_id: userId }];
+    }
+
+    // Capture enough context but keep it performant
+    tasks = await Models.Task.find(tasksQuery).sort({ due_date: 1 }).limit(100).lean();
+    const projectIds = [...new Set(tasks.map(t => t.project_id).filter(Boolean))];
+    projects = await Models.Project.find({ tenant_id: tenantId, _id: { $in: projectIds } }).lean();
+
+    const projectMap = projects.reduce((acc, p) => ({ ...acc, [p._id.toString()]: p.name }), {});
+
+    // Metrics for smarter context
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < today && t.status !== 'completed');
+    const dueToday = tasks.filter(t => {
+      if (!t.due_date) return false;
+      const d = new Date(t.due_date);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() === today.getTime() && t.status !== 'completed';
+    });
+
+    const contextStr = `
+=== PERSONAL ASSISTANT DEEP CONTEXT ===
+CURRENT USER: ${user?.full_name} (${user?.role}/${user?.custom_role})
+DATE: ${new Date().toLocaleDateString()}
+
+METRICS:
+- Overdue Tasks: ${overdue.length}
+- Due Today: ${dueToday.length}
+- Relevant Projects: ${projects.length}
+
+TOP PRIORITIES (OVERDUE/TODAY):
+${[...overdue, ...dueToday].slice(0, 10).map(t => `- [${t.status.toUpperCase()}] ${t.title} (${projectMap[t.project_id?.toString()] || 'N/A'}) | Due: ${new Date(t.due_date).toLocaleDateString()}`).join('\n')}
+
+RECENT TASKS (ALL):
+${tasks.slice(0, 50).map(t => `- ${t.title} [${t.status}]`).join('\n')}
+`;
+
+    // === 2. CONSTRUCT PROMPT ===
+    const fileParts = await processFilesForGemini(file_urls, req);
+
+    // Instruction based on response type
+    let systemInstruction = `You are a Smart Project Management Assistant. Provide accurate, data-driven assistance.`;
+    if (!response_json_schema) {
+      systemInstruction += `
+STRICT PERSONAL ASSISTANT RULES:
+1. GREETING: Start your response by greeting the user personally with: "Hi **You**,".
+2. DIRECT ANSWER: If the user's query is a question, you MUST start your first sentence with a direct "**Yes**" or "**No**" (e.g., "**Yes**, you have 4 overdue tasks as of today.").
+3. BOLD HEADERS: Use **Bold Text** for all section headers. Ensure they are on their own line and DO NOT use bullet points for them.
+4. Use Markdown bullet points only for the list items under headers.
+5. Bold every **Project Name**, **Task Title**, **Team Member Name**, and **Date**.
+6. Use a professional, "Straight to Point" tone.
+7. Format all dates as "**MMM DD, YYYY**".
+8. Ensure headers like **Direct Data Points:* **, **Critical Risks:* **, and **Immediate Next Steps:* ** are left-aligned without markers.`;
+    }
+
+    const textPart = `
+${contextStr}
+${context ? `ADDITIONAL CONTEXT:\n${context}\n` : ''}
+SYSTEM INSTRUCTION: ${systemInstruction}
+USER QUERY: ${prompt}`;
+
+    const parts = [...fileParts, { text: textPart }];
+
+    // === 3. GENERATE ===
     const generationConfig = response_json_schema ? {
       responseMimeType: "application/json",
       responseSchema: response_json_schema
     } : {};
 
-    const fileParts = await processFilesForGemini(file_urls, req);
-
-    // 2. Handle undefined context safely
-    let textPart = `USER QUERY: ${prompt}`;
-    if (context && typeof context === 'string' && context.trim()) {
-      textPart = `CONTEXT:\n${context}\n\n${textPart}`;
-    }
-
-    const parts = [...fileParts, { text: textPart }];
-
-    // Use default model (gemini-2.5-flash-native-audio-dialog) from helper
-    // This provides unlimited RPD/RPM to avoid quota issues
     const result = await generateController(genAI, {
       content: parts,
       generationConfig: generationConfig
@@ -2932,51 +3151,29 @@ router.post('/integrations/llm', async (req, res) => {
 
     const text = result.text;
 
+    // === 4. RESPONSE HANDLING ===
     if (response_json_schema) {
-      // 3. Robust JSON Parsing & Fallback for Plain Text
-      let jsonStr = text;
-
-      // If it's wrapped in a code block, strip that out
-      if (text.includes('```json')) {
-        jsonStr = text.split('```json')[1].split('```')[0].trim();
-      } else if (text.includes('```')) {
-        jsonStr = text.split('```')[1].split('```')[0].trim();
-      } else {
-        // Fallback to a regex match if it's just raw text with json somewhere in it
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        jsonStr = jsonMatch ? jsonMatch[0] : text;
-      }
-
       try {
-        const jsonObj = JSON.parse(jsonStr);
-        return res.json(jsonObj);
+        // Find JSON block if it's wrapped in markdown
+        let jsonStr = text;
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) jsonStr = jsonMatch[0];
+
+        return res.json(JSON.parse(jsonStr));
       } catch (e) {
-        // *** THE FIX: Auto-Correct Plain Text Responses ***
-        console.warn("[AI] JSON Parse Failed. attempting text fallback.");
-
-        // If the user requested a description and we got text, assume the text IS the description
-        if (response_json_schema?.properties?.description) {
-          return res.json({
-            title: text.substring(0, 50).replace(/[*#]/g, ''), // Provide a fallback title
-            description: text.replace(/[*#]/g, ''), // Strip markdown artifacts
-            priority: "medium",
-            story_points: 1,
-            labels: ["ai-generated"],
-            subtasks: []
-          });
-        }
-
-        console.error("[AI] JSON Parse Failed (Unrecoverable):", text);
-        return res.status(500).json({ error: "Failed to parse generated JSON", raw: text });
+        console.warn("[AI] JSON Parse Failed, returning raw text.");
+        return res.json({ error: "Failed to parse AI response as JSON", raw: text });
       }
     }
+
+    // Default: Plain text (Markdown)
     res.json(text);
+
   } catch (err) {
-    console.error("[AI] Endpoint Error:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("[AI] Endpoint Error:", err);
+    res.status(500).json({ error: "AI Generation Failed", details: err.message });
   }
 });
-
 // === EMAIL ROUTE USING RESEND SDK ===
 router.post('/integrations/email', async (req, res) => {
   const { to, subject, body } = req.body;
@@ -3288,47 +3485,43 @@ router.post('/ai/analyze-profitability', async (req, res) => {
     return res.status(400).json({ error: 'Missing project or metrics data' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY_2;
+  const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'AI Service (Gemini) not configured' });
+    return res.status(500).json({ error: 'AI Service (Groq) not configured' });
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelName = modelHelper.getDefaultModel();
-    const model = genAI.getGenerativeModel({ model: modelName });
-
     const prompt = `
-      You are "Groona AI", a senior financial analyst and project management consultant. 
+      You are "Groona AI", a senior financial analyst and project management consultant.
       Analyze the following project profitability data and provide deep, real-time insights targeting both OVERALL PROJECT VISION and PHASE-SPECIFIC performance.
-      
+     
       PROJECT: ${project.name}
       STATUS: ${project.status}
       BILLING MODEL: ${project.billing_model}
       TOTAL BUDGET: ${metrics.currency} ${metrics.projectBudget}
       TOTAL ACTUAL COST: ${metrics.currency} ${metrics.totalCost}
       NET PROFIT/LOSS: ${metrics.currency} ${metrics.netProfit}
-      
+     
       BREAKDOWN:
       - Labor Cost: ${metrics.currency} ${metrics.breakdown.laborCost}
       - Non-Labor (Expenses): ${metrics.currency} ${metrics.breakdown.nonLaborCost}
       - Non-Billable Efficiency Impact: ${metrics.currency} ${metrics.breakdown.nonBillableCost}
-      
+     
       PHASE-WISE PERFORMANCE:
       ${(metrics.breakdown.phases || []).map(p => `- Phase: ${p.phaseName}, Status: ${p.status}, Cost: ${metrics.currency} ${p.totalPhaseCost}, Profit/Loss: ${metrics.currency} ${p.profitPoint}, Health: ${p.healthStatus}`).join('\n')}
-
+ 
       TIMELINE:
       - Days Overdue: ${metrics.daysOverdue}
       - Estimated Cost Impact of Delay: ${metrics.currency} ${metrics.costImpact}
-      
+     
       TASK:
-      Provide a comprehensive 4-5 point analysis of project and phase health in EASY, PLAIN WORDS (Layman's terms). 
-      
+      Provide a comprehensive 4-5 point analysis of project and phase health in EASY, PLAIN WORDS (Layman's terms).
+     
       ADAPT YOUR ANALYSIS & TONE BASED ON STATUS:
       - IF IN PLANNING/NOT STARTED (Advisory Tone): Focus on budget realism, estimation risks, and resource readiness. Use a supportive, cautionary tone.
       - IF ACTIVE (Urgent/Proactive Tone): Focus on burn rate, leakage, timeline buffers, and proactive warnings about overruns. Use a fast-paced, intervention-focused tone.
       - IF COMPLETED (Forensic/Evaluative Tone): Focus on post-mortem efficiency, final margin vs estimate, and lessons for future projects. Use a reflective, analytical, and critical-but-constructive tone.
-      
+     
       CONTENT REQUIREMENTS:
       1. Overall Performance: Identify the primary driver of project profit or loss.
       2. Phase Insight: Specifically highlight the best performing and most concerning phases.
@@ -3337,9 +3530,12 @@ router.post('/ai/analyze-profitability', async (req, res) => {
          - WHY: Specific reasons (e.g., "labor cost exceeded estimate by INR X due to non-billable hours").
          - HOW: Tactical steps to correct or prevent issues in future phases.
       4. Clear Recommendations: Provide 2-3 specific, actionable recommendations (directly improving profitability).
-      
-      Formatting: Use **bold text** to highlight critical figures, phase names, or key terms for easy scanning.
-      
+     
+      Formatting Rules:
+      - You MUST use exact double asterisks for bolding: **example text**.
+      - Always bold critical figures, phase names, and key financial terms like **Labor Cost**, **Non-Labor (Expenses)**, and **Budget Cap**.
+      - Do NOT use single asterisks (*) or HTML tags.
+     
       Format your response as a JSON object:
       {
         "primaryDriver": "string (Short, effective name for the main cause)",
@@ -3349,8 +3545,8 @@ router.post('/ai/analyze-profitability', async (req, res) => {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const result = await generateController(null, { content: prompt }, 'llama-3.3-70b-versatile');
+    const responseText = result.text;
 
     // Clean JSON from response in case of markdown blocks
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -3367,5 +3563,6 @@ router.post('/ai/analyze-profitability', async (req, res) => {
     res.status(500).json({ error: 'Failed to generate AI analysis' });
   }
 });
+
 
 module.exports = router;

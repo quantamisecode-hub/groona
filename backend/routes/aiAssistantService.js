@@ -12,89 +12,89 @@ const modelHelper = require('../helpers/geminiModelHelper');
 
 // --- CONFIGURATION ---
 // USES THE SPECIFIC API KEY FOR AI ASSISTANT
-const API_KEY = process.env.GEMINI_API_KEY_2; 
+const API_KEY = process.env.GROQ_AI_API;
 // Use helper to get default model (gemini-2.5-flash-native-audio-dialog)
 const DEFAULT_MODEL = modelHelper.getDefaultModel();
 
 // --- HELPER: FILE PROCESSING ---
-function findFileLocally(filename) { 
-    const cleanName = path.basename(filename); 
+function findFileLocally(filename) {
+    const cleanName = path.basename(filename);
     const possiblePaths = [
-        path.join(__dirname, '..', 'uploads', cleanName), 
-        path.join(process.cwd(), 'uploads', cleanName), 
-        path.join(process.cwd(), 'public', 'uploads', cleanName), 
+        path.join(__dirname, '..', 'uploads', cleanName),
+        path.join(process.cwd(), 'uploads', cleanName),
+        path.join(process.cwd(), 'public', 'uploads', cleanName),
         path.join(__dirname, 'uploads', cleanName)
-    ]; 
-    for (const p of possiblePaths) { 
-        if (fs.existsSync(p)) return p; 
-    } 
-    return null; 
+    ];
+    for (const p of possiblePaths) {
+        if (fs.existsSync(p)) return p;
+    }
+    return null;
 }
 
-function getFileHandler(filePath) { 
-    const ext = path.extname(filePath).toLowerCase(); 
-    const mediaTypes = { 
-        '.jpg': 'image/jpeg', 
-        '.jpeg': 'image/jpeg', 
-        '.png': 'image/png', 
-        '.webp': 'image/webp', 
-        '.pdf': 'application/pdf' 
-    }; 
-    const textTypes = ['.txt', '.md', '.csv', '.json', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.env']; 
-    if (mediaTypes[ext]) return { type: 'media', mimeType: mediaTypes[ext] }; 
-    if (textTypes.includes(ext)) return { type: 'text' }; 
-    return { type: 'unsupported' }; 
+function getFileHandler(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mediaTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.pdf': 'application/pdf'
+    };
+    const textTypes = ['.txt', '.md', '.csv', '.json', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.env'];
+    if (mediaTypes[ext]) return { type: 'media', mimeType: mediaTypes[ext] };
+    if (textTypes.includes(ext)) return { type: 'text' };
+    return { type: 'unsupported' };
 }
 
-async function processFilesForGemini(fileUrls, req) { 
-    const parts = []; 
-    if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) return parts; 
-    
-    for (const url of fileUrls) { 
-        try { 
+async function processFilesForGemini(fileUrls, req) {
+    const parts = [];
+    if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) return parts;
+
+    for (const url of fileUrls) {
+        try {
             const cleanUrl = decodeURIComponent(url);
-            const filename = cleanUrl.split('/').pop(); 
-            const handler = getFileHandler(filename); 
-            if (handler.type === 'unsupported') continue; 
-            
-            let processed = false; 
-            const localPath = findFileLocally(filename); 
-            
-            if (localPath) { 
-                try { 
-                    if (handler.type === 'text') { 
-                        const textContent = fs.readFileSync(localPath, 'utf8'); 
-                        parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` }); 
-                        processed = true; 
-                    } else if (handler.type === 'media') { 
-                        const fileBuffer = fs.readFileSync(localPath); 
-                        parts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: handler.mimeType } }); 
-                        processed = true; 
-                    } 
-                } catch (e) { 
-                    console.error("Local file read error:", e); 
-                } 
-            } 
-            
-            if (!processed) { 
-                let downloadUrl = url; 
-                if (url.startsWith('/')) { 
-                    const protocol = req.protocol || 'http'; 
-                    const host = req.get('host'); 
-                    downloadUrl = `${protocol}://${host}${url}`; 
-                } 
-                const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' }); 
-                if (handler.type === 'text') { 
-                    parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${Buffer.from(response.data).toString('utf8')}\n--- FILE END ---\n` }); 
-                } else { 
-                    parts.push({ inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType: response.headers['content-type'] || handler.mimeType } }); 
-                } 
-            } 
-        } catch (fileError) { 
-            console.error("Attachment Error:", fileError.message); 
-        } 
-    } 
-    return parts; 
+            const filename = cleanUrl.split('/').pop();
+            const handler = getFileHandler(filename);
+            if (handler.type === 'unsupported') continue;
+
+            let processed = false;
+            const localPath = findFileLocally(filename);
+
+            if (localPath) {
+                try {
+                    if (handler.type === 'text') {
+                        const textContent = fs.readFileSync(localPath, 'utf8');
+                        parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` });
+                        processed = true;
+                    } else if (handler.type === 'media') {
+                        const fileBuffer = fs.readFileSync(localPath);
+                        parts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: handler.mimeType } });
+                        processed = true;
+                    }
+                } catch (e) {
+                    console.error("Local file read error:", e);
+                }
+            }
+
+            if (!processed) {
+                let downloadUrl = url;
+                if (url.startsWith('/')) {
+                    const protocol = req.protocol || 'http';
+                    const host = req.get('host');
+                    downloadUrl = `${protocol}://${host}${url}`;
+                }
+                const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+                if (handler.type === 'text') {
+                    parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${Buffer.from(response.data).toString('utf8')}\n--- FILE END ---\n` });
+                } else {
+                    parts.push({ inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType: response.headers['content-type'] || handler.mimeType } });
+                }
+            }
+        } catch (fileError) {
+            console.error("Attachment Error:", fileError.message);
+        }
+    }
+    return parts;
 }
 
 // ==========================================
@@ -102,12 +102,12 @@ async function processFilesForGemini(fileUrls, req) {
 // ==========================================
 async function generateViaSocket(apiKey, model, fullPrompt) {
     if (!apiKey) {
-        throw new Error("Live API key is not configured. Please set GEMINI_API_KEY_2.");
+        throw new Error("Live API key is not configured. Please set GROQ_AI_API.");
     }
-    
+
     const host = "generativelanguage.googleapis.com";
     let cleanModel = model.startsWith('models/') ? model.replace('models/', '') : model;
-    
+
     // Try multiple WebSocket endpoint formats
     // Different models might use different endpoint formats
     const endpointFormats = [
@@ -118,13 +118,13 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
         { version: 'v1beta', format: 'GenerateContent' },
         { version: 'v1alpha', format: 'GenerateContent' },
     ];
-    
+
     let lastError = null;
-    
+
     for (const { version, format } of endpointFormats) {
         const url = `wss://${host}/ws/google.ai.generativelanguage.${version}.GenerativeService/${format}?key=${apiKey}`;
         console.log(`[Live API] Trying ${version}/${format} WebSocket endpoint for model: ${cleanModel}`);
-        
+
         try {
             return await attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt);
         } catch (error) {
@@ -138,13 +138,13 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
             // Continue to next endpoint format
         }
     }
-    
+
     // If all WebSocket endpoints failed, try REST API as last resort for live models
     console.warn('[Live API] All WebSocket endpoints failed, attempting REST API fallback...');
     try {
         const axios = require('axios');
         const restUrl = `https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`;
-        
+
         const contents = [{ parts: [{ text: fullPrompt }] }];
         const payload = {
             contents: contents,
@@ -154,12 +154,12 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
                 topK: 40
             }
         };
-        
+
         const response = await axios.post(restUrl, payload, {
             headers: { 'Content-Type': 'application/json' },
             timeout: 60000
         });
-        
+
         const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         if (text) {
             console.log('[Live API] REST API fallback succeeded!');
@@ -168,7 +168,7 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
     } catch (restError) {
         console.error('[Live API] REST API fallback also failed:', restError.message);
     }
-    
+
     // If all methods failed, throw last error
     throw lastError || new Error('All WebSocket API endpoints and REST fallback failed');
 }
@@ -176,7 +176,7 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
 // Helper function to attempt WebSocket connection
 async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
     return new Promise((resolve, reject) => {
-        
+
         console.log('[Live API] Connecting to model:', cleanModel);
         console.log('[Live API] WebSocket URL (key hidden):', url.replace(apiKey, 'API_KEY_HIDDEN'));
         console.log('[Live API] API Key present:', !!apiKey, 'Length:', apiKey?.length || 0);
@@ -185,9 +185,9 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
         let hasResolved = false;
 
         const timeout = setTimeout(() => {
-            if (!hasResolved) { 
-                ws.terminate(); 
-                reject(new Error("Live API Timeout after 60 seconds")); 
+            if (!hasResolved) {
+                ws.terminate();
+                reject(new Error("Live API Timeout after 60 seconds"));
             }
         }, 60000); // Increased timeout for longer responses
 
@@ -195,16 +195,16 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
             console.log('[Live API] WebSocket connected successfully, sending setup for model:', cleanModel);
             // Ensure model name is correct format (with models/ prefix for setup)
             const modelForSetup = cleanModel.startsWith('models/') ? cleanModel : `models/${cleanModel}`;
-            const setupMessage = { 
-                setup: { 
-                    model: modelForSetup, 
-                    generation_config: { 
+            const setupMessage = {
+                setup: {
+                    model: modelForSetup,
+                    generation_config: {
                         response_modalities: ["TEXT"],
                         temperature: 0.7,
                         top_p: 0.95,
                         top_k: 40
-                    } 
-                } 
+                    }
+                }
             };
             console.log('[Live API] Sending setup message with model:', modelForSetup);
             console.log('[Live API] Setup message:', JSON.stringify(setupMessage, null, 2));
@@ -215,22 +215,22 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
             try {
                 const msg = JSON.parse(data.toString());
                 console.log('[Live API] Received message type:', Object.keys(msg)[0] || 'unknown');
-                
+
                 // Handle setup completion
                 if (msg.setupComplete) {
                     console.log('[Live API] Setup complete, sending prompt (length:', fullPrompt.length, 'chars)...');
-                    ws.send(JSON.stringify({ 
-                        client_content: { 
-                            turns: [{ 
-                                role: "user", 
-                                parts: [{ text: fullPrompt }] 
-                            }], 
-                            turn_complete: true 
-                        } 
+                    ws.send(JSON.stringify({
+                        client_content: {
+                            turns: [{
+                                role: "user",
+                                parts: [{ text: fullPrompt }]
+                            }],
+                            turn_complete: true
+                        }
                     }));
                     return;
                 }
-                
+
                 // Handle error messages from server
                 if (msg.error) {
                     hasResolved = true;
@@ -240,10 +240,10 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
                     reject(new Error(`Live API server error: ${JSON.stringify(msg.error)}`));
                     return;
                 }
-                
+
                 // Handle model response parts
                 if (msg.serverContent?.modelTurn?.parts) {
-                    for (const part of msg.serverContent.modelTurn.parts) { 
+                    for (const part of msg.serverContent.modelTurn.parts) {
                         if (part.text) {
                             responseText += part.text;
                             // Log streaming progress (optional, can be removed for production)
@@ -253,19 +253,19 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
                         }
                     }
                 }
-                
+
                 // Handle turn completion
                 if (msg.serverContent?.turnComplete) {
-                    hasResolved = true; 
-                    clearTimeout(timeout); 
-                    ws.close(); 
+                    hasResolved = true;
+                    clearTimeout(timeout);
+                    ws.close();
                     console.log('[Live API] Response complete, total length:', responseText.length);
                     if (!responseText || responseText.trim() === '') {
                         console.warn('[Live API] Warning: Empty response received');
                     }
                     resolve({ text: responseText || 'No response generated', usedModel: `models/${cleanModel}` });
                 }
-                
+
                 // Handle error messages from server
                 if (msg.error) {
                     hasResolved = true;
@@ -274,7 +274,7 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
                     console.error('[Live API] Server error:', msg.error);
                     reject(new Error(`Live API server error: ${JSON.stringify(msg.error)}`));
                 }
-            } catch (e) { 
+            } catch (e) {
                 console.error("[Live API] Socket Parse Error:", e);
                 if (!hasResolved) {
                     hasResolved = true;
@@ -283,7 +283,7 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
                 }
             }
         });
-        
+
         ws.on('error', (err) => {
             console.error('[Live API] WebSocket error:', err);
             if (!hasResolved) {
@@ -292,7 +292,7 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
                 reject(new Error(`Live API connection error: ${err.message || err}`));
             }
         });
-        
+
         ws.on('close', (code, reason) => {
             console.log('[Live API] WebSocket closed:', code, reason?.toString());
             if (!hasResolved && responseText) {
@@ -318,14 +318,14 @@ async function attemptWebSocketConnection(url, apiKey, cleanModel, fullPrompt) {
 async function generateWithEmbeddingModel(genAI, params, apiKey) {
     const modelName = 'gemini-embedding-1.0';
     const axios = require('axios');
-    
+
     console.log('[AI Assistant] Using gemini-embedding-1.0 with robust helper function');
-    
+
     // Prepare content
-    const contents = Array.isArray(params.content) 
+    const contents = Array.isArray(params.content)
         ? params.content.map(p => ({ parts: [{ text: p.text || p }] }))
         : [{ parts: [{ text: params.content }] }];
-    
+
     // Build payload
     const payload = {
         contents: contents,
@@ -337,14 +337,14 @@ async function generateWithEmbeddingModel(genAI, params, apiKey) {
             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
         ]
     };
-    
+
     // Add system instruction if present
     if (params.systemInstruction?.parts) {
         payload.systemInstruction = {
             parts: params.systemInstruction.parts
         };
     }
-    
+
     // Add history if present
     if (params.history && params.history.length > 0) {
         payload.contents = params.history.map(h => ({
@@ -352,7 +352,7 @@ async function generateWithEmbeddingModel(genAI, params, apiKey) {
             parts: h.parts || [{ text: '' }]
         })).concat(contents);
     }
-    
+
     // Try multiple API endpoints and model name variations
     const apiVersions = ['v1beta', 'v1', 'v1alpha'];
     const modelVariations = [
@@ -361,21 +361,21 @@ async function generateWithEmbeddingModel(genAI, params, apiKey) {
         'embedding-001', // Alternative name
         'text-embedding-004' // Another possible variation
     ];
-    
+
     let lastError = null;
-    
+
     for (const apiVersion of apiVersions) {
         for (const modelVariation of modelVariations) {
             const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelVariation.replace('models/', '')}:generateContent?key=${apiKey}`;
-            
+
             try {
                 console.log(`[AI Assistant] Trying ${apiVersion}/${modelVariation} for embedding model`);
-                
+
                 const response = await axios.post(url, payload, {
                     headers: { 'Content-Type': 'application/json' },
                     timeout: 60000
                 });
-                
+
                 if (response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const text = response.data.candidates[0].content.parts[0].text;
                     console.log(`[AI Assistant] ✅ Successfully used ${modelVariation} via ${apiVersion}`);
@@ -388,16 +388,16 @@ async function generateWithEmbeddingModel(genAI, params, apiKey) {
             }
         }
     }
-    
+
     // If all REST API attempts failed, try SDK approach
     try {
         console.log('[AI Assistant] Trying SDK approach for embedding model');
-        const model = genAI.getGenerativeModel({ 
-            model: modelName, 
+        const model = genAI.getGenerativeModel({
+            model: modelName,
             systemInstruction: params.systemInstruction,
-            generationConfig: params.generationConfig 
+            generationConfig: params.generationConfig
         });
-        
+
         return await attemptModelGeneration(model, params, modelName);
     } catch (sdkError) {
         // If SDK also fails, throw the last REST API error with more context
@@ -407,20 +407,20 @@ async function generateWithEmbeddingModel(genAI, params, apiKey) {
 
 async function generateStandardWithRetry(genAI, params, modelName) {
     let cleanName = modelName.replace('models/', '');
-    
+
     // Special handling for embedding model - use robust helper
     if (cleanName === 'gemini-embedding-1.0') {
         return await generateWithEmbeddingModel(genAI, params, API_KEY);
     }
-    
+
     // Try SDK first (uses v1beta by default)
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: cleanName, 
+        const model = genAI.getGenerativeModel({
+            model: cleanName,
             systemInstruction: params.systemInstruction,
-            generationConfig: params.generationConfig 
+            generationConfig: params.generationConfig
         });
-        
+
         return await attemptModelGeneration(model, params, cleanName);
     } catch (sdkError) {
         // If SDK fails with 404, try direct REST API with v1 and v1beta endpoints
@@ -457,22 +457,22 @@ async function attemptModelGeneration(model, params, cleanName) {
 
 async function tryRestAPIDirectly(modelName, params, apiKey) {
     const axios = require('axios');
-    
+
     // Try different model name formats (with/without models/ prefix, different variations)
     const modelVariations = [
         modelName,
         modelName.replace('models/', ''),
         `models/${modelName.replace('models/', '')}`,
     ];
-    
+
     // Remove duplicates
     const uniqueVariations = [...new Set(modelVariations)];
-    
+
     // Convert params to API format
-    const contents = Array.isArray(params.content) 
+    const contents = Array.isArray(params.content)
         ? params.content.map(p => ({ parts: [{ text: p.text || p }] }))
         : [{ parts: [{ text: params.content }] }];
-    
+
     const payload = {
         contents: contents,
         generationConfig: params.generationConfig || {},
@@ -483,24 +483,24 @@ async function tryRestAPIDirectly(modelName, params, apiKey) {
             { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
         ]
     };
-    
+
     if (params.systemInstruction?.parts) {
         payload.systemInstruction = {
             parts: params.systemInstruction.parts
         };
     }
-    
+
     // Try v1 endpoint first, then v1beta for each model variation
     const apiVersions = ['v1', 'v1beta'];
     let lastError = null;
-    
+
     for (const modelVariation of uniqueVariations) {
         for (const apiVersion of apiVersions) {
             const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelVariation.replace('models/', '')}:generateContent?key=${apiKey}`;
-            
+
             try {
                 console.log(`[AI Assistant] Trying direct REST API: ${apiVersion}/${modelVariation}`);
-                
+
                 // Add history if present
                 if (params.history && params.history.length > 0) {
                     payload.contents = params.history.map(h => ({
@@ -508,178 +508,86 @@ async function tryRestAPIDirectly(modelName, params, apiKey) {
                         parts: h.parts || [{ text: '' }]
                     })).concat(contents);
                 }
-                
+
                 const response = await axios.post(url, payload, {
                     headers: { 'Content-Type': 'application/json' },
                     timeout: 60000
                 });
-                
+
                 const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
                 if (!text) {
                     throw new Error('Empty response from API');
                 }
-                
+
                 console.log(`[AI Assistant] Direct REST API success with ${apiVersion}/${modelVariation}!`);
                 return { text, model: modelName };
             } catch (error) {
                 lastError = error;
                 // Continue to next variation/version
-                const isLast = (apiVersion === apiVersions[apiVersions.length - 1] && 
-                               modelVariation === uniqueVariations[uniqueVariations.length - 1]);
+                const isLast = (apiVersion === apiVersions[apiVersions.length - 1] &&
+                    modelVariation === uniqueVariations[uniqueVariations.length - 1]);
                 if (!isLast) {
                     console.warn(`[AI Assistant] ${apiVersion}/${modelVariation} failed: ${error.message?.substring(0, 100)}`);
                 }
             }
         }
     }
-    
+
     // If all attempts failed, throw last error
     throw lastError || new Error(`All REST API endpoint variations failed for model: ${modelName}`);
 }
 
 async function generateController(genAI, params, requestedModel, retryCount = 0, attemptedModels = []) {
-    // Use requested model directly (user-selected), or default if not specified
-    let targetModel = requestedModel || modelHelper.getDefaultModel();
-    const modelConfig = modelHelper.createModelConfig(targetModel);
-    
-    // Track attempted models to prevent loops and provide better error messages
-    if (!attemptedModels.includes(targetModel)) {
-        attemptedModels.push(targetModel);
+    const axios = require('axios');
+    const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY || process.env.GROQ_API;
+
+    if (!apiKey) {
+        throw new Error('GROQ_AI_API is not configured');
     }
-    
-    console.log('[generateController] Requested:', requestedModel, 'Using:', targetModel, 'Default:', DEFAULT_MODEL);
-    console.log('[generateController] Model config:', {
-        isLive: modelConfig.isLive,
-        hasFallback: !!modelConfig.fallback
-    });
+
+    let fullPrompt = "";
+    if (params.systemInstruction?.parts?.[0]?.text) {
+        fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n\n`;
+    }
+
+    const messages = [];
+    if (params.history) {
+        params.history.forEach(h => {
+            messages.push({
+                role: h.role === 'model' ? 'assistant' : 'user',
+                content: h.parts?.[0]?.text || ''
+            });
+        });
+    }
+
+    let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
+    fullPrompt += currentText;
+    messages.push({ role: 'user', content: fullPrompt });
 
     try {
-        // Use standard HTTP API for all models (most reliable)
-        // Only use WebSocket for specific live models if needed
-        if (modelConfig.isLive) {
-            // Build full prompt with system instructions and history for live API
-            let fullPrompt = "";
-            
-            // Add system instruction if present
-            if (params.systemInstruction?.parts) {
-                const systemText = params.systemInstruction.parts.map(p => p.text).join('\n');
-                fullPrompt += `SYSTEM INSTRUCTIONS:\n${systemText}\n\n`;
+        const response = await axios.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            {
+                model: 'llama-3.3-70b-versatile',
+                messages: messages,
+                temperature: 0.7
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 60000
             }
-            
-            // Add conversation history if present
-            if (params.history && params.history.length > 0) {
-                fullPrompt += "CONVERSATION HISTORY:\n";
-                params.history.forEach(h => {
-                    const role = h.role === 'model' ? 'Assistant' : 'User';
-                    const text = h.parts?.map(p => p.text).join('\n') || '';
-                    fullPrompt += `${role}: ${text}\n`;
-                });
-                fullPrompt += "\n";
-            }
-            
-            // Add current user message
-            let currentText = Array.isArray(params.content) 
-                ? params.content.map(p => p.text).join('\n') 
-                : params.content;
-            fullPrompt += `USER: ${currentText}`;
-            
-            console.log('[AI Assistant] Attempting WebSocket Live API for model:', targetModel);
-            try {
-                const result = await generateViaSocket(API_KEY, targetModel, fullPrompt);
-                console.log('[AI Assistant] Live API WebSocket success, response length:', result.text?.length || 0);
-                return result;
-            } catch (liveError) {
-                // WebSocket already tried REST fallback internally
-                // If it still failed, throw to trigger model fallback
-                console.error('[AI Assistant] All Live API methods (WebSocket + REST) failed for:', targetModel);
-                throw liveError;
-            }
-        } else {
-            // Use standard HTTP API for all models
-            console.log('[AI Assistant] Using standard HTTP API model:', targetModel);
-            
-            // Special handling for embedding model - use robust helper, NO FALLBACK when explicitly selected
-            if (targetModel === 'gemini-embedding-1.0' && requestedModel === 'gemini-embedding-1.0') {
-                // User explicitly selected embedding model - use it strictly without fallback
-                console.log('[AI Assistant] User explicitly selected gemini-embedding-1.0 - using robust helper, NO FALLBACK');
-                return await generateStandardWithRetry(genAI, params, targetModel);
-            }
-            
-            return await generateStandardWithRetry(genAI, params, targetModel);
-        }
+        );
+
+        return {
+            text: response.data.choices[0]?.message?.content || '',
+            model: 'llama-3.3-70b-versatile'
+        };
     } catch (error) {
-        console.log('[AI Assistant] generateController error:', {
-            targetModel,
-            retryCount,
-            errorMessage: error.message,
-            errorStatus: error.status
-        });
-        
-        // NO FALLBACK if user explicitly selected gemini-embedding-1.0
-        if (requestedModel === 'gemini-embedding-1.0' && targetModel === 'gemini-embedding-1.0') {
-            console.error(`[AI Assistant] ❌ gemini-embedding-1.0 failed. User explicitly selected this model, so no fallback will occur.`);
-            throw new Error(`Failed to use gemini-embedding-1.0: ${error.message}. This model was explicitly selected and cannot be replaced with a fallback.`);
-        }
-        
-        // Use fallback chain to try other allowed models
-        const shouldTryFallback = modelHelper.shouldFallback(error, targetModel);
-        const fallbackModel = modelHelper.getFallbackModel(targetModel);
-        
-        // Determine error type for better messaging
-        const isQuotaError = error.status === 429 || 
-                           error.message?.includes('quota') || 
-                           error.message?.includes('rate limit') ||
-                           error.message?.includes('Too Many Requests') ||
-                           error.message?.includes('exceeded');
-        
-        const isModelNotFound = error.status === 404 || 
-                               error.message?.includes('not found') ||
-                               error.message?.includes('not supported') ||
-                               error.message?.includes('generateContent') && error.message?.includes('not supported');
-        
-        // Try fallback models (up to 5 attempts to go through the chain)
-        // Auto-fallback when no specific model was requested OR when quota/model not found
-        const maxRetries = 5; // Allow going through multiple fallback models
-        if (shouldTryFallback && fallbackModel && retryCount < maxRetries) {
-            // Always try fallback for quota/model errors, or if no specific model requested
-            if (isQuotaError || isModelNotFound || !requestedModel) {
-                if (isQuotaError) {
-                    console.warn(`[AI Assistant] ⚠️ Quota exceeded for ${targetModel}. Falling back to ${fallbackModel}`);
-                } else if (isModelNotFound) {
-                    console.warn(`[AI Assistant] ⚠️ Model ${targetModel} not found. Falling back to ${fallbackModel}`);
-                } else {
-                    console.warn(`[AI Assistant] ⚠️ Model ${targetModel} failed. Falling back to ${fallbackModel}`);
-                }
-                console.warn(`[AI Assistant] Error details: ${error.message?.substring(0, 200)}`);
-                
-                // Retry with fallback model (pass along attempted models list)
-                return await generateController(genAI, params, fallbackModel, retryCount + 1, attemptedModels);
-            }
-        }
-        
-        // If no fallback available or exhausted all retries
-        if (!fallbackModel || retryCount >= maxRetries) {
-            const triedModelsList = attemptedModels.length > 0 ? attemptedModels.join(', ') : targetModel;
-            console.error(`[AI Assistant] ❌ No more fallback models available. Tried ${attemptedModels.length || 1} model(s): ${triedModelsList}`);
-            
-            // Provide helpful error message with suggestions
-            if (isModelNotFound) {
-                const errorMsg = `⚠️ MODEL NOT FOUND: ${targetModel}\n\n` +
-                    `Attempted models: ${triedModelsList}\n\n` +
-                    `The model(s) are not available or not supported for generateContent.\n\n` +
-                    `Possible reasons:\n` +
-                    `1. Model names may be incorrect or not yet available\n` +
-                    `2. Your API key may not have access to these models\n` +
-                    `3. Models may require special access/permissions\n\n` +
-                    `To check available models, run: node backend/scripts/checkModels.js\n\n` +
-                    `Your API key: GEMINI_API_KEY_2 (length: ${API_KEY?.length || 0})`;
-                throw new Error(errorMsg);
-            } else if (isQuotaError) {
-                throw new Error(`Quota exceeded. Tried models: ${triedModelsList}. All available models have been attempted. Please try again later or contact support.`);
-            }
-        }
-        
-        throw error;
+        console.error("Groq AI Error:", error.response?.data || error.message);
+        throw new Error(`AI Generation Failed: ${error.message}`);
     }
 }
 
@@ -687,19 +595,19 @@ async function buildDeepContext(tenant_id, user_id, content) {
     let contextStr = "";
     if (!content) return contextStr;
     const lowerQ = content.toLowerCase();
-    
+
     // Always fetch workspaces and users for project creation
     try {
         const workspaces = await Models.Workspace.find({ tenant_id });
         const users = await Models.User.find({ tenant_id });
-        
+
         contextStr += `\n=== AVAILABLE WORKSPACES ===\n`;
         if (workspaces.length > 0) {
             contextStr += workspaces.map(w => `- Name: "${w.name}" (ID: ${w._id})`).join('\n');
         } else {
             contextStr += "No workspaces found. (User needs to create one first)\n";
         }
-        
+
         contextStr += `\n=== AVAILABLE TEAM MEMBERS ===\n`;
         contextStr += users.map(u => `- Name: ${u.full_name}, Email: ${u.email}`).join('\n');
     } catch (e) {
@@ -717,70 +625,70 @@ async function buildDeepContext(tenant_id, user_id, content) {
 // --- ROUTES ---
 
 // 1. Get Conversations
-router.get('/conversations', async (req, res) => { 
-    const { user_id, tenant_id } = req.query; 
-    try { 
-        const conversations = await Models.Conversation.find({ user_id, tenant_id, is_active: true }).sort({ updated_date: -1 }).limit(20); 
-        res.json(conversations); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    } 
+router.get('/conversations', async (req, res) => {
+    const { user_id, tenant_id } = req.query;
+    try {
+        const conversations = await Models.Conversation.find({ user_id, tenant_id, is_active: true }).sort({ updated_date: -1 }).limit(20);
+        res.json(conversations);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 2. Create Conversation
-router.post('/conversations', async (req, res) => { 
-    try { 
-        const convo = new Models.Conversation({ ...req.body, messages: [] }); 
-        await convo.save(); 
-        res.json(convo); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    } 
+router.post('/conversations', async (req, res) => {
+    try {
+        const convo = new Models.Conversation({ ...req.body, messages: [] });
+        await convo.save();
+        res.json(convo);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 2.5. Get Single Conversation
-router.get('/conversations/:id', async (req, res) => { 
-    try { 
+router.get('/conversations/:id', async (req, res) => {
+    try {
         const conversation = await Models.Conversation.findById(req.params.id);
         if (!conversation) {
             return res.status(404).json({ error: 'Conversation not found' });
         }
-        res.json(conversation); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    } 
+        res.json(conversation);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 2.6. Delete Conversation
-router.delete('/conversations/:id', async (req, res) => { 
-    try { 
+router.delete('/conversations/:id', async (req, res) => {
+    try {
         const conversation = await Models.Conversation.findById(req.params.id);
         if (!conversation) {
             return res.status(404).json({ error: 'Conversation not found' });
         }
-        
+
         // Soft delete by setting is_active to false
         conversation.is_active = false;
         await conversation.save();
-        
-        res.json({ success: true, message: 'Conversation deleted' }); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    } 
+
+        res.json({ success: true, message: 'Conversation deleted' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 3. Usage Stats
-router.get('/usage/stats', async (req, res) => { 
-    const { user_id, tenant_id } = req.query; 
-    try { 
+router.get('/usage/stats', async (req, res) => {
+    const { user_id, tenant_id } = req.query;
+    try {
         const usage = await Models.TokenUsage.aggregate([
-            { $match: { user_id, tenant_id } }, 
+            { $match: { user_id, tenant_id } },
             { $group: { _id: null, total_tokens: { $sum: "$total_tokens" } } }
-        ]); 
-        res.json(usage[0] || { total_tokens: 0 }); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    } 
+        ]);
+        res.json(usage[0] || { total_tokens: 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 3.5. Get Available Gemini Models
@@ -819,7 +727,7 @@ router.get('/models', async (req, res) => {
         'gemini-embedding-1.0': 'Gemini Embedding 1.0',
         'gemini-2.5-flash-native-audio-dialog': 'Gemini 2.5 Flash Native Audio Dialog'
     };
-    
+
     // Try to get model info from API if available, but always return all allowed models
     let apiModels = {};
     if (API_KEY) {
@@ -841,14 +749,14 @@ router.get('/models', async (req, res) => {
             // Continue to return all models even if API call fails
         }
     }
-    
+
     // Return all 12 allowed models with API info if available
     const models = ALLOWED_MODELS.map(id => ({
         id,
         name: apiModels[id]?.displayName || modelDisplayNames[id] || id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         description: apiModels[id]?.description || `Gemini model: ${id}`
     }));
-    
+
     return res.json({
         success: true,
         models: models,
@@ -862,11 +770,11 @@ router.get('/check-models', async (req, res) => {
     if (!API_KEY) {
         return res.status(500).json({ error: "API key not configured" });
     }
-    
+
     try {
         const axios = require('axios');
         const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
-        
+
         if (response.data && response.data.models) {
             const allModels = response.data.models;
             // Include both generative and embedding models
@@ -881,13 +789,13 @@ router.get('/check-models', async (req, res) => {
                     description: m.description || '',
                     supportedMethods: m.supportedGenerationMethods || []
                 }));
-            
+
             // Check for all allowed models
             const found = {};
             ALLOWED_MODELS.forEach(modelName => {
                 found[modelName] = generativeModels.find(m => m.name === modelName);
             });
-            
+
             return res.json({
                 success: true,
                 availableModels: generativeModels.filter(m => ALLOWED_MODELS.includes(m.name)),
@@ -896,7 +804,7 @@ router.get('/check-models', async (req, res) => {
                 allowedModels: ALLOWED_MODELS
             });
         }
-        
+
         res.json({ success: false, error: "No models found" });
     } catch (err) {
         res.status(500).json({ error: err.message, details: err.response?.data });
@@ -906,11 +814,11 @@ router.get('/check-models', async (req, res) => {
 // 4. MAIN CHAT ROUTE (With Project Creation Logic)
 router.post('/chat', async (req, res) => {
     const { conversation_id, content, file_urls, context, model, user_id, tenant_id } = req.body;
-    
+
     if (!API_KEY) {
-        console.error('[AI Assistant] GEMINI_API_KEY_2 is not set in environment variables');
-        return res.status(500).json({ 
-            error: "AI Assistant API key is not configured. Please set GEMINI_API_KEY_2 in your environment variables.",
+        console.error('[AI Assistant] GROQ_AI_API is not set in environment variables');
+        return res.status(500).json({
+            error: "AI Assistant API key is not configured. Please set GROQ_AI_API in your environment variables.",
             code: "API_KEY_MISSING"
         });
     }
@@ -926,11 +834,11 @@ router.post('/chat', async (req, res) => {
 
         const userMsg = { role: 'user', content: content, file_urls, created_at: new Date() };
         conversation.messages.push(userMsg);
-        conversation.updated_date = new Date(); 
+        conversation.updated_date = new Date();
         await conversation.save();
 
-        const genAI = new GoogleGenerativeAI(API_KEY);
-        
+        const genAI = null;
+
         // Build context with error handling
         let deepContext = '';
         try {
@@ -939,7 +847,7 @@ router.post('/chat', async (req, res) => {
             console.error('[AI Assistant] Error building context:', contextError);
             // Continue without context if it fails
         }
-        
+
         // Process files with error handling
         let fileParts = [];
         try {
@@ -948,13 +856,13 @@ router.post('/chat', async (req, res) => {
             console.error('[AI Assistant] Error processing files:', fileError);
             // Continue without files if processing fails
         }
-        
+
         let contextBlock = "";
         if (context) contextBlock += `${context}\n`;
         if (deepContext) contextBlock += `${deepContext}\n`;
 
         const finalParts = [
-            ...fileParts, 
+            ...fileParts,
             { text: contextBlock ? `SYSTEM DATA:\n${contextBlock}\n\nUSER QUERY: ${content}` : content }
         ];
 
@@ -963,33 +871,33 @@ router.post('/chat', async (req, res) => {
         let projectInfo = {};
         let infoStatus = { isComplete: false, missing: [] };
         let workspaceList = "No workspaces found. User needs to create one first.";
-        
+
         // Check if this is a task creation conversation
         let isTaskCreation = false;
         let taskInfo = {};
         let taskInfoStatus = { isComplete: false, missing: [] };
         let projectsList = "No projects found. User needs to create one first.";
         let sprintsList = "";
-        
+
         try {
             isProjectCreation = aiProjectService.isProjectCreationConversation(conversation.messages);
             projectInfo = aiProjectService.extractProjectInfo(conversation.messages);
-            
+
             // Get workspaces for validation
             const workspaces = await Models.Workspace.find({ tenant_id });
             workspaceList = workspaces.map(w => `- "${w.name}"`).join('\n');
-            
+
             // Check if project info is complete
             infoStatus = aiProjectService.checkProjectInfoComplete(projectInfo, workspaces);
-            
+
             // Validate workspace_name is not a placeholder or invalid value
-            const hasValidWorkspace = projectInfo.workspace_name && 
+            const hasValidWorkspace = projectInfo.workspace_name &&
                 typeof projectInfo.workspace_name === 'string' &&
                 projectInfo.workspace_name.trim() !== '' &&
                 !projectInfo.workspace_name.startsWith('_') && // Reject placeholders like "_name"
                 projectInfo.workspace_name.toLowerCase() !== 'workspace' &&
                 projectInfo.workspace_name.toLowerCase() !== 'name';
-            
+
             console.log('[AI Assistant] Project extraction result:', {
                 isProjectCreation,
                 projectInfo,
@@ -998,17 +906,17 @@ router.post('/chat', async (req, res) => {
                 hasWorkspace: hasValidWorkspace,
                 hasDeadline: !!projectInfo.deadline && (typeof projectInfo.deadline === 'string' ? projectInfo.deadline.trim() !== '' : true)
             });
-            
+
             // If all info is complete, immediately create the project without asking
             // Accept deadline as string (will be parsed during creation)
-            const hasValidDeadline = projectInfo.deadline && 
+            const hasValidDeadline = projectInfo.deadline &&
                 (typeof projectInfo.deadline === 'string' ? projectInfo.deadline.trim() !== '' : true);
-            
+
             // Validate project name is not empty
-            const hasValidName = projectInfo.name && 
+            const hasValidName = projectInfo.name &&
                 typeof projectInfo.name === 'string' &&
                 projectInfo.name.trim() !== '';
-            
+
             if (isProjectCreation && hasValidName && hasValidWorkspace && hasValidDeadline) {
                 console.log('[AI Assistant] All project info complete, creating immediately:', {
                     name: projectInfo.name,
@@ -1016,7 +924,7 @@ router.post('/chat', async (req, res) => {
                     deadline: projectInfo.deadline,
                     infoStatus
                 });
-                
+
                 // Final parse of deadline if it's still a raw string
                 let finalDeadline = projectInfo.deadline;
                 if (typeof finalDeadline === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(finalDeadline)) {
@@ -1030,7 +938,7 @@ router.post('/chat', async (req, res) => {
                         console.warn('[AI Assistant] Could not parse deadline, will parse during creation:', finalDeadline);
                     }
                 }
-                
+
                 // Generate project description using AI (quick generation)
                 let description = `Project created via AI Assistant: ${projectInfo.name}`;
                 try {
@@ -1043,25 +951,25 @@ router.post('/chat', async (req, res) => {
                 } catch (descError) {
                     console.error('[AI Assistant] Description generation failed, using default:', descError);
                 }
-                
+
                 projectInfo.description = description;
                 projectInfo.deadline = finalDeadline || projectInfo.deadline;
-                
+
                 // Return special response to trigger project creation immediately
-                conversation.messages.push({ 
-                    role: 'assistant', 
+                conversation.messages.push({
+                    role: 'assistant',
                     content: JSON.stringify({
                         action: "create_project",
                         project_name: projectInfo.name,
                         workspace_name: projectInfo.workspace_name,
                         deadline: projectInfo.deadline,
                         description: projectInfo.description
-                    }), 
-                    created_at: new Date() 
+                    }),
+                    created_at: new Date()
                 });
                 await conversation.save();
-                
-                return res.json({ 
+
+                return res.json({
                     message: JSON.stringify({
                         action: "create_project",
                         project_name: projectInfo.name,
@@ -1076,11 +984,11 @@ router.post('/chat', async (req, res) => {
         } catch (serviceError) {
             console.error('[AI Assistant] Error in project service:', serviceError);
         }
-        
+
         try {
             isTaskCreation = aiTaskService.isTaskCreationConversation(conversation.messages);
             taskInfo = aiTaskService.extractTaskInfo(conversation.messages);
-            
+
             // Get projects and sprints for validation with error handling
             let projects = [];
             try {
@@ -1090,35 +998,35 @@ router.post('/chat', async (req, res) => {
                 console.error('[AI Assistant] Error fetching projects:', projectError);
                 projectsList = "Unable to load projects. Please try again.";
             }
-            
+
             if (taskInfo.project_id || taskInfo.project_name) {
-                const projectId = taskInfo.project_id || (projects.find(p => 
+                const projectId = taskInfo.project_id || (projects.find(p =>
                     p.name.toLowerCase().includes(taskInfo.project_name?.toLowerCase() || '') ||
                     (taskInfo.project_name?.toLowerCase() || '').includes(p.name.toLowerCase())
                 )?._id?.toString());
-                
+
                 if (projectId) {
                     const sprints = await Models.Sprint.find({ tenant_id, project_id: projectId });
                     sprintsList = sprints.map(s => `- "${s.name}"`).join('\n') || "No sprints found for this project.";
                 }
             }
-            
+
             // Check if task info is complete
             taskInfoStatus = aiTaskService.checkTaskInfoComplete(taskInfo, projects);
-            
+
             // If all required info is complete, immediately create the task without asking
-            const hasValidProject = taskInfo.project_id || 
+            const hasValidProject = taskInfo.project_id ||
                 (taskInfo.project_name && typeof taskInfo.project_name === 'string' && taskInfo.project_name.trim() !== '');
-            const hasValidTitle = taskInfo.title && 
+            const hasValidTitle = taskInfo.title &&
                 (typeof taskInfo.title === 'string' ? taskInfo.title.trim() !== '' : true);
-            
+
             if (isTaskCreation && taskInfoStatus.isComplete && hasValidTitle && hasValidProject) {
                 console.log('[AI Assistant] All task info complete, creating immediately:', {
                     title: taskInfo.title,
                     project: taskInfo.project_name,
                     sprint: taskInfo.sprint_name
                 });
-                
+
                 // Generate task description using AI
                 let description = `Task created via AI Assistant: ${taskInfo.title}`;
                 try {
@@ -1131,12 +1039,12 @@ router.post('/chat', async (req, res) => {
                 } catch (descError) {
                     console.error('[AI Assistant] Description generation failed, using default:', descError);
                 }
-                
+
                 taskInfo.description = description;
-                
+
                 // Return special response to trigger task creation immediately
-                conversation.messages.push({ 
-                    role: 'assistant', 
+                conversation.messages.push({
+                    role: 'assistant',
                     content: JSON.stringify({
                         action: "create_task",
                         title: taskInfo.title,
@@ -1147,12 +1055,12 @@ router.post('/chat', async (req, res) => {
                         due_date: taskInfo.due_date,
                         estimated_hours: taskInfo.estimated_hours,
                         description: taskInfo.description
-                    }), 
-                    created_at: new Date() 
+                    }),
+                    created_at: new Date()
                 });
                 await conversation.save();
-                
-                return res.json({ 
+
+                return res.json({
                     message: JSON.stringify({
                         action: "create_task",
                         title: taskInfo.title,
@@ -1171,7 +1079,7 @@ router.post('/chat', async (req, res) => {
         } catch (serviceError) {
             console.error('[AI Assistant] Error in task service:', serviceError);
         }
-        
+
         // Build system prompt with project and task creation logic
         // Include extracted information so AI knows what we already have
         const extractedProjectInfo = isProjectCreation ? `
@@ -1182,7 +1090,7 @@ CURRENTLY EXTRACTED PROJECT INFORMATION:
 
 IMPORTANT: If any field above shows a value (not "NOT YET PROVIDED"), that information HAS BEEN PROVIDED by the user. Use it immediately and only ask for missing fields.
 ` : '';
-        
+
         let systemPrompt = `You are Aivora, a professional Project Management Assistant.
 
 CORE INSTRUCTIONS:
@@ -1254,7 +1162,7 @@ For all other queries, answer normally, concisely, and professionally.`;
 
         // Only proceed with AI generation if we haven't already created the project/task
         // (The creation would have returned early above)
-        
+
         const systemInstruction = { parts: [{ text: systemPrompt }] };
 
         // Exclude current message from history - ensure messages is an array
@@ -1270,7 +1178,7 @@ For all other queries, answer normally, concisely, and professionally.`;
         const modelToUse = model || modelHelper.getDefaultModel();
         console.log('[AI Assistant] Starting AI generation with model:', modelToUse);
         console.log('[AI Assistant] Requested model:', model, 'Using:', modelToUse);
-        
+
         try {
             result = await generateController(genAI, {
                 content: finalParts,
@@ -1285,44 +1193,44 @@ For all other queries, answer normally, concisely, and professionally.`;
                 status: genError.status,
                 response: genError.response?.data
             });
-            
-        // Check for specific API errors
-        if (genError.message?.includes('API_KEY') || genError.message?.includes('API key')) {
-            return res.status(500).json({ 
-                error: 'AI API key is invalid or expired. Please check your GEMINI_API_KEY_2 configuration.',
-                code: 'API_KEY_INVALID'
-            });
-        }
-        // Handle quota/token exhaustion errors - return graceful response for frontend toast
-        if (genError.message?.includes('quota') || genError.message?.includes('rate limit') || 
-            genError.message?.includes('exceeded') || genError.message?.includes('RPD') || 
-            genError.message?.includes('RPM') || genError.status === 429) {
-            const retryAfter = genError.message?.match(/retry in ([\d.]+)s/i)?.[1] || '60';
-            console.warn('[AI Assistant] Quota/token exhaustion detected for model:', modelToUse);
-            return res.status(200).json({ // Return 200 so frontend can handle gracefully
-                message: '',
-                error: true,
-                code: 'TOKENS_EXPIRED',
-                model: modelToUse,
-                message: `Tokens expired for ${modelToUse}. Please try a different model.`,
-                retryAfter: Math.ceil(parseFloat(retryAfter))
-            });
-        }
-        if (genError.status === 404 || genError.message?.includes('not found')) {
-            return res.status(200).json({ // Return 200 for graceful handling
-                error: true,
-                code: 'MODEL_NOT_FOUND',
-                model: modelToUse,
-                message: `Model ${modelToUse} is not available. Please try a different model.`
-            });
-        }
-            
+
+            // Check for specific API errors
+            if (genError.message?.includes('API_KEY') || genError.message?.includes('API key')) {
+                return res.status(500).json({
+                    error: 'AI API key is invalid or expired. Please check your GROQ_AI_API configuration.',
+                    code: 'API_KEY_INVALID'
+                });
+            }
+            // Handle quota/token exhaustion errors - return graceful response for frontend toast
+            if (genError.message?.includes('quota') || genError.message?.includes('rate limit') ||
+                genError.message?.includes('exceeded') || genError.message?.includes('RPD') ||
+                genError.message?.includes('RPM') || genError.status === 429) {
+                const retryAfter = genError.message?.match(/retry in ([\d.]+)s/i)?.[1] || '60';
+                console.warn('[AI Assistant] Quota/token exhaustion detected for model:', modelToUse);
+                return res.status(200).json({ // Return 200 so frontend can handle gracefully
+                    message: '',
+                    error: true,
+                    code: 'TOKENS_EXPIRED',
+                    model: modelToUse,
+                    message: `Tokens expired for ${modelToUse}. Please try a different model.`,
+                    retryAfter: Math.ceil(parseFloat(retryAfter))
+                });
+            }
+            if (genError.status === 404 || genError.message?.includes('not found')) {
+                return res.status(200).json({ // Return 200 for graceful handling
+                    error: true,
+                    code: 'MODEL_NOT_FOUND',
+                    model: modelToUse,
+                    message: `Model ${modelToUse} is not available. Please try a different model.`
+                });
+            }
+
             throw genError; // Re-throw to be caught by outer catch
         }
 
         // Ensure result has text property
         const responseText = result.text || result.message || 'No response generated';
-        
+
         try {
             conversation.messages.push({ role: 'assistant', content: responseText, created_at: new Date() });
             await conversation.save();
@@ -1347,11 +1255,11 @@ For all other queries, answer normally, concisely, and professionally.`;
 
         // Return conversation with messages for frontend
         const updatedConversation = await Models.Conversation.findById(conversation_id);
-        res.json({ 
-            message: responseText, 
+        res.json({
+            message: responseText,
             text: responseText, // Also include as 'text' for compatibility
-            usage: result.usage, 
-                    model: result.model || result.usedModel || modelHelper.getDefaultModel(),
+            usage: result.usage,
+            model: result.model || result.usedModel || modelHelper.getDefaultModel(),
             conversation: updatedConversation // Include full conversation with messages
         });
 
@@ -1365,19 +1273,19 @@ For all other queries, answer normally, concisely, and professionally.`;
             status: err.status,
             response: err.response?.data
         });
-        
+
         // Provide more helpful error messages
         let errorMessage = err.message || 'Internal server error';
         if (err.message?.includes('API_KEY') || err.message?.includes('API key')) {
-            errorMessage = 'AI API key is missing or invalid. Please check your GEMINI_API_KEY_2 environment variable.';
+            errorMessage = 'AI API key is missing or invalid. Please check your GROQ_AI_API environment variable.';
         } else if (err.message?.includes('quota') || err.message?.includes('rate limit')) {
             errorMessage = 'API quota exceeded or rate limit reached. Please try again later.';
         } else if (err.message?.includes('network') || err.code === 'ECONNREFUSED') {
             errorMessage = 'Network error. Please check your internet connection.';
         }
-        
-        res.status(500).json({ 
-            error: errorMessage, 
+
+        res.status(500).json({
+            error: errorMessage,
             details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
             type: err.name || 'UnknownError'
         });
@@ -1387,7 +1295,7 @@ For all other queries, answer normally, concisely, and professionally.`;
 // 5. CREATE PROJECT ENDPOINT (Called when AI confirms project creation)
 router.post('/create-project', async (req, res) => {
     const { project_name, workspace_name, deadline, description, tenant_id, user_id, user_email } = req.body;
-    
+
     if (!project_name || !tenant_id || !user_id || !user_email) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1407,8 +1315,8 @@ router.post('/create-project', async (req, res) => {
             user_email
         );
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             project: project,
             message: `Project "${project.name}" created successfully!`
         });
@@ -1421,7 +1329,7 @@ router.post('/create-project', async (req, res) => {
 // 6. CREATE TASK ENDPOINT (Called when AI confirms task creation)
 router.post('/create-task', async (req, res) => {
     const { title, project_name, sprint_name, assignee_email, assignee_name, due_date, estimated_hours, description, tenant_id, user_id, user_email } = req.body;
-    
+
     if (!title || !tenant_id || !user_id || !user_email) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -1445,8 +1353,8 @@ router.post('/create-task', async (req, res) => {
             user_email
         );
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             task: task,
             message: `Task "${task.title}" created successfully!`
         });

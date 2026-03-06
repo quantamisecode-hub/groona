@@ -13,7 +13,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 
-const suggestedQuestions = [
+const adminQuestions = [
   "What are the biggest risks across all my projects?",
   "Which projects need immediate attention?",
   "How can I improve team productivity?",
@@ -24,8 +24,38 @@ const suggestedQuestions = [
   "Give me recommendations to speed up delivery",
 ];
 
+const viewerQuestions = [
+  "What should I focus on today?",
+  "What tasks are high priority?",
+  "Which of my tasks are at risk?",
+  "Do I have any overdue tasks?",
+  "What is blocking my progress?",
+  "Am I overloaded this sprint?",
+  "How is my performance this week?",
+  "What should I complete next?",
+];
+
+const pmQuestions = [
+  "What projects need immediate attention?",
+  "Which milestones are at risk?",
+  "Are we on track this sprint?",
+  "Where are the delivery bottlenecks?",
+  "Which team members are overloaded?",
+  "What tasks are blocking progress?",
+  "Predict completion dates for active projects.",
+  "Give recommendations to improve delivery speed.",
+];
+
 export default function AskAIInsights({ projects, tasks }) {
   const { user: currentUser, effectiveTenantId } = useUser();
+  const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
+  const isProjectManager = currentUser && !currentUser.is_super_admin && currentUser.role === 'admin' && currentUser.custom_role === 'project_manager';
+  const isOwner = currentUser && !currentUser.is_super_admin && currentUser.role === 'admin' && currentUser.custom_role === 'owner';
+
+  const shouldFilterByMe = isRestrictedViewer || isProjectManager || isOwner;
+
+  const suggestedQuestions = isRestrictedViewer ? viewerQuestions : (isProjectManager ? pmQuestions : adminQuestions);
+
   const queryClient = useQueryClient();
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -84,7 +114,7 @@ export default function AskAIInsights({ projects, tasks }) {
   // Preprocess markdown to bold identifiers and quotes
   const preprocessMarkdown = (text) => {
     if (!text) return "";
-    let processed = text;
+    let processed = typeof text === 'string' ? text : JSON.stringify(text);
 
     // 1. Bold explicit targets (projects, tasks, and team members)
     boldTargets.forEach(name => {
@@ -104,10 +134,21 @@ export default function AskAIInsights({ projects, tasks }) {
       processed = processed.replace(pattern, (match) => `**${match}**`);
     });
 
-    // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
-    processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
+    // 3. Remove double quotes around any project/task/team names and ensure strictly bold
+    processed = processed.replace(/"(.*?)"/g, '$1');
 
-    // 4. Bold counts of tasks, projects, etc. (e.g., "11 overdue tasks", "4 active projects", "0%")
+    // 4. Bold specialized roles
+    const rolePatterns = [/\bProject Managers?\b/gi];
+    rolePatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
+
+    // 5. Clean up "floating bullets" (ensure text is on the same line as bullet)
+    // Fixes cases where LLM puts a newline after the bullet marker or multiple newlines
+    processed = processed.replace(/^([-*+])\s*\n+/gm, '$1 ');
+    processed = processed.replace(/\n\n([-*+])\s*/g, '\n$1 ');
+
+    // 5. Bold counts of tasks, projects, etc. (e.g., "11 overdue tasks", "4 active projects", "0%")
     const countPatterns = [
       /(?<!\*\*)\b(\d+)\s+(?:overdue\s+)?(tasks?|projects?|active projects?|team members?|issues?|risks?|members?|users?)\b(?!\*\*)/gi,
       /(?<!\*\*)\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:overdue\s+)?(tasks?|projects?|active projects?|team members?|issues?|risks?|members?|users?)\b(?!\*\*)/gi,
@@ -115,6 +156,47 @@ export default function AskAIInsights({ projects, tasks }) {
     ];
     countPatterns.forEach(pattern => {
       processed = processed.replace(pattern, (match) => `**${match}**`);
+    });
+
+    // 6. Ensure common AI headers are bolded, NOT bullets, and on a separate line
+    const commonHeaders = [
+      "Direct Data Points:\\*",
+      "Critical Risks:\\*",
+      "Immediate Next Steps:\\*",
+      "Strategic Analysis:",
+      "Executive Summary:",
+      "Recommendations:"
+    ];
+
+    commonHeaders.forEach(header => {
+      // Ensure the header is bold, on its own line, and has no bullet marker
+      // Regex matches the header even if it's inside a line or has a bullet marker
+      const regex = new RegExp(`\\n?.*?\\*\\*?(${header})\\*\\*?.*?\\n?|\\n?.*?(${header}).*?\\n?`, 'gi');
+
+      processed = processed.replace(regex, (match, g1, g2) => {
+        const foundHeader = g1 || g2;
+        // Check if we already have the bold version on a separate line to avoid infinite loop or double work
+        return `\n\n**${foundHeader}**\n`;
+      });
+    });
+
+    // Clean up excessive newlines caused by the replacement
+    processed = processed.replace(/\n{3,}/g, '\n\n');
+
+    // 7. Bold Yes/No at the start of sentences for clear confirmation
+    processed = processed.replace(/^(Yes|No),/gm, '**$1**,');
+    processed = processed.replace(/\. (Yes|No),/g, '. **$1**,');
+
+    // 8. Bold task statuses and clean up "in_progress"
+    const statusPatterns = [
+      /\b(todo|in[ _]progress|review|done|completed|doing)\b/gi
+    ];
+    statusPatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => {
+        let cleanMatch = match.replace(/_/g, ' ').toLowerCase();
+        // Use a simple bold instead of backticks
+        return `**${cleanMatch}**`;
+      });
     });
 
     return processed;
@@ -143,13 +225,15 @@ export default function AskAIInsights({ projects, tasks }) {
 
   // Fetch reports logic follows...
   const { data: previousReports = [], refetch: refetchReports } = useQuery({
-    queryKey: ['ai-insights-reports', effectiveTenantId],
+    queryKey: ['ai-insights-reports', effectiveTenantId, shouldFilterByMe ? currentUser?.email : 'admin'],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
       try {
-        return await groonabackend.entities.AIInsightsReport.filter({
-          tenant_id: effectiveTenantId
-        }, '-created_date');
+        const filterParams = { tenant_id: effectiveTenantId };
+        if (shouldFilterByMe) {
+          filterParams.generated_by = currentUser?.email;
+        }
+        return await groonabackend.entities.AIInsightsReport.filter(filterParams, '-created_date');
       } catch (error) {
         console.error('Error fetching previous reports:', error);
         return [];
@@ -182,7 +266,8 @@ export default function AskAIInsights({ projects, tasks }) {
   });
 
   // Typewriter effect function - faster speed
-  const typewriterEffect = (text, speed = 5) => {
+  const typewriterEffect = (userInput, speed = 5) => {
+    const text = typeof userInput === 'string' ? userInput : JSON.stringify(userInput, null, 2);
     return new Promise((resolve) => {
       let index = 0;
       setDisplayedAnswer("");
@@ -576,33 +661,43 @@ export default function AskAIInsights({ projects, tasks }) {
         }
       };
 
-      const prompt = `You are an expert project management analyst. Analyze the following project data and provide a VERY CONCISE, actionable answer that fits on ONE PAGE.
+      const prompt = `You are a Smart Project Management Assistant. Provide ACCURATE, DATA-DRIVEN assistance.
 
-CRITICAL INSTRUCTIONS:
-- Use team member NAMES (not emails) - they are already provided in the data
-- Use project NAMES (not IDs) - they are already provided in the data
-- Format dates as "Jan 15, 2026" (not timestamps)
-- Keep response EXTREMELY CONCISE - maximum 200 words total
-- Use bullet points only - no long paragraphs
-- Focus on TOP 3-4 most critical insights only
-- Provide 2-3 actionable recommendations maximum
-- Be direct and brief - every word counts
-- Do NOT show email addresses or IDs - use names only
+STRICT "STRAIGHT TO THE POINT" RULES:
+1. GREETING & DIRECT ANSWER: Start the VERY FIRST line of your response with: "Hi **${currentUser?.full_name || 'there'}**, [A brief, one-sentence direct answer to the user's question]."
+2. ADDRESSING: After the greeting line, always address the user as "you" or "your" (e.g., "Your project is at risk", "You have tasks due").
+3. NO INTRODUCTIONS: After the greeting line, do not use filler phrases like "Based on the data provided" or "Here is an analysis". Go straight to the section headers.
+4. ONLY BULLET POINTS: Use only bullet points for data points under section headers.
+5. STYLE: Every bullet point MUST follow this style: "- **Insight/Data Point**".
+6. BOLDING: ALWAYS bold every **Project Name**, **Task Title**, **Team Member Name**, and **Date**.
+7. NO QUOTES: NEVER use double quotes.
+8. DATES: Format dates as "**Jan 15, 2026**".
+9. HEADERS: CRITICAL: Section headers MUST be on a NEW LINE, MUST be bolded, and MUST NOT have bullet markers.
 
 PROJECT DATA:
 ${JSON.stringify(contextData, null, 2)}
 
 QUESTION: ${queryQuestion}
 
-Provide a VERY CONCISE answer (max 200 words):
-1. Direct answer (1-2 sentences only)
-2. Top 3-4 key insights (bullet points, one line each)
-3. 2-3 actionable recommendations (bullet points, one line each)
+RESPONSE STRUCTURE:
+Hi **${currentUser?.full_name || 'there'}**, [Brief direct answer].
 
-Keep it extremely brief and focused.`;
+**Direct Data Points:**
+- [Analytical point 1]
+- [Analytical point 2]
+
+**Critical Risks:**
+- [Risk 1]
+- [Risk 2]
+
+**Immediate Next Steps:**
+- [Step 1]
+- [Step 2]
+(Ensure each bold header starts on its own line with no indentation or bullet. Only the items below them should have bullets.)`;
 
       const result = await groonabackend.integrations.Core.InvokeLLM({
-        prompt,
+        prompt: queryQuestion,
+        context: prompt,
         add_context_from_internet: false,
       });
 
@@ -701,7 +796,7 @@ Keep it extremely brief and focused.`;
             }
           } else {
             const errorMessage = error.response?.data?.error || error.message || 'Unknown error';
-            toast.error(`Report generated but failed to save: ${errorMessage}`);
+            toast.error(`Report generated but failed to save: ${errorMessage} `);
           }
         }
       }
@@ -888,10 +983,10 @@ Keep it extremely brief and focused.`;
                             <p className="truncate">
                               By: {report.generated_by_name || report.generated_by}
                             </p>
-                            <p>{format(new Date(report.created_date || report.createdDate), 'MMM d, pyyy HH:mm')}</p>
+                            <p>{format(new Date(report.created_date || report.createdDate), 'MMM d, yyyy HH:mm')}</p>
                           </div>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex flex-col gap-1 items-end">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -899,10 +994,10 @@ Keep it extremely brief and focused.`;
                               e.stopPropagation();
                               downloadPDF(report);
                             }}
-                            className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 flex-shrink-0 transition-colors"
                             title="Download PDF"
                           >
-                            <Download className="h-3 w-3" />
+                            <Download className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -914,10 +1009,10 @@ Keep it extremely brief and focused.`;
                               }
                             }}
                             disabled={deleteReportMutation.isPending}
-                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 flex-shrink-0 transition-colors"
                             title="Delete report"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
@@ -938,4 +1033,3 @@ Keep it extremely brief and focused.`;
     </div>
   );
 }
-

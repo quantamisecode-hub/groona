@@ -151,6 +151,9 @@ export function useHasPermission(permissionKey, context = null) {
   // 1. Super Admin: Always True
   if (currentUser.is_super_admin) return true;
 
+  // 1b. AI Insights: Always allow for all roles (Members, Viewers, etc.)
+  if (permissionKey === 'can_view_insights') return true;
+
   // 2. Tenant Feature Gate (Hardware Switch)
   // If the tenant explicitly has a feature TURNED OFF (false), 
   // we generally block it. However, if you want specific user overrides to even 
@@ -179,27 +182,20 @@ export function useHasPermission(permissionKey, context = null) {
   }
 
   // 4. Admin Role: Always True (but project managers are restricted from certain actions)
-  // Owners have role='admin' and custom_role='owner' - they get full access
-  // Project managers have role='admin' and custom_role='project_manager' - they can only view, not manage
   if (currentUser.role === 'admin') {
-    // Project managers cannot: invite users/clients, edit/delete users, manage permissions, create/edit/delete workspaces, manage workspace members
     const restrictedPermissions = [
-      'can_invite_user',
-      'can_edit_user',
-      'can_delete_user',
-      'can_manage_permissions',
-      'can_create_workspace',
-      'can_edit_workspace',
-      'can_delete_workspace',
-      'can_manage_workspace_members'
+      'can_invite_user', 'can_edit_user', 'can_delete_user', 'can_manage_permissions',
+      'can_create_workspace', 'can_edit_workspace', 'can_delete_workspace', 'can_manage_workspace_members'
     ];
     if (currentUser.custom_role === 'project_manager' && restrictedPermissions.includes(permissionKey)) {
-      return false; // Restrict project managers from these actions
+      return false;
     }
-    return true; // Other admin permissions are allowed
+    return true;
   }
 
-  // 5. Legacy User Permissions Field (Backwards compatibility)
+  // 5. Standard Member/Viewer Permissions are handled by defaults or below
+
+  // 6. Legacy User Permissions Field (Backwards compatibility)
   if (currentUser.permissions?.[permissionKey] === true) return true;
 
   // 6. Group Permissions
@@ -245,6 +241,7 @@ export function useHasPermission(permissionKey, context = null) {
     can_view_workspace: true,
     can_create_ticket: true,
     can_view_own_tickets: true,
+    can_view_insights: true,
 
     // BLOCKED by default (Requires Explicit Permission)
     can_view_team: false,

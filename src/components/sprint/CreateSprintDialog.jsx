@@ -105,6 +105,20 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
     enabled: !!projectId && open,
   });
 
+  // Fetch project for billing model check - Added for milestone visibility logic
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: projectId });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: projectId });
+      }
+      return projects[0] || null;
+    },
+    enabled: !!projectId && open,
+  });
+
   // Get stories already in this sprint (for edit mode)
   const { data: existingSprintStories = [], isLoading: isLoadingExistingStories } = useQuery({
     queryKey: ['stories', 'sprint', initialValues?.id],
@@ -357,40 +371,43 @@ export default function CreateSprintDialog({ open, onClose, onSubmit, loading, i
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="milestone_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Flag className="h-4 w-4 text-blue-500" />
-                    Associated Milestone
-                  </FormLabel>
-                  <Select
-                    onValueChange={(val) => field.onChange(val === "unassigned" ? "" : val)}
-                    defaultValue={field.value}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a milestone (optional)" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {milestones
-                        .filter(m => m.status === 'in_progress' || (field.value && (m.id === field.value || m._id === field.value)))
-                        .map((m) => (
-                          <SelectItem key={m.id || m._id} value={m.id || m._id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Milestone Selection - Hide for T&M and Retainer */}
+            {project?.billing_model !== 'time_and_materials' && project?.billing_model !== 'retainer' && (
+              <FormField
+                control={form.control}
+                name="milestone_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Flag className="h-4 w-4 text-blue-500" />
+                      Associated Milestone
+                    </FormLabel>
+                    <Select
+                      onValueChange={(val) => field.onChange(val === "unassigned" ? "" : val)}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a milestone (optional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {milestones
+                          .filter(m => m.status === 'in_progress' || (field.value && (m.id === field.value || m._id === field.value)))
+                          .map((m) => (
+                            <SelectItem key={m.id || m._id} value={m.id || m._id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

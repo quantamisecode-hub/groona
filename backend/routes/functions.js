@@ -3,7 +3,7 @@ const router = express.Router();
 const Models = require('../models/SchemaDefinitions');
 const otpGenerator = require('otp-generator');
 // nodemailer removed - using Resend SDK now
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+// GoogleGenerativeAI removed - using Groq API now
 const jwt = require('jsonwebtoken');
 const pdf = require('html-pdf-node');
 
@@ -54,11 +54,23 @@ const functionHandlers = {
   // 3. AI: Generate Proposal Draft
   generateProposalDraft: async (data) => {
     const { clientName, projectType, requirements } = data;
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const axios = require('axios');
+    const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API;
+    if (!apiKey) throw new Error("GROQ_AI_API not configured");
+
     const prompt = `Write a professional proposal for ${clientName} regarding a ${projectType} project. Requirements: ${requirements}`;
-    const result = await model.generateContent(prompt);
-    return { draft: result.response.text() };
+
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7
+      },
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+
+    return { draft: response.data.choices[0]?.message?.content || '' };
   },
 
   // 4. Utils: Update User Profile
@@ -198,17 +210,26 @@ const functionHandlers = {
   // 7. AI: Generate Sprint Goal
   generateSprintGoal: async (data) => {
     const { prompt } = data;
-    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
-
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API;
+    if (!apiKey) throw new Error("GROQ_AI_API not configured");
+    const axios = require('axios');
 
     const enhancedPrompt = `${prompt}\n\nReturn ONLY a JSON object with a "goal" key. 
     Format: {"goal": "your generated goal here"}
     Do not include any other text or markdown formatting.`;
 
-    const result = await model.generateContent(enhancedPrompt);
-    const text = result.response.text();
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: enhancedPrompt }],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      },
+      { headers: { Authorization: `Bearer ${apiKey}` } }
+    );
+
+    const text = response.data.choices[0]?.message?.content || '';
 
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);

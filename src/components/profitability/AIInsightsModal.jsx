@@ -239,12 +239,16 @@ export default function AIInsightsModal({ open, onClose, project, metrics }) {
                                         {(() => {
                                             const renderBoldContent = (text) => {
                                                 if (!text) return null;
+                                                // Split by **text** groups. The capturing group keeps the **...** parts in the array.
                                                 const parts = text.split(/(\*\*.*?\*\*)/g);
                                                 return parts.map((part, i) => {
                                                     if (part.startsWith('**') && part.endsWith('**')) {
-                                                        return <strong key={i} className="text-slate-900 font-bold bg-indigo-50/50 px-1 rounded">{part.slice(2, -2)}</strong>;
+                                                        // Extract the inner text and render as bold block
+                                                        const innerText = part.slice(2, -2).trim();
+                                                        return <strong key={i} className="text-slate-900 font-bold bg-indigo-50/50 px-1 rounded mx-0.5">{innerText}</strong>;
                                                     }
-                                                    return part;
+                                                    // Standard text
+                                                    return <span key={i}>{part}</span>;
                                                 });
                                             };
                                             return (

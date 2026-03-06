@@ -128,42 +128,70 @@ export default function ProjectInsights() {
     staleTime: 1 * 60 * 1000, // Added reasonable staleTime
   });
 
-  // 5. Calculate Accessible Projects (Exact Match to Dashboard)
-  const accessibleProjects = useMemo(() => {
-    if (!currentUser || !projects.length) return [];
+  // 5. Calculate Accessible Projects & Tasks with Role-Based Restrictions
+  const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
 
-    return projects.filter(p => {
-      // Admin sees all
+  const { accessibleProjects, accessibleTasks, accessibleStories, accessibleActivities } = useMemo(() => {
+    if (!currentUser) return { accessibleProjects: [], accessibleTasks: [], accessibleStories: [], accessibleActivities: [] };
+
+    // A. Base Task Filtering
+    let filteredTasks = tasks;
+    if (isRestrictedViewer) {
+      const userEmail = currentUser.email?.toLowerCase();
+      filteredTasks = tasks.filter(t => {
+        const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
+        return taskAssignees.some(assignee => {
+          const email = typeof assignee === 'string' ? assignee : assignee?.email;
+          return email?.toLowerCase() === userEmail;
+        });
+      });
+    } else if (!isAdmin) {
+      // Standard filtering for non-admins (already usually filtered by project access, but keeping it clean)
+    }
+
+    // B. Base Project Filtering
+    const projectIdsWithAssignedTasks = new Set(filteredTasks.map(t => t.project_id));
+
+    const filteredProjects = projects.filter(p => {
       if (isAdmin) return true;
+
+      // If restricted viewer, ONLY show projects where they have assignments
+      if (isRestrictedViewer) {
+        return projectIdsWithAssignedTasks.has(p.id);
+      }
 
       const isOwner = p.owner === currentUser.email;
       const isTeamMember = p.team_members?.some(m => m.email === currentUser.email);
-      // Check if user has a PM role for this project
       const isProjectManager = projectRoles?.some(r => r.project_id === p.id);
 
       return isOwner || isTeamMember || isProjectManager;
     });
-  }, [projects, currentUser, isAdmin, projectRoles]);
 
-  // 6. Filter Tasks belonging to Accessible Projects
-  const accessibleTasks = useMemo(() => {
-    if (!accessibleProjects.length || !tasks.length) return [];
-    const projectIds = new Set(accessibleProjects.map(p => p.id));
-    return tasks.filter(t => projectIds.has(t.project_id));
-  }, [tasks, accessibleProjects]);
+    const finalProjectIds = new Set(filteredProjects.map(p => p.id));
 
-  // 7. Filter Activities belonging to Accessible Projects
-  const accessibleActivities = useMemo(() => {
-    if (!accessibleProjects.length || !activities.length) return [];
-    const projectIds = new Set(accessibleProjects.map(p => p.id));
-    return activities.filter(a => projectIds.has(a.project_id));
-  }, [activities, accessibleProjects]);
+    // C. Final Task Filtering (Must belong to an accessible project)
+    const finalTasks = filteredTasks.filter(t => finalProjectIds.has(t.project_id));
+
+    // D. Final Stories Filtering
+    const finalStories = stories.filter(s => finalProjectIds.has(s.project_id));
+
+    // E. Final Activities Filtering
+    const finalActivities = activities.filter(a => finalProjectIds.has(a.project_id));
+
+    return {
+      accessibleProjects: filteredProjects,
+      accessibleTasks: finalTasks,
+      accessibleStories: finalStories,
+      accessibleActivities: finalActivities
+    };
+  }, [projects, tasks, stories, activities, currentUser, isAdmin, isRestrictedViewer, projectRoles]);
 
   // 8. Calculate live progress for each project (Story Point Based)
   const projectProgressMap = useMemo(() => {
     const map = {};
     accessibleProjects.forEach(project => {
-      const projectStories = stories.filter(s => s.project_id === project.id);
+      const projectStories = accessibleStories.filter(s => s.project_id === project.id);
+      const projectTasks = accessibleTasks.filter(t => t.project_id === project.id);
 
       if (projectStories.length === 0) {
         map[project.id] = project.progress || 0;
@@ -181,7 +209,7 @@ export default function ProjectInsights() {
       map[project.id] = totalStoryPoints === 0 ? 0 : Math.round((completedStoryPoints / totalStoryPoints) * 100);
     });
     return map;
-  }, [accessibleProjects, stories]);
+  }, [accessibleProjects, accessibleStories, accessibleTasks]);
 
   // 9. Calculate Velocity for each project (Sprint Story Point logic from VelocityTracker)
   const projectVelocityMap = useMemo(() => {
@@ -261,7 +289,7 @@ export default function ProjectInsights() {
 
   const selectedProject = accessibleProjects.find(p => p.id === selectedProjectId);
   const selectedProjectTasks = accessibleTasks.filter(t => t.project_id === selectedProjectId);
-  const selectedProjectStories = useMemo(() => stories.filter(s => s.project_id === selectedProjectId), [stories, selectedProjectId]);
+  const selectedProjectStories = useMemo(() => accessibleStories.filter(s => s.project_id === selectedProjectId), [accessibleStories, selectedProjectId]);
 
 
   const analyticsSummary = useMemo(() => {

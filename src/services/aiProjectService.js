@@ -24,7 +24,7 @@ export async function createProjectFromAI(projectData, tenantId, userId, userEma
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     const response = await fetch(`${API_URL}/groona-assistant/create-project`, {
       method: 'POST',
       headers,
@@ -35,7 +35,20 @@ export async function createProjectFromAI(projectData, tenantId, userId, userEma
         description: projectData.description,
         tenant_id: tenantId,
         user_id: userId,
-        user_email: userEmail
+        user_email: userEmail,
+        // Financial fields
+        financial_tracking: projectData.financial_tracking,
+        billing_model: projectData.billing_model,
+        currency: projectData.currency,
+        contract_amount: projectData.contract_amount,
+        contract_start_date: projectData.contract_start_date,
+        contract_end_date: projectData.contract_end_date,
+        estimated_duration: projectData.estimated_duration,
+        default_bill_rate_per_hour: projectData.default_bill_rate_per_hour,
+        retainer_amount: projectData.retainer_amount,
+        retainer_period: projectData.retainer_period,
+        non_billable_reason: projectData.non_billable_reason,
+        expense_budget: projectData.expense_budget
       }),
       credentials: 'include'
     });
@@ -68,7 +81,20 @@ export function parseProjectCreationResponse(aiResponse) {
         project_name: parsed.project_name,
         workspace_name: parsed.workspace_name,
         deadline: parsed.deadline,
-        description: parsed.description
+        description: parsed.description,
+        // Financial fields
+        financial_tracking: parsed.financial_tracking,
+        billing_model: parsed.billing_model,
+        currency: parsed.currency,
+        contract_amount: parsed.contract_amount,
+        contract_start_date: parsed.contract_start_date,
+        contract_end_date: parsed.contract_end_date,
+        estimated_duration: parsed.estimated_duration,
+        default_bill_rate_per_hour: parsed.default_bill_rate_per_hour,
+        retainer_amount: parsed.retainer_amount,
+        retainer_period: parsed.retainer_period,
+        non_billable_reason: parsed.non_billable_reason,
+        expense_budget: parsed.expense_budget
       };
     }
     if (parsed.action === 'create_task') {
@@ -86,8 +112,8 @@ export function parseProjectCreationResponse(aiResponse) {
     }
   } catch (e) {
     // Not JSON, check for action indicators in text
-    if (aiResponse.includes('"action": "create_project"') || 
-        aiResponse.includes('create_project')) {
+    if (aiResponse.includes('"action": "create_project"') ||
+      aiResponse.includes('create_project')) {
       // Try to extract JSON from text
       const jsonMatch = aiResponse.match(/\{[\s\S]*"action":\s*"create_project"[\s\S]*\}/);
       if (jsonMatch) {
@@ -98,15 +124,28 @@ export function parseProjectCreationResponse(aiResponse) {
             project_name: parsed.project_name,
             workspace_name: parsed.workspace_name,
             deadline: parsed.deadline,
-            description: parsed.description
+            description: parsed.description,
+            // Financial fields
+            financial_tracking: parsed.financial_tracking,
+            billing_model: parsed.billing_model,
+            currency: parsed.currency,
+            contract_amount: parsed.contract_amount,
+            contract_start_date: parsed.contract_start_date,
+            contract_end_date: parsed.contract_end_date,
+            estimated_duration: parsed.estimated_duration,
+            default_bill_rate_per_hour: parsed.default_bill_rate_per_hour,
+            retainer_amount: parsed.retainer_amount,
+            retainer_period: parsed.retainer_period,
+            non_billable_reason: parsed.non_billable_reason,
+            expense_budget: parsed.expense_budget
           };
         } catch (e2) {
           console.error('Failed to parse project creation JSON:', e2);
         }
       }
     }
-    if (aiResponse.includes('"action": "create_task"') || 
-        aiResponse.includes('create_task')) {
+    if (aiResponse.includes('"action": "create_task"') ||
+      aiResponse.includes('create_task')) {
       // Try to extract JSON from text
       const jsonMatch = aiResponse.match(/\{[\s\S]*"action":\s*"create_task"[\s\S]*\}/);
       if (jsonMatch) {

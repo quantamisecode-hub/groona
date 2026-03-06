@@ -9,7 +9,7 @@ const WebSocket = require('ws');
 
 // --- CONFIGURATION ---
 // USES THE NEW SPECIFIC API KEY
-const API_KEY = process.env.GEMINI_API_KEY_2; 
+const API_KEY = process.env.GROQ_AI_API;
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
 // --- FALLBACK CHAIN ---
@@ -25,67 +25,67 @@ const FALLBACK_CHAIN = {
 };
 
 // --- HELPER: FILE PROCESSING ---
-function findFileLocally(filename) { 
-    const cleanName = path.basename(filename); 
-    const possiblePaths = [path.join(__dirname, '..', 'uploads', cleanName), path.join(process.cwd(), 'uploads', cleanName), path.join(process.cwd(), 'public', 'uploads', cleanName), path.join(__dirname, 'uploads', cleanName)]; 
-    for (const p of possiblePaths) { if (fs.existsSync(p)) return p; } 
-    return null; 
+function findFileLocally(filename) {
+    const cleanName = path.basename(filename);
+    const possiblePaths = [path.join(__dirname, '..', 'uploads', cleanName), path.join(process.cwd(), 'uploads', cleanName), path.join(process.cwd(), 'public', 'uploads', cleanName), path.join(__dirname, 'uploads', cleanName)];
+    for (const p of possiblePaths) { if (fs.existsSync(p)) return p; }
+    return null;
 }
 
-function getFileHandler(filePath) { 
-    const ext = path.extname(filePath).toLowerCase(); 
-    const mediaTypes = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.pdf': 'application/pdf' }; 
-    const textTypes = ['.txt', '.md', '.csv', '.json', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.env']; 
-    if (mediaTypes[ext]) return { type: 'media', mimeType: mediaTypes[ext] }; 
-    if (textTypes.includes(ext)) return { type: 'text' }; 
-    return { type: 'unsupported' }; 
+function getFileHandler(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const mediaTypes = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.pdf': 'application/pdf' };
+    const textTypes = ['.txt', '.md', '.csv', '.json', '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.env'];
+    if (mediaTypes[ext]) return { type: 'media', mimeType: mediaTypes[ext] };
+    if (textTypes.includes(ext)) return { type: 'text' };
+    return { type: 'unsupported' };
 }
 
-async function processFilesForGemini(fileUrls, req) { 
-    const parts = []; 
-    if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) return parts; 
-    
-    for (const url of fileUrls) { 
-        try { 
-            const cleanUrl = decodeURIComponent(url); 
-            const filename = cleanUrl.split('/').pop(); 
-            const handler = getFileHandler(filename); 
-            if (handler.type === 'unsupported') continue; 
-            
-            let processed = false; 
-            const localPath = findFileLocally(filename); 
-            
-            if (localPath) { 
-                try { 
-                    if (handler.type === 'text') { 
-                        const textContent = fs.readFileSync(localPath, 'utf8'); 
-                        parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` }); 
-                        processed = true; 
-                    } else if (handler.type === 'media') { 
-                        const fileBuffer = fs.readFileSync(localPath); 
-                        parts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: handler.mimeType } }); 
-                        processed = true; 
-                    } 
-                } catch (e) { console.error("Local file read error:", e); } 
-            } 
-            
-            if (!processed) { 
-                let downloadUrl = url; 
-                if (url.startsWith('/')) { 
-                    const protocol = req.protocol || 'http'; 
-                    const host = req.get('host'); 
-                    downloadUrl = `${protocol}://${host}${url}`; 
-                } 
-                const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' }); 
-                if (handler.type === 'text') { 
-                    parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${Buffer.from(response.data).toString('utf8')}\n--- FILE END ---\n` }); 
-                } else { 
-                    parts.push({ inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType: response.headers['content-type'] || handler.mimeType } }); 
-                } 
-            } 
-        } catch (fileError) { console.error("Attachment Error:", fileError.message); } 
-    } 
-    return parts; 
+async function processFilesForGemini(fileUrls, req) {
+    const parts = [];
+    if (!fileUrls || !Array.isArray(fileUrls) || fileUrls.length === 0) return parts;
+
+    for (const url of fileUrls) {
+        try {
+            const cleanUrl = decodeURIComponent(url);
+            const filename = cleanUrl.split('/').pop();
+            const handler = getFileHandler(filename);
+            if (handler.type === 'unsupported') continue;
+
+            let processed = false;
+            const localPath = findFileLocally(filename);
+
+            if (localPath) {
+                try {
+                    if (handler.type === 'text') {
+                        const textContent = fs.readFileSync(localPath, 'utf8');
+                        parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${textContent}\n--- FILE END ---\n` });
+                        processed = true;
+                    } else if (handler.type === 'media') {
+                        const fileBuffer = fs.readFileSync(localPath);
+                        parts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: handler.mimeType } });
+                        processed = true;
+                    }
+                } catch (e) { console.error("Local file read error:", e); }
+            }
+
+            if (!processed) {
+                let downloadUrl = url;
+                if (url.startsWith('/')) {
+                    const protocol = req.protocol || 'http';
+                    const host = req.get('host');
+                    downloadUrl = `${protocol}://${host}${url}`;
+                }
+                const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+                if (handler.type === 'text') {
+                    parts.push({ text: `\n\n--- FILE START: ${filename} ---\n${Buffer.from(response.data).toString('utf8')}\n--- FILE END ---\n` });
+                } else {
+                    parts.push({ inlineData: { data: Buffer.from(response.data).toString('base64'), mimeType: response.headers['content-type'] || handler.mimeType } });
+                }
+            }
+        } catch (fileError) { console.error("Attachment Error:", fileError.message); }
+    }
+    return parts;
 }
 
 // ==========================================
@@ -96,7 +96,7 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
         const host = "generativelanguage.googleapis.com";
         let cleanModel = model.startsWith('models/') ? model : `models/${model}`;
         const url = `wss://${host}/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
-        
+
         const ws = new WebSocket(url);
         let responseText = "";
         let hasResolved = false;
@@ -120,12 +120,12 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
                     for (const part of msg.serverContent.modelTurn.parts) { if (part.text) responseText += part.text; }
                 }
                 if (msg.serverContent?.turnComplete) {
-                    hasResolved = true; clearTimeout(timeout); ws.close(); 
+                    hasResolved = true; clearTimeout(timeout); ws.close();
                     resolve({ text: responseText, usedModel: cleanModel });
                 }
             } catch (e) { console.error("Socket Parse Error:", e); }
         });
-        
+
         ws.on('error', (err) => { if (!hasResolved) reject(err); });
         ws.on('close', () => { if (!hasResolved && responseText) resolve({ text: responseText, usedModel: cleanModel }); });
     });
@@ -136,10 +136,10 @@ async function generateViaSocket(apiKey, model, fullPrompt) {
 // ==========================================
 async function generateStandardWithRetry(genAI, params, modelName) {
     let cleanName = modelName.replace('models/', '');
-    const model = genAI.getGenerativeModel({ 
-        model: cleanName, 
+    const model = genAI.getGenerativeModel({
+        model: cleanName,
         systemInstruction: params.systemInstruction,
-        generationConfig: params.generationConfig 
+        generationConfig: params.generationConfig
     });
 
     const safetySettings = [
@@ -159,25 +159,56 @@ async function generateStandardWithRetry(genAI, params, modelName) {
 }
 
 async function generateController(genAI, params, requestedModel, retryCount = 0) {
-    let targetModel = requestedModel || DEFAULT_MODEL;
-    const isLiveModel = targetModel.includes("live");
+    const axios = require('axios');
+    const apiKey = process.env.GROQ_AI_API || process.env.GROQ_API_KEY || process.env.GROQ_API;
+
+    if (!apiKey) {
+        throw new Error('GROQ_AI_API is not configured');
+    }
+
+    let fullPrompt = "";
+    if (params.systemInstruction?.parts?.[0]?.text) {
+        fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n\n`;
+    }
+
+    const messages = [];
+    if (params.history) {
+        params.history.forEach(h => {
+            messages.push({
+                role: h.role === 'model' ? 'assistant' : 'user',
+                content: h.parts?.[0]?.text || ''
+            });
+        });
+    }
+
+    let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
+    fullPrompt += currentText;
+    messages.push({ role: 'user', content: fullPrompt });
 
     try {
-        if (isLiveModel) {
-            let fullPrompt = "";
-            if (params.systemInstruction?.parts?.[0]?.text) fullPrompt += `SYSTEM: ${params.systemInstruction.parts[0].text}\n`;
-            if (params.history) params.history.forEach(h => fullPrompt += `${h.role}: ${h.parts[0].text}\n`);
-            let currentText = Array.isArray(params.content) ? params.content.map(p => p.text).join('\n') : params.content;
-            fullPrompt += `User: ${currentText}`;
-            return await generateViaSocket(API_KEY, targetModel, fullPrompt);
-        } else {
-            return await generateStandardWithRetry(genAI, params, targetModel);
-        }
+        const response = await axios.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            {
+                model: 'llama-3.3-70b-versatile',
+                messages: messages,
+                temperature: 0.7
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 60000
+            }
+        );
+
+        return {
+            text: response.data.choices[0]?.message?.content || '',
+            model: 'llama-3.3-70b-versatile'
+        };
     } catch (error) {
-        if (FALLBACK_CHAIN[targetModel] && retryCount < 3) {
-            return await generateController(genAI, params, FALLBACK_CHAIN[targetModel], retryCount + 1);
-        }
-        throw error;
+        console.error("Groq AI Error:", error.response?.data || error.message);
+        throw new Error(`AI Generation Failed: ${error.message}`);
     }
 }
 
@@ -185,20 +216,20 @@ async function buildDeepContext(tenant_id, user_id, content) {
     let contextStr = "";
     if (!content) return contextStr;
     const lowerQ = content.toLowerCase();
-    
+
     // CHANGED: Always fetch workspaces and users so the AI knows them in every turn
     // (This fixes the issue where responding "Marketing" failed because AI forgot the list)
     try {
         const workspaces = await Models.Workspace.find({ tenant_id });
         const users = await Models.User.find({ tenant_id });
-        
+
         contextStr += `\n=== AVAILABLE WORKSPACES ===\n`;
         if (workspaces.length > 0) {
             contextStr += workspaces.map(w => `- Name: "${w.name}" (ID: ${w._id})`).join('\n');
         } else {
             contextStr += "No workspaces found. (User needs to create one first)\n";
         }
-        
+
         contextStr += `\n=== AVAILABLE TEAM MEMBERS ===\n`;
         contextStr += users.map(u => `- Name: ${u.full_name}, Email: ${u.email}`).join('\n');
     } catch (e) {
@@ -216,36 +247,36 @@ async function buildDeepContext(tenant_id, user_id, content) {
 // --- ROUTES ---
 
 // 1. Get Conversations
-router.get('/conversations', async (req, res) => { 
-    const { user_id, tenant_id } = req.query; 
-    try { 
-        const conversations = await Models.Conversation.find({ user_id, tenant_id, is_active: true }).sort({ updated_date: -1 }).limit(20); 
-        res.json(conversations); 
-    } catch (err) { res.status(500).json({ error: err.message }); } 
+router.get('/conversations', async (req, res) => {
+    const { user_id, tenant_id } = req.query;
+    try {
+        const conversations = await Models.Conversation.find({ user_id, tenant_id, is_active: true }).sort({ updated_date: -1 }).limit(20);
+        res.json(conversations);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // 2. Create Conversation
-router.post('/conversations', async (req, res) => { 
-    try { 
-        const convo = new Models.Conversation({ ...req.body, messages: [] }); 
-        await convo.save(); 
-        res.json(convo); 
-    } catch (err) { res.status(500).json({ error: err.message }); } 
+router.post('/conversations', async (req, res) => {
+    try {
+        const convo = new Models.Conversation({ ...req.body, messages: [] });
+        await convo.save();
+        res.json(convo);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // 3. Usage Stats
-router.get('/usage/stats', async (req, res) => { 
-    const { user_id, tenant_id } = req.query; 
-    try { 
-        const usage = await Models.TokenUsage.aggregate([{ $match: { user_id, tenant_id } }, { $group: { _id: null, total_tokens: { $sum: "$total_tokens" } } }]); 
-        res.json(usage[0] || { total_tokens: 0 }); 
-    } catch (err) { res.status(500).json({ error: err.message }); } 
+router.get('/usage/stats', async (req, res) => {
+    const { user_id, tenant_id } = req.query;
+    try {
+        const usage = await Models.TokenUsage.aggregate([{ $match: { user_id, tenant_id } }, { $group: { _id: null, total_tokens: { $sum: "$total_tokens" } } }]);
+        res.json(usage[0] || { total_tokens: 0 });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // 4. MAIN CHAT ROUTE (With "Create Project" Prompt Logic)
 router.post('/chat', async (req, res) => {
     const { conversation_id, content, file_urls, context, model, user_id, tenant_id } = req.body;
-    
+
     if (!API_KEY) return res.status(500).json({ error: "AI Assistant (Key 2) Not Configured" });
 
     try {
@@ -254,20 +285,20 @@ router.post('/chat', async (req, res) => {
 
         const userMsg = { role: 'user', content: content, file_urls, created_at: new Date() };
         conversation.messages.push(userMsg);
-        conversation.updated_date = new Date(); 
+        conversation.updated_date = new Date();
         await conversation.save();
 
-        const genAI = new GoogleGenerativeAI(API_KEY);
-        
+        const genAI = null;
+
         const deepContext = await buildDeepContext(tenant_id, user_id, content);
         const fileParts = await processFilesForGemini(file_urls, req);
-        
+
         let contextBlock = "";
         if (context) contextBlock += `${context}\n`;
         if (deepContext) contextBlock += `${deepContext}\n`;
 
         const finalParts = [
-            ...fileParts, 
+            ...fileParts,
             { text: contextBlock ? `SYSTEM DATA:\n${contextBlock}\n\nUSER QUERY: ${content}` : content }
         ];
 

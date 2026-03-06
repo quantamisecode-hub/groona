@@ -109,22 +109,26 @@ export default function SprintsListPage({ projectId, sprints = [], tasks = [], t
     enabled: !!projectId,
   });
 
-  // Fetch project to check if it's completed/locked
-  const { data: project } = useQuery({
-    queryKey: ['project', projectId],
-    queryFn: async () => {
-      if (!projectId) return null;
-      return groonabackend.entities.Project.get(projectId);
-    },
-    enabled: !!projectId,
-  });
-
-  // Fetch milestones to check sprint locking
+  // Fetch milestones for the project
   const { data: milestones = [] } = useQuery({
     queryKey: ['milestones', projectId],
     queryFn: async () => {
       if (!projectId) return [];
       return groonabackend.entities.Milestone.filter({ project_id: projectId });
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch project details
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      let projects = await groonabackend.entities.Project.filter({ _id: projectId });
+      if (!projects || projects.length === 0) {
+        projects = await groonabackend.entities.Project.filter({ id: projectId });
+      }
+      return projects[0] || null;
     },
     enabled: !!projectId,
   });

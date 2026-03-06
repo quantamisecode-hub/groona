@@ -138,7 +138,7 @@ const FunctionDisplay = ({ toolCall }) => {
   const name = toolCall?.name || 'Function';
   const status = toolCall?.status || 'pending';
   const results = toolCall?.results;
-  
+
   const parsedResults = (() => {
     if (!results) return null;
     try {
@@ -147,27 +147,27 @@ const FunctionDisplay = ({ toolCall }) => {
       return results;
     }
   })();
-  
+
   const isError = results && (
     (typeof results === 'string' && /error|failed/i.test(results)) ||
     (parsedResults?.success === false)
   );
-  
+
   const statusConfig = {
     pending: { icon: Clock, color: 'text-slate-400', text: 'Pending' },
     running: { icon: Loader2, color: 'text-slate-500', text: 'Running...', spin: true },
     in_progress: { icon: Loader2, color: 'text-slate-500', text: 'Running...', spin: true },
-    completed: isError ? 
-      { icon: AlertCircle, color: 'text-red-500', text: 'Failed' } : 
+    completed: isError ?
+      { icon: AlertCircle, color: 'text-red-500', text: 'Failed' } :
       { icon: CheckCircle2, color: 'text-green-600', text: 'Success' },
     success: { icon: CheckCircle2, color: 'text-green-600', text: 'Success' },
     failed: { icon: AlertCircle, color: 'text-red-500', text: 'Failed' },
     error: { icon: AlertCircle, color: 'text-red-500', text: 'Failed' }
   }[status] || { icon: Zap, color: 'text-slate-500', text: '' };
-  
+
   const Icon = statusConfig.icon;
   const formattedName = name.split('.').reverse().join(' ').toLowerCase();
-  
+
   return (
     <div className="mt-2 text-xs">
       <button
@@ -186,11 +186,11 @@ const FunctionDisplay = ({ toolCall }) => {
           </span>
         )}
         {!statusConfig.spin && (toolCall.arguments_string || results) && (
-          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform ml-auto", 
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform ml-auto",
             expanded && "rotate-90")} />
         )}
       </button>
-      
+
       {expanded && !statusConfig.spin && (
         <div className="mt-1.5 ml-3 pl-3 border-l-2 border-slate-200 space-y-2">
           {toolCall.arguments_string && (
@@ -211,7 +211,7 @@ const FunctionDisplay = ({ toolCall }) => {
             <div>
               <div className="text-xs text-slate-500 mb-1">Result:</div>
               <pre className="bg-slate-50 rounded-md p-2 text-xs text-slate-600 whitespace-pre-wrap max-h-48 overflow-auto">
-                {typeof parsedResults === 'object' ? 
+                {typeof parsedResults === 'object' ?
                   JSON.stringify(parsedResults, null, 2) : parsedResults}
               </pre>
             </div>
@@ -275,7 +275,7 @@ const useTypewriter = (text, speed = 25, enabled = true) => {
     const currentMessageId = text.substring(0, 50);
     const isNewMessage = currentMessageId !== messageIdRef.current;
     const wasJustEnabled = !messageIdRef.current && enabled;
-    
+
     if (isNewMessage || wasJustEnabled) {
       // New message or just enabled - reset everything
       messageIdRef.current = currentMessageId;
@@ -304,9 +304,9 @@ const useTypewriter = (text, speed = 25, enabled = true) => {
 
     const currentText = textRef.current;
     if (!currentText) return;
-    
+
     const words = currentText.split(' ').filter(w => w.length > 0);
-    
+
     // If we've displayed all words, mark as complete
     if (wordIndexRef.current >= words.length) {
       setDisplayedText(currentText); // Ensure full text is displayed
@@ -321,11 +321,12 @@ const useTypewriter = (text, speed = 25, enabled = true) => {
         setDisplayedText(currentText);
         return;
       }
-      
+
       const nextWords = words.slice(0, wordIndexRef.current + 1);
       const newText = nextWords.join(' ') + (nextWords.length < words.length ? ' ' : '');
       setDisplayedText(newText);
       wordIndexRef.current += 1;
+      window.dispatchEvent(new CustomEvent('groona-typing'));
     }, speed);
 
     return () => {
@@ -353,11 +354,11 @@ const formatTextWithHighlights = (text) => {
   // First, handle markdown bold that's already there
   const parts = [];
   let lastIndex = 0;
-  
+
   // Match markdown bold
   const boldRegex = /\*\*(.+?)\*\*/g;
   let match;
-  
+
   while ((match = boldRegex.exec(text)) !== null) {
     // Add text before bold
     if (match.index > lastIndex) {
@@ -367,12 +368,12 @@ const formatTextWithHighlights = (text) => {
     parts.push({ text: match[1], bold: true });
     lastIndex = match.index + match[0].length;
   }
-  
+
   // Add remaining text
   if (lastIndex < text.length) {
     parts.push({ text: text.slice(lastIndex), bold: false });
   }
-  
+
   // If no bold found, use whole text
   if (parts.length === 0) {
     parts.push({ text, bold: false });
@@ -395,12 +396,12 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
 
   // Parse structured content if present
   const structuredContent = message.structured_data || null;
-  
+
   // Check if message contains JSON action (create_project or create_task) - MUST BE BEFORE HOOKS
   let actionData = null;
   let displayContent = message.content;
   let isActionMessage = false;
-  
+
   if (!isUser && message.content) {
     // First check if message has action data from backend
     if (message.action) {
@@ -430,7 +431,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
         }
       }
     }
-    
+
     // If we found action data, create a formatted message
     if (isActionMessage && actionData) {
       if (actionData.action === 'create_project') {
@@ -446,18 +447,18 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
   const checkIfNewMessage = () => {
     // If currently streaming, it's definitely a new message
     if (isStreaming) return true;
-    
+
     // Check timestamp
     if (!message.created_at) {
       // No timestamp - check if message was just added (very recent)
       // If we're not streaming and message has no timestamp, it's likely from history
       return false;
     }
-    
+
     const messageTime = new Date(message.created_at).getTime();
     const now = Date.now();
     const timeDiff = now - messageTime;
-    
+
     // Consider message "new" if created within last 5 seconds (recently received)
     // Messages older than 5 seconds are from history
     return timeDiff < 5000;
@@ -471,7 +472,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
     if (currentId !== messageIdRef.current) {
       messageIdRef.current = currentId;
       isNewMessageRef.current = isNewMessage;
-      
+
       // Only show typewriter for NEW assistant messages (not action messages and not loaded from history)
       if (!isUser && !isActionMessage && message.content && displayContent && isNewMessage) {
         // For new messages, start with typewriter disabled - will be enabled by the loading state useEffect
@@ -596,10 +597,10 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                       <div className="flex items-start gap-2">
                         <span className="text-slate-600 font-medium min-w-[80px]">Deadline:</span>
                         <span className="font-bold text-slate-900">
-                          {actionData.deadline ? new Date(actionData.deadline).toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
+                          {actionData.deadline ? new Date(actionData.deadline).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
                           }) : 'Not set'}
                         </span>
                       </div>
@@ -646,10 +647,10 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                         <div className="flex items-start gap-2">
                           <span className="text-slate-600 font-medium min-w-[100px]">Due date:</span>
                           <span className="font-bold text-slate-900">
-                            {new Date(actionData.due_date).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
+                            {new Date(actionData.due_date).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
                             })}
                           </span>
                         </div>
@@ -674,7 +675,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                   </div>
                 ) : displayContent && (!isNewMessage || showTypewriterState) ? (
                   <div className="text-sm prose prose-sm prose-slate max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown 
+                    <ReactMarkdown
                       components={{
                         code: ({ inline, className, children, ...props }) => {
                           const match = /language-(\w+)/.exec(className || '');
@@ -726,8 +727,8 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                       {/* For new messages: show typewriter text while typing, full text only after completion */}
                       {/* For old messages: always show full content */}
                       {/* Prevent showing full content for new messages until typewriter is ready */}
-                      {isNewMessage && showTypewriterState && !typewriterComplete 
-                        ? typewriterText 
+                      {isNewMessage && showTypewriterState && !typewriterComplete
+                        ? typewriterText
                         : displayContent}
                     </ReactMarkdown>
                   </div>
@@ -736,7 +737,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
             )}
           </div>
         )}
-        
+
         {/* Render structured content */}
         {!isUser && structuredContent && (
           <div className="mt-2 space-y-2 w-full">
@@ -755,7 +756,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
             )}
           </div>
         )}
-        
+
         {/* Tool calls */}
         {message.tool_calls?.length > 0 && (
           <div className="space-y-1 mt-2">
@@ -769,8 +770,8 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
       {isUser && currentUser && (
         <div className="h-7 w-7 rounded-full flex-shrink-0 mt-0.5">
           <Avatar className="h-7 w-7 border-2 border-slate-200">
-            <AvatarImage 
-              src={currentUser?.profile_image_url || currentUser?.profile_picture_url} 
+            <AvatarImage
+              src={currentUser?.profile_image_url || currentUser?.profile_picture_url}
               alt={currentUser?.full_name || 'User'}
             />
             <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xs font-semibold">

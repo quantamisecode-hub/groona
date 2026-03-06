@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { generateProjectReportPDF } from "./PDFReportGenerator";
 import { jsPDF } from "jspdf";
@@ -27,6 +28,13 @@ import { toast } from "sonner";
 
 export default function ProjectReport({ project, tasks, stories = [], activities }) {
   const { user: currentUser, effectiveTenantId } = useUser();
+  const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
+  const isProjectManager = currentUser?.role === 'admin' && currentUser?.custom_role === 'project_manager';
+  const isOwner = currentUser?.role === 'admin' && currentUser?.custom_role === 'owner';
+
+  const shouldFilterByMe = isRestrictedViewer || isProjectManager || isOwner;
+
+  const hideFinancialData = isRestrictedViewer || isProjectManager;
   const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiReport, setAiReport] = useState(null);
@@ -121,6 +129,17 @@ export default function ProjectReport({ project, tasks, stories = [], activities
     // 3. Bold double quotes (ensure we don't double bold if already bolded inside quotes)
     processed = processed.replace(/"(.*?)"/g, (match, p1) => `**"${p1}"**`);
 
+    // 4. Bold task statuses and clean up "in_progress"
+    const statusPatterns = [
+      /\b(todo|in[ _]progress|review|done|completed|doing)\b/gi
+    ];
+    statusPatterns.forEach(pattern => {
+      processed = processed.replace(pattern, (match) => {
+        let cleanMatch = match.replace(/_/g, ' ').toLowerCase();
+        return `**${cleanMatch}**`;
+      });
+    });
+
     return processed;
   };
 
@@ -203,10 +222,14 @@ export default function ProjectReport({ project, tasks, stories = [], activities
     queryFn: async () => {
       if (!effectiveTenantId || !project.id) return [];
       try {
-        return await groonabackend.entities.ProjectReport.filter({
+        const filterParams = {
           tenant_id: effectiveTenantId,
           project_id: project.id
-        }, '-created_date');
+        };
+        if (shouldFilterByMe) {
+          filterParams.generated_by = currentUser?.email;
+        }
+        return await groonabackend.entities.ProjectReport.filter(filterParams, '-created_date');
       } catch (error) {
         console.error('Error fetching previous reports:', error);
         return [];
@@ -289,9 +312,15 @@ export default function ProjectReport({ project, tasks, stories = [], activities
   const generateAIReport = async () => {
     setIsGenerating(true);
     try {
-      // Calculate velocity
+      // Calculate velocity - filter by user if restricted
       const now = new Date();
-      const last30DaysCompletedTasks = activities.filter(a => {
+      const userEmail = currentUser?.email?.toLowerCase();
+
+      const filteredActivitiesForVelocity = isRestrictedViewer
+        ? activities.filter(a => a.user_name?.toLowerCase() === userEmail || a.user_email?.toLowerCase() === userEmail)
+        : activities;
+
+      const last30DaysCompletedTasks = filteredActivitiesForVelocity.filter(a => {
         const activityDate = new Date(a.created_date);
         const daysDiff = Math.ceil((now.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24));
         return daysDiff <= 30 && a.action === 'completed' && a.entity_type === 'task';
@@ -301,60 +330,62 @@ export default function ProjectReport({ project, tasks, stories = [], activities
       const overdueTasksContext = analytics.overdueTasks.slice(0, 5).map(t => `- **${t.title}** (Due: ${format(new Date(t.due_date), 'MMM d, yyyy')})`).join('\n');
       const urgentTasksContext = tasks.filter(t => t.priority === 'urgent' && t.status !== 'completed').slice(0, 5).map(t => `- **${t.title}** (Priority: Urgent)`).join('\n');
 
-      const prompt = `Generate a comprehensive, strategic executive project report for the following project:
+      const prompt = `Generate a ${isRestrictedViewer ? 'PERSONALIZED' : 'comprehensive, strategic'} executive project report for the following project, ${isRestrictedViewer ? 'FOCUSING EXCLUSIVELY on the work assigned to and performed by this specific team member.' : 'providing a high-level overview of overall project trajectory.'}
 
 PROJECT CONTEXT:
 - Project Name: ${project.name}
 - Client: ${clients.find(c => c.id === project.client_id)?.name || 'N/A'}
-- Workspace: ${workspaces.find(w => w.id === project.workspace_id)?.name || 'Default'}
+- Team Member Name: ${currentUser?.full_name || 'N/A'}
 - Description: ${project.description || 'No description'}
 - Status: ${project.status}
-- Overall Progress: ${analytics.completionRate}%
+- Personal Completion Rate: ${analytics.completionRate}% (Based on PERSONAL assigned stories)
 - Deadline: ${project.deadline ? format(new Date(project.deadline), 'MMM d, yyyy') : 'Not set'}
-- Priority: ${project.priority || 'Medium'}
-- Billing Model: ${project.billing_model || 'N/A'}
-- Budget/Contract: ${project.currency || '$'}${Number(project.contract_amount || project.budget || 0).toLocaleString()}
+${!hideFinancialData ? `- Billing Model: ${project.billing_model || 'N/A'}` : ''}
+${!hideFinancialData ? `- Budget/Contract: ${project.currency || '$'}${Number(project.contract_amount || project.budget || 0).toLocaleString()}` : ''}
 
-DETAILED STATISTICS:
-- Total Tasks: ${tasks.length}
-- Completed: ${analytics.completedTasks.length} (${analytics.completionRate}%)
-- In Progress: ${analytics.tasksByStatus.in_progress}
-- In Review/Feedback: ${analytics.tasksByStatus.review}
-- Pending/Backlog: ${analytics.tasksByStatus.todo}
-- OVERDUE TASKS: ${analytics.overdueTasks.length}
-- Velocity: ${velocity} tasks/day
-- Team Resources: ${analytics.assignedUsers.length} members
+${isRestrictedViewer ? 'PERSONAL ASSIGNMENT STATISTICS' : 'DETAILED STATISTICS'}:
+- Total Tasks Assigned to Me: ${tasks.length}
+- My Completed Tasks: ${analytics.completedTasks.length}
+- My In Progress Tasks: ${analytics.tasksByStatus.in_progress}
+- My Tasks In Review: ${analytics.tasksByStatus.review}
+- My Pending Tasks: ${analytics.tasksByStatus.todo}
+- MY OVERDUE TASKS: ${analytics.overdueTasks.length}
+- My Velocity: ${velocity} tasks/day
 
-CRITICAL ISSUES:
-${overdueTasksContext || '- No overdue tasks'}
-${urgentTasksContext || '- No other urgent tasks'}
+${isRestrictedViewer ? 'MY CRITICAL BLOCKERS' : 'CRITICAL ISSUES'}:
+${overdueTasksContext || '- No personal overdue tasks'}
+${urgentTasksContext || '- No other personal urgent tasks'}
 
-RECENT PROJECT TRAJECTORY:
-${analytics.recentActivities.slice(0, 8).map(a => `- ${a.user_name} ${a.action} ${a.entity_type}: ${a.entity_name} (${format(new Date(a.created_date), 'MMM d')})`).join('\n')}
+${isRestrictedViewer ? 'MY RECENT ACTIVITY' : 'RECENT PROJECT TRAJECTORY'}:
+${analytics.recentActivities.filter(a => !isRestrictedViewer || a.user_email?.toLowerCase() === userEmail).slice(0, 10).map(a => `- ${a.action} ${a.entity_type}: ${a.entity_name} (${format(new Date(a.created_date), 'MMM d')})`).join('\n')}
 
 INSTRUCTIONS:
-Analyze the data above and provide a COMPREHENSIVE strategic report. Do NOT be overly concise; provide professional depth and actionable insights.
+- Analyze the data above and provide a ${isRestrictedViewer ? 'PERSONAL PERFORMANCE & PROGRESS REPORT' : 'COMPREHENSIVE strategic report'}.
+- GREETING: Start the VERY FIRST line of the report with: "Hi **${currentUser?.full_name || 'there'}**, here is your project trajectory analysis."
+- ADDRESSING: Always address the user as "you" or "your" (e.g., "Your project is at risk", "You have tasks due").
+- Focus: ${isRestrictedViewer ? 'Focus PURELY on this specific user\'s contributions, blockers, and assigned goals. Do NOT mention other team members or overall team performance. Do NOT mention any financial, billing, or budget data.' : 'Do NOT be overly concise; provide professional depth and actionable insights.'}
 
 The report MUST include these specific sections:
-1. # Executive Summary (High-level overview of project health and trajectory)
-2. ## Key Achievements (Major milestones reached and velocity highlights)
-3. ## Current Bottlenecks (Analytical look at what's slowing progress, citing specific tasks if relevant)
-4. ## Risk Assessment (Detailed analysis of overdue items, deadlines, and potential blockers)
-5. ## Team Performance (Assessment of team engagement and task completion trends)
-6. ## Strategic Recommendations (Professional advice for project success and timeline optimization)
+1. # Executive Summary (High-level overview of your health and trajectory)
+2. ## Key Achievements (${isRestrictedViewer ? 'Your' : 'Major'} milestones reached and velocity highlights)
+3. ## Personal Bottlenecks (Analytical look at what's slowing your progress, citing specific tasks)
+4. ## Risk Assessment (Detailed analysis of your overdue items and potential blockers)
+5. ## What Went Well & What Went Wrong (Balanced assessment of your execution and challenges)
+6. ## Strategic Insights (Concise personal advice to improve your productivity and project impact)
+${!isRestrictedViewer ? '7. ## Team Performance (Overall assessment)' : ''}
 
 FORMATTING RULES:
 - Use **bold text** to highlight:
-    - Team member names
     - Specific Task Titles
     - Due Dates
-    - Critical Figures (percentages, counts, currency)
+    - Critical Figures (percentages, counts${!isRestrictedViewer ? ', currency' : ''})
     - Phase names or Key strategic terms
-- Use clear headers and bullet points for readability.
+- Use clear headers and bullet points.
 - Maintain a professional, executive tone.`;
 
       const result = await groonabackend.integrations.Core.InvokeLLM({
-        prompt,
+        prompt: `Generate a ${isRestrictedViewer ? 'PERSONALIZED' : 'comprehensive, strategic'} executive project report.`,
+        context: prompt,
         add_context_from_internet: false,
       });
 
@@ -795,134 +826,129 @@ FORMATTING RULES:
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-[32px] shadow-sm p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-all duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-14 w-14 rounded-[18px] border border-slate-200/60 shadow-sm">
-            <AvatarImage src={project.logo_url} />
-            <AvatarFallback className="bg-blue-600 text-[12px] text-white font-black">
-              {project.name.substring(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-normal mb-1">
-              Project Report
-            </h2>
-            <p className="text-sm font-bold text-slate-500">{project.name}</p>
+    <Card className="bg-white/60 backdrop-blur-xl border-slate-200/60 rounded-[32px] overflow-hidden">
+      <CardHeader className="p-8 pb-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <CardTitle className="flex items-center gap-3 text-lg font-black text-slate-900 tracking-normal">
+            <Avatar className="h-8 w-8 border border-slate-200 rounded-[10px]">
+              <AvatarImage src={project.logo_url} />
+              <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-[10px] text-white font-bold">
+                {project.name.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            Project Summary Report: <span className="text-slate-600 font-semibold">{project.name}</span>
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={scheduleReport}
+              disabled={isScheduling}
+              className="border-slate-200 rounded-[12px] h-9 px-4 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              {isScheduling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Clock className="h-3.5 w-3.5 mr-2" />
+                  Email Report
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={downloadReport}
+              className="border-slate-200 rounded-[12px] h-9 px-4 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              <Download className="h-3.5 w-3.5 mr-2 text-slate-500" />
+              Download
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={scheduleReport}
-            disabled={isScheduling}
-            className="border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-xl px-4 shadow-sm"
-          >
-            {isScheduling ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Clock className="h-4 w-4 mr-2" />
-                Email Report
-              </>
-            )}
-          </Button>
-          <Button
-            size="sm"
-            onClick={downloadReport}
-            className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 shadow-sm"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-8" ref={reportRef}>
-        <div>
+      </CardHeader>
+      <CardContent className="space-y-8 p-8 pt-0" ref={reportRef}>
+        <div className="bg-white">
           {/* Overview */}
-          <div className="p-6 md:p-8 rounded-[32px] bg-slate-50/50 border border-slate-200/60 shadow-sm relative overflow-hidden group">
-
-            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Project Overview</h3>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-y-10 gap-x-8">
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</p>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                  <p className="font-black text-slate-900 text-sm uppercase tracking-wider">{project.status?.replace('_', ' ')}</p>
-                </div>
+          <div className="p-8 rounded-[24px] bg-slate-50/50 border border-slate-200/60 mt-4">
+            <h3 className="text-[15px] font-black text-slate-900 mb-6 tracking-normal">Project Overview</h3>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-8 gap-x-6">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Status</p>
+                <Badge className="bg-blue-50 text-blue-600 border-none shadow-none px-3 font-bold rounded-[8px] capitalize">
+                  {project.status?.replace('_', ' ')}
+                </Badge>
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Progress</p>
-                <p className="text-2xl font-black text-slate-900 tracking-normal leading-none">{analytics.completionRate}%</p>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Progress</p>
+                <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">{analytics.completionRate}%</p>
               </div>
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Priority</p>
-                <p className="font-black text-slate-900 text-sm uppercase tracking-wider">{project.priority || 'medium'}</p>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Priority</p>
+                <Badge variant="outline" className="border-slate-200 text-slate-600 bg-white font-bold rounded-[8px] capitalize shadow-sm">
+                  {project.priority || 'medium'}
+                </Badge>
               </div>
 
               {project.client_id && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Client</p>
-                  <p className="font-black text-slate-900 text-sm tracking-normal">
-                    {clients.find(c => c.id === project.client_id)?.name || 'Unknown'}
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Client</p>
+                  <p className="font-bold text-slate-900 text-sm">
+                    {clients.find(c => c.id === project.client_id)?.name || 'Unknown Client'}
                   </p>
                 </div>
               )}
 
               {project.workspace_id && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Workspace</p>
-                  <p className="font-black text-slate-900 text-sm tracking-normal">
-                    {workspaces.find(w => w.id === project.workspace_id)?.name || 'Default'}
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Workspace</p>
+                  <p className="font-bold text-slate-900 text-sm">
+                    {workspaces.find(w => w.id === project.workspace_id)?.name || 'Default Workspace'}
                   </p>
                 </div>
               )}
 
-              {project.billing_model && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Billing Model</p>
-                  <p className="font-black text-slate-900 text-sm capitalize tracking-normal">
+              {!hideFinancialData && project.billing_model && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Billing Model</p>
+                  <p className="font-bold text-slate-900 text-sm capitalize">
                     {project.billing_model.replace('_', ' ')}
                   </p>
                 </div>
               )}
 
-              {(project.contract_amount || project.budget) && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Budget / Contract</p>
-                  <p className="font-black text-emerald-600 text-sm tracking-normal">
+              {!hideFinancialData && (project.contract_amount || project.budget) && (
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Budget / Contract</p>
+                  <p className="font-black text-emerald-600 text-sm tracking-tight">
                     {project.currency || '$'}{Number(project.contract_amount || project.budget).toLocaleString()}
                   </p>
                 </div>
               )}
 
               {project.deadline && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Deadline</p>
-                  <p className="font-black text-slate-900 text-sm tracking-normal">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Deadline</p>
+                  <p className="font-bold text-slate-900 text-[13px]">
                     {format(new Date(project.deadline), 'MMM d, yyyy')}
                   </p>
                 </div>
               )}
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Created</p>
-                <p className="font-black text-slate-600 text-sm tracking-normal">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Created</p>
+                <p className="font-bold text-slate-900 text-[13px]">
                   {format(new Date(project.created_date), 'MMM d, yyyy')}
                 </p>
               </div>
             </div>
 
             {project.description && (
-              <div className="mt-10 pt-6 border-t border-slate-200/60">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Project Description</p>
-                <div className="text-slate-700 text-sm font-medium leading-relaxed max-w-4xl">
+              <div className="mt-8 pt-6 border-t border-slate-200/60">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Description</p>
+                <div className="text-slate-700 text-[13px] font-medium leading-relaxed max-w-4xl">
                   <ReactMarkdown>{project.description}</ReactMarkdown>
                 </div>
               </div>
@@ -931,93 +957,93 @@ FORMATTING RULES:
 
           {/* Key Metrics */}
           <div>
-            <h3 className="text-base font-black text-slate-900 mt-8 mb-4 tracking-normal">Key Metrics</h3>
+            <h3 className="text-[17px] font-black text-slate-900 my-8 mb-5 tracking-tight">Key Metrics</h3>
             <div className="grid md:grid-cols-4 gap-4">
-              <div className="p-4 rounded-2xl bg-green-50/50 border border-green-200">
+              <div className="p-5 rounded-[16px] bg-[#F2FBF6] border border-[#E9F7F0]">
                 <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Completed</p>
+                  <CheckCircle2 className="h-4 w-4 text-[#2ECC71]" />
+                  <p className="text-[12px] font-bold text-slate-700">Completed</p>
                 </div>
-                <p className="text-3xl font-black text-green-600 tracking-normal">{analytics.completedTasks.length}</p>
+                <p className="text-3xl font-black text-[#2ECC71] tracking-tighter">{analytics.completedTasks.length}</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200">
+              <div className="p-5 rounded-[16px] bg-[#F2F8FF] border border-[#E8F3FF]">
                 <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-4 w-4 text-blue-600" />
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">In Progress</p>
+                  <Clock className="h-4 w-4 text-[#3498DB]" />
+                  <p className="text-[12px] font-bold text-slate-700">In Progress</p>
                 </div>
-                <p className="text-3xl font-black text-blue-600 tracking-normal">{analytics.tasksByStatus.in_progress}</p>
+                <p className="text-3xl font-black text-[#3498DB] tracking-tighter">{analytics.tasksByStatus.in_progress}</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-amber-50/50 border border-amber-200">
+              <div className="p-5 rounded-[16px] bg-[#FFFBF2] border border-[#FFF6E5]">
                 <div className="flex items-center gap-2 mb-3">
-                  <Target className="h-4 w-4 text-amber-600" />
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Pending</p>
+                  <Target className="h-4 w-4 text-[#F39C12]" />
+                  <p className="text-[12px] font-bold text-slate-700">Pending</p>
                 </div>
-                <p className="text-3xl font-black text-amber-500 tracking-normal">{analytics.tasksByStatus.todo}</p>
+                <p className="text-3xl font-black text-[#F39C12] tracking-tighter">{analytics.tasksByStatus.todo}</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-red-50/50 border border-red-200">
+              <div className="p-5 rounded-[16px] bg-[#FFF2F2] border border-[#FFE5E5]">
                 <div className="flex items-center gap-2 mb-3">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-700">Overdue</p>
+                  <AlertTriangle className="h-4 w-4 text-[#E74C3C]" />
+                  <p className="text-[12px] font-bold text-slate-700">Overdue</p>
                 </div>
-                <p className="text-3xl font-black text-red-600 tracking-normal">{analytics.overdueTasks.length}</p>
+                <p className="text-3xl font-black text-[#E74C3C] tracking-tighter">{analytics.overdueTasks.length}</p>
               </div>
             </div>
           </div>
 
           {/* Team Information */}
-          <div>
-            <h3 className="text-base font-black text-slate-900 mt-8 mb-4 tracking-normal">Team</h3>
-            <div className="p-5 sm:p-6 rounded-[32px] bg-slate-50/50 border border-slate-200">
+          <div className="mt-10">
+            <h3 className="text-[17px] font-black text-slate-900 mb-5 tracking-tight">Team</h3>
+            <div className="p-5 rounded-[16px] bg-[#F9FAFB] border border-slate-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.01)]">
               <div className="flex items-center gap-3 mb-4">
-                <Users className="h-5 w-5 text-slate-600" />
-                <p className="font-black text-slate-900 text-sm tracking-normal">
+                <Users className="h-4 w-4 text-slate-400" />
+                <p className="font-bold text-slate-900 text-[13px]">
                   {analytics.assignedUsers.length} Team Member{analytics.assignedUsers.length !== 1 ? 's' : ''} Assigned
                 </p>
               </div>
               {analytics.assignedUsers.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {analytics.assignedUsers.map((email, index) => {
                     const profile = userMap[email];
                     return (
-                      <Badge key={index} variant="outline" className="bg-white px-3 py-1.5 shadow-sm border-slate-200 rounded-lg">
+                      <div key={index} className="bg-white border border-slate-200 rounded-[10px] px-3.5 py-2 shadow-sm flex items-center gap-2 transition-all">
                         {profile ? (
-                          <span className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 tracking-normal">{profile.name}</span>
-                            <span className="text-slate-300">|</span>
-                            <span className="text-slate-500 text-[10px] uppercase font-black tracking-widest leading-none">{profile.title}</span>
-                          </span>
-                        ) : email}
-                      </Badge>
+                          <>
+                            <span className="font-black text-slate-800 text-[12px]">{profile.name}</span>
+                            <span className="w-px h-3 bg-slate-200"></span>
+                            <span className="text-slate-500 text-[11px] font-semibold">{profile.title}</span>
+                          </>
+                        ) : (
+                          <span className="font-bold text-slate-800 text-[12px]">{email}</span>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">No tasks assigned yet</p>
+                <p className="text-[13px] font-medium text-slate-500">No tasks assigned yet</p>
               )}
             </div>
           </div>
 
           {/* Reports List Pane and AI Report Section */}
-          <div className="border-t border-slate-100 pt-8 mt-8">
+          <div className="pt-8 mt-10">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Pane - Reports List */}
               <div className="lg:col-span-1">
                 <div className="sticky top-4">
                   <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                        <History className="h-4 w-4" strokeWidth={2.5} />
-                      </div>
-                      <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Report History</h3>
-                    </div>
-                    <Badge className="bg-slate-100 text-slate-600 font-bold text-[10px] px-2 shadow-none border-none">
+                    <h3 className="text-[17px] font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                      <History className="h-5 w-5 text-purple-600" />
+                      Report History
+                    </h3>
+                    <Badge className="bg-purple-100/50 text-purple-700 hover:bg-purple-100 font-bold px-2 boundary-none shadow-none text-[11px] rounded-[8px]">
                       {previousReports.length}
                     </Badge>
                   </div>
-                  <div className="max-h-[300px] lg:max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
+                  <div className="pr-2 max-h-[300px] lg:max-h-[600px] overflow-y-auto hide-scrollbar">
                     {previousReports.length > 0 ? (
                       <div className="space-y-3">
                         {previousReports.map((report) => (
@@ -1028,7 +1054,7 @@ FORMATTING RULES:
                               setAiReport(report.report_content);
                               setDisplayedReport(report.report_content);
                             }}
-                            className={`p-4 rounded-[20px] border cursor-pointer transition-all ${selectedReport?.id === report.id
+                            className={`p-4 rounded-[16px] border cursor-pointer transition-all ${selectedReport?.id === report.id
                               ? 'bg-[#F9FAFB] border-slate-300 shadow-sm ring-1 ring-slate-200'
                               : 'bg-white border-slate-200 hover:bg-slate-50'
                               }`}
@@ -1036,7 +1062,7 @@ FORMATTING RULES:
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <FileText className={`h-4 w-4 flex-shrink-0 ${selectedReport?.id === report.id ? 'text-indigo-600' : 'text-slate-400'}`} />
+                                  <FileText className={`h-4 w-4 flex-shrink-0 ${selectedReport?.id === report.id ? 'text-purple-600' : 'text-slate-400'}`} />
                                   <p className="text-sm font-bold text-slate-900 truncate tracking-normal">
                                     {report.project_name}
                                   </p>
@@ -1045,10 +1071,10 @@ FORMATTING RULES:
                                   <p className="truncate">
                                     By: {report.generated_by_name || report.generated_by}
                                   </p>
-                                  <p>{format(new Date(report.created_date), 'MMM d, pyyy HH:mm')}</p>
+                                  <p>{format(new Date(report.created_date), 'MMM d, yyyy HH:mm')}</p>
                                 </div>
                               </div>
-                              <div className="flex gap-1">
+                              <div className="flex flex-col gap-1 items-end">
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1075,10 +1101,10 @@ FORMATTING RULES:
                                       toast.error('Failed to generate PDF');
                                     }
                                   }}
-                                  className="h-7 w-7 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50/50 flex-shrink-0 transition-colors"
                                   title="Download PDF"
                                 >
-                                  <Download className="h-3 w-3" />
+                                  <Download className="h-4 w-4" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -1090,10 +1116,10 @@ FORMATTING RULES:
                                     }
                                   }}
                                   disabled={deleteReportMutation.isPending}
-                                  className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50/50 flex-shrink-0 transition-colors"
                                   title="Delete report"
                                 >
-                                  <Trash2 className="h-3 w-3" />
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
                             </div>
@@ -1103,7 +1129,7 @@ FORMATTING RULES:
                     ) : (
                       <div className="text-center py-12 px-4 rounded-[24px] border border-dashed border-slate-200 bg-slate-50/50">
                         <FileText className="h-8 w-8 mx-auto mb-3 text-slate-300" />
-                        <p className="text-sm font-bold text-slate-900 tracking-normal">No reports yet</p>
+                        <p className="text-sm font-bold text-slate-900 tracking-normal">No activity yet</p>
                         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mt-1">Generate a report</p>
                       </div>
                     )}
@@ -1114,10 +1140,10 @@ FORMATTING RULES:
               {/* Right Pane - AI Report Display */}
               <div className="lg:col-span-2" ref={reportContainerRef}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <h3 className="text-xl md:text-2xl font-black text-slate-900 flex items-center flex-wrap gap-2 tracking-normal">
+                  <h3 className="text-[17px] font-black text-slate-900 flex items-center flex-wrap gap-2 tracking-tight">
                     AI-Generated Executive Report
                     {isStreaming && (
-                      <Badge className="bg-blue-100 text-blue-700 font-bold text-[10px] uppercase tracking-widest px-2 animate-pulse whitespace-nowrap border-none shadow-none ml-2">
+                      <Badge className="bg-purple-50 text-purple-600 border-none shadow-none text-[10px] font-bold uppercase tracking-widest px-2 animate-pulse">
                         Generating...
                       </Badge>
                     )}
@@ -1125,13 +1151,13 @@ FORMATTING RULES:
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={async () => {
                         if (!aiReport) {
                           toast.error('No report to export. Please generate a report first.');
                           return;
                         }
                         try {
-                          // Export ONLY the AI report content
                           const pdfBlob = exportAIReportPDF(aiReport);
                           if (!pdfBlob) {
                             toast.error('Failed to generate PDF');
@@ -1152,15 +1178,16 @@ FORMATTING RULES:
                         }
                       }}
                       disabled={!aiReport}
-                      className="border-slate-200 flex-1 sm:flex-none whitespace-nowrap"
+                      className="border-slate-200 rounded-[12px] h-9 px-4 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 transition-all flex-1 sm:flex-none whitespace-nowrap"
                     >
-                      <Download className="h-4 w-4 mr-2" />
+                      <Download className="h-3.5 w-3.5 mr-2" />
                       Export PDF
                     </Button>
                     <Button
                       onClick={generateAIReport}
                       disabled={isGenerating}
-                      className="bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none whitespace-nowrap rounded-xl shadow-sm border border-blue-600"
+                      size="sm"
+                      className="bg-purple-600 hover:bg-purple-700 text-white rounded-[12px] h-9 px-5 shadow-sm transition-all flex-1 sm:flex-none whitespace-nowrap"
                     >
                       {isGenerating ? (
                         <>
@@ -1178,11 +1205,20 @@ FORMATTING RULES:
                 </div>
 
                 {(aiReport || displayedReport || isGenerating) ? (
-                  <div className="p-6 md:p-10 rounded-[32px] bg-white border border-slate-200 shadow-sm relative">
+                  <div className="p-8 pb-10 rounded-[28px] bg-white border border-slate-200 shadow-[0_1px_3px_rgba(0,0,0,0.02)] relative">
+                    <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-5">
+                      <Sparkles className="h-5 w-5 text-purple-600" />
+                      <h3 className="text-[17px] font-black text-slate-900 tracking-tight">AI Insights</h3>
+                      {selectedReport && (
+                        <Badge className="ml-2 bg-slate-50 text-slate-600 font-semibold px-3 py-1 rounded-full border-slate-200 shadow-none hover:bg-slate-50">
+                          {format(new Date(selectedReport.created_date || selectedReport.createdDate), 'MMM d, yyyy')}
+                        </Badge>
+                      )}
+                    </div>
                     <div className="prose prose-sm max-w-none">
                       <ReactMarkdown
                         components={{
-                          h1: ({ children }) => <h1 className="text-3xl font-black text-slate-900 mt-2 mb-6 tracking-normal">{children}</h1>,
+                          h1: ({ children }) => <h1 className="text-2xl font-black text-slate-900 mt-2 mb-6 tracking-normal pb-0 border-none">{children}</h1>,
                           h2: ({ children }) => <h2 className="text-xl font-bold text-slate-900 mt-8 mb-4 tracking-normal">{children}</h2>,
                           h3: ({ children }) => <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mt-8 mb-3">{children}</h3>,
                           p: ({ children }) => <p className="text-slate-600 mb-5 leading-relaxed font-medium">{children}</p>,
@@ -1190,27 +1226,27 @@ FORMATTING RULES:
                           ol: ({ children }) => <ol className="list-decimal list-outside ml-4 text-slate-600 space-y-2 mb-6 font-medium">{children}</ol>,
                           li: ({ children }) => <li className="pl-1 text-slate-600 marker:text-slate-400">{children}</li>,
                           strong: ({ children }) => <strong className="font-bold text-slate-900">{children}</strong>,
-                          em: ({ children }) => <em className="italic text-slate-500">{children}</em>,
+                          em: ({ children }) => <em className="italic text-slate-600">{children}</em>,
                           blockquote: ({ children }) => (
-                            <blockquote className="border-l-2 border-slate-300 pl-6 py-2 italic text-slate-600 my-8 bg-slate-50/50 rounded-r-2xl">
+                            <blockquote className="border-l-2 border-purple-400 pl-4 italic text-slate-500 my-6">
                               {children}
                             </blockquote>
                           ),
+                          code: ({ children }) => <code className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-800 text-[13px] font-mono">{children}</code>,
                         }}
                       >
                         {preprocessMarkdown(displayedReport || aiReport || "")}
                       </ReactMarkdown>
                       {isStreaming && (
-                        <span className="inline-block w-2 h-4 bg-blue-600 ml-1 animate-pulse">|</span>
+                        <span className="inline-block w-2 h-4 bg-purple-600 ml-1 animate-pulse">|</span>
                       )}
-                      {/* Precise scroll anchor */}
-                      <div ref={scrollAnchorRef} className="h-px w-full" />
+                      <div ref={scrollAnchorRef} className="h-px w-full mt-4" />
                     </div>
                   </div>
                 ) : (
-                  <div className="p-16 text-center border border-slate-200 rounded-[32px] bg-[#F9FAFB] flex flex-col items-center justify-center min-h-[400px]">
+                  <div className="p-16 text-center border border-dashed border-slate-200 rounded-[32px] bg-slate-50/50 flex flex-col items-center justify-center min-h-[400px]">
                     <div className="h-16 w-16 mb-6 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
-                      <Sparkles className="h-8 w-8 text-slate-400" />
+                      <Sparkles className="h-8 w-8 text-purple-400" />
                     </div>
                     <h4 className="font-black text-slate-900 mb-3 tracking-normal text-xl">AI-Powered Executive Report</h4>
                     <p className="text-sm font-medium text-slate-500 mb-8 max-w-sm mx-auto leading-relaxed">
@@ -1218,7 +1254,7 @@ FORMATTING RULES:
                     </p>
                     {!selectedReport && (
                       <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 max-w-md mx-auto leading-relaxed">
-                        Includes: Executive Summary • Key Achievements • Bottlenecks • Risk Assessment • Team Performance • Strategic Recommendations
+                        Executive Summary • Key Achievements • Bottlenecks • Risk Assessment • {isRestrictedViewer ? 'What Went Well/Wrong • Strategic Insights' : 'Team Performance • Strategic Recommendations'}
                       </p>
                     )}
                   </div>
@@ -1227,7 +1263,7 @@ FORMATTING RULES:
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

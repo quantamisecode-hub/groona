@@ -18,6 +18,9 @@ import {
   X,
   Zap,
   Square,
+  BarChart3,
+  DollarSign,
+  Users,
 } from "lucide-react";
 import {
   Select,
@@ -41,51 +44,19 @@ const API_URL = `${API_BASE}/api`;
 // Whitelist of working models - STRICT matching patterns (case-insensitive)
 // These patterns must appear in the model name or ID
 const WORKING_MODELS_PATTERNS = [
-  'devstral-2-2512',
-  'devstral 2 2512',
-  'mimo-v2',
-  'mimo v2',
-  'kat-coder-pro',
-  'kat coder pro',
-  'deepseek-r1-0528',
-  'deepseek r1 0528',
-  'deepseek-r1t-chimera',
-  'deepseek r1t chimera',
-  'deepseek-r1t2-chimera',
-  'deepseek r1t2 chimera',
-  'r1t-chimera',
-  'r1t chimera',
-  'trinity-mini',
-  'trinity mini',
-  'gemma-3-27b',
-  'gemma 3 27b',
-  'llama-3.2-3b-instruct',
-  'llama 3.2 3b instruct',
-  'llama-3.3-70b-instruct',
-  'llama 3.3 70b instruct',
-  'hermes-3-405b-instruct',
-  'hermes 3 405b instruct',
-  'glm-4.5-air',
-  'glm 4.5 air',
-  'mistral-small-3.1-24b',
-  'mistral small 3.1 24b',
-  'nemotron-nano-12b-2-vl',
-  'nemotron nano 12b 2 vl',
-  'qwen3-4b',
-  'qwen3 4b',
-  'mistral-7b-instruct',
-  'mistral 7b instruct',
-  'venice-uncensored',
-  'venice uncensored'
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it'
 ];
 
 // Helper function to check if a model matches the whitelist (STRICT matching)
 const isModelWhitelisted = (model) => {
   if (!model || !model.name || !model.id) return false;
-  
+
   const modelNameLower = model.name.toLowerCase().replace(/[^a-z0-9\s-]/g, '');
   const modelIdLower = model.id.toLowerCase();
-  
+
   // STRICT: Check if model name or ID contains EXACT pattern match
   // Must match one of the patterns exactly (allowing for variations in separators)
   return WORKING_MODELS_PATTERNS.some(pattern => {
@@ -94,7 +65,7 @@ const isModelWhitelisted = (model) => {
     const normalizedName = modelNameLower.replace(/[-_\s]+/g, ' ');
     const normalizedId = modelIdLower.replace(/[-_\s]+/g, ' ');
     const normalizedPattern = patternLower.replace(/[-_\s]+/g, ' ');
-    
+
     // Check if normalized strings contain the pattern
     return normalizedName.includes(normalizedPattern) || normalizedId.includes(normalizedPattern);
   });
@@ -112,16 +83,16 @@ const getFetchOptions = (method = 'GET', body = null) => {
     },
     credentials: 'include'
   };
-  
+
   const token = getToken();
   if (token) {
     options.headers['Authorization'] = `Bearer ${token}`;
   }
-  
+
   if (body) {
     options.body = JSON.stringify(body);
   }
-  
+
   return options;
 };
 
@@ -136,6 +107,9 @@ export default function GroonaAssistant() {
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
   const [appContext, setAppContext] = useState({});
   const [suggestions, setSuggestions] = useState([
+    { text: "Project Analysis", icon: "BarChart3" },
+    { text: "Revenue Analysis", icon: "DollarSign" },
+    { text: "User Performance", icon: "Users" },
     { text: "Create a new project", icon: "Plus" },
     { text: "Create a task", icon: "Target" }
   ]);
@@ -153,7 +127,7 @@ export default function GroonaAssistant() {
 
   const canUseAI = useHasPermission('can_use_ai_assistant');
 
-  // Fetch available OpenRouter models
+  // Fetch available models from Groq
   useEffect(() => {
     const fetchModels = async () => {
       try {
@@ -166,15 +140,15 @@ export default function GroonaAssistant() {
             if (!m || !m.id || !m.name) return false;
             return isModelWhitelisted(m);
           });
-          
+
           console.log(`[GroonaAssistant] Filtered ${filteredModels.length} whitelisted models from ${data.models.length} received`);
-          
+
           setAvailableModels(filteredModels);
           // Set default model if not already set
           if (!selectedModel && filteredModels.length > 0) {
-            const defaultModel = filteredModels.find(m => 
-              m.id.toLowerCase().includes('llama-3.2') || 
-              m.name.toLowerCase().includes('llama 3.2')
+            const defaultModel = filteredModels.find(m =>
+              m.id.toLowerCase().includes('llama-3.3') ||
+              m.name.toLowerCase().includes('llama 3.3')
             ) || filteredModels[0];
             setSelectedModel(defaultModel.id);
           }
@@ -189,14 +163,14 @@ export default function GroonaAssistant() {
         setAvailableModels([]);
       }
     };
-    
+
     fetchModels();
   }, []);
 
   useEffect(() => {
     // Set permission checked immediately to show page structure
     setPermissionChecked(true);
-    
+
     groonabackend.auth.me()
       .then(user => {
         setCurrentUser(user);
@@ -220,8 +194,8 @@ export default function GroonaAssistant() {
     }
   }, [permissionChecked, currentUser, canUseAI, navigate]);
 
-  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-    ? currentUser.active_tenant_id 
+  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+    ? currentUser.active_tenant_id
     : currentUser?.tenant_id;
 
   const { data: projects = [] } = useQuery({
@@ -302,29 +276,29 @@ export default function GroonaAssistant() {
           if (found) {
             setActiveConversation(found);
             let conversationMessages = found.messages || [];
-            
+
             // Restore project IDs and task IDs from localStorage for messages that created projects/tasks
             conversationMessages = conversationMessages.map(msg => {
               if (msg.role === 'assistant' && msg.content) {
                 try {
                   const parsed = JSON.parse(msg.content);
                   const conversationKey = activeConversationId || 'new';
-                  
+
                   if (parsed.action === 'create_project') {
                     const messageId = msg.id || msg._id;
-                    const projectNameHash = parsed.project_name ? 
+                    const projectNameHash = parsed.project_name ?
                       btoa(parsed.project_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) : '';
-                    
+
                     // Try multiple keys for redundancy
                     const processedKey = `groona_project_created_${conversationKey}_${messageId || 'no_id'}_${projectNameHash}`;
                     const projectNameKey = `groona_project_name_${conversationKey}_${projectNameHash}`;
-                    
+
                     // Check both keys
                     let storedData = localStorage.getItem(processedKey);
                     if (!storedData) {
                       storedData = localStorage.getItem(projectNameKey);
                     }
-                    
+
                     if (storedData) {
                       try {
                         const data = JSON.parse(storedData);
@@ -338,28 +312,28 @@ export default function GroonaAssistant() {
                     }
                   } else if (parsed.action === 'create_task') {
                     const messageId = msg.id || msg._id;
-                    const taskTitleHash = parsed.title ? 
+                    const taskTitleHash = parsed.title ?
                       btoa(parsed.title).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) : '';
-                    const taskProjectHash = parsed.project_name ? 
+                    const taskProjectHash = parsed.project_name ?
                       btoa(parsed.project_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15) : '';
-                    
+
                     // Try multiple keys for redundancy
                     const processedKey = `groona_task_created_${conversationKey}_${messageId || 'no_id'}_${taskTitleHash}_${taskProjectHash}`;
                     const taskTitleKey = `groona_task_title_${conversationKey}_${taskTitleHash}`;
-                    
+
                     // Check both keys
                     let storedData = localStorage.getItem(processedKey);
                     if (!storedData) {
                       storedData = localStorage.getItem(taskTitleKey);
                     }
-                    
+
                     if (storedData) {
                       try {
                         const data = JSON.parse(storedData);
                         // Only use if it has a valid taskId (not just "processing")
                         if (data.taskId && data.taskId !== 'processing') {
-                          return { 
-                            ...msg, 
+                          return {
+                            ...msg,
                             createdTaskId: data.taskId,
                             createdTaskProjectId: data.projectId || data.project_id || null
                           };
@@ -375,40 +349,40 @@ export default function GroonaAssistant() {
               }
               return msg;
             });
-            
+
             // CRITICAL: Always preserve user messages from current state, even during refetches
             // Only update messages if we're not currently streaming and we didn't just add a message ourselves
             if (!isStreaming && !justAddedMessageRef.current) {
               setMessages(prev => {
                 console.log('[GroonaAssistant] Loading conversation messages. Prev count:', prev.length, 'Conversation count:', conversationMessages.length);
-                
+
                 // CRITICAL: ALWAYS preserve ALL user messages from prev
                 // User messages are added optimistically and might not be in backend yet
                 const allUserMessagesFromPrev = prev.filter(msg => msg.role === 'user');
                 console.log('[GroonaAssistant] User messages in prev:', allUserMessagesFromPrev.length);
-                
+
                 // Find user messages in prev that are NOT in conversationMessages (pending messages)
                 const pendingUserMessages = allUserMessagesFromPrev.filter(prevUserMsg => {
-                  const existsInConversation = conversationMessages.some(convMsg => 
-                    convMsg.role === 'user' && 
+                  const existsInConversation = conversationMessages.some(convMsg =>
+                    convMsg.role === 'user' &&
                     convMsg.content === prevUserMsg.content &&
                     Math.abs(new Date(convMsg.created_at || 0) - new Date(prevUserMsg.created_at || 0)) < 10000 // Within 10 seconds
                   );
                   return !existsInConversation;
                 });
-                
+
                 console.log('[GroonaAssistant] Pending user messages (not in conversation yet):', pendingUserMessages.length);
-                
+
                 // ALWAYS merge conversation messages with pending user messages
                 // This ensures user messages are never lost
                 const allMessages = [...conversationMessages];
-                
+
                 // Add pending user messages, maintaining chronological order
                 pendingUserMessages.forEach(pendingMsg => {
                   // Find the right position to insert (before its corresponding assistant response if exists)
                   const pendingTime = new Date(pendingMsg.created_at || 0).getTime();
                   let insertIndex = allMessages.length;
-                  
+
                   for (let i = 0; i < allMessages.length; i++) {
                     const msgTime = new Date(allMessages[i].created_at || 0).getTime();
                     if (msgTime > pendingTime && allMessages[i].role === 'assistant') {
@@ -416,21 +390,21 @@ export default function GroonaAssistant() {
                       break;
                     }
                   }
-                  
+
                   allMessages.splice(insertIndex, 0, pendingMsg);
                 });
-                
+
                 // Sort all messages by timestamp to ensure correct order
                 allMessages.sort((a, b) => {
                   const timeA = new Date(a.created_at || 0).getTime();
                   const timeB = new Date(b.created_at || 0).getTime();
                   return timeA - timeB;
                 });
-                
+
                 // Preserve local properties from prev (like createdProjectId, createdTaskId, _isPending)
                 const merged = allMessages.map(msg => {
-                  const prevMsg = prev.find(p => 
-                    p.role === msg.role && 
+                  const prevMsg = prev.find(p =>
+                    p.role === msg.role &&
                     p.content === msg.content &&
                     Math.abs(new Date(p.created_at || 0) - new Date(msg.created_at || 0)) < 10000
                   );
@@ -440,7 +414,7 @@ export default function GroonaAssistant() {
                   }
                   return msg;
                 });
-                
+
                 console.log('[GroonaAssistant] Final merged messages count:', merged.length, merged.map(m => ({ role: m.role, content: m.content?.substring(0, 30) })));
                 return merged;
               });
@@ -480,18 +454,19 @@ export default function GroonaAssistant() {
   // Auto-scroll function - checks if user is near bottom before scrolling
   const scrollToBottom = (force = false) => {
     if (!chatContainerRef.current || !messagesEndRef.current) return;
-    
+
     const container = chatContainerRef.current;
     const scrollHeight = container.scrollHeight;
     const scrollTop = container.scrollTop;
     const clientHeight = container.clientHeight;
-    
-    // Check if user is near bottom (within 200px) or if forced
-    const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
-    
+
+    // Check if user is near bottom (within 500px) or if forced
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 500;
+
     if (force || isNearBottom || shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      shouldAutoScrollRef.current = true;
+      // Use 'auto' instead of 'smooth' for programmatic scrolling during stream/updates
+      // 'smooth' can stutter or fail when called frequently
+      messagesEndRef.current?.scrollIntoView({ behavior: force ? 'smooth' : 'auto', block: 'end' });
     }
   };
 
@@ -508,38 +483,57 @@ export default function GroonaAssistant() {
 
   // Scroll when streaming state changes and continuously during typewriter effect
   useEffect(() => {
-    if (isStreaming || messages.length > 0) {
-      // Scroll continuously when streaming or when we have messages (to catch typewriter effect)
+    if (isStreaming) {
+      // Scroll continuously ONLY when streaming (to catch typewriter effect)
       const interval = setInterval(() => {
         scrollToBottom();
-      }, 250); // Scroll every 250ms for smooth typewriter scrolling
-      
+      }, 100);
+
       // Also scroll immediately when streaming starts
-      if (isStreaming) {
-        setTimeout(() => scrollToBottom(true), 50);
-      }
-      
+      setTimeout(() => scrollToBottom(true), 50);
+
       return () => clearInterval(interval);
     }
-  }, [isStreaming, messages.length]);
+  }, [isStreaming]);
 
-  // Track user scroll to detect manual scrolling
+  // Robust auto-scroll: Monitor container size changes
   useEffect(() => {
     const container = chatContainerRef.current;
     if (!container) return;
+
+    // Use ResizeObserver to detect height changes (e.g. from typewriter animation)
+    const resizeObserver = new ResizeObserver(() => {
+      // Small delay to ensure render is complete
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+    });
+
+    resizeObserver.observe(container);
 
     const handleScroll = () => {
       const scrollHeight = container.scrollHeight;
       const scrollTop = container.scrollTop;
       const clientHeight = container.clientHeight;
-      const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
-      
-      // Update shouldAutoScroll based on scroll position
+      // Allow a bit more margin (500px) to consider "at bottom"
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 500;
       shouldAutoScrollRef.current = isNearBottom;
     };
 
+    const handleTypingEvent = () => {
+      requestAnimationFrame(() => {
+        scrollToBottom(false);
+      });
+    };
+
+    window.addEventListener('groona-typing', handleTypingEvent);
     container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('groona-typing', handleTypingEvent);
+      container.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   // Monitor messages for project and task creation actions
@@ -550,14 +544,14 @@ export default function GroonaAssistant() {
     // Get the last assistant message (must be the absolute last message in the array)
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.content) return;
-    
+
     const lastAssistantMessage = lastMessage;
 
     const actionData = parseProjectCreationResponse(lastAssistantMessage.content);
-    
+
     if (actionData && actionData.action === 'create_project') {
       // STRICT DUPLICATE PREVENTION - Multiple layers of protection
-      
+
       // Layer 1: Check if project creation is already in progress
       if (processingProjectRef.current) {
         console.log('[GroonaAssistant] Project creation already in progress, skipping...');
@@ -566,31 +560,31 @@ export default function GroonaAssistant() {
 
       // Layer 2: Create highly unique key using conversation ID + message ID + project name hash
       const messageId = lastAssistantMessage.id || lastAssistantMessage._id;
-      const projectNameHash = actionData.project_name ? 
+      const projectNameHash = actionData.project_name ?
         btoa(actionData.project_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) : '';
       const conversationKey = activeConversationId || 'new';
-      
+
       // Create multiple keys for redundancy
       const processedKey = `groona_project_created_${conversationKey}_${messageId || 'no_id'}_${projectNameHash}`;
       const projectNameKey = `groona_project_name_${conversationKey}_${projectNameHash}`;
-      
+
       // Layer 3: Check localStorage for existing project (persists across sessions)
       const existingProjectData = localStorage.getItem(processedKey);
       const existingProjectByName = localStorage.getItem(projectNameKey);
-      
+
       if (existingProjectData || existingProjectByName) {
         try {
-          const storedData = existingProjectData ? JSON.parse(existingProjectData) : 
-                           (existingProjectByName ? JSON.parse(existingProjectByName) : null);
-          
+          const storedData = existingProjectData ? JSON.parse(existingProjectData) :
+            (existingProjectByName ? JSON.parse(existingProjectByName) : null);
+
           if (storedData && storedData.projectId) {
             const { projectId, projectName } = storedData;
             console.log('[GroonaAssistant] Project already created (from storage):', projectName, 'ID:', projectId);
-            
+
             // Update message with project ID for button display
             if (!lastAssistantMessage.createdProjectId) {
-              setMessages(prev => prev.map(msg => 
-                (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
+              setMessages(prev => prev.map(msg =>
+                (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
                   ? { ...msg, createdProjectId: projectId }
                   : msg
               ));
@@ -601,27 +595,27 @@ export default function GroonaAssistant() {
         }
         return; // STRICTLY prevent duplicate creation
       }
-      
+
       // Layer 4: Check if project with same name already exists in database
       const checkExistingProject = async () => {
         try {
-          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-            ? currentUser.active_tenant_id 
+          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+            ? currentUser.active_tenant_id
             : currentUser?.tenant_id;
-          
+
           if (!effectiveTenantId || !actionData.project_name) return false;
-          
+
           // Check if project with same name exists
           const existingProjects = await groonabackend.entities.Project.filter({
             tenant_id: effectiveTenantId,
             name: actionData.project_name
           });
-          
+
           if (existingProjects && existingProjects.length > 0) {
             const existingProject = existingProjects[0];
             const projectId = existingProject.id || existingProject._id;
             console.log('[GroonaAssistant] Project with same name already exists in database:', projectId);
-            
+
             // Store in localStorage to prevent future attempts
             localStorage.setItem(processedKey, JSON.stringify({
               projectId,
@@ -634,14 +628,14 @@ export default function GroonaAssistant() {
               projectName: existingProject.name,
               timestamp: Date.now()
             }));
-            
+
             // Update message with project ID
-            setMessages(prev => prev.map(msg => 
-              (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
+            setMessages(prev => prev.map(msg =>
+              (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
                 ? { ...msg, createdProjectId: projectId }
                 : msg
             ));
-            
+
             return true; // Project exists
           }
           return false; // Project doesn't exist
@@ -650,7 +644,7 @@ export default function GroonaAssistant() {
           return false; // Continue with creation if check fails
         }
       };
-      
+
       // Mark as processing IMMEDIATELY (before any async operations)
       processingProjectRef.current = true;
       localStorage.setItem(processedKey, JSON.stringify({ processing: true, timestamp: Date.now() }));
@@ -664,10 +658,10 @@ export default function GroonaAssistant() {
             toast.info('Project already exists. Use "View Project" button to access it.');
             return;
           }
-          
+
           setIsStreaming(true);
-          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-            ? currentUser.active_tenant_id 
+          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+            ? currentUser.active_tenant_id
             : currentUser?.tenant_id;
 
           console.log('[GroonaAssistant] Creating new project:', actionData.project_name);
@@ -679,7 +673,7 @@ export default function GroonaAssistant() {
           );
 
           const projectId = createdProject._id || createdProject.id;
-          
+
           // Store project ID in localStorage with multiple keys (persists across sessions)
           const projectData = {
             projectId,
@@ -687,13 +681,13 @@ export default function GroonaAssistant() {
             timestamp: Date.now(),
             source: 'newly_created'
           };
-          
+
           localStorage.setItem(processedKey, JSON.stringify(projectData));
           localStorage.setItem(projectNameKey, JSON.stringify(projectData));
 
           // Update message with project ID for button display
-          setMessages(prev => prev.map(msg => 
-            (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
+          setMessages(prev => prev.map(msg =>
+            (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
               ? { ...msg, createdProjectId: projectId }
               : msg
           ));
@@ -719,7 +713,7 @@ export default function GroonaAssistant() {
       createProject();
     } else if (actionData && actionData.action === 'create_task') {
       // STRICT DUPLICATE PREVENTION - Multiple layers of protection (same as projects)
-      
+
       // Layer 1: Check if task creation is already in progress
       if (processingTaskRef.current) {
         console.log('[GroonaAssistant] Task creation already in progress, skipping...');
@@ -728,48 +722,48 @@ export default function GroonaAssistant() {
 
       // Layer 2: Create highly unique key using conversation ID + message ID + task details hash
       const messageId = lastAssistantMessage.id || lastAssistantMessage._id;
-      const taskTitleHash = actionData.title ? 
+      const taskTitleHash = actionData.title ?
         btoa(actionData.title).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20) : '';
-      const taskProjectHash = actionData.project_name ? 
+      const taskProjectHash = actionData.project_name ?
         btoa(actionData.project_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 15) : '';
       const conversationKey = activeConversationId || 'new';
-      
+
       // Create multiple keys for redundancy
       const processedKey = `groona_task_created_${conversationKey}_${messageId || 'no_id'}_${taskTitleHash}_${taskProjectHash}`;
       const taskTitleKey = `groona_task_title_${conversationKey}_${taskTitleHash}`;
-      
+
       // Layer 3: Check localStorage for existing task (persists across sessions)
       const existingTaskData = localStorage.getItem(processedKey);
       const existingTaskByTitle = localStorage.getItem(taskTitleKey);
-      
+
       if (existingTaskData || existingTaskByTitle) {
         try {
-          const storedData = existingTaskData ? JSON.parse(existingTaskData) : 
-                           (existingTaskByTitle ? JSON.parse(existingTaskByTitle) : null);
-          
+          const storedData = existingTaskData ? JSON.parse(existingTaskData) :
+            (existingTaskByTitle ? JSON.parse(existingTaskByTitle) : null);
+
           if (storedData && storedData.taskId) {
             const { taskId, taskTitle } = storedData;
             console.log('[GroonaAssistant] Task already created (from storage):', taskTitle, 'ID:', taskId);
-            
+
             // Update message with task ID for button display (try to get project ID)
             if (!lastAssistantMessage.createdTaskId) {
               // Try to get project ID from the stored task data
               let taskProjectId = null;
               try {
-                const storedData = existingTaskData ? JSON.parse(existingTaskData) : 
-                                 (existingTaskByTitle ? JSON.parse(existingTaskByTitle) : null);
+                const storedData = existingTaskData ? JSON.parse(existingTaskData) :
+                  (existingTaskByTitle ? JSON.parse(existingTaskByTitle) : null);
                 taskProjectId = storedData?.projectId || storedData?.project_id || null;
               } catch (e) {
                 // Ignore parsing errors
               }
-              
-              setMessages(prev => prev.map(msg => 
-                (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
-                  ? { 
-                      ...msg, 
-                      createdTaskId: taskId,
-                      createdTaskProjectId: taskProjectId
-                    }
+
+              setMessages(prev => prev.map(msg =>
+                (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
+                  ? {
+                    ...msg,
+                    createdTaskId: taskId,
+                    createdTaskProjectId: taskProjectId
+                  }
                   : msg
               ));
             }
@@ -779,16 +773,16 @@ export default function GroonaAssistant() {
         }
         return; // STRICTLY prevent duplicate creation
       }
-      
+
       // Layer 4: Check if task with same title and project already exists in database
       const checkExistingTask = async () => {
         try {
-          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-            ? currentUser.active_tenant_id 
+          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+            ? currentUser.active_tenant_id
             : currentUser?.tenant_id;
-          
+
           if (!effectiveTenantId || !actionData.title) return false;
-          
+
           // Get project ID if project name is provided
           let projectId = null;
           if (actionData.project_name) {
@@ -800,7 +794,7 @@ export default function GroonaAssistant() {
               projectId = projects[0].id || projects[0]._id;
             }
           }
-          
+
           // Check if task with same title exists in the same project
           const taskFilter = {
             tenant_id: effectiveTenantId,
@@ -809,14 +803,14 @@ export default function GroonaAssistant() {
           if (projectId) {
             taskFilter.project_id = projectId;
           }
-          
+
           const existingTasks = await groonabackend.entities.Task.filter(taskFilter);
-          
+
           if (existingTasks && existingTasks.length > 0) {
             const existingTask = existingTasks[0];
             const taskId = existingTask.id || existingTask._id;
             console.log('[GroonaAssistant] Task with same title already exists in database:', taskId);
-            
+
             // Store in localStorage to prevent future attempts
             localStorage.setItem(processedKey, JSON.stringify({
               taskId,
@@ -829,19 +823,19 @@ export default function GroonaAssistant() {
               taskTitle: existingTask.title,
               timestamp: Date.now()
             }));
-            
+
             // Update message with task ID (try to get project ID from task)
             const taskProjectId = existingTask.project_id || existingTask.projectId || null;
-            setMessages(prev => prev.map(msg => 
-              (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
-                ? { 
-                    ...msg, 
-                    createdTaskId: taskId,
-                    createdTaskProjectId: taskProjectId
-                  }
+            setMessages(prev => prev.map(msg =>
+              (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
+                ? {
+                  ...msg,
+                  createdTaskId: taskId,
+                  createdTaskProjectId: taskProjectId
+                }
                 : msg
             ));
-            
+
             return true; // Task exists
           }
           return false; // Task doesn't exist
@@ -850,7 +844,7 @@ export default function GroonaAssistant() {
           return false; // Continue with creation if check fails
         }
       };
-      
+
       // Mark as processing IMMEDIATELY (before any async operations)
       processingTaskRef.current = true;
       localStorage.setItem(processedKey, JSON.stringify({ processing: true, timestamp: Date.now() }));
@@ -864,10 +858,10 @@ export default function GroonaAssistant() {
             toast.info('Task already exists. Use "View Task" button to access it.');
             return;
           }
-          
+
           setIsStreaming(true);
-          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-            ? currentUser.active_tenant_id 
+          const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+            ? currentUser.active_tenant_id
             : currentUser?.tenant_id;
 
           console.log('[GroonaAssistant] Creating new task:', actionData.title);
@@ -880,7 +874,7 @@ export default function GroonaAssistant() {
 
           const taskId = createdTask._id || createdTask.id;
           const projectId = createdTask.project_id || createdTask.projectId || null;
-          
+
           // Store task ID in localStorage with multiple keys (persists across sessions)
           const taskData = {
             taskId,
@@ -890,18 +884,18 @@ export default function GroonaAssistant() {
             timestamp: Date.now(),
             source: 'newly_created'
           };
-          
+
           localStorage.setItem(processedKey, JSON.stringify(taskData));
           localStorage.setItem(taskTitleKey, JSON.stringify(taskData));
 
           // Update message with task ID and project ID for button display
-          setMessages(prev => prev.map(msg => 
-            (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id) 
-              ? { 
-                  ...msg, 
-                  createdTaskId: taskId,
-                  createdTaskProjectId: projectId
-                }
+          setMessages(prev => prev.map(msg =>
+            (msg.id === lastAssistantMessage.id || msg._id === lastAssistantMessage._id)
+              ? {
+                ...msg,
+                createdTaskId: taskId,
+                createdTaskProjectId: projectId
+              }
               : msg
           ));
 
@@ -973,24 +967,24 @@ export default function GroonaAssistant() {
     mutationFn: async ({ message }) => {
       // Mark conversation as started
       setHasStartedConversation(true);
-      
+
       // CRITICAL: Add user message IMMEDIATELY and ensure it stays visible
       // Use a synchronous state update to ensure it renders immediately
-      const userMessage = { 
-        role: 'user', 
-        content: message, 
+      const userMessage = {
+        role: 'user',
+        content: message,
         created_at: new Date(),
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID to prevent overwrites
         _isPending: true // Flag to mark as pending (not yet saved to backend)
       };
-      
+
       // CRITICAL: Add user message IMMEDIATELY using flushSync for synchronous update
       // This ensures the message appears in the UI before any async operations
       setMessages(prev => {
         // Check if this exact message already exists to prevent duplicates
-        const alreadyExists = prev.some(msg => 
-          msg.role === 'user' && 
-          msg.content === message && 
+        const alreadyExists = prev.some(msg =>
+          msg.role === 'user' &&
+          msg.content === message &&
           Math.abs(new Date(msg.created_at || 0) - new Date(userMessage.created_at || 0)) < 1000 // Within 1 second
         );
         if (alreadyExists) {
@@ -1002,17 +996,17 @@ export default function GroonaAssistant() {
         console.log('[GroonaAssistant] Total messages after adding user:', updated.length, updated.map(m => ({ role: m.role, content: m.content?.substring(0, 30) })));
         return updated;
       });
-      
+
       // Set streaming state AFTER user message is added to state
       // This ensures user message renders before floating dots appear
       setIsStreaming(true);
-      
+
       // Set flag to prevent message overwrite
       justAddedMessageRef.current = true;
-      
+
       let conversation = activeConversation;
       let conversationId = activeConversationId;
-      
+
       // Check if we have an active conversation ID first
       if (conversationId && !conversation) {
         // Try to find the conversation from the list
@@ -1022,7 +1016,7 @@ export default function GroonaAssistant() {
         const convos = await convosRes.json();
         conversation = convos.find(c => (c.id === conversationId || c._id === conversationId));
       }
-      
+
       // Only create a new conversation if we don't have one
       if (!conversationId && (!conversation || !(conversation.id || conversation._id))) {
         const user = await groonabackend.auth.me();
@@ -1065,45 +1059,45 @@ export default function GroonaAssistant() {
       }
 
       const result = await response.json();
-      
+
       // Check if response contains action data (from backend)
       const actionData = result.action || null;
-      
+
       // Add assistant response to messages (user message already added above)
       setMessages(prev => {
         console.log('[GroonaAssistant] Adding assistant response. Current messages:', prev.length, prev.map(m => ({ role: m.role, content: m.content?.substring(0, 30) })));
-        
+
         // Check if assistant message already exists to prevent duplicates
-        const assistantMessage = { 
-          role: 'assistant', 
+        const assistantMessage = {
+          role: 'assistant',
           content: result.message, // Clean message from backend
           created_at: new Date(), // Fresh timestamp for new messages
           action: actionData, // Action data for rendering custom UI
           id: `assistant_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Unique ID
         };
-        
+
         // Check if this exact assistant message already exists (check last few messages)
         const recentMessages = prev.slice(-5); // Check last 5 messages
-        const alreadyExists = recentMessages.some(msg => 
-          msg.role === 'assistant' && 
+        const alreadyExists = recentMessages.some(msg =>
+          msg.role === 'assistant' &&
           msg.content === result.message &&
           Math.abs(new Date(msg.created_at || 0) - new Date(assistantMessage.created_at || 0)) < 2000 // Within 2 seconds
         );
-        
+
         if (alreadyExists) {
           // Message already exists, don't add again
           console.log('[GroonaAssistant] Assistant message already exists, skipping duplicate');
           return prev;
         }
-        
+
         // CRITICAL: Ensure user message is in the list before adding assistant response
         // Check if user message exists
-        const userMessageExists = prev.some(msg => 
-          msg.role === 'user' && 
+        const userMessageExists = prev.some(msg =>
+          msg.role === 'user' &&
           msg.content === message &&
           Math.abs(new Date(msg.created_at || 0) - new Date(userMessage.created_at || 0)) < 10000 // Within 10 seconds
         );
-        
+
         let updatedMessages;
         if (userMessageExists) {
           // User message already there, just add assistant response
@@ -1114,22 +1108,22 @@ export default function GroonaAssistant() {
           console.warn('[GroonaAssistant] User message missing, adding both user and assistant messages');
           updatedMessages = [...prev, userMessage, assistantMessage];
         }
-        
+
         // Sort by timestamp to ensure correct order
         updatedMessages.sort((a, b) => {
           const timeA = new Date(a.created_at || 0).getTime();
           const timeB = new Date(b.created_at || 0).getTime();
           return timeA - timeB;
         });
-        
+
         console.log('[GroonaAssistant] Final messages after adding assistant:', updatedMessages.length, updatedMessages.map(m => ({ role: m.role, content: m.content?.substring(0, 30) })));
-        
+
         // Mark that we just added a message
         justAddedMessageRef.current = true;
         setTimeout(() => {
           justAddedMessageRef.current = false;
         }, 3000); // Reset after 3 seconds
-        
+
         return updatedMessages;
       });
 
@@ -1143,12 +1137,12 @@ export default function GroonaAssistant() {
       // Set a flag to prevent message overwrite during refetch
       justAddedMessageRef.current = true;
       await queryClient.invalidateQueries({ queryKey: ['groona-conversations'] });
-      
+
       // Keep the flag for a bit longer to prevent overwrite
       setTimeout(() => {
         justAddedMessageRef.current = false;
       }, 5000); // Extended to 5 seconds to ensure backend has saved the message
-      
+
       // Return result with action data for processing
       return { ...result, action: actionData };
     },
@@ -1156,10 +1150,10 @@ export default function GroonaAssistant() {
       setIsStreaming(false);
       // Clear input field after successful send
       setInputMessage("");
-      
+
       // Keep the flag set longer to prevent message overwrite during refetch
       justAddedMessageRef.current = true;
-      
+
       // Invalidate queries but delay to ensure messages are stable
       setTimeout(async () => {
         await queryClient.invalidateQueries({ queryKey: ['groona-conversations'] });
@@ -1168,29 +1162,29 @@ export default function GroonaAssistant() {
           justAddedMessageRef.current = false;
         }, 3000);
       }, 1000);
-      
+
       // Process action if present in response
       if (result && result.action) {
         const actionData = result.action;
         if (!currentUser) return;
-        
-        const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-          ? currentUser.active_tenant_id 
+
+        const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+          ? currentUser.active_tenant_id
           : currentUser?.tenant_id;
-        
+
         // Create unique key to prevent duplicate processing
         const actionKey = `groona_action_${activeConversationId || 'new'}_${actionData.action}_${JSON.stringify(actionData).substring(0, 100)}`;
-        
+
         if (sessionStorage.getItem(actionKey)) {
           console.log('[GroonaAssistant] Action already processed');
           return;
         }
-        
+
         sessionStorage.setItem(actionKey, 'true');
-        
+
         try {
           setIsStreaming(true);
-          
+
           if (actionData.action === 'create_project') {
             const createdProject = await createProjectFromAI(
               actionData,
@@ -1198,12 +1192,12 @@ export default function GroonaAssistant() {
               currentUser.id,
               currentUser.email
             );
-            
+
             queryClient.invalidateQueries({ queryKey: ['projects'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
-            
+
             toast.success(`Project "${createdProject.name}" created successfully!`);
-            
+
             setTimeout(() => {
               navigate(createPageUrl("ProjectDetail") + `?id=${createdProject._id || createdProject.id}`);
             }, 1500);
@@ -1214,12 +1208,12 @@ export default function GroonaAssistant() {
               currentUser.id,
               currentUser.email
             );
-            
+
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
             queryClient.invalidateQueries({ queryKey: ['projects'] });
-            
+
             toast.success(`Task "${createdTask.title}" created successfully!`);
-            
+
             if (createdTask.project_id) {
               setTimeout(() => {
                 navigate(createPageUrl("ProjectDetail") + `?id=${createdTask.project_id}`);
@@ -1263,10 +1257,10 @@ export default function GroonaAssistant() {
 
   const handleSuggestionClick = (text) => {
     if (!text || !text.trim()) return;
-    
+
     // Clear input immediately
     setInputMessage("");
-    
+
     // Automatically send the message
     setIsStreaming(true);
     sendMessageMutation.mutate({ message: text.trim() });
@@ -1338,7 +1332,7 @@ export default function GroonaAssistant() {
     <div className="h-[calc(100vh-4rem)] flex relative overflow-hidden">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -1404,11 +1398,10 @@ export default function GroonaAssistant() {
               return (
                 <div
                   key={convId}
-                  className={`group p-2.5 sm:p-3 rounded-lg cursor-pointer transition-all ${
-                    activeConversationId === convId
-                      ? 'bg-purple-50 border border-purple-200'
-                      : 'hover:bg-slate-50 border border-transparent'
-                  }`}
+                  className={`group p-2.5 sm:p-3 rounded-lg cursor-pointer transition-all ${activeConversationId === convId
+                    ? 'bg-purple-50 border border-purple-200'
+                    : 'hover:bg-slate-50 border border-transparent'
+                    }`}
                   onClick={() => {
                     setActiveConversationId(convId);
                     setActiveConversation(conv);
@@ -1461,7 +1454,7 @@ export default function GroonaAssistant() {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            
+
             <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/25 flex-shrink-0">
               <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
             </div>
@@ -1477,7 +1470,7 @@ export default function GroonaAssistant() {
           </div>
         </div>
 
-        <div 
+        <div
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6"
           onScroll={() => {
@@ -1531,7 +1524,7 @@ export default function GroonaAssistant() {
                     key={`${message.id || idx}-${message.content?.substring(0, 20)}`}
                     message={message}
                     currentUser={currentUser}
-                    onAction={() => {}}
+                    onAction={() => { }}
                     isStreaming={shouldStream}
                     onReload={message.role === 'user' ? () => {
                       // Resend the message
@@ -1551,12 +1544,12 @@ export default function GroonaAssistant() {
                         try {
                           const tasks = await groonabackend.entities.Task.filter({ _id: message.createdTaskId });
                           const task = tasks && tasks.length > 0 ? tasks[0] : null;
-                          
+
                           if (!task) {
                             // Try with id field instead of _id
                             const tasksById = await groonabackend.entities.Task.filter({ id: message.createdTaskId });
                             const taskById = tasksById && tasksById.length > 0 ? tasksById[0] : null;
-                            
+
                             if (taskById && taskById.project_id) {
                               navigate(createPageUrl("ProjectDetail") + `?id=${taskById.project_id}&taskId=${message.createdTaskId}`);
                             } else {
@@ -1628,7 +1621,7 @@ export default function GroonaAssistant() {
                       </Select>
                     </div>
                   )}
-                  
+
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}

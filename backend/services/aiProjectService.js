@@ -246,7 +246,7 @@ function parseDate(dateStr) {
         const day = parseInt(match[1]);
         const year = match[2] ? parseInt(match[2]) : new Date().getFullYear();
         if (day >= 1 && day <= 31) {
-          const date = new Date(year, monthIndex, day);
+          const date = new Date(year, monthIndex, day, 12, 0, 0); // Use noon to avoid timezone flips
           if (!isNaN(date.getTime())) {
             return date.toISOString().split('T')[0];
           }
@@ -258,7 +258,7 @@ function parseDate(dateStr) {
         const day = parseInt(match[1]);
         const year = match[2] ? parseInt(match[2]) : new Date().getFullYear();
         if (day >= 1 && day <= 31) {
-          const date = new Date(year, monthIndex, day);
+          const date = new Date(year, monthIndex, day, 12, 0, 0); // Use noon to avoid timezone flips
           if (!isNaN(date.getTime())) {
             return date.toISOString().split('T')[0];
           }
@@ -279,7 +279,7 @@ function parseDate(dateStr) {
       const day = parseInt(slashMatch[1]);
       const month = parseInt(slashMatch[2]) - 1; // Month is 0-indexed
       const year = parseInt(slashMatch[3]);
-      const date = new Date(year, month, day);
+      const date = new Date(year, month, day, 12, 0, 0);
       if (!isNaN(date.getTime())) {
         return date.toISOString().split('T')[0];
       }
@@ -292,7 +292,7 @@ function parseDate(dateStr) {
       const year = parseInt(dashMatch[1]);
       const month = parseInt(dashMatch[2]) - 1;
       const day = parseInt(dashMatch[3]);
-      const date = new Date(year, month, day);
+      const date = new Date(year, month, day, 12, 0, 0);
       if (!isNaN(date.getTime())) {
         return date.toISOString().split('T')[0];
       }
@@ -397,7 +397,21 @@ async function createProjectFromInfo(projectInfo, tenantId, userId, userEmail) {
         role: 'project_manager'
       },
       ...(projectInfo.team_members || [])
-    ]
+    ],
+    // New Financial Fields
+    billing_model: projectInfo.billing_model,
+    currency: projectInfo.currency,
+    contract_start_date: projectInfo.contract_start_date,
+    contract_end_date: projectInfo.contract_end_date,
+    contract_amount: projectInfo.contract_amount,
+    contract_value: projectInfo.contract_amount, // Map to official contract_value field
+    budget: projectInfo.contract_amount, // Usually budget = contract amount for fixed
+    estimated_duration: projectInfo.estimated_duration,
+    default_bill_rate_per_hour: projectInfo.default_bill_rate_per_hour,
+    retainer_amount: projectInfo.retainer_amount,
+    retainer_period: projectInfo.retainer_period,
+    non_billable_reason: projectInfo.non_billable_reason,
+    expense_budget: projectInfo.expense_budget
   };
 
   // Create project
