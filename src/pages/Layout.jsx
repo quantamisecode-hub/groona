@@ -1479,7 +1479,12 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
               onBackfillSuccess={() => refetchNotifications()}
             />
           )}
-          <ReportBugDialog open={showReportBug} onClose={() => setShowReportBug(false)} onSuccess={() => toast.success('Bug report submitted successfully!')} />
+          <ReportBugDialog
+            open={showReportBug}
+            onClose={() => setShowReportBug(false)}
+            tenantName={viewingTenant?.name || currentTenant?.name || viewingTenant?.organization_name || currentTenant?.organization_name || 'Individual'}
+            onSuccess={() => toast.success('Bug report submitted successfully!')}
+          />
         </main>
       </div>
     </>

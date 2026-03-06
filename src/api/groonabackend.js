@@ -24,12 +24,39 @@ export { API_BASE, API_URL };
 
 const getToken = () => localStorage.getItem('auth_token');
 
-// Helper to fix _id vs id issues
+// Helper to fix _id vs id issues and mixed content URLs
 const fixId = (item) => {
-  if (!item) return item;
+  if (!item || typeof item !== 'object') return item;
+
   if (Array.isArray(item)) return item.map(fixId);
-  if (item._id && !item.id) return { ...item, id: item._id, ...item };
-  return item;
+
+  // Clone to avoid mutating original
+  const newItem = { ...item };
+
+  // Fix _id
+  if (newItem._id && !newItem.id) {
+    newItem.id = newItem._id;
+  }
+
+  // Fix Mixed Content (insecure http URLs on https site)
+  // We'll recursively look for any string that starts with http:// and contains quantemisecode.com or aivora
+  Object.keys(newItem).forEach(key => {
+    const value = newItem[key];
+
+    // Recursive call for nested objects
+    if (value && typeof value === 'object') {
+      newItem[key] = fixId(value);
+    }
+    // Fix strings that look like insecure URLs
+    else if (typeof value === 'string' && value.startsWith('http://')) {
+      // Force https for certain domains known to support it
+      if (value.includes('quantemisecode.com') || value.includes('aivora') || value.includes('quantumisecode.com')) {
+        newItem[key] = value.replace('http://', 'https://');
+      }
+    }
+  });
+
+  return newItem;
 };
 
 // --- AXIOS INSTANCE ---
@@ -364,6 +391,25 @@ export const groonabackend = {
     getTenantHistory: async (tenantId) => {
       const res = await api.get(`/tenant/payments-history/${tenantId}`);
       return res.data.map(item => fixId(item));
+    }
+  },
+  support: {
+    getExternalTickets: async (email) => {
+      const supportBaseUrl = import.meta.env.VITE_SUPPORT_API_URL || "http://localhost:5001/api";
+      const response = await fetch(`${supportBaseUrl}/tickets/external-tickets?email=${encodeURIComponent(email)}`);
+      if (!response.ok) throw new Error("Failed to fetch support tickets");
+      const data = await response.json();
+      return data.map(item => fixId(item));
+    },
+    addExternalReply: async ({ ticketId, message, reporter_email, reporter_name }) => {
+      const supportBaseUrl = import.meta.env.VITE_SUPPORT_API_URL || "http://localhost:5001/api";
+      const response = await fetch(`${supportBaseUrl}/tickets/external-reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId, message, reporter_email, reporter_name })
+      });
+      if (!response.ok) throw new Error("Failed to send reply to support portal");
+      return await response.json();
     }
   }
 };

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LifeBuoy, Search, BarChart3, Ticket as TicketIcon, RefreshCw } from "lucide-react";
 import TicketCard from "../components/support/TicketCard";
-import TicketDetailDialog from "../components/support/TicketDetailDialog";
+import SupportTicketDialog from "../components/support/SupportTicketDialog";
 import SupportAnalytics from "../components/support/SupportAnalytics";
 
 export default function SupportDashboard() {
@@ -18,39 +18,54 @@ export default function SupportDashboard() {
   const [priorityFilter, setPriorityFilter] = useState("all");
 
   useEffect(() => {
-    groonabackend.auth.me().then(setCurrentUser).catch(() => {});
+    groonabackend.auth.me().then(setCurrentUser).catch(() => { });
   }, []);
 
-  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id 
-    ? currentUser.active_tenant_id 
+  const effectiveTenantId = currentUser?.is_super_admin && currentUser?.active_tenant_id
+    ? currentUser.active_tenant_id
     : currentUser?.tenant_id;
 
   const { data: tickets = [], isLoading, refetch } = useQuery({
-    queryKey: ['support-tickets', effectiveTenantId],
+    queryKey: ['support-tickets', currentUser?.email],
     queryFn: async () => {
-      if (!effectiveTenantId) return [];
-      return groonabackend.entities.Ticket.filter({ tenant_id: effectiveTenantId }, '-created_date');
+      if (!currentUser?.email) return [];
+      try {
+        return await groonabackend.support.getExternalTickets(currentUser.email);
+      } catch (err) {
+        console.error("Failed to fetch tickets from Support Portal:", err);
+        return [];
+      }
     },
-    enabled: !!currentUser && !!effectiveTenantId,
+    enabled: !!currentUser?.email,
   });
 
   // Filter tickets
   const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.ticket_number.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
-    
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch =
+      (ticket.title || "").toLowerCase().includes(searchLower) ||
+      (ticket.description || "").toLowerCase().includes(searchLower) ||
+      (ticket.ticket_number || "").toLowerCase().includes(searchLower);
+
+    // Support Portal uses 'Open', 'Resolved', etc. (Sentence case)
+    const matchesStatus = statusFilter === 'all' ||
+      (ticket.status && ticket.status.toLowerCase() === statusFilter.toLowerCase());
+
+    const matchesPriority = priorityFilter === 'all' ||
+      (ticket.priority && ticket.priority.toLowerCase() === priorityFilter.toLowerCase());
+
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
   // Group tickets by status
-  const openTickets = filteredTickets.filter(t => ['open', 'reopened'].includes(t.status));
-  const inProgressTickets = filteredTickets.filter(t => t.status === 'in_progress');
-  const waitingTickets = filteredTickets.filter(t => t.status === 'waiting_response');
-  const resolvedTickets = filteredTickets.filter(t => ['resolved', 'closed'].includes(t.status));
+  const openTickets = filteredTickets.filter(t =>
+    !t.status || ['open', 'reopened'].includes(t.status.toLowerCase()));
+  const inProgressTickets = filteredTickets.filter(t =>
+    t.status && ['in progress', 'escalated'].includes(t.status.toLowerCase()));
+  const waitingTickets = filteredTickets.filter(t =>
+    t.status && t.status.toLowerCase() === 'waiting');
+  const resolvedTickets = filteredTickets.filter(t =>
+    t.status && ['resolved', 'closed'].includes(t.status.toLowerCase()));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 p-6 md:p-8">
@@ -66,7 +81,7 @@ export default function SupportDashboard() {
               Manage and track all support tickets
             </p>
           </div>
-          
+
           <Button
             variant="outline"
             onClick={() => refetch()}
@@ -104,7 +119,7 @@ export default function SupportDashboard() {
                   className="pl-10"
                 />
               </div>
-              
+
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full md:w-48">
                   <SelectValue placeholder="All Status" />
@@ -226,7 +241,7 @@ export default function SupportDashboard() {
 
         {/* Ticket Detail Dialog */}
         {selectedTicket && (
-          <TicketDetailDialog
+          <SupportTicketDialog
             open={!!selectedTicket}
             onClose={() => setSelectedTicket(null)}
             ticket={selectedTicket}
