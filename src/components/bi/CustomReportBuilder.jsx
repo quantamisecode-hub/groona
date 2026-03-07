@@ -5,8 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { 
-  BarChart3, 
+import {
+  BarChart3,
   Download,
   Filter,
   Table as TableIcon,
@@ -80,10 +80,10 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
     }
 
     const data = getDataBySource();
-    
+
     // Apply filters if any
     let filteredData = [...data];
-    
+
     // Generate report based on visualization type
     let reportData = null;
 
@@ -119,8 +119,8 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
           return acc;
         }, {});
 
-        reportData = Object.entries(grouped).map(([name, value], idx) => ({ 
-          name, 
+        reportData = Object.entries(grouped).map(([name, value], idx) => ({
+          name,
           value,
           color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'][idx % 6]
         }));
@@ -150,48 +150,53 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     toast.success('Report exported successfully!');
   };
 
   const convertToCSV = (data) => {
     if (!data || data.length === 0) return '';
-    
+
     const headers = Object.keys(data[0]);
     const csvRows = [
       headers.join(','),
       ...data.map(row => headers.map(field => JSON.stringify(row[field] || '')).join(','))
     ];
-    
+
     return csvRows.join('\n');
   };
 
   const currentSource = getCurrentDataSource();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Report Configuration */}
-      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5 text-blue-600" />
-            Report Configuration
-          </CardTitle>
+      <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] overflow-hidden">
+        <CardHeader className="border-b border-slate-50 bg-slate-50/30 py-6 px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-blue-50 flex items-center justify-center">
+              <Filter className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black text-slate-900">Report Configuration</CardTitle>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Build custom reports from your data</p>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="p-8 space-y-8">
           {/* Data Source Selection */}
-          <div className="space-y-2">
-            <Label>Data Source</Label>
-            <Select 
-              value={reportConfig.dataSource} 
+          <div className="space-y-3">
+            <Label className="text-xs font-black text-slate-500 uppercase tracking-widest">Data Source</Label>
+            <Select
+              value={reportConfig.dataSource}
               onValueChange={(value) => setReportConfig(prev => ({ ...prev, dataSource: value, selectedFields: [], groupBy: null }))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-white font-bold text-slate-700 focus:ring-blue-500/20">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl border-slate-100 shadow-xl">
                 {dataSourceOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value} className="font-bold">
                     {option.label}
                   </SelectItem>
                 ))}
@@ -200,9 +205,9 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
           </div>
 
           {/* Visualization Type */}
-          <div className="space-y-2">
-            <Label>Visualization Type</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-3">
+            <Label className="text-xs font-black text-slate-500 uppercase tracking-widest">Visualization Type</Label>
+            <div className="flex flex-wrap gap-3">
               {visualizationOptions.map(option => {
                 const Icon = option.icon;
                 const isSelected = reportConfig.visualizationType === option.value;
@@ -210,14 +215,13 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
                   <button
                     key={option.value}
                     onClick={() => setReportConfig(prev => ({ ...prev, visualizationType: option.value }))}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      isSelected 
-                        ? 'border-blue-600 bg-blue-50' 
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
+                    className={`w-28 py-4 rounded-2xl border-2 transition-all duration-200 flex flex-col items-center gap-2 ${isSelected
+                      ? 'border-blue-500 bg-blue-50/80 shadow-lg shadow-blue-500/10'
+                      : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50'
+                      }`}
                   >
-                    <Icon className={`h-6 w-6 mx-auto mb-2 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
-                    <p className={`text-sm font-medium ${isSelected ? 'text-blue-600' : 'text-slate-600'}`}>
+                    <Icon className={`h-5 w-5 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
+                    <p className={`text-[11px] font-black uppercase tracking-wide ${isSelected ? 'text-blue-600' : 'text-slate-500'}`}>
                       {option.label}
                     </p>
                   </button>
@@ -227,44 +231,57 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
           </div>
 
           {/* Field Selection */}
-          <div className="space-y-2">
-            <Label>Select Fields</Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-black text-slate-500 uppercase tracking-widest">Select Fields</Label>
+              <span className="text-xs font-black text-blue-500 bg-blue-50 px-3 py-1 rounded-full">
+                {reportConfig.selectedFields.length} selected
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
               {currentSource?.fields.map(field => (
-                <div key={field} className="flex items-center space-x-2">
+                <div
+                  key={field}
+                  onClick={() => handleFieldToggle(field)}
+                  className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${reportConfig.selectedFields.includes(field)
+                    ? 'bg-blue-50 border-blue-200 shadow-sm'
+                    : 'bg-white border-slate-100 hover:border-slate-200'
+                    }`}
+                >
                   <Checkbox
                     id={field}
                     checked={reportConfig.selectedFields.includes(field)}
                     onCheckedChange={() => handleFieldToggle(field)}
+                    className="pointer-events-none"
                   />
                   <label
                     htmlFor={field}
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    className={`text-sm font-bold cursor-pointer ${reportConfig.selectedFields.includes(field) ? 'text-blue-700' : 'text-slate-600'
+                      }`}
                   >
                     {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                   </label>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-slate-500">
-              {reportConfig.selectedFields.length} field(s) selected
-            </p>
           </div>
 
           {/* Group By (for charts) */}
           {(reportConfig.visualizationType !== 'table') && (
-            <div className="space-y-2">
-              <Label>Group By <span className="text-red-500">*</span></Label>
-              <Select 
-                value={reportConfig.groupBy || ''} 
+            <div className="space-y-3">
+              <Label className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                Group By <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={reportConfig.groupBy || ''}
                 onValueChange={(value) => setReportConfig(prev => ({ ...prev, groupBy: value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-12 rounded-xl border-slate-200 bg-white font-bold text-slate-700 focus:ring-blue-500/20">
                   <SelectValue placeholder="Select field to group by..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
                   {currentSource?.fields.map(field => (
-                    <SelectItem key={field} value={field}>
+                    <SelectItem key={field} value={field} className="font-bold">
                       {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </SelectItem>
                   ))}
@@ -273,14 +290,21 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
             </div>
           )}
 
-          {/* Generate Button */}
-          <div className="flex gap-3">
-            <Button onClick={generateReport} className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={generateReport}
+              className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20"
+            >
               <BarChart3 className="h-4 w-4 mr-2" />
               Generate Report
             </Button>
             {generatedReport && (
-              <Button onClick={exportReport} variant="outline">
+              <Button
+                onClick={exportReport}
+                variant="outline"
+                className="h-12 px-6 rounded-xl border-slate-200 font-bold hover:bg-slate-50"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
               </Button>
@@ -291,24 +315,28 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
 
       {/* Generated Report Display */}
       {generatedReport && (
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-          <CardHeader>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] overflow-hidden">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30 py-5 px-8">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-blue-600" />
-                Generated Report
-              </CardTitle>
-              <Badge>{generatedReport.length} records</Badge>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <BarChart3 className="h-4 w-4 text-blue-600" />
+                </div>
+                <CardTitle className="text-base font-black text-slate-900">Generated Report</CardTitle>
+              </div>
+              <Badge className="bg-blue-500/10 text-blue-600 border-none font-black px-3 py-1 rounded-lg">
+                {generatedReport.length} records
+              </Badge>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             {reportConfig.visualizationType === 'table' && (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-slate-100">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
+                  <TableHeader className="bg-slate-50/50">
+                    <TableRow className="hover:bg-transparent">
                       {reportConfig.selectedFields.map(field => (
-                        <TableHead key={field}>
+                        <TableHead key={field} className="font-black text-slate-500 text-xs uppercase tracking-wider py-4">
                           {field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                         </TableHead>
                       ))}
@@ -316,68 +344,88 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
                   </TableHeader>
                   <TableBody>
                     {generatedReport.slice(0, 100).map((row, idx) => (
-                      <TableRow key={idx}>
+                      <TableRow key={idx} className="hover:bg-slate-50/50 border-b border-slate-50">
                         {reportConfig.selectedFields.map(field => (
-                          <TableCell key={field}>{row[field]}</TableCell>
+                          <TableCell key={field} className="font-medium text-slate-700 py-4">{row[field]}</TableCell>
                         ))}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
                 {generatedReport.length > 100 && (
-                  <p className="text-sm text-slate-500 mt-4 text-center">
-                    Showing first 100 of {generatedReport.length} records. Export to CSV to view all.
+                  <p className="text-xs font-bold text-slate-400 mt-4 text-center pb-4 uppercase tracking-widest">
+                    Showing first 100 of {generatedReport.length} records · Export to CSV for full data
                   </p>
                 )}
               </div>
             )}
 
             {reportConfig.visualizationType === 'bar' && (
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={generatedReport}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={generatedReport} margin={{ top: 10, right: 30, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} maxBarSize={60} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
 
             {reportConfig.visualizationType === 'line' && (
-              <ResponsiveContainer width="100%" height={400}>
-                <LineChart data={generatedReport}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="name" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={generatedReport} margin={{ top: 10, right: 30, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             )}
 
             {reportConfig.visualizationType === 'pie' && (
-              <ResponsiveContainer width="100%" height={400}>
-                <PieChart>
-                  <Pie
-                    data={generatedReport}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={120}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {generatedReport.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={generatedReport}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={80}
+                      outerRadius={150}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      labelLine={true}
+                    >
+                      {generatedReport.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ backgroundColor: 'white', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -385,12 +433,14 @@ export default function CustomReportBuilder({ projects, tasks, users, timesheets
 
       {/* Empty State */}
       {!generatedReport && (
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-          <CardContent className="py-16">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] overflow-hidden">
+          <CardContent className="py-24">
             <div className="text-center">
-              <BarChart3 className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">No Report Generated Yet</h3>
-              <p className="text-slate-600">
+              <div className="h-20 w-20 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-6">
+                <BarChart3 className="h-10 w-10 text-slate-300" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">No Report Generated Yet</h3>
+              <p className="text-slate-500 font-medium max-w-sm mx-auto">
                 Configure your report above and click "Generate Report" to visualize your data.
               </p>
             </div>

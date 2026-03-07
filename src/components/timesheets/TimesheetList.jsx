@@ -16,7 +16,8 @@ import {
   User,
   Users,
   CalendarCheck,
-  Lock
+  Lock,
+  Plus
 } from "lucide-react";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -175,10 +176,22 @@ export default function TimesheetList({
 
   if (timesheets.length === 0) {
     return (
-      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-        <CardContent className="py-12 text-center">
-          <Clock className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-500">No timesheet entries found</p>
+      <Card className="bg-white border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] overflow-hidden border-dashed border-2">
+        <CardContent className="py-32 text-center flex flex-col items-center justify-center min-h-[55vh] relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-indigo-50/50 blur-3xl rounded-full translate-y-1/2 -translate-x-1/2" />
+
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-blue-500/10 rounded-[2rem] blur-2xl opacity-50 scale-150 rotate-12" />
+            <div className="relative h-24 w-24 bg-white rounded-[2rem] shadow-[0_12px_40px_rgba(0,0,0,0.08)] border border-slate-100 flex items-center justify-center">
+              <Clock className="h-10 w-10 text-blue-500/40" strokeWidth={1.5} />
+            </div>
+          </div>
+
+          <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">No Drafts Found</h3>
+          <p className="text-slate-500 max-w-[320px] mx-auto text-sm md:text-base leading-relaxed font-medium">
+            Your daily timesheets waiting to be submitted will appear here. Start tracking your progress!
+          </p>
         </CardContent>
       </Card>
     );

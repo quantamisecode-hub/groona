@@ -127,7 +127,7 @@ export default function SprintBoard() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: allProjects = [] } = useQuery({
+  const { data: allProjects = [], isLoading: projectsLoading } = useQuery({
     queryKey: ['projects', effectiveTenantId],
     queryFn: async () => {
       if (!effectiveTenantId) return [];
@@ -703,31 +703,36 @@ export default function SprintBoard() {
     return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, customClass = "") => {
     const statusConfig = {
-      todo: { label: 'To Do', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-      in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-      review: { label: 'Review', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-      completed: { label: 'Done', color: 'bg-green-100 text-green-700 border-green-200' },
+      todo: { label: 'TODO', color: 'bg-slate-100/80 text-slate-500 hover:bg-slate-200/80' },
+      in_progress: { label: 'ACTIVE', color: 'bg-indigo-50/80 text-indigo-600 hover:bg-indigo-100/80' },
+      review: { label: 'REVIEW', color: 'bg-amber-50/80 text-amber-600 hover:bg-amber-100/80' },
+      completed: { label: 'DONE', color: 'bg-emerald-50/80 text-emerald-600 hover:bg-emerald-100/80' },
     };
     const config = statusConfig[status] || statusConfig.todo;
     return (
-      <Badge variant="outline" className={`${config.color} text-xs`}>
+      <Badge variant="secondary" className={cn("border-none font-extrabold text-[9px] px-2.5 py-0.5 rounded-full tracking-wider shadow-none transition-colors", config.color, customClass)}>
         {config.label}
       </Badge>
     );
   };
 
-  const getPriorityBadge = (priority) => {
+  const getPriorityBadge = (priority, customClass = "") => {
     const priorityConfig = {
-      low: { label: 'Low', color: 'bg-slate-100 text-slate-600 border-slate-200' },
-      medium: { label: 'Medium', color: 'bg-blue-100 text-blue-600 border-blue-200' },
-      high: { label: 'High', color: 'bg-amber-100 text-amber-600 border-amber-200' },
-      urgent: { label: 'Urgent', color: 'bg-red-100 text-red-600 border-red-200' },
+      low: { label: 'LOW', color: 'bg-slate-100/80 text-slate-500 shadow-none' },
+      medium: { label: 'MEDIUM', color: 'bg-indigo-50/80 text-indigo-500 shadow-none' },
+      high: { label: 'HIGH', color: 'bg-amber-50/80 text-amber-600 shadow-none' },
+      urgent: { label: 'URGENT', color: 'bg-rose-50/80 text-rose-600 shadow-none' },
     };
     const config = priorityConfig[priority] || priorityConfig.medium;
     return (
-      <Badge variant="outline" className={`${config.color} text-xs`}>
+      <Badge variant="secondary" className={cn("border-none font-extrabold text-[9px] px-2.5 py-0.5 rounded-full tracking-wider", config.color, customClass)}>
+        <span className={cn("h-1 w-1 rounded-full mr-1.5",
+          priority === 'urgent' ? "bg-rose-500" :
+            priority === 'high' ? "bg-amber-500" :
+              priority === 'medium' ? "bg-indigo-500" : "bg-slate-400"
+        )} />
         {config.label}
       </Badge>
     );
@@ -819,18 +824,18 @@ export default function SprintBoard() {
     };
   };
 
-  const getStoryStatusBadge = (status) => {
+  const getStoryStatusBadge = (status, customClass = "") => {
     const statusConfig = {
-      todo: { label: 'To Do', color: 'bg-slate-100 text-slate-700 border-slate-200' },
-      in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-      in_review: { label: 'In Review', color: 'bg-purple-100 text-purple-700 border-purple-200' },
-      done: { label: 'Done', color: 'bg-green-100 text-green-700 border-green-200' },
-      blocked: { label: 'Blocked', color: 'bg-red-100 text-red-700 border-red-200' },
-      cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+      todo: { label: 'TODO', color: 'bg-slate-100/80 text-slate-500' },
+      in_progress: { label: 'IN PROGRESS', color: 'bg-indigo-600 text-white shadow-lg shadow-indigo-200/50' },
+      in_review: { label: 'IN REVIEW', color: 'bg-rose-50/80 text-rose-600' },
+      done: { label: 'DONE', color: 'bg-emerald-50/80 text-emerald-600' },
+      blocked: { label: 'BLOCKED', color: 'bg-rose-600 text-white shadow-lg shadow-rose-200/50' },
+      cancelled: { label: 'CANCELLED', color: 'bg-slate-500 text-white' },
     };
     const config = statusConfig[status] || statusConfig.todo;
     return (
-      <Badge variant="outline" className={`${config.color} text-xs`}>
+      <Badge variant="secondary" className={cn("border-none font-extrabold text-[9px] px-3 py-1 rounded-full tracking-[0.05em] transition-all duration-300", config.color, customClass)}>
         {config.label}
       </Badge>
     );
@@ -976,31 +981,35 @@ export default function SprintBoard() {
     }, 0);
 
     return (
-      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
-        <CardHeader>
+      <Card className="bg-white/70 backdrop-blur-xl border-slate-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[28px] overflow-hidden transition-all duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)]">
+        <CardHeader className="p-6 pb-4 bg-white/40">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CardTitle className="flex items-center gap-2">
-                <IconComponent className="h-5 w-5 text-blue-600" />
-                {title}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-slate-300">
-                  {storiesList.length} {storiesList.length === 1 ? 'Story' : 'Stories'}
-                </Badge>
-                {taskCount > 0 && (
-                  <Badge variant="outline" className="border-slate-300">
-                    {taskCount} {taskCount === 1 ? 'Task' : 'Tasks'}
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50">
+                <IconComponent className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <CardTitle className="text-[17px] font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                  {title}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="bg-slate-100/80 text-slate-600 border-none text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {storiesList.length} {storiesList.length === 1 ? 'STORY' : 'STORIES'}
                   </Badge>
-                )}
+                  {taskCount > 0 && (
+                    <Badge variant="secondary" className="bg-indigo-50/80 text-indigo-600 border-none text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {taskCount} {taskCount === 1 ? 'TASK' : 'TASKS'}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             {!isViewer && (
               <Button
                 onClick={() => setShowCreateTaskDialog(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25"
+                className="bg-slate-900 border-0 shadow-lg shadow-slate-200/50 hover:bg-black text-white h-10 rounded-full px-5 font-bold transition-all active:scale-[0.98] text-xs flex items-center gap-2"
               >
-                <Plus className="w-4 h-4 mr-2" />
+                <Plus className="w-4 h-4" />
                 Create New
               </Button>
             )}
@@ -1008,23 +1017,27 @@ export default function SprintBoard() {
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Title</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Assignee</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Due Date</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-slate-50/40 border-y border-slate-100/50">
+                  <th className="px-6 py-4 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Title</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Assignee</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Priority</th>
+                  <th className="px-4 py-4 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Due Date</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-transparent divide-y divide-slate-200">
+              <tbody className="divide-y divide-slate-100/50">
                 {storiesList.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-12 text-center text-slate-500">
-                      <BookOpen className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                      <p>No stories in this section</p>
+                    <td colSpan="6" className="px-6 py-16 text-center text-slate-400">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-slate-50 flex items-center justify-center">
+                          <BookOpen className="h-6 w-6 opacity-30" />
+                        </div>
+                        <p className="text-xs font-bold tracking-tight">No stories in this section</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -1043,11 +1056,14 @@ export default function SprintBoard() {
                     return (
                       <React.Fragment key={storyId}>
                         <tr
-                          className="hover:bg-slate-50 transition-colors bg-slate-50/30 cursor-pointer"
+                          className={cn(
+                            "group transition-all duration-300 cursor-pointer border-l-4",
+                            isExpanded ? "bg-slate-50/20 border-indigo-500" : "hover:bg-slate-50/40 border-transparent"
+                          )}
                           onClick={() => setSelectedStoryId(storyId)}
                         >
-                          <td className="px-4 py-3">
-                            <div className="flex items-start gap-2">
+                          <td className="px-6 py-5">
+                            <div className="flex items-start gap-4">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1055,74 +1071,67 @@ export default function SprintBoard() {
                                   e.stopPropagation();
                                   toggleStoryExpansion(storyId);
                                 }}
-                                className="h-5 w-5 p-0 mt-0.5 -ml-1"
+                                className="h-6 w-6 p-0 mt-0.5 bg-white shadow-sm border border-slate-100 rounded-full hover:bg-slate-50 transition-transform active:scale-90"
                               >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-slate-500" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-slate-500" />
-                                )}
+                                <ChevronRight className={cn("h-3.5 w-3.5 text-slate-600 transition-transform duration-300", isExpanded && "rotate-90")} />
                               </Button>
-                              <BookOpen className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 flex items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-slate-900 text-sm">{story.title}</div>
-                                  {story.description && (
-                                    (() => {
-                                      const hasHTML = /<[^>]+>/.test(story.description);
-                                      if (hasHTML) {
-                                        return (
-                                          <div
-                                            className="text-xs text-slate-500 mt-1 line-clamp-1 prose prose-xs max-w-none prose-headings:text-slate-600 prose-p:text-slate-500 prose-strong:text-slate-600 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-ul:text-slate-500 prose-ol:text-slate-500 prose-li:text-slate-500"
-                                            dangerouslySetInnerHTML={{ __html: story.description }}
-                                          />
-                                        );
-                                      }
-                                      return (
-                                        <div className="text-xs text-slate-500 mt-1 line-clamp-1">
-                                          {truncateDescription(story.description, 10)}
-                                        </div>
-                                      );
-                                    })()
-                                  )}
-                                  {storyTasks.length > 0 && (
-                                    <div className="text-xs text-slate-400 mt-1">
-                                      {storyTasks.length} {storyTasks.length === 1 ? 'Task' : 'Tasks'}
-                                    </div>
-                                  )}
+
+                              <div className="flex-1 flex flex-col gap-3">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm flex-shrink-0">
+                                    <BookOpen className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-extrabold text-slate-800 text-[14px] tracking-tight leading-tight group-hover:text-indigo-600 transition-colors">{story.title}</div>
+                                    {story.description && (
+                                      <div className="text-[11px] text-slate-500 mt-1 line-clamp-1 opacity-70 font-medium">
+                                        {truncateDescription(story.description, 12)}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
+
                                 {(() => {
                                   const progress = getStoryProgress(storyId);
                                   return progress.total > 0 ? (
-                                    <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '80px' }}>
-                                      <Progress
-                                        value={progress.percentage}
-                                        className="h-1.5 flex-1"
-                                        title={`${progress.percentage}% complete`}
-                                      />
-                                      <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                                    <div className="flex items-center gap-3 flex-shrink-0 max-w-[200px]">
+                                      <div className="h-1 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out"
+                                          style={{ width: `${progress.percentage}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] text-slate-500 font-extrabold tracking-tighter w-8">
                                         {progress.percentage}%
                                       </span>
                                     </div>
                                   ) : null;
                                 })()}
+
+                                {storyTasks.length > 0 && (
+                                  <div className="flex items-center gap-1.5 opacity-60">
+                                    <div className="flex -space-x-1.5">
+                                      <div className="h-4 w-4 rounded-full bg-slate-200 border border-white" />
+                                      <div className="h-4 w-4 rounded-full bg-slate-300 border border-white" />
+                                    </div>
+                                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">{storyTasks.length} task{storyTasks.length !== 1 ? 's' : ''} linked</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-5">
                             {isEditingStatus ? (
                               <Select
                                 value={story.status}
-                                onValueChange={(value) => {
-                                  handleStoryFieldUpdate(storyId, 'status', value);
-                                }}
+                                onValueChange={(value) => handleStoryFieldUpdate(storyId, 'status', value)}
                                 onOpenChange={(open) => !open && setEditingStoryId(null)}
                                 onPointerDown={(e) => e.stopPropagation()}
                               >
-                                <SelectTrigger className="w-32 h-7 text-xs">
+                                <SelectTrigger className="w-32 h-8 text-[11px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                   <SelectItem value="todo">To Do</SelectItem>
                                   <SelectItem value="in_progress">In Progress</SelectItem>
                                   <SelectItem value="in_review">In Review</SelectItem>
@@ -1138,13 +1147,12 @@ export default function SprintBoard() {
                                   setEditingStoryId(storyId);
                                   setEditingStoryField('status');
                                 }}
-                                className="cursor-pointer"
                               >
                                 {getStoryStatusBadge(story.status)}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-5">
                             {isEditingAssignee ? (
                               <Select
                                 value={storyAssignees[0] || "unassigned"}
@@ -1154,10 +1162,10 @@ export default function SprintBoard() {
                                 }}
                                 onOpenChange={(open) => !open && setEditingStoryId(null)}
                               >
-                                <SelectTrigger className="w-40 h-7 text-xs">
+                                <SelectTrigger className="w-40 h-8 text-[11px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                   <SelectValue placeholder="Select assignee" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                   <SelectItem value="unassigned">Unassigned</SelectItem>
                                   {users.map((user) => (
                                     <SelectItem key={user.id} value={user.email}>
@@ -1173,35 +1181,37 @@ export default function SprintBoard() {
                                   setEditingStoryId(storyId);
                                   setEditingStoryField('assignee');
                                 }}
-                                className="cursor-pointer"
+                                className="flex items-center"
                               >
                                 {storyAssignees.length > 0 ? (
-                                  <div className="flex items-center -space-x-2">
+                                  <div className="flex items-center -space-x-2.5">
                                     {storyAssignees.slice(0, 3).map((email, idx) => {
                                       const user = users.find(u => u.email === email);
                                       const initials = user?.full_name ? getInitials(user.full_name) : getInitials(email?.split('@')[0] || '?');
                                       return (
-                                        <Avatar key={email + idx} className="h-7 w-7 border-2 border-white ring-1 ring-slate-100">
+                                        <Avatar key={email + idx} className="h-8 w-8 border-2 border-white ring-1 ring-slate-100 shadow-sm transition-transform hover:-translate-y-1">
                                           <AvatarImage src={user?.profile_image_url} />
-                                          <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700 font-medium">
+                                          <AvatarFallback className="text-[10px] bg-indigo-50 text-indigo-700 font-extrabold">
                                             {initials}
                                           </AvatarFallback>
                                         </Avatar>
                                       );
                                     })}
                                     {storyAssignees.length > 3 && (
-                                      <div className="h-7 w-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-medium text-slate-600">
+                                      <div className="h-8 w-8 rounded-full bg-white border-2 border-white ring-1 ring-slate-100 flex items-center justify-center text-[10px] font-extrabold text-slate-500 shadow-sm">
                                         +{storyAssignees.length - 3}
                                       </div>
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-xs text-slate-400">Unassigned</span>
+                                  <div className="h-8 w-8 rounded-full bg-slate-50 border border-dashed border-slate-300 flex items-center justify-center text-[18px] text-slate-300">
+                                    <Plus className="h-3 w-3" />
+                                  </div>
                                 )}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-5">
                             {isEditingPriority ? (
                               <Select
                                 value={story.priority}
@@ -1209,10 +1219,10 @@ export default function SprintBoard() {
                                 onOpenChange={(open) => !open && setEditingStoryId(null)}
                                 onPointerDown={(e) => e.stopPropagation()}
                               >
-                                <SelectTrigger className="w-28 h-7 text-xs">
+                                <SelectTrigger className="w-28 h-8 text-[11px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                   <SelectItem value="low">Low</SelectItem>
                                   <SelectItem value="medium">Medium</SelectItem>
                                   <SelectItem value="high">High</SelectItem>
@@ -1226,13 +1236,12 @@ export default function SprintBoard() {
                                   setEditingStoryId(storyId);
                                   setEditingStoryField('priority');
                                 }}
-                                className="cursor-pointer"
                               >
                                 {getPriorityBadge(story.priority)}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-5">
                             {isEditingDueDate ? (
                               <Popover open={isEditingDueDate} onOpenChange={(open) => {
                                 if (!open) {
@@ -1246,15 +1255,15 @@ export default function SprintBoard() {
                                     size="sm"
                                     onClick={(e) => e.stopPropagation()}
                                     className={cn(
-                                      "w-36 h-7 text-xs justify-start text-left font-normal",
+                                      "w-36 h-8 text-[11px] font-bold rounded-full bg-white shadow-sm border-slate-200 justify-start px-3",
                                       !story.due_date && "text-muted-foreground"
                                     )}
                                   >
-                                    <Calendar className="mr-2 h-3 w-3" />
-                                    {story.due_date ? format(new Date(story.due_date), 'MMM d, yyyy') : "Pick a date"}
+                                    <Calendar className="mr-2 h-3 w-3 opacity-50" />
+                                    {story.due_date ? format(new Date(story.due_date), 'MMM d, yyyy') : "Set date"}
                                   </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-slate-200 overflow-hidden" align="start">
                                   <CalendarComponent
                                     mode="single"
                                     selected={story.due_date ? new Date(story.due_date) : undefined}
@@ -1274,22 +1283,16 @@ export default function SprintBoard() {
                                   setEditingStoryId(storyId);
                                   setEditingStoryField('due_date');
                                 }}
-                                className="cursor-pointer"
+                                className="flex items-center gap-2 text-[12px] font-bold text-slate-500 whitespace-nowrap"
                               >
-                                {story.due_date ? (
-                                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                    <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                                    <span>{format(new Date(story.due_date), 'MMM d, yyyy')}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-slate-400">No due date</span>
-                                )}
+                                <Calendar className="h-3.5 w-3.5 opacity-40" />
+                                {story.due_date ? format(new Date(story.due_date), 'MMM d, yyyy') : <span className="text-slate-300 uppercase tracking-tighter text-[10px]">No due date</span>}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-6 py-5 text-right">
                             {!isViewer && (
-                              <div className="flex justify-center gap-1">
+                              <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -1297,11 +1300,11 @@ export default function SprintBoard() {
                                     e.stopPropagation();
                                     setSelectedStory(story);
                                   }}
-                                  className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                  title={selectedSprint?.locked_date ? "Sprint locked - Stories remain stable" : "Edit Story"}
+                                  className="h-8 w-8 p-0 rounded-full hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 text-slate-400 hover:text-indigo-600 transition-all"
+                                  title={selectedSprint?.locked_date ? "Sprint locked" : "Edit Story"}
                                   disabled={!!selectedSprint?.locked_date}
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -1314,10 +1317,10 @@ export default function SprintBoard() {
                                       mutation: () => deleteStoryMutation.mutate(storyId)
                                     });
                                   }}
-                                  className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                  className="h-8 w-8 p-0 rounded-full hover:bg-red-50 hover:shadow-sm border border-transparent hover:border-red-100 text-slate-400 hover:text-red-500 transition-all"
                                   title="Delete Story"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             )}
@@ -1337,34 +1340,25 @@ export default function SprintBoard() {
                               return (
                                 <tr
                                   key={task.id}
-                                  className="hover:bg-slate-50 transition-colors bg-slate-100/50 cursor-pointer"
+                                  className="group/task transition-all duration-300 cursor-pointer bg-slate-50/10 hover:bg-white"
                                   onClick={() => setSelectedTaskId(task.id)}
                                 >
-                                  <td className="px-4 py-3 pl-12">
-                                    <div className="flex items-start gap-2">
-                                      <ListTodo className="h-4 w-4 text-slate-500 flex-shrink-0 mt-0.5" />
+                                  <td className="px-6 py-4 pl-16">
+                                    <div className="flex items-start gap-4">
+                                      <div className="h-7 w-7 rounded-lg bg-white border border-slate-100 flex items-center justify-center text-slate-400 shadow-xs flex-shrink-0 group-hover/task:text-indigo-500 transition-colors">
+                                        <ListTodo className="h-3.5 w-3.5" />
+                                      </div>
                                       <div className="flex-1">
-                                        <div className="font-medium text-slate-700 text-sm">{task.title}</div>
+                                        <div className="font-bold text-slate-700 text-[13px] tracking-tight group-hover/task:text-slate-900 transition-colors">{task.title}</div>
                                         {task.description && (
-                                          (() => {
-                                            const hasHTML = /<[^>]+>/.test(task.description);
-                                            if (hasHTML) {
-                                              return (
-                                                <div
-                                                  className="text-xs text-slate-500 mt-1 line-clamp-1 prose prose-xs max-w-none prose-headings:text-slate-600 prose-p:text-slate-500 prose-strong:text-slate-600 prose-code:text-blue-600 prose-code:bg-blue-50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-ul:text-slate-500 prose-ol:text-slate-500 prose-li:text-slate-500"
-                                                  dangerouslySetInnerHTML={{ __html: task.description }}
-                                                />
-                                              );
-                                            }
-                                            return (
-                                              <div className="text-xs text-slate-500 mt-1 line-clamp-1">{task.description}</div>
-                                            );
-                                          })()
+                                          <div className="text-[10px] text-slate-400 mt-1 line-clamp-1 font-medium opacity-60">
+                                            {truncateDescription(task.description, 10)}
+                                          </div>
                                         )}
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-4 py-4">
                                     {isEditingTaskStatus ? (
                                       <Select
                                         value={task.status}
@@ -1372,10 +1366,10 @@ export default function SprintBoard() {
                                         onOpenChange={(open) => !open && setEditingTaskId(null)}
                                         onPointerDown={(e) => e.stopPropagation()}
                                       >
-                                        <SelectTrigger className="w-32 h-7 text-xs">
+                                        <SelectTrigger className="w-32 h-7 text-[10px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                           <SelectItem value="todo">To Do</SelectItem>
                                           <SelectItem value="in_progress">In Progress</SelectItem>
                                           <SelectItem value="review">Review</SelectItem>
@@ -1389,13 +1383,12 @@ export default function SprintBoard() {
                                           setEditingTaskId(task.id);
                                           setEditingField('status');
                                         }}
-                                        className="cursor-pointer"
                                       >
-                                        {getStatusBadge(task.status)}
+                                        {getStatusBadge(task.status, "text-[9px] px-2 py-0.5")}
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-4 py-4">
                                     {isEditingTaskAssignee ? (
                                       <Select
                                         value={assignees[0] || "unassigned"}
@@ -1406,10 +1399,10 @@ export default function SprintBoard() {
                                         onOpenChange={(open) => !open && setEditingTaskId(null)}
                                         onPointerDown={(e) => e.stopPropagation()}
                                       >
-                                        <SelectTrigger className="w-40 h-7 text-xs">
+                                        <SelectTrigger className="w-40 h-7 text-[10px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                           <SelectValue placeholder="Select assignee" />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                           <SelectItem value="unassigned">Unassigned</SelectItem>
                                           {users.map((user) => (
                                             <SelectItem key={user.id} value={user.email}>
@@ -1425,7 +1418,7 @@ export default function SprintBoard() {
                                           setEditingTaskId(task.id);
                                           setEditingField('assignee');
                                         }}
-                                        className="cursor-pointer"
+                                        className="flex items-center"
                                       >
                                         {assignees.length > 0 ? (
                                           <div className="flex items-center -space-x-2">
@@ -1433,37 +1426,34 @@ export default function SprintBoard() {
                                               const user = users.find(u => u.email === email);
                                               const initials = user?.full_name ? getInitials(user.full_name) : getInitials(email?.split('@')[0] || '?');
                                               return (
-                                                <Avatar key={email + idx} className="h-7 w-7 border-2 border-white ring-1 ring-slate-100">
+                                                <Avatar key={email + idx} className="h-6 w-6 border-2 border-white ring-1 ring-slate-100 shadow-sm">
                                                   <AvatarImage src={user?.profile_image_url} />
-                                                  <AvatarFallback className="text-[10px] bg-blue-100 text-blue-700 font-medium">
+                                                  <AvatarFallback className="text-[8px] bg-slate-50 text-slate-500 font-extrabold">
                                                     {initials}
                                                   </AvatarFallback>
                                                 </Avatar>
                                               );
                                             })}
-                                            {assignees.length > 3 && (
-                                              <div className="h-7 w-7 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-[10px] font-medium text-slate-600">
-                                                +{assignees.length - 3}
-                                              </div>
-                                            )}
                                           </div>
                                         ) : (
-                                          <span className="text-xs text-slate-400">Unassigned</span>
+                                          <div className="h-6 w-6 rounded-full bg-white border border-dashed border-slate-200 flex items-center justify-center text-slate-200 transition-colors group-hover/task:border-indigo-200 group-hover/task:text-indigo-200">
+                                            <Plus className="h-2 w-2" />
+                                          </div>
                                         )}
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-4 py-4">
                                     {isEditingTaskPriority ? (
                                       <Select
                                         value={task.priority}
                                         onValueChange={(value) => handleFieldUpdate(task.id, 'priority', value)}
                                         onOpenChange={(open) => !open && setEditingTaskId(null)}
                                       >
-                                        <SelectTrigger className="w-28 h-7 text-xs">
+                                        <SelectTrigger className="w-28 h-7 text-[10px] font-bold rounded-full bg-white shadow-sm border-slate-200">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-2xl shadow-2xl border-slate-200">
                                           <SelectItem value="low">Low</SelectItem>
                                           <SelectItem value="medium">Medium</SelectItem>
                                           <SelectItem value="high">High</SelectItem>
@@ -1477,13 +1467,12 @@ export default function SprintBoard() {
                                           setEditingTaskId(task.id);
                                           setEditingField('priority');
                                         }}
-                                        className="cursor-pointer"
                                       >
-                                        {getPriorityBadge(task.priority)}
+                                        {getPriorityBadge(task.priority, "text-[9px] px-2 py-0.5")}
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-4 py-4">
                                     {isEditingTaskDueDate ? (
                                       <Popover open={isEditingTaskDueDate} onOpenChange={(open) => {
                                         if (!open) {
@@ -1497,15 +1486,15 @@ export default function SprintBoard() {
                                             size="sm"
                                             onClick={(e) => e.stopPropagation()}
                                             className={cn(
-                                              "w-36 h-7 text-xs justify-start text-left font-normal",
+                                              "w-32 h-7 text-[10px] font-bold rounded-full bg-white shadow-sm border-slate-200 justify-start px-2.5",
                                               !task.due_date && "text-muted-foreground"
                                             )}
                                           >
-                                            <Calendar className="mr-2 h-3 w-3" />
-                                            {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : "Pick a date"}
+                                            <Calendar className="mr-1.5 h-2.5 w-2.5 opacity-50" />
+                                            {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : "Set date"}
                                           </Button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
+                                        <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-slate-200 overflow-hidden" align="start">
                                           <CalendarComponent
                                             mode="single"
                                             selected={task.due_date ? new Date(task.due_date) : undefined}
@@ -1525,22 +1514,16 @@ export default function SprintBoard() {
                                           setEditingTaskId(task.id);
                                           setEditingField('due_date');
                                         }}
-                                        className="cursor-pointer"
+                                        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 whitespace-nowrap"
                                       >
-                                        {task.due_date ? (
-                                          <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                            <Calendar className="h-3.5 w-3.5 text-slate-400" />
-                                            <span>{format(new Date(task.due_date), 'MMM d, yyyy')}</span>
-                                          </div>
-                                        ) : (
-                                          <span className="text-xs text-slate-400">No due date</span>
-                                        )}
+                                        <Calendar className="h-3 w-3 opacity-40" />
+                                        {task.due_date ? format(new Date(task.due_date), 'MMM d, yyyy') : <span className="text-slate-200 uppercase tracking-tighter text-[9px]">No date</span>}
                                       </div>
                                     )}
                                   </td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-6 py-4 text-right">
                                     {!isViewer && (
-                                      <div className="flex justify-center gap-1">
+                                      <div className="flex justify-end gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity">
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -1548,10 +1531,10 @@ export default function SprintBoard() {
                                             e.stopPropagation();
                                             handleTaskClick(task.id);
                                           }}
-                                          className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                                          className="h-7 w-7 p-0 rounded-full hover:bg-white text-slate-300 hover:text-indigo-500"
                                           title="Edit Task"
                                         >
-                                          <Edit className="h-4 w-4" />
+                                          <Edit className="h-3 w-3" />
                                         </Button>
                                         <Button
                                           variant="ghost"
@@ -1564,7 +1547,7 @@ export default function SprintBoard() {
                                               mutation: () => deleteTaskMutation.mutate(task.id)
                                             });
                                           }}
-                                          className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
+                                          className="h-7 w-7 p-0 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500"
                                           title="Delete Task"
                                         >
                                           <Trash2 className="h-4 w-4" />
@@ -1595,10 +1578,12 @@ export default function SprintBoard() {
     );
   };
 
-  if (!currentUser) {
+  if (!currentUser || projectsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8f9fa] w-full">
+        <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-5" />
+        <h3 className="text-lg font-bold text-slate-900 tracking-tight">Crunching your data</h3>
+        <p className="text-sm text-slate-500 font-medium animate-pulse mt-1">Loading projects and sprints...</p>
       </div>
     );
   }
@@ -1610,210 +1595,219 @@ export default function SprintBoard() {
         featureArea="sprint_board"
         userRole={userRole}
       />
-      <div className="flex flex-col" ref={printRef}>
-        <div className="max-w-[1600px] mx-auto w-full flex flex-col">
+      <div className="flex flex-col bg-[#f8f9fa] min-h-screen w-full relative" ref={printRef}>
+        <div className="max-w-full mx-auto w-full flex flex-col relative px-4 sm:px-6 lg:px-10">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Sticky Header Section */}
-            <div className="sticky top-0 z-30 bg-slate-50 px-4 md:px-6 lg:px-8">
-              <Card className="bg-white border-slate-200/60 shadow-lg mt-4" data-onboarding="sprint-selection">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-col">
-                      <CardTitle className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">
-                        {isMarketingCompany ? "Campaign Board" : "Sprint Board"}
-                      </CardTitle>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => setShowSelectionSection(!showSelectionSection)}
-                          className="flex items-center gap-2 hover:opacity-70 transition-opacity"
-                        >
-                          {showSelectionSection ? (
-                            <ChevronDown className="h-4 w-4 text-slate-600" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-600 rotate-[-90deg]" />
-                          )}
-                        </button>
-                        <p className="text-slate-600 text-sm">
-                          {isMarketingCompany ? "Manage campaigns and track progress" : "Manage sprints and track progress"}
-                        </p>
-                        {selectedProject && (
+            {/* Header Section */}
+            <div className="sticky top-0 z-30 bg-[#f8f9fa]/80 backdrop-blur-md px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-4">
+                <div className="space-y-1">
+                  <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight">
+                    {isMarketingCompany ? "Campaign Board" : "Sprint Board"}
+                  </h1>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowSelectionSection(!showSelectionSection)}
+                      className="flex items-center gap-2 hover:opacity-70 transition-opacity"
+                    >
+                      {showSelectionSection ? (
+                        <ChevronDown className="h-4 w-4 text-slate-600" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-slate-600 rotate-[-90deg]" />
+                      )}
+                    </button>
+                    <p className="text-sm sm:text-base text-slate-500 font-medium">
+                      {isMarketingCompany ? "Manage campaigns and track progress" : "Manage sprints and track progress"}
+                    </p>
+                    {selectedProject && (
+                      <div className="hidden sm:flex items-center gap-2 ml-2">
+                        <span className="text-slate-300">•</span>
+                        <span className="text-sm text-slate-600 font-medium bg-white px-2 py-0.5 rounded-full border border-slate-200 shadow-sm">
+                          {selectedProject.name}
+                        </span>
+                        {selectedSprint && !isMarketingCompany && (
                           <>
-                            <span className="text-slate-400">•</span>
-                            <span className="text-sm text-slate-700">
-                              <span className="font-medium">Selected {isMarketingCompany ? 'Campaign' : 'Project'}:</span> {selectedProject.name}
+                            <span className="text-slate-300">•</span>
+                            <span className="text-sm text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shadow-sm">
+                              {selectedSprint.name}
                             </span>
-                            {selectedSprint && !isMarketingCompany && (
-                              <>
-                                <span className="text-slate-400">•</span>
-                                <span className="text-sm text-slate-700">
-                                  <span className="font-medium">Sprint:</span> {selectedSprint.name}
-                                </span>
-                              </>
-                            )}
                           </>
                         )}
-                        <div className="flex gap-2 ml-auto">
-                          {selectedProjectId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={handleManualRefresh}
-                              className="flex items-center gap-2 h-9"
-                            >
-                              <RefreshCw className={`h-4 w-4 ${tasksLoading ? 'animate-spin' : ''}`} />
-                              Refresh
-                            </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                  {selectedProjectId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleManualRefresh}
+                      className="bg-white border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 h-10 rounded-lg px-4 font-medium transition-all"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${tasksLoading ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+                  )}
+                  {selectedSprintId && !isMarketingCompany && (
+                    <Button
+                      onClick={handleExportSprintReport}
+                      variant="outline"
+                      size="sm"
+                      className="bg-white border-slate-200 shadow-sm text-slate-600 hover:bg-slate-50 h-10 rounded-lg px-4 font-medium transition-all"
+                      disabled={isExporting}
+                    >
+                      {isExporting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4 mr-2" />
+                      )}
+                      {isExporting ? 'Generating...' : 'Export PDF'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Wide Selection Dropdowns - Responsive */}
+              {showSelectionSection && (
+                <div className="flex flex-col sm:flex-row items-center gap-4 py-4 border-t border-slate-200/60 mt-2 animate-in slide-in-from-top-2 duration-300">
+                  <div className="flex-1 w-full sm:max-w-xs">
+                    <div className="group flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg px-3 h-10 w-full transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400">
+                      <Target className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                      <Select value={selectedProjectId} onValueChange={handleProjectChange}>
+                        <SelectTrigger className="h-9 w-full text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
+                          <SelectValue placeholder={`Select ${isMarketingCompany ? 'Campaign' : 'Project'} *`} />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-80">
+                          {filteredProjects.length === 0 ? (
+                            <SelectItem value="no-projects" disabled>
+                              {isTeamMember && filteredTasks.length === 0
+                                ? "No projects with assigned tasks"
+                                : `No ${isMarketingCompany ? 'campaigns' : 'projects'} available`}
+                            </SelectItem>
+                          ) : (
+                            filteredProjects.map(project => (
+                              <SelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </SelectItem>
+                            ))
                           )}
-                          {selectedSprintId && !isMarketingCompany && (
-                            <Button
-                              onClick={handleExportSprintReport}
-                              variant="outline"
-                              size="sm"
-                              className="flex items-center gap-2 h-9"
-                              disabled={isExporting}
-                            >
-                              {isExporting ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Download className="h-4 w-4" />
-                              )}
-                              {isExporting ? 'Generating...' : 'Export PDF'}
-                            </Button>
-                          )}
-                        </div>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {canSeeMemberFilter && (
+                    <div className="flex-1 w-full sm:max-w-xs">
+                      <div className="group flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg px-3 h-10 w-full transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400">
+                        <Users className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                        <Select value={selectedMemberEmail} onValueChange={setSelectedMemberEmail}>
+                          <SelectTrigger className="h-9 w-full text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
+                            <SelectValue placeholder="Filter by Member" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-80">
+                            <SelectItem value="all">
+                              <div className="flex items-center gap-2 font-medium">
+                                <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
+                                  <Users className="h-3.5 w-3.5 text-slate-500" />
+                                </div>
+                                <span>All Members</span>
+                              </div>
+                            </SelectItem>
+                            {selectedProject?.team_members?.map(member => {
+                              const user = users.find(u =>
+                                (member.email && u.email === member.email) ||
+                                (member.id && u.id === member.id)
+                              );
+                              const displayName = user?.full_name || member.full_name || member.email || "Unknown Member";
+                              const initials = getInitials(displayName);
+
+                              return (
+                                <SelectItem key={member.email || member.id} value={member.email || member.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={user?.profile_image_url} />
+                                      <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 font-semibold">
+                                        {initials}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="truncate">{displayName}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
+                  )}
 
-                    {/* Wide Selection Dropdowns - Responsive */}
-                    {showSelectionSection && (
-                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-slate-200">
-                        <div className="flex-1 w-full">
-                          <Select value={selectedProjectId} onValueChange={handleProjectChange}>
-                            <SelectTrigger className="bg-white h-9 text-sm w-full">
-                              <SelectValue placeholder={`Select ${isMarketingCompany ? 'Campaign' : 'Project'} *`} />
+                  {!isMarketingCompany && (
+                    <>
+                      <div className="flex-1 w-full sm:max-w-xs">
+                        <div className="group flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg px-3 h-10 w-full transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-400">
+                          <Calendar className="h-4 w-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                          <Select
+                            value={selectedSprintId}
+                            onValueChange={setSelectedSprintId}
+                            disabled={!selectedProjectId}
+                          >
+                            <SelectTrigger className="h-9 w-full text-sm border-0 shadow-none focus:ring-0 bg-transparent px-1">
+                              <SelectValue placeholder={selectedProjectId ? "Select Sprint" : "Select project first"} />
                             </SelectTrigger>
-                            <SelectContent>
-                              {filteredProjects.length === 0 ? (
-                                <SelectItem value="no-projects" disabled>
-                                  {isTeamMember && filteredTasks.length === 0
-                                    ? "No projects with assigned tasks"
-                                    : `No ${isMarketingCompany ? 'campaigns' : 'projects'} available`}
-                                </SelectItem>
+                            <SelectContent className="max-h-80">
+                              {sprints.length === 0 ? (
+                                <SelectItem value="no-sprints" disabled>No sprints yet</SelectItem>
                               ) : (
-                                filteredProjects.map(project => (
-                                  <SelectItem key={project.id} value={project.id}>
-                                    {project.name}
+                                sprints.map(sprint => (
+                                  <SelectItem key={sprint.id} value={sprint.id}>
+                                    <div className="flex items-center justify-between gap-2 w-full min-w-[200px]">
+                                      <span>{sprint.name}</span>
+                                      <Badge variant="outline" className={`ml-auto text-[10px] h-4 ${sprint.status === 'active' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                                        {sprint.status}
+                                      </Badge>
+                                    </div>
                                   </SelectItem>
                                 ))
                               )}
                             </SelectContent>
                           </Select>
                         </div>
-
-                        {canSeeMemberFilter && (
-                          <div className="flex-1 w-full">
-                            <Select value={selectedMemberEmail} onValueChange={setSelectedMemberEmail}>
-                              <SelectTrigger className="bg-white h-9 text-sm w-full">
-                                <SelectValue placeholder="Filter by Member" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="all">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center">
-                                      <Users className="h-3.5 w-3.5 text-slate-500" />
-                                    </div>
-                                    <span>All Members</span>
-                                  </div>
-                                </SelectItem>
-                                {selectedProject?.team_members?.map(member => {
-                                  // Find user in the users list to get current full name
-                                  const user = users.find(u =>
-                                    (member.email && u.email === member.email) ||
-                                    (member.id && u.id === member.id)
-                                  );
-                                  const displayName = user?.full_name || member.full_name || member.email || "Unknown Member";
-                                  const initials = getInitials(displayName);
-
-                                  return (
-                                    <SelectItem key={member.email || member.id} value={member.email || member.id}>
-                                      <div className="flex items-center gap-2">
-                                        <Avatar className="h-6 w-6">
-                                          <AvatarImage src={user?.profile_image_url} />
-                                          <AvatarFallback className="text-[8px] bg-blue-100 text-blue-700 font-medium">
-                                            {initials}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="truncate">{displayName}</span>
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-
-                        {!isMarketingCompany && (
-                          <>
-                            <div className="flex-1 w-full">
-                              <Select
-                                value={selectedSprintId}
-                                onValueChange={setSelectedSprintId}
-                                disabled={!selectedProjectId}
-                              >
-                                <SelectTrigger className="bg-white h-9 text-sm w-full">
-                                  <SelectValue placeholder={selectedProjectId ? "Select Sprint" : "Select project first"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sprints.length === 0 ? (
-                                    <SelectItem value="no-sprints" disabled>No sprints yet</SelectItem>
-                                  ) : (
-                                    sprints.map(sprint => (
-                                      <SelectItem key={sprint.id} value={sprint.id}>
-                                        {sprint.name} ({sprint.status})
-                                      </SelectItem>
-                                    ))
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {selectedProjectId && !isViewer && (
-                              <Button
-                                onClick={() => setShowCreateSprint(true)}
-                                size="sm"
-                                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white h-9 flex-shrink-0"
-                              >
-                                <Plus className="h-4 w-4 mr-1.5" />
-                                New Sprint
-                              </Button>
-                            )}
-                          </>
-                        )}
                       </div>
-                    )}
-                  </div>
-                </CardHeader>
-              </Card>
+                      {selectedProjectId && !isViewer && (
+                        <Button
+                          onClick={() => setShowCreateSprint(true)}
+                          size="sm"
+                          className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-10 rounded-lg px-5 font-bold transition-all active:scale-[0.98] flex-shrink-0"
+                        >
+                          <Plus className="h-4.5 w-4.5 mr-2" />
+                          New Sprint
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
-              {/* Injected TabsList to join header */}
+              {/* Tabs Selection Section */}
               {selectedProjectId && selectedSprintId && selectedSprint && !isMarketingCompany && (
-                <div className="mt-2 pb-4">
-                  <TabsList className="bg-white border-slate-200/60 shadow-sm">
-                    <TabsTrigger value="board">Sprint Board</TabsTrigger>
-                    <TabsTrigger value="sprint-backlog">Sprint Backlog</TabsTrigger>
-                    <TabsTrigger value="backlog">Backlog</TabsTrigger>
-                    <TabsTrigger value="epics">Epics</TabsTrigger>
-                    {/* RESTRICTED: Capacity and Metrics */}
-                    {canViewMetrics && <TabsTrigger value="capacity">Capacity</TabsTrigger>}
-                    <TabsTrigger value="burndown">Burndown</TabsTrigger>
-                    {canViewMetrics && <TabsTrigger value="metrics">Metrics</TabsTrigger>}
+                <div className="mt-2 pb-2">
+                  <TabsList className="bg-white border border-slate-200 shadow-sm p-1 rounded-xl h-auto flex-wrap gap-1">
+                    <TabsTrigger value="board" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Sprint Board</TabsTrigger>
+                    <TabsTrigger value="sprint-backlog" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Sprint Backlog</TabsTrigger>
+                    <TabsTrigger value="backlog" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Backlog</TabsTrigger>
+                    <TabsTrigger value="epics" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Epics</TabsTrigger>
+                    {canViewMetrics && <TabsTrigger value="capacity" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Capacity</TabsTrigger>}
+                    <TabsTrigger value="burndown" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Burndown</TabsTrigger>
+                    {canViewMetrics && <TabsTrigger value="metrics" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-slate-100 data-[state=active]:text-slate-900 data-[state=active]:shadow-none transition-all border-0 ring-0">Metrics</TabsTrigger>}
                   </TabsList>
                 </div>
               )}
             </div>
 
             {/* Scrollable Content Section */}
-            <div className="flex-1 px-4 md:px-6 lg:px-8 pb-4 md:pb-6 lg:pb-8">
+            <div className="flex-1 px-4 sm:px-6 lg:px-8 pb-8 pt-6">
               <div className="space-y-6">
                 {!selectedProjectId && (
                   <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
@@ -1834,7 +1828,7 @@ export default function SprintBoard() {
                       {!isViewer && (
                         <Button
                           onClick={() => setShowCreateSprint(true)}
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                          className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 text-white h-11 rounded-lg px-6 font-bold transition-all active:scale-[0.98]"
                         >
                           <Plus className="h-4 w-4 mr-2" />
                           Create New Sprint
@@ -1846,7 +1840,7 @@ export default function SprintBoard() {
 
                 {selectedProjectId && isMarketingCompany && (
                   <div className="space-y-6">
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
+                    <Card className="bg-white border border-slate-200/60 shadow-sm rounded-xl">
                       <CardContent className="p-6">
                         <SprintKanbanBoard
                           sprint={{ name: selectedProject?.name || 'Campaign', id: 'marketing-campaign' }}
@@ -1887,7 +1881,7 @@ export default function SprintBoard() {
 
                     <TabsContent value="board" className="mt-6">
                       {sprintTasks.length === 0 && isTeamMember ? (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
+                        <Card className="bg-white border border-slate-200/60 shadow-sm rounded-xl">
                           <CardContent className="p-12 text-center">
                             <Target className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-slate-900 mb-2">No Tasks Assigned</h3>
@@ -1895,7 +1889,7 @@ export default function SprintBoard() {
                           </CardContent>
                         </Card>
                       ) : (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
+                        <Card className="bg-white border border-slate-200/60 shadow-sm rounded-xl">
                           <CardContent className="p-6">
                             <SprintKanbanBoard
                               sprint={selectedSprint}
@@ -1934,7 +1928,7 @@ export default function SprintBoard() {
 
                     <TabsContent value="sprint-backlog" className="mt-6">
                       {sprintBacklogStories.length === 0 && isTeamMember ? (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
+                        <Card className="bg-white border border-slate-200/60 shadow-sm rounded-xl">
                           <CardContent className="p-12 text-center">
                             <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-slate-900 mb-2">No Stories in Sprint</h3>
@@ -1948,7 +1942,7 @@ export default function SprintBoard() {
 
                     <TabsContent value="backlog" className="mt-6">
                       {productBacklogStories.length === 0 && isTeamMember ? (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
+                        <Card className="bg-white border border-slate-200/60 shadow-sm rounded-xl">
                           <CardContent className="p-12 text-center">
                             <BookOpen className="h-12 w-12 text-slate-300 mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-slate-900 mb-2">No Stories in Product Backlog</h3>
@@ -1960,77 +1954,79 @@ export default function SprintBoard() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="epics" className="mt-6">
+                    <TabsContent value="epics" className="mt-8">
                       {sprintEpics.length === 0 && isTeamMember ? (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
-                          <CardContent className="p-12 text-center">
-                            <FolderKanban className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold text-slate-900 mb-2">No Epics</h3>
-                            <p className="text-slate-600">
+                        <Card className="bg-white border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[28px] overflow-hidden">
+                          <CardContent className="p-20 text-center bg-white/70 backdrop-blur-xl">
+                            <div className="h-20 w-20 rounded-3xl bg-slate-50 flex items-center justify-center mx-auto mb-6 shadow-sm border border-slate-100">
+                              <FolderKanban className="h-10 w-10 text-slate-300" />
+                            </div>
+                            <h3 className="text-xl font-extrabold text-slate-900 mb-2 tracking-tight">No Epics Discovered</h3>
+                            <p className="text-slate-500 max-w-sm mx-auto font-medium leading-relaxed">
                               {selectedSprintId
-                                ? "There are no epics with stories in this sprint."
-                                : "There are no epics with unassigned stories."}
+                                ? "There are no epics with stories currently assigned to this sprint."
+                                : "There are no epics with unassigned stories at the moment."}
                             </p>
                           </CardContent>
                         </Card>
                       ) : (
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg">
-                          <CardHeader>
+                        <Card className="bg-white/70 backdrop-blur-xl border-slate-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[28px] overflow-hidden group transition-all duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)]">
+                          <CardHeader className="p-8 pb-4 bg-white/40">
                             <div className="flex items-center justify-between">
-                              <div>
-                                <CardTitle className="flex items-center gap-2">
-                                  <FolderKanban className="h-5 w-5 text-blue-600" />
-                                  {selectedSprintId ? 'Sprint Epics' : 'Project Epics'}
-                                  <Badge variant="outline" className="ml-2">
-                                    {sprintEpics.length} {sprintEpics.length === 1 ? 'Epic' : 'Epics'}
-                                  </Badge>
-                                </CardTitle>
+                              <div className="flex items-center gap-5">
+                                <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50">
+                                  <FolderKanban className="h-6 w-6" />
+                                </div>
+                                <div className="space-y-1">
+                                  <CardTitle className="text-xl font-extrabold text-slate-800 tracking-tight flex items-center gap-3">
+                                    {selectedSprintId ? 'Sprint Epics' : 'Project Epics'}
+                                  </CardTitle>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="bg-slate-100/80 text-slate-600 border-none text-[10px] font-bold px-2.5 py-0.5 rounded-full tracking-widest">
+                                      {sprintEpics.length} {sprintEpics.length === 1 ? 'EPIC' : 'EPICS'}
+                                    </Badge>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent className="p-0">
                             <div className="overflow-x-auto">
-                              <table className="w-full">
-                                <thead className="bg-slate-50 border-b border-slate-200">
-                                  <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Name</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Priority</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Progress</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Stories</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Due Date</th>
-                                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
+                              <table className="w-full border-collapse">
+                                <thead>
+                                  <tr className="bg-slate-50/40 border-y border-slate-100/50">
+                                    <th className="px-8 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Name</th>
+                                    <th className="px-4 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Status</th>
+                                    <th className="px-4 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Priority</th>
+                                    <th className="px-4 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Progress</th>
+                                    <th className="px-4 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Stories</th>
+                                    <th className="px-4 py-5 text-left text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Due Date</th>
+                                    <th className="px-8 py-5 text-right text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Actions</th>
                                   </tr>
                                 </thead>
-                                <tbody className="bg-transparent divide-y divide-slate-200">
+                                <tbody className="divide-y divide-slate-100/50">
                                   {sprintEpics.length === 0 ? (
                                     <tr>
-                                      <td colSpan="7" className="px-4 py-12 text-center text-slate-500">
-                                        <FolderKanban className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                                        <p>
-                                          {selectedSprintId
-                                            ? "No epics with stories in this sprint"
-                                            : "No epics with unassigned stories"}
-                                        </p>
+                                      <td colSpan="7" className="px-8 py-20 text-center text-slate-400">
+                                        <div className="flex flex-col items-center gap-3 opacity-30">
+                                          <FolderKanban className="h-10 w-10" />
+                                          <p className="text-xs font-bold uppercase tracking-widest">No data available</p>
+                                        </div>
                                       </td>
                                     </tr>
                                   ) : (
                                     sprintEpics.map((epic) => {
                                       const epicId = epic.id || epic._id;
                                       const progress = getEpicProgress(epicId);
-                                      // Filter stories by epic and sprint
                                       const epicStories = stories.filter(s => {
                                         const storyEpicId = s.epic_id?.id || s.epic_id?._id || s.epic_id;
                                         if (String(storyEpicId) !== String(epicId)) return false;
 
-                                        // If sprint is selected, only count stories in that sprint (or unassigned)
                                         if (selectedSprintId) {
                                           const storySprintId = s.sprint_id?.id || s.sprint_id?._id || s.sprint_id;
-                                          // Include unassigned stories (they appear in all sprint epics)
                                           if (!storySprintId) return true;
                                           return String(storySprintId) === String(selectedSprintId);
                                         } else {
-                                          // No sprint selected - only count unassigned stories
                                           const storySprintId = s.sprint_id?.id || s.sprint_id?._id || s.sprint_id;
                                           return !storySprintId;
                                         }
@@ -2039,98 +2035,97 @@ export default function SprintBoard() {
                                       return (
                                         <tr
                                           key={epicId}
-                                          className="hover:bg-slate-50 transition-colors bg-slate-50/30 cursor-pointer"
+                                          className="group/row transition-all duration-300 cursor-pointer hover:bg-slate-50/40 border-l-4 border-transparent hover:border-indigo-500"
                                           onClick={() => setSelectedEpicId(epicId)}
                                         >
-                                          <td className="px-4 py-3">
-                                            <div className="flex items-start gap-2">
+                                          <td className="px-8 py-6">
+                                            <div className="flex items-start gap-5">
                                               <div
-                                                className="w-4 h-4 rounded flex-shrink-0 mt-0.5"
-                                                style={{ backgroundColor: epic.color || "#3b82f6" }}
+                                                className="w-1.5 h-12 rounded-full flex-shrink-0 mt-0.5 shadow-sm"
+                                                style={{ backgroundColor: epic.color || "#6366f1" }}
                                               />
                                               <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-slate-900 text-sm">{epic.name}</div>
+                                                <div className="font-extrabold text-slate-800 text-[15px] tracking-tight group-hover/row:text-indigo-600 transition-colors">{epic.name}</div>
                                                 {epic.description && (
-                                                  <div className="text-xs text-slate-500 mt-1 line-clamp-1">
-                                                    {truncateDescription(epic.description, 15)}
+                                                  <div className="text-[11px] text-slate-500 mt-1.5 line-clamp-1 opacity-70 font-medium leading-relaxed">
+                                                    {truncateDescription(epic.description, 18)}
                                                   </div>
                                                 )}
                                               </div>
                                             </div>
                                           </td>
-                                          <td className="px-4 py-3">
+                                          <td className="px-4 py-6">
                                             {getEpicStatusBadge(epic.status)}
                                           </td>
-                                          <td className="px-4 py-3">
+                                          <td className="px-4 py-6">
                                             {getPriorityBadge(epic.priority)}
                                           </td>
-                                          <td className="px-4 py-3">
+                                          <td className="px-4 py-6">
                                             {progress.total > 0 ? (
-                                              <div className="flex items-center gap-1.5" style={{ minWidth: '100px' }}>
-                                                <Progress
-                                                  value={progress.percentage}
-                                                  className="h-1.5 flex-1"
-                                                  title={`${progress.percentage}% complete`}
-                                                />
-                                                <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                                              <div className="flex items-center gap-4 min-w-[140px]">
+                                                <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden">
+                                                  <div
+                                                    className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out"
+                                                    style={{ width: `${progress.percentage}%` }}
+                                                  />
+                                                </div>
+                                                <span className="text-[11px] text-slate-500 font-extrabold tracking-tight w-8">
                                                   {progress.percentage}%
                                                 </span>
                                               </div>
                                             ) : (
-                                              <span className="text-xs text-slate-400">No stories</span>
+                                              <Badge variant="secondary" className="bg-slate-50 text-slate-300 border-none text-[9px] font-bold px-2 rounded-full uppercase tracking-tighter">
+                                                No Stories
+                                              </Badge>
                                             )}
                                           </td>
-                                          <td className="px-4 py-3">
-                                            <Badge variant="outline" className="text-xs">
-                                              {epicStories.length} {epicStories.length === 1 ? 'Story' : 'Stories'}
+                                          <td className="px-4 py-6">
+                                            <Badge variant="secondary" className="bg-indigo-50/50 text-indigo-600 border-none text-[11px] font-extrabold px-3 py-1 rounded-full shadow-xs">
+                                              {epicStories.length} {epicStories.length === 1 ? 'STORY' : 'STORIES'}
                                             </Badge>
                                           </td>
-                                          <td className="px-4 py-3">
+                                          <td className="px-4 py-6">
                                             {epic.due_date ? (
-                                              <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                              <div className="flex items-center gap-2 text-[12px] font-bold text-slate-500 whitespace-nowrap">
+                                                <Calendar className="h-3.5 w-3.5 opacity-40 shadow-none" />
                                                 <span>{format(new Date(epic.due_date), 'MMM d, yyyy')}</span>
                                               </div>
                                             ) : (
-                                              <span className="text-xs text-slate-400">No due date</span>
+                                              <span className="text-[10px] text-slate-300 font-extrabold uppercase tracking-tighter italic">Pending</span>
                                             )}
                                           </td>
-                                          <td className="px-4 py-3">
+                                          <td className="px-8 py-6 text-right">
                                             {!isViewer && (
-                                              <div className="flex justify-center gap-1">
-                                                {!isViewer && (
-                                                  <>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedEpic(epic);
-                                                        setShowCreateEpicDialog(true);
-                                                      }}
-                                                      className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
-                                                      title="Edit Epic"
-                                                    >
-                                                      <Edit className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setDeleteConfirmation({
-                                                          isOpen: true,
-                                                          item: { id: epicId, title: epic.name, type: 'Epic' },
-                                                          mutation: () => deleteEpicMutation.mutate(epicId)
-                                                        });
-                                                      }}
-                                                      className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600"
-                                                      title="Delete Epic"
-                                                    >
-                                                      <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                  </>
-                                                )}
+                                              <div className="flex justify-end gap-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedEpic(epic);
+                                                    setShowCreateEpicDialog(true);
+                                                  }}
+                                                  className="h-9 w-9 p-0 rounded-full hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200 text-slate-400 hover:text-indigo-600 transition-all"
+                                                  title="Edit Epic"
+                                                >
+                                                  <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirmation({
+                                                      isOpen: true,
+                                                      item: { id: epicId, title: epic.name, type: 'Epic' },
+                                                      mutation: () => deleteEpicMutation.mutate(epicId)
+                                                    });
+                                                  }}
+                                                  className="h-9 w-9 p-0 rounded-full hover:bg-red-50 hover:shadow-sm border border-transparent hover:border-red-100 text-slate-400 hover:text-red-500 transition-all"
+                                                  title="Delete Epic"
+                                                >
+                                                  <Trash2 className="h-4 w-4" />
+                                                </Button>
                                               </div>
                                             )}
                                           </td>
@@ -2178,26 +2173,28 @@ export default function SprintBoard() {
               </div>
             </div>
 
-            {!isMarketingCompany && (
-              <CreateSprintDialog
-                open={showCreateSprint}
-                onClose={() => {
-                  setShowCreateSprint(false);
-                  setEditingSprint(null);
-                }}
-                onSubmit={(data) => {
-                  if (editingSprint) {
-                    updateSprintMutation.mutate({ id: editingSprint.id, data });
-                  } else {
-                    createSprintMutation.mutate(data);
-                  }
-                }}
-                loading={createSprintMutation.isPending || updateSprintMutation.isPending}
-                projectId={selectedProjectId}
-                projectName={selectedProject?.name}
-                initialValues={editingSprint}
-              />
-            )}
+            {
+              !isMarketingCompany && (
+                <CreateSprintDialog
+                  open={showCreateSprint}
+                  onClose={() => {
+                    setShowCreateSprint(false);
+                    setEditingSprint(null);
+                  }}
+                  onSubmit={(data) => {
+                    if (editingSprint) {
+                      updateSprintMutation.mutate({ id: editingSprint.id, data });
+                    } else {
+                      createSprintMutation.mutate(data);
+                    }
+                  }}
+                  loading={createSprintMutation.isPending || updateSprintMutation.isPending}
+                  projectId={selectedProjectId}
+                  projectName={selectedProject?.name}
+                  initialValues={editingSprint}
+                />
+              )
+            }
 
             {/* Create Task Dialog */}
             <CreateTaskModal
@@ -2211,14 +2208,16 @@ export default function SprintBoard() {
             />
 
             {/* RENDER TASK DETAIL DIALOG WITH CALLBACK */}
-            {(selectedTaskId || taskIdParam) && (
-              <TaskDetailDialog
-                open={!!selectedTaskId || !!taskIdParam}
-                onClose={handleCloseTaskDetail}
-                taskId={selectedTaskId || taskIdParam}
-                key="global-task-dialog-sprintboard"
-              />
-            )}
+            {
+              (selectedTaskId || taskIdParam) && (
+                <TaskDetailDialog
+                  open={!!selectedTaskId || !!taskIdParam}
+                  onClose={handleCloseTaskDetail}
+                  taskId={selectedTaskId || taskIdParam}
+                  key="global-task-dialog-sprintboard"
+                />
+              )
+            }
 
             {/* RENDER STORY DETAIL DIALOG */}
             <StoryDetailDialog

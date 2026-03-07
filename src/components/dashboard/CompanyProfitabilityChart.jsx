@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { groonabackend } from '@/api/groonabackend';
 import { useUser } from '@/components/shared/UserContext';
 import { AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart } from 'recharts';
-import { TrendingUp, TrendingDown, AlertCircle, Loader2, Banknote } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertCircle, Loader2, Banknote, ArrowRight } from "lucide-react";
 import { subDays, format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import axios from 'axios';
 
 const CURRENCIES = ['USD', 'INR', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED', 'JPY', 'CNY', 'CHF', 'HKD', 'NZD', 'SEK', 'KRW', 'MXN', 'BRL', 'ZAR'];
@@ -47,6 +49,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function CompanyProfitabilityChart() {
+    const navigate = useNavigate();
     const { user: currentUser, effectiveTenantId } = useUser();
 
     const [targetCurrency, setTargetCurrency] = useState('INR');
@@ -387,16 +390,27 @@ export default function CompanyProfitabilityChart() {
                 <div className="xl:w-1/3 flex flex-col justify-start pt-2">
                     <div className="flex items-center justify-between mb-4 sm:mb-6">
                         <h2 className="text-base sm:text-lg font-bold text-slate-900">{isPositive ? 'Total Net Profit' : 'Total Net Loss'}</h2>
-                        <Select value={targetCurrency} onValueChange={setTargetCurrency}>
-                            <SelectTrigger className="w-[70px] sm:w-[80px] h-7 sm:h-8 text-[10px] sm:text-xs bg-white border-slate-200">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {CURRENCIES.map(c => (
-                                    <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                            <Select value={targetCurrency} onValueChange={setTargetCurrency}>
+                                <SelectTrigger className="w-[70px] sm:w-[80px] h-7 sm:h-8 text-[10px] sm:text-xs bg-white border-slate-200 rounded-lg">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CURRENCIES.map(c => (
+                                        <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => navigate("/AdminBIDashboard?tab=profitability")}
+                                className="h-7 sm:h-8 text-[10px] sm:text-xs font-bold border-slate-200 rounded-lg flex items-center gap-1.5 px-2 hover:bg-slate-50 hover:text-blue-600 transition-all active:scale-95"
+                            >
+                                Detailed Analytics
+                                <ArrowRight className="h-3 w-3" />
+                            </Button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-2 sm:gap-4 mt-2 sm:mt-8">

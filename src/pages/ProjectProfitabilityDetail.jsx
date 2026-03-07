@@ -925,581 +925,321 @@ export default function ProjectProfitabilityDetail() {
 
     return (
         <TooltipProvider>
-            <div className="p-3 sm:p-5 lg:p-8 space-y-4 lg:space-y-6 bg-slate-50 min-h-screen">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                        <Button variant="ghost" onClick={() => navigate("/AdminBIDashboard?tab=profitability")} className="mt-1 w-fit">
-                            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-                        </Button>
+            <div className="p-3 sm:p-5 lg:p-8 space-y-6 bg-slate-50/80 min-h-screen">
+
+                {/* ── Page Header ── */}
+                <div className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.04)] p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                        <button
+                            onClick={() => navigate("/AdminBIDashboard?tab=profitability")}
+                            className="mt-1 flex-shrink-0 h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center"
+                        >
+                            <ArrowLeft className="h-4 w-4 text-slate-600" />
+                        </button>
                         <div>
-                            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 leading-tight">{project.name} — Profitability Detail</h1>
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-sm text-slate-500">
-                                <div className="flex items-center gap-1.5">
-                                    <Building2 className="h-3.5 w-3.5" />
-                                    <span className="font-medium">Client:</span> {clientName}
-                                </div>
-                                <div className="flex items-center gap-1.5 sm:border-l sm:border-slate-300 sm:pl-4">
-                                    <User className="h-3.5 w-3.5" />
-                                    <span className="font-medium">Contact:</span> {clientContact}
-                                </div>
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase tracking-wider ${project.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                    project.status === 'active' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-slate-100 text-slate-700'
-                                    }`}>
-                                    {project.status || 'Active'}
+                            <h1 className="text-xl font-black text-slate-900 leading-tight">{project.name}</h1>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-0.5">Profitability Detail</p>
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                    <Building2 className="h-3 w-3" /> {clientName}
                                 </span>
+                                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
+                                    <User className="h-3 w-3" /> {clientContact}
+                                </span>
+                                <span className={`inline-flex items-center text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${project.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                    project.status === 'active' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                        'bg-slate-100 text-slate-600 border border-slate-200'
+                                    }`}>{project.status || 'Active'}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Date, Milestone & Currency Controls */}
-                    <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg shadow-sm border border-slate-200">
-
-                        <Select value={selectedMilestone} onValueChange={setSelectedMilestone}>
-                            <SelectTrigger className="w-[140px] sm:w-[160px] h-8 text-xs"><SelectValue placeholder="All Milestones" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Milestones</SelectItem>
-                                {milestones.map(m => (
-                                    <SelectItem key={m.id || m._id} value={m.id || m._id}>
-                                        {m.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={targetCurrency} onValueChange={setTargetCurrency}>
-                            <SelectTrigger className="w-[80px] sm:w-[90px] h-8 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="INR">INR</SelectItem>
-                                <SelectItem value="USD">USD</SelectItem>
-                                <SelectItem value="EUR">EUR</SelectItem>
-                                <SelectItem value="GBP">GBP</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    {/* Filters */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Phase</span>
+                            <Select value={selectedMilestone} onValueChange={setSelectedMilestone}>
+                                <SelectTrigger className="w-[160px] h-10 text-xs font-bold rounded-xl border-slate-200 bg-slate-50">
+                                    <SelectValue placeholder="All Milestones" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Milestones</SelectItem>
+                                    {milestones.map(m => (
+                                        <SelectItem key={m.id || m._id} value={m.id || m._id}>{m.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Currency</span>
+                            <Select value={targetCurrency} onValueChange={setTargetCurrency}>
+                                <SelectTrigger className="w-[100px] h-10 text-xs font-bold rounded-xl border-slate-200 bg-slate-50">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="INR">INR</SelectItem>
+                                    <SelectItem value="USD">USD</SelectItem>
+                                    <SelectItem value="EUR">EUR</SelectItem>
+                                    <SelectItem value="GBP">GBP</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </div>
 
 
 
-                {/* Summary Stats */}
-                <TooltipProvider>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 lg:gap-4">
+                {/* ── Summary Cards ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
 
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">
-                                                {project.billing_model === 'retainer' ? 'Contract / Retainer Value' : 'Project Budget'}
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Total value based on {project.billing_model === 'retainer' ? 'monthly retainer fee' : 'fixed budget or estimate'}.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <Wallet className="h-4 w-4 text-slate-400" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(projectBudgetConverted, targetCurrency)}</div>
-
-                                <div className="mt-2">
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-800 uppercase tracking-wide">
-                                        {project.billing_model === 'retainer' ? 'Retainer' :
-                                            project.billing_model === 'time_and_materials' ? 'Time & Materials' :
-                                                'Fixed Price'}
-                                    </span>
-                                </div>
-
-                                {/* Budget Details Footer */}
-                                {budgetMeta.details && (
-                                    <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-1">
-                                        {budgetMeta.type === 'retainer' && (
-                                            <>
-                                                <div className="flex justify-between">
-                                                    <span>Period:</span>
-                                                    <span className="font-medium text-slate-700">
-                                                        {format(budgetMeta.details.startDate, 'MMM d, yyyy')} - {format(budgetMeta.details.endDate, 'MMM d, yyyy')}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Duration:</span>
-                                                    <span className="font-medium text-slate-700">{budgetMeta.details.duration} {budgetMeta.details.period}s</span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Rate:</span>
-                                                    <span className="font-medium text-slate-700">{formatCurrency(budgetMeta.details.amountPerPeriod, project.currency)}/{budgetMeta.details.period}</span>
-                                                </div>
-                                            </>
-                                        )}
-                                        {/* ... (other types) ... */}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">Labor Cost ({targetCurrency})</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Sum of (Approved Billable Hours × Rate) + (Non-Billable Cost).</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <Users className="h-4 w-4 text-blue-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold text-blue-700">{formatCurrency(totalLaborCost, targetCurrency)}</div>
-                                <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-1">
-                                    <div className="flex justify-between">
-                                        <span>Total Hours:</span>
-                                        <span className="font-medium text-slate-700">
-                                            {(filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0)).toFixed(1)} h
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Billable:</span>
-                                        <span className="font-medium text-slate-700">
-                                            {(filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0)).toFixed(1)} h
-                                        </span>
-                                    </div>
-                                    {/* Labor Efficiency Metric */}
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-medium text-slate-500">Efficiency:</span>
-                                            <span className={`font-bold ${(() => {
-                                                const total = filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0);
-                                                const billable = filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0);
-                                                const eff = total > 0 ? (billable / total) * 100 : 0;
-                                                return eff >= 80 ? 'text-green-600' : eff >= 60 ? 'text-yellow-600' : 'text-red-600';
-                                            })()}`}>
-                                                {(() => {
-                                                    const total = filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0);
-                                                    const billable = filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0);
-                                                    return total > 0 ? `${((billable / total) * 100).toFixed(1)}%` : '0%';
-                                                })()}
-                                            </span>
-                                        </div>
-                                        <span className="text-[10px] text-slate-400 text-right">(Billable/Total)</span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">Non-Labor Cost ({targetCurrency})</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Total of all localized, approved project expenses.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <Banknote className="h-4 w-4 text-orange-500" />
-                            </CardHeader>
-                            {/* ... (Non Labor Content) ... */}
-                            <CardContent>
-                                <div className="text-2xl font-bold text-orange-700">{formatCurrency(totalNonLaborCost, targetCurrency)}</div>
-                                <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-1">
-                                    <div className="flex justify-between">
-                                        <span>Total Expenses:</span>
-                                        <span className="font-medium text-slate-700">
-                                            {filteredReportData.filter(r => r.type === 'expense').length}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Avg Expense:</span>
-                                        <span className="font-medium text-slate-700">
-                                            {(() => {
-                                                const count = filteredReportData.filter(r => r.type === 'expense').length;
-                                                return count > 0 ? formatCurrency(totalNonLaborCost / count, targetCurrency) : '0';
-                                            })()}
-                                        </span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Expense Budget Card */}
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">Expense Budget</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>{selectedMilestone !== 'all' ? 'Expense budget for the selected milestone.' : `Project expense budget${project?.billing_model === 'time_and_materials' ? ' × estimated duration (T&M)' : ''}.`}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <Banknote className="h-4 w-4 text-blue-400" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className={`text-2xl font-bold ${expenseBudgetValue > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
-                                    {expenseBudgetValue > 0 ? formatCurrency(expenseBudgetValue, project?.currency || targetCurrency) : '—'}
-                                </div>
-                                {expenseBudgetValue > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-1">
-                                        <div className="flex justify-between">
-                                            <span>Remaining:</span>
-                                            <span className={`font-medium ${expenseRemaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {formatCurrency(expenseRemaining, project?.currency || targetCurrency)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* Budget Used % Card */}
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">Budget Used %</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>(Labor + Non-Labor Cost) ÷ Expense Budget × 100</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <AlertCircle className="h-4 w-4 text-blue-400" />
-                            </CardHeader>
-                            <CardContent>
-                                {budgetUsedPercent != null ? (
-                                    <>
-                                        <div className={`text-2xl font-bold ${budgetUsedPercent > 100 ? 'text-red-600' :
-                                            budgetUsedPercent > 80 ? 'text-amber-600' :
-                                                'text-green-600'
-                                            }`}>
-                                            {budgetUsedPercent.toFixed(1)}%
-                                        </div>
-                                        <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5">
-                                            <div
-                                                className={`h-1.5 rounded-full ${budgetUsedPercent > 100 ? 'bg-red-500' :
-                                                    budgetUsedPercent > 80 ? 'bg-amber-500' :
-                                                        'bg-green-500'
-                                                    }`}
-                                                style={{ width: `${Math.min(100, budgetUsedPercent)}%` }}
-                                            />
-                                        </div>
-                                        <div className="mt-2 text-xs text-slate-500">
-                                            {formatCurrency(totalCost, targetCurrency)} of {formatCurrency(expenseBudgetValue, project?.currency || targetCurrency)}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="text-2xl font-bold text-slate-400">—</div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help text-red-600">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-red-300">Profit Leakage</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Unbillable hours, bench cost, or budget overruns.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <TrendingDown className="h-4 w-4 text-red-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className={`text-2xl font-bold ${projectLeakage > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                                    {formatCurrency(projectLeakage, project?.currency || targetCurrency)}
-                                </div>
-                                {projectLeakage > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                                        {leakagePercent.toFixed(1)}% of Budget Impact
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">
-                                                Profit / (Loss)
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Remaining budget after deducting Labor & Non-Labor costs.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <TrendingUp className={`h-4 w-4 ${netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                    <span className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        {formatCurrency(netProfit, targetCurrency)}
-                                    </span>
-                                    <span className={`text-sm font-medium whitespace-nowrap ${marginPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                        ({marginPercentage.toFixed(1)}%)
-                                    </span>
-                                </div>
-                                {/* Leakage Insights Footer */}
-                                {netProfit < 0 && leakageInsights.length > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-red-100 text-xs text-red-600 flex flex-col gap-1.5">
-                                        <span className="font-semibold text-red-700 uppercase tracking-wider text-[10px]">Potential Causes:</span>
-                                        <ul className="list-disc pl-3 space-y-0.5">
-                                            {leakageInsights.map((insight, idx) => (
-                                                <li key={idx}>{insight}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-1.5 cursor-help">
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="border-b border-dotted border-slate-300">Project Health</span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top">
-                                            <p>Composite score based on Budget, Schedule, and Tasks.</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </CardTitle>
-                                <Activity className="h-4 w-4 text-purple-500" />
-                            </CardHeader>
-                            <CardContent>
-                                <div>
-                                    <div className="text-2xl font-bold text-slate-900">{healthScore}%</div>
-                                    <span className={`text-xs font-medium uppercase px-2 py-0.5 rounded ${riskLevel === 'Healthy' ? 'bg-green-100 text-green-700' :
-                                        riskLevel === 'At Risk' ? 'bg-yellow-100 text-yellow-700' :
-                                            riskLevel === 'High Risk' ? 'bg-orange-100 text-orange-700' :
-                                                'bg-red-100 text-red-700'
-                                        }`}>
-                                        {riskLevel}
-                                    </span>
-                                </div>
-                                <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500 flex flex-col gap-1">
-                                    {project.deadline && new Date(project.deadline) < new Date() && (
-                                        <div className="flex justify-between items-center bg-red-50 p-2 rounded text-red-700 mb-2 border border-red-100">
-                                            <span className="font-semibold text-xs flex items-center gap-1.5">
-                                                <AlertCircle className="h-3.5 w-3.5" />
-                                                {(() => {
-                                                    const daysOver = Math.ceil((new Date() - new Date(project.deadline)) / (1000 * 60 * 60 * 24));
-
-                                                    // Real Cost Impact Calculation (Daily Burn Rate * Days Over)
-                                                    const start = project.start_date ? new Date(project.start_date) : new Date(new Date().setDate(new Date().getDate() - 30));
-                                                    const durationDays = Math.max(1, Math.ceil((new Date() - start) / (1000 * 60 * 60 * 24)));
-                                                    const dailyBurn = totalCost / durationDays;
-                                                    const realCostImpact = daysOver * dailyBurn;
-
-                                                    if (project.billing_model === 'retainer') {
-                                                        return `Timeline deviation detected (${daysOver} ${daysOver === 1 ? 'day' : 'days'}). Impact assessed via cost over-servicing, not schedule.`;
-                                                    }
-
-                                                    return `Project exceeded by ${daysOver} days → ${formatCurrency(realCostImpact, targetCurrency)} cost impact.`;
-                                                })()}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between">
-                                        <span>Tasks:</span>
-                                        <span className="font-medium text-slate-700">
-                                            {(() => {
-                                                const completedTasks = tasks.filter(t => t.status === 'completed').length;
-                                                const rate = tasks.length > 0 ? completedTasks / tasks.length : 0;
-                                                return `${Math.round(rate * 20)} pts`;
-                                            })()}
-                                        </span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Budget Impact:</span>
-                                        <span className={`font-medium ${projectBudgetConverted > 0 && (totalCost / projectBudgetConverted) > 0.9 ? 'text-red-600' : 'text-slate-700'}`}>
-                                            {(() => {
-                                                let penalty = 0;
-                                                if (projectBudgetConverted > 0) {
-                                                    const utilization = totalCost / projectBudgetConverted;
-                                                    if (utilization > 1.0) penalty -= 40;
-                                                    else if (utilization > 0.9) penalty -= 20;
-                                                    else if (utilization > 0.75) penalty -= 10;
-                                                }
-                                                return penalty === 0 ? '-' : `${penalty} pts`;
-                                            })()}
-                                        </span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                    {/* Contract / Budget */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+                            {project.billing_model === 'retainer' ? 'Retainer Value' : 'Budget'}
+                        </p>
+                        <p className="text-lg font-black text-slate-900 leading-tight">{formatCurrency(projectBudgetConverted, targetCurrency)}</p>
+                        <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500 font-black uppercase tracking-wide">
+                            {project.billing_model === 'retainer' ? 'Retainer' : project.billing_model === 'time_and_materials' ? 'T&M' : 'Fixed'}
+                        </span>
+                        {budgetMeta.details && budgetMeta.type === 'retainer' && (
+                            <p className="text-[10px] text-slate-400 mt-1">{formatCurrency(budgetMeta.details.amountPerPeriod, project.currency)}/{budgetMeta.details.period}</p>
+                        )}
                     </div>
 
-                    {/* Performance Insights */}
-                    <Card className="border-slate-200">
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                                    <Zap className="h-5 w-5 text-amber-500" />
-                                    Performance Insights
+                    {/* Labor Cost */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Labor Cost</p>
+                        <p className="text-lg font-black text-blue-700 leading-tight">{formatCurrency(totalLaborCost, targetCurrency)}</p>
+                        <div className="mt-2 space-y-0.5">
+                            <div className="flex justify-between text-[10px]">
+                                <span className="text-slate-400 font-bold">Logged</span>
+                                <span className="font-black text-slate-600">
+                                    {filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0).toFixed(1)}h
+                                </span>
+                            </div>
+                            <div className="flex justify-between text-[10px]">
+                                <span className="text-emerald-400 font-bold">Billable</span>
+                                <span className="font-black text-emerald-600">
+                                    {filteredReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0).toFixed(1)}h
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Non-Labor Cost */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Non-Labor</p>
+                        <p className="text-lg font-black text-amber-700 leading-tight">{formatCurrency(totalNonLaborCost, targetCurrency)}</p>
+                        <div className="mt-2 flex justify-between text-[10px]">
+                            <span className="text-slate-400 font-bold">Expenses</span>
+                            <span className="font-black text-slate-600">{filteredReportData.filter(r => r.type === 'expense').length} items</span>
+                        </div>
+                    </div>
+
+                    {/* Expense Budget */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Exp. Budget</p>
+                        <p className={`text-lg font-black leading-tight ${expenseBudgetValue > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
+                            {expenseBudgetValue > 0 ? formatCurrency(expenseBudgetValue, project?.currency || targetCurrency) : '—'}
+                        </p>
+                        {expenseBudgetValue > 0 && expenseRemaining != null && (
+                            <div className="mt-2 flex justify-between text-[10px]">
+                                <span className="text-slate-400 font-bold">Remaining</span>
+                                <span className={`font-black ${expenseRemaining >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                    {formatCurrency(expenseRemaining, project?.currency || targetCurrency)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Budget Used % */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Budget Used</p>
+                        {budgetUsedPercent != null ? (
+                            <>
+                                <p className={`text-lg font-black leading-tight ${budgetUsedPercent > 100 ? 'text-red-600' : budgetUsedPercent > 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                    {budgetUsedPercent.toFixed(1)}%
+                                </p>
+                                <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5">
+                                    <div className={`h-1.5 rounded-full ${budgetUsedPercent > 100 ? 'bg-red-500' : budgetUsedPercent > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        style={{ width: `${Math.min(100, budgetUsedPercent)}%` }} />
+                                </div>
+                            </>
+                        ) : <p className="text-lg font-black text-slate-300">—</p>}
+                    </div>
+
+                    {/* Profit Leakage */}
+                    <div className="bg-white border border-slate-200/60 rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow">
+                        <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Leakage</p>
+                        <p className={`text-lg font-black leading-tight ${projectLeakage > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+                            {formatCurrency(projectLeakage, project?.currency || targetCurrency)}
+                        </p>
+                        {projectLeakage > 0 && (
+                            <p className="text-[10px] text-red-400 font-black mt-1">{leakagePercent.toFixed(1)}% impact</p>
+                        )}
+                    </div>
+
+                    {/* Profit / Loss */}
+                    <div className={`border rounded-[1.2rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] p-4 hover:shadow-md transition-shadow ${netProfit >= 0 ? 'bg-emerald-50/60 border-emerald-200/60' : 'bg-red-50/60 border-red-200/60'}`}>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profit / Loss</p>
+                        <p className={`text-lg font-black leading-tight ${netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                            {formatCurrency(netProfit, targetCurrency)}
+                        </p>
+                        <div className={`mt-2 inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black ${marginPercentage > 20 ? 'bg-emerald-100 text-emerald-700' :
+                            marginPercentage >= 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                            {marginPercentage.toFixed(1)}% margin
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Performance Insights ── */}
+                <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem]">
+                    <CardHeader className="border-b border-slate-50 py-5 px-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center">
+                                    <Zap className="h-4 w-4 text-amber-500" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-black text-slate-900">Performance Insights</CardTitle>
                                     {selectedMilestone !== 'all' && (
-                                        <Badge variant="outline" className="text-xs ml-2">
-                                            {milestones.find(m => (m.id || m._id) === selectedMilestone)?.name || 'Milestone'}
-                                        </Badge>
+                                        <p className="text-xs font-black text-blue-500 uppercase tracking-wider mt-0.5">
+                                            {milestones.find(m => (m.id || m._id) === selectedMilestone)?.name}
+                                        </p>
                                     )}
-                                </CardTitle>
-
-                                {/* Mark Complete Action */}
+                                </div>
+                            </div>
+                            {(() => {
+                                if (selectedMilestone === 'all') return null;
+                                const milestone = milestones.find(m => (m.id || m._id) === selectedMilestone);
+                                if (!milestone || milestone.status === 'completed') return null;
+                                return (
+                                    <Button size="sm"
+                                        className="rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-black text-xs gap-1.5"
+                                        variant="outline"
+                                        onClick={() => handleMarkMilestoneComplete(selectedMilestone)}
+                                        disabled={updateMilestoneMutation.isPending}>
+                                        {updateMilestoneMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                        Mark Phase Complete
+                                    </Button>
+                                );
+                            })()}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                            {/* Cost Breakdown */}
+                            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cost Breakdown</p>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Labor</span>
+                                        <span className="text-xs font-black text-blue-700">{formatCurrency(totalLaborCost, targetCurrency)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Non-Labor</span>
+                                        <span className="text-xs font-black text-amber-700">{formatCurrency(totalNonLaborCost, targetCurrency)}</span>
+                                    </div>
+                                    <div className="h-px bg-slate-200" />
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-black text-slate-700">Total</span>
+                                        <span className="text-xs font-black text-slate-900">{formatCurrency(totalCost, targetCurrency)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Budget vs Actual */}
+                            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Budget vs Actual</p>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Contract</span>
+                                        <span className="text-xs font-black text-emerald-700">{formatCurrency(projectBudgetConverted, targetCurrency)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Cost to Date</span>
+                                        <span className="text-xs font-black text-slate-800">{formatCurrency(totalCost, targetCurrency)}</span>
+                                    </div>
+                                    <div className="h-px bg-slate-200" />
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-black text-slate-700">Remaining</span>
+                                        <span className={`text-xs font-black ${netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(netProfit, targetCurrency)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {/* Expense Budget */}
+                            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expense Budget</p>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Budget</span>
+                                        <span className="text-xs font-black text-blue-600">{expenseBudgetValue > 0 ? formatCurrency(expenseBudgetValue, project?.currency || targetCurrency) : '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500">Actual</span>
+                                        <span className="text-xs font-black text-amber-700">{formatCurrency(totalNonLaborCost, targetCurrency)}</span>
+                                    </div>
+                                    {expenseBudgetValue > 0 && (
+                                        <>
+                                            <div className="h-px bg-slate-200" />
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-black text-slate-700">Usage</span>
+                                                <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${(totalNonLaborCost / expenseBudgetValue) > 1 ? 'bg-red-50 text-red-700' : (totalNonLaborCost / expenseBudgetValue) > 0.8 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                    {((totalNonLaborCost / expenseBudgetValue) * 100).toFixed(1)}%
+                                                </span>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            {/* Efficiency */}
+                            <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 space-y-3">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Efficiency</p>
                                 {(() => {
-                                    if (selectedMilestone === 'all') return null;
-                                    const milestone = milestones.find(m => (m.id || m._id) === selectedMilestone);
-                                    if (!milestone || milestone.status === 'completed') return null;
-
+                                    const totalHours = allReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0);
+                                    const billableHours = allReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0);
+                                    const efficiency = totalHours > 0 ? (billableHours / totalHours) * 100 : 0;
+                                    const margin = projectBudgetConverted > 0 ? (netProfit / projectBudgetConverted) * 100 : 0;
                                     return (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className="h-8 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 gap-1.5 font-bold"
-                                            onClick={() => handleMarkMilestoneComplete(selectedMilestone)}
-                                            disabled={updateMilestoneMutation.isPending}
-                                        >
-                                            {updateMilestoneMutation.isPending ? (
-                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                            ) : (
-                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                            )}
-                                            Mark Phase as Complete
-                                        </Button>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-slate-500">Billable %</span>
+                                                <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${efficiency >= 80 ? 'bg-emerald-50 text-emerald-700' : efficiency >= 60 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{efficiency.toFixed(1)}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-slate-500">Margin</span>
+                                                <span className={`text-xs font-black px-2 py-0.5 rounded-lg ${margin >= 20 ? 'bg-emerald-50 text-emerald-700' : margin >= 0 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>{margin.toFixed(1)}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-bold text-slate-500">Hrs Logged</span>
+                                                <span className="text-xs font-black text-slate-700">{totalHours.toFixed(1)}h</span>
+                                            </div>
+                                        </div>
                                     );
                                 })()}
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                                {/* Cost Breakdown */}
-                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-                                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Cost Breakdown</div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Labor Cost</span>
-                                            <span className="font-bold text-blue-700">{formatCurrency(totalLaborCost, targetCurrency)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Non-Labor Cost</span>
-                                            <span className="font-bold text-orange-700">{formatCurrency(totalNonLaborCost, targetCurrency)}</span>
-                                        </div>
-                                        <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
-                                            <span className="font-medium text-slate-700">Total Cost</span>
-                                            <span className="font-bold text-slate-900">{formatCurrency(totalCost, targetCurrency)}</span>
-                                        </div>
+                        </div>
+                        {/* Leakage Alerts */}
+                        {leakageInsights.length > 0 && (
+                            <div className="mt-4 space-y-2">
+                                {leakageInsights.map((insight, idx) => (
+                                    <div key={idx} className="p-3 bg-red-50 border border-red-100 rounded-xl flex gap-3">
+                                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                                        <p className="text-xs font-bold text-red-700">{insight}</p>
                                     </div>
-                                </div>
-
-                                {/* Budget vs Actual */}
-                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-                                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Budget vs Actual</div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Contract Budget</span>
-                                            <span className="font-bold text-emerald-700">{formatCurrency(projectBudgetConverted, targetCurrency)}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Cost to Date</span>
-                                            <span className="font-bold text-slate-900">{formatCurrency(totalCost, targetCurrency)}</span>
-                                        </div>
-                                        <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
-                                            <span className="font-medium text-slate-700">Remaining</span>
-                                            <span className={`font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                                {formatCurrency(netProfit, targetCurrency)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Expense Budget Tracking */}
-                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-                                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Expense Budget</div>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Budget</span>
-                                            <span className="font-bold text-blue-600">
-                                                {expenseBudgetValue > 0 ? formatCurrency(expenseBudgetValue, project?.currency || targetCurrency) : '—'}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-slate-600">Actual Expenses</span>
-                                            <span className="font-bold text-orange-700">{formatCurrency(totalNonLaborCost, targetCurrency)}</span>
-                                        </div>
-                                        {expenseBudgetValue > 0 && (
-                                            <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
-                                                <span className="font-medium text-slate-700">Usage</span>
-                                                <Badge className={`${(totalNonLaborCost / expenseBudgetValue) > 1 ? 'bg-red-100 text-red-700' : (totalNonLaborCost / expenseBudgetValue) > 0.8 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
-                                                    {((totalNonLaborCost / expenseBudgetValue) * 100).toFixed(1)}%
-                                                </Badge>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Efficiency Metrics */}
-                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-                                    <div className="text-xs text-slate-500 uppercase font-bold tracking-wider">Efficiency</div>
-                                    <div className="space-y-2">
-                                        {(() => {
-                                            const totalHours = allReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.logged || 0) : 0), 0);
-                                            const billableHours = allReportData.reduce((acc, r) => acc + (r.type === 'labor' ? (r.approvedBillable || 0) : 0), 0);
-                                            const efficiency = totalHours > 0 ? (billableHours / totalHours) * 100 : 0;
-                                            const margin = projectBudgetConverted > 0 ? (netProfit / projectBudgetConverted) * 100 : 0;
-                                            return (
-                                                <>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="text-slate-600">Billable Efficiency</span>
-                                                        <Badge className={`${efficiency >= 80 ? 'bg-green-100 text-green-700' : efficiency >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {efficiency.toFixed(1)}%
-                                                        </Badge>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="text-slate-600">Profit Margin</span>
-                                                        <Badge className={`${margin >= 20 ? 'bg-green-100 text-green-700' : margin >= 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                                                            {margin.toFixed(1)}%
-                                                        </Badge>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span className="text-slate-600">Hours Logged</span>
-                                                        <span className="font-bold text-slate-700">{totalHours.toFixed(1)} h</span>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                </div>
+                                ))}
                             </div>
+                        )}
+                    </CardContent>
+                </Card>
 
-                            {/* Leakage Alerts */}
-                            {leakageInsights.length > 0 && (
-                                <div className="mt-4 space-y-2">
-                                    {leakageInsights.map((insight, idx) => (
-                                        <div key={idx} className="p-3 bg-red-50 border border-red-100 rounded-lg flex gap-3">
-                                            <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                                            <div className="text-xs text-red-700 font-medium">{insight}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
 
-                </TooltipProvider>
 
-                {/* Project Completion or Milestone Completion — Profit & Loss Statement */}
+
+
+
+
+                {/* ── P&L Statement ── */}
                 {(() => {
                     const isProjectCompleted = project.status === 'completed';
                     const selectedM = selectedMilestone !== 'all' ? milestones.find(m => (m.id || m._id) === selectedMilestone) : null;
@@ -1863,7 +1603,8 @@ export default function ProjectProfitabilityDetail() {
                             </CardContent>
                         </Card>
                     );
-                })()}
+                })()
+                }
 
                 {/* Health Score Thresholds Legend & AI Button */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -2020,16 +1761,14 @@ export default function ProjectProfitabilityDetail() {
                 </Card>
 
                 {/* Task Detail Dialog */}
-                {
-                    selectedTaskId && (
-                        <TaskDetailDialog
-                            open={isTaskDetailOpen}
-                            onClose={() => setIsTaskDetailOpen(false)}
-                            taskId={selectedTaskId}
-                            readOnly={true}
-                        />
-                    )
-                }
+                {selectedTaskId && (
+                    <TaskDetailDialog
+                        open={isTaskDetailOpen}
+                        onClose={() => setIsTaskDetailOpen(false)}
+                        taskId={selectedTaskId}
+                        readOnly={true}
+                    />
+                )}
             </div>
         </TooltipProvider>
     );

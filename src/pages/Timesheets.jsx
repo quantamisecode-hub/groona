@@ -115,6 +115,16 @@ export default function TimesheetsPage() {
   const queryClient = useQueryClient();
   const lastAutoOpenedId = React.useRef(null);
 
+  // Listen for custom event from empty states
+  React.useEffect(() => {
+    const handleOpenForm = () => {
+      setEditingEntry(null);
+      setShowForm(true);
+    };
+    window.addEventListener('open-timesheet-form', handleOpenForm);
+    return () => window.removeEventListener('open-timesheet-form', handleOpenForm);
+  }, []);
+
   const canApproveTimesheets = useHasPermission('can_approve_timesheet');
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_super_admin || currentUser?.custom_role === 'owner';
 
@@ -1659,7 +1669,7 @@ export default function TimesheetsPage() {
           </Tabs>
         </div>
 
-        {/* Edit Form Modal */}
+        {/* Edit Form Modal  */}
         <AlertDialog
           open={showForm}
           onOpenChange={(open) => {
@@ -1685,7 +1695,7 @@ export default function TimesheetsPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Other Dialogs */}
+        {/* Other Dialogs  */}
         <SubmitTimesheetsDialog
           open={showSubmitDialog}
           onClose={() => setShowSubmitDialog(false)}
@@ -1711,6 +1721,7 @@ export default function TimesheetsPage() {
           </AlertDialogContent>
         </AlertDialog>
 
+
         {(reworkAlarm || selectedReworkEntry) && (
           <ReworkActionDialog
             open={showReworkActionDialog}
@@ -1729,6 +1740,7 @@ export default function TimesheetsPage() {
               }
             }}
           />
+
         )}
 
         <TaskDetailDialog
@@ -1737,6 +1749,6 @@ export default function TimesheetsPage() {
           taskId={selectedTaskId}
         />
       </div>
-    </div>
+    </div >
   );
 }

@@ -25,7 +25,7 @@ export default function DeepAnalytics({ projects, tasks, users, activities, tena
     setLoadingAnalysis(true);
     try {
       const scopeName = selectedTenant === "all" ? "Platform-Wide" : tenants.find(t => t.id === selectedTenant)?.name || "Tenant";
-      
+
       const prompt = `Perform a comprehensive deep analytics analysis for ${scopeName}:
 
 **User Metrics:**
@@ -155,91 +155,82 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Deep Analytics</h2>
-          <p className="text-slate-600">AI-powered insights and comprehensive platform analytics</p>
+        <div className="space-y-1">
+          <h2 className="text-2xl font-black text-slate-900">Deep Analytics</h2>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">AI-powered insights and comprehensive platform analytics</p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={generateDeepAnalysis}
-            disabled={loadingAnalysis}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-          >
-            {loadingAnalysis ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate AI Analysis
-              </>
-            )}
-          </Button>
-        </div>
+        <Button
+          onClick={generateDeepAnalysis}
+          disabled={loadingAnalysis}
+          className="bg-gradient-to-r from-blue-600 to-slate-900 hover:from-blue-700 hover:to-slate-950 border-0 shadow-lg shadow-blue-500/20 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95 hover:opacity-90"
+        >
+          {loadingAnalysis ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Analyzing...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate AI Analysis
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300 overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Total Users</p>
-                <p className="text-3xl font-bold text-blue-600">{metrics.totalUsers}</p>
-                <p className="text-xs text-green-600 mt-1">
-                  {metrics.activeUsers} active (7d)
-                </p>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Users</p>
+                <p className="text-4xl font-black text-blue-600 leading-tight">{metrics.totalUsers}</p>
+                <p className="text-xs font-bold text-emerald-500">{metrics.activeUsers} active (7d)</p>
               </div>
-              <Users className="h-10 w-10 text-blue-600" />
+              <Users className="h-12 w-12 text-blue-500/10" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300 overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Projects</p>
-                <p className="text-3xl font-bold text-purple-600">{metrics.totalProjects}</p>
-                <p className="text-xs text-green-600 mt-1">
-                  {metrics.activeProjects} active
-                </p>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Projects</p>
+                <p className="text-4xl font-black text-purple-600 leading-tight">{metrics.totalProjects}</p>
+                <p className="text-xs font-bold text-emerald-500">{metrics.activeProjects} active</p>
               </div>
-              <Target className="h-10 w-10 text-purple-600" />
+              <Target className="h-12 w-12 text-purple-500/10" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300 overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Task Completion</p>
-                <p className="text-3xl font-bold text-green-600">{metrics.taskCompletionRate}%</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  {metrics.completedTasks}/{metrics.totalTasks} tasks
-                </p>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Task Completion</p>
+                <p className="text-4xl font-black text-emerald-600 leading-tight">{metrics.taskCompletionRate}%</p>
+                <p className="text-xs font-bold text-slate-400">{metrics.completedTasks}/{metrics.totalTasks} tasks</p>
               </div>
-              <CheckCircle2 className="h-10 w-10 text-green-600" />
+              <CheckCircle2 className="h-12 w-12 text-emerald-500/10" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300 overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 mb-1">Activity (7d)</p>
-                <p className="text-3xl font-bold text-amber-600">{metrics.recentActivity}</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  Platform actions
-                </p>
+              <div className="space-y-1">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Activity (7d)</p>
+                <p className="text-4xl font-black text-amber-600 leading-tight">{metrics.recentActivity}</p>
+                <p className="text-xs font-bold text-slate-400">Platform actions</p>
               </div>
-              <Activity className="h-10 w-10 text-amber-600" />
+              <Activity className="h-12 w-12 text-amber-500/10" />
             </div>
           </CardContent>
         </Card>
@@ -248,38 +239,34 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
       {/* AI Analysis Results */}
       {aiAnalysis ? (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="risks">Risks & Issues</TabsTrigger>
-            <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+          <TabsList className="bg-slate-100/80 p-1 rounded-xl justify-start gap-1">
+            <TabsTrigger value="overview" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Overview</TabsTrigger>
+            <TabsTrigger value="performance" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Performance</TabsTrigger>
+            <TabsTrigger value="risks" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Risks & Issues</TabsTrigger>
+            <TabsTrigger value="opportunities" className="rounded-lg font-bold data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">Opportunities</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-600">
-                    <TrendingUp className="h-5 w-5" />
-                    Performance Trends
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Performance Trends</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('performance_trends'))}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-600">
-                    <Users className="h-5 w-5" />
-                    Engagement Insights
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Engagement Insights</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('engagement_insights'))}
                   </ul>
                 </CardContent>
@@ -289,29 +276,25 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
 
           <TabsContent value="performance" className="space-y-4 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    Project Health
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Project Health</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('project_health'))}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-600">
-                    <Clock className="h-5 w-5" />
-                    Productivity Metrics
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Productivity Metrics</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('productivity_metrics'))}
                   </ul>
                 </CardContent>
@@ -320,15 +303,15 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
           </TabsContent>
 
           <TabsContent value="risks" className="space-y-4 mt-6">
-            <Card className="border-2 border-red-200">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="h-5 w-5" />
-                  Risk Factors & Bottlenecks
-                </CardTitle>
-                <CardDescription>Critical issues requiring immediate attention</CardDescription>
+            <Card className="bg-white border border-red-100 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)] overflow-hidden">
+              <CardHeader className="border-b border-red-50 bg-red-50/30 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <div>
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Risk Factors & Bottlenecks</CardTitle>
+                  <CardDescription className="text-xs font-bold text-red-400 uppercase tracking-wider mt-0.5">Critical issues requiring immediate attention</CardDescription>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <ul className="space-y-3">
                   {renderList(getAnalysisData('risk_factors'))}
                 </ul>
@@ -338,29 +321,25 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
 
           <TabsContent value="opportunities" className="space-y-4 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-600">
-                    <TrendingUp className="h-5 w-5" />
-                    Growth Opportunities
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Growth Opportunities</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('growth_opportunities'))}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-600">
-                    <Sparkles className="h-5 w-5" />
-                    Efficiency Recommendations
-                  </CardTitle>
+              <Card className="bg-white border border-slate-200/60 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
+                <CardHeader className="border-b border-slate-50 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                  <Sparkles className="h-4 w-4 text-purple-600" />
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Efficiency Recommendations</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
+                <CardContent className="p-6">
+                  <ul className="space-y-3">
                     {renderList(getAnalysisData('efficiency_recommendations'))}
                   </ul>
                 </CardContent>
@@ -368,24 +347,24 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
             </div>
 
             {/* Predictive Insights */}
-            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50 mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-900">
-                  <Sparkles className="h-5 w-5" />
-                  Predictive Insights
-                </CardTitle>
-                <CardDescription>AI-powered predictions and future trends</CardDescription>
+            <Card className="bg-gradient-to-br from-blue-50/50 to-purple-50/50 border border-blue-100 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)] overflow-hidden">
+              <CardHeader className="border-b border-blue-100/60 py-4 px-6 flex flex-row items-center gap-2 space-y-0">
+                <Sparkles className="h-4 w-4 text-blue-600" />
+                <div>
+                  <CardTitle className="text-sm font-black text-slate-800 uppercase tracking-tight">Predictive Insights</CardTitle>
+                  <CardDescription className="text-xs font-bold text-blue-400 uppercase tracking-wider mt-0.5">AI-powered predictions and future trends</CardDescription>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <ul className="space-y-3">
                   {(() => {
                     const insights = getAnalysisData('predictive_insights');
                     return insights.length > 0 ? insights.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-blue-200">
-                        <Badge className="mt-0.5 bg-blue-600">{idx + 1}</Badge>
-                        <span className="text-sm text-slate-800">{item}</span>
+                      <li key={idx} className="flex items-start gap-3 p-4 bg-white/80 rounded-xl border border-blue-100">
+                        <Badge className="mt-0.5 bg-gradient-to-r from-blue-500 to-purple-600 border-none text-white font-black">{idx + 1}</Badge>
+                        <span className="text-sm font-medium text-slate-700">{item}</span>
                       </li>
-                    )) : <li className="text-sm text-slate-500">No predictions available.</li>;
+                    )) : <li className="text-sm font-bold text-slate-400">No predictions available.</li>;
                   })()}
                 </ul>
               </CardContent>
@@ -393,12 +372,14 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
           </TabsContent>
         </Tabs>
       ) : (
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-          <CardContent className="py-16">
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] overflow-hidden">
+          <CardContent className="py-24">
             <div className="text-center">
-              <Sparkles className="h-16 w-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">No Analysis Yet</h3>
-              <p className="text-slate-600 mb-6">
+              <div className="h-20 w-20 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="h-10 w-10 text-slate-300" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">No Analysis Yet</h3>
+              <p className="text-slate-500 font-medium max-w-sm mx-auto">
                 Click "Generate AI Analysis" to unlock comprehensive insights about your organization.
               </p>
             </div>

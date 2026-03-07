@@ -636,7 +636,7 @@ function LayoutContent({ children, currentPageName }) {
   if (isPublicRoute) {
     return (
       <NotificationProvider>
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster position="top-right" expand={true} />
         <div className="min-h-screen bg-white">
           {children}
         </div>

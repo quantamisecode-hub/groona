@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 // CHANGED: Replaced Sparkles with Sprout
-import { Loader2, Mail, ArrowLeft, CheckCircle2, Sprout } from "lucide-react";
+import { Loader2, Mail, ArrowLeft, CheckCircle2, Sprout, AlertCircle } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 
@@ -51,49 +51,56 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-xl">
-          <CardHeader className="text-center space-y-4 pb-8">
-            {/* CHANGED: Replaced Sparkles with Sprout and updated gradient */}
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg  shadow-blue-500/20">
-                         <Sprout className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 relative overflow-hidden font-sans">
+      {/* Dynamic Background Accents */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-400/10 rounded-full blur-[120px]" />
+
+      <div className="w-full max-w-[440px] relative z-10">
+        <Card className="bg-white/70 backdrop-blur-3xl border-white/40 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="text-center pt-12 pb-8 px-8 flex flex-col items-center">
+            {/* Logo Container */}
+            <div className="h-20 w-20 rounded-[1.75rem] bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 flex items-center justify-center shadow-xl shadow-blue-500/30 mb-8 border border-white/20 transform hover:scale-105 transition-transform duration-300">
+              <Sprout className="h-10 w-10 text-white" />
             </div>
-            <div>
-              <CardTitle className="text-2xl font-bold text-slate-900">
+
+            <div className="space-y-2">
+              <CardTitle className="text-3xl font-black text-slate-900 tracking-tight">
                 Forgot Password?
               </CardTitle>
-              <CardDescription className="text-base mt-2">
-                {submitted 
-                  ? "Check your email for instructions"
-                  : "Enter your email to receive a reset link"
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                {submitted
+                  ? "Check your inbox for instructions"
+                  : "We'll send you a secure link to reset it"
                 }
-              </CardDescription>
+              </p>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="px-10 pb-12">
             {submitted ? (
-              <div className="space-y-6">
-                <Alert className="border-green-200 bg-green-50">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <AlertDescription className="text-green-900">
-                    If an account exists for <strong>{email}</strong>, you will receive password reset instructions shortly.
-                  </AlertDescription>
-                </Alert>
+              <div className="space-y-8">
+                <div className="bg-emerald-50/50 border border-emerald-100 p-6 rounded-[2rem] flex flex-col items-center text-center space-y-3">
+                  <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-1">
+                    <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <p className="text-emerald-900 font-bold text-sm leading-relaxed">
+                    If an account exists for <span className="text-emerald-600 break-all">{email}</span>, you'll see a reset link in your inbox shortly.
+                  </p>
+                </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 pt-2">
                   <Button
                     variant="outline"
                     onClick={() => setSubmitted(false)}
-                    className="w-full"
+                    className="w-full h-14 rounded-2xl border-slate-200 font-black uppercase tracking-widest text-xs hover:bg-slate-50 transition-all active:scale-95"
                   >
                     Try another email
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={() => navigate(createPageUrl("SignIn"))}
-                    className="w-full"
+                    className="w-full h-12 text-slate-500 font-bold hover:text-slate-900 transition-colors"
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Login
@@ -101,60 +108,75 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-8">
                 {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-xs font-bold text-red-600 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      {error}
+                    </p>
+                  </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                <div className="space-y-3">
+                  <Label htmlFor="email" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
+                    Account Email
+                  </Label>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:text-blue-600 transition-colors text-slate-400">
+                      <Mail className="h-5 w-5" />
+                    </div>
                     <Input
                       id="email"
                       type="email"
-                      placeholder="name@example.com"
+                      placeholder="name@company.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       disabled={loading}
                       required
-                      className="pl-10"
+                      className="h-14 pl-12 pr-4 bg-slate-50/50 border-slate-200/60 rounded-2xl font-bold text-slate-700 placeholder:text-slate-300 focus-visible:ring-blue-500/10 focus-visible:border-blue-500/30 transition-all w-full"
                     />
                   </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium text-base"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Sending Link...
-                    </>
-                  ) : (
-                    'Send Reset Link'
-                  )}
-                </Button>
-
-                <div className="text-center pt-4 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => navigate(createPageUrl("SignIn"))}
-                    className="text-slate-500 hover:text-slate-700 font-medium flex items-center justify-center gap-2 mx-auto transition-colors"
+                <div className="space-y-6 pt-2">
+                  <Button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full h-14 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] transition-all active:scale-[0.98] border-0"
                   >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back to Login
-                  </button>
+                    {loading ? (
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="h-5 w-5 animate-spin opacity-70" />
+                        <span>Processing...</span>
+                      </div>
+                    ) : (
+                      'Send Reset Link'
+                    )}
+                  </Button>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => navigate(createPageUrl("SignIn"))}
+                      className="inline-flex items-center gap-2 text-[11px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-widest transition-all duration-200 group"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-1" />
+                      Return to Secure Login
+                    </button>
+                  </div>
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
+
+        {/* Footer Info */}
+        <p className="text-center mt-10 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
+          Powered by Groona AI &bull; Secure Authentication
+        </p>
       </div>
     </div>
   );
 }
+

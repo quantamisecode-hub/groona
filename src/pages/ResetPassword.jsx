@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 // CHANGED: Replaced Sparkles with Sprout, added Eye and EyeOff
-import { Loader2, Lock, CheckCircle2, XCircle, Sprout, Eye, EyeOff } from "lucide-react";
+import { Loader2, Lock, CheckCircle2, XCircle, Sprout, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
 
@@ -19,8 +19,7 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  // NEW: State for toggling password visibility
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -51,7 +50,7 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -98,54 +97,65 @@ export default function ResetPasswordPage() {
   };
 
   const ValidationItem = ({ isValid, text }) => (
-    <div className="flex items-center gap-2 text-sm">
-      {isValid ? (
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
-      ) : (
-        <XCircle className="h-4 w-4 text-slate-300" />
-      )}
-      <span className={isValid ? 'text-green-600' : 'text-slate-500'}>
+    <div className="flex items-center gap-2.5">
+      <div className={`h-4 w-4 rounded-full flex items-center justify-center transition-all duration-300 ${isValid ? 'bg-emerald-100' : 'bg-slate-100'}`}>
+        {isValid ? (
+          <CheckCircle2 className="h-2.5 w-2.5 text-emerald-600" />
+        ) : (
+          <div className="h-1 w-1 bg-slate-300 rounded-full" />
+        )}
+      </div>
+      <span className={`text-[11px] font-bold uppercase tracking-tight transition-colors duration-300 ${isValid ? 'text-emerald-600' : 'text-slate-400'}`}>
         {text}
       </span>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-xl">
-          <CardHeader className="text-center space-y-4 pb-8">
-            {/* CHANGED: Replaced Sparkles with Sprout and updated gradient */}
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg  shadow-blue-500/20">
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6 relative overflow-hidden font-sans">
+      {/* Dynamic Background Accents */}
+      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-400/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-400/10 rounded-full blur-[120px]" />
+
+      <div className="w-full max-w-[440px] relative z-10">
+        <Card className="bg-white/70 backdrop-blur-3xl border-white/40 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="text-center pt-10 pb-6 px-8 flex flex-col items-center">
+            {/* Logo Container */}
+            <div className="h-16 w-16 rounded-[1.5rem] bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/20 mb-6 border border-white/20">
               <Sprout className="h-8 w-8 text-white" />
-      
             </div>
-            <div>
-              <CardTitle className="text-2xl font-bold text-slate-900">
-                Reset Your Password
+
+            <div className="space-y-2">
+              <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">
+                Reset Password
               </CardTitle>
-              <CardDescription className="text-base mt-2">
-                {success 
-                  ? "Your password has been updated successfully"
-                  : "Enter your new password below"
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                {success
+                  ? "Identity verified & updated"
+                  : "Create a strong new password"
                 }
-              </CardDescription>
+              </p>
             </div>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="px-10 pb-10">
             {success ? (
               <div className="space-y-6">
-                <Alert className="border-green-200 bg-green-50">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <AlertDescription className="text-green-900">
-                    Your password has been reset successfully. You can now log in with your new password.
-                  </AlertDescription>
-                </Alert>
+                <div className="bg-emerald-50/50 border border-emerald-100 p-8 rounded-[2rem] flex flex-col items-center text-center space-y-4">
+                  <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center mb-1 animate-bounce">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-emerald-900 font-black uppercase tracking-widest text-sm">Success!</h3>
+                    <p className="text-emerald-700/80 font-bold text-xs leading-relaxed max-w-[200px]">
+                      Your credentials have been securely updated. Redirecting...
+                    </p>
+                  </div>
+                </div>
 
                 <Button
                   onClick={() => navigate(createPageUrl("SignIn"))}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  className="w-full h-14 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
                 >
                   Go To Login
                 </Button>
@@ -153,114 +163,120 @@ export default function ResetPasswordPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-[10px] font-black text-red-600 flex items-center gap-2 uppercase tracking-wide">
+                      <AlertCircle className="h-4 w-4" />
+                      {error}
+                    </p>
+                  </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">New Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                    <Input
-                      id="password"
-                      // CHANGED: Dynamic type based on state
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter new password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={loading}
-                      required
-                      className="pl-10 pr-10" // Added padding right for the eye icon
-                    />
-                    {/* NEW: Eye Icon Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
+                <div className="space-y-5">
+                  {/* New Password Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
+                      New Password
+                    </Label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={loading}
+                        required
+                        className="h-14 pl-12 pr-12 bg-slate-50/50 border-slate-200/60 rounded-2xl font-bold text-slate-700 placeholder:text-slate-300 focus-visible:ring-blue-500/10 focus-visible:border-blue-500/30 transition-all w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password Input */}
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
+                      Confirm Password
+                    </Label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
+                      <Input
+                        id="confirmPassword"
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={loading}
+                        required
+                        className="h-14 pl-12 pr-12 bg-slate-50/50 border-slate-200/60 rounded-2xl font-bold text-slate-700 placeholder:text-slate-300 focus-visible:ring-blue-500/10 focus-visible:border-blue-500/30 transition-all w-full"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-                    <Input
-                      id="confirmPassword"
-                      // CHANGED: Dynamic type based on state
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="Confirm new password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={loading}
-                      required
-                      className="pl-10 pr-10"
-                    />
-                    {/* NEW: Eye Icon Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 focus:outline-none"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Password Requirements */}
-                <div className="space-y-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm font-medium text-slate-700 mb-2">
-                    Password Requirements:
+                {/* Password Requirements - Modern Grid Style */}
+                <div className="p-5 bg-slate-50/80 border border-slate-100 rounded-[2rem] space-y-4">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200/60 pb-2">
+                    Security check
                   </p>
-                  <ValidationItem isValid={validations.length} text="At least 8 characters" />
-                  <ValidationItem isValid={validations.uppercase} text="At least 1 uppercase letter" />
-                  <ValidationItem isValid={validations.number} text="At least 1 number" />
-                  <ValidationItem isValid={validations.match} text="Passwords match" />
+                  <div className="grid grid-cols-1 gap-3">
+                    <ValidationItem isValid={validations.length} text="8+ characters" />
+                    <ValidationItem isValid={validations.uppercase} text="Uppercase" />
+                    <ValidationItem isValid={validations.number} text="Contains number" />
+                    <ValidationItem isValid={validations.match} text="Match found" />
+                  </div>
                 </div>
 
-                <Button
-                  type="submit"
-                  disabled={loading || !Object.values(validations).every(v => v)}
-                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium text-base"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                      Resetting Password...
-                    </>
-                  ) : (
-                    'Reset Password'
-                  )}
-                </Button>
+                <div className="space-y-6 pt-2">
+                  <Button
+                    type="submit"
+                    disabled={loading || !Object.values(validations).every(v => v)}
+                    className="w-full h-14 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-800 hover:from-blue-700 hover:to-indigo-900 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-[0_12px_24px_-8px_rgba(37,99,235,0.4)] disabled:opacity-50 disabled:grayscale transition-all active:scale-[0.98] border-0"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-3">
+                        <Loader2 className="h-5 w-5 animate-spin opacity-70" />
+                        <span>Updating...</span>
+                      </div>
+                    ) : (
+                      'Secure Update'
+                    )}
+                  </Button>
 
-                <div className="text-center pt-4 border-t border-slate-200">
-                  <p className="text-xs text-slate-500">
-                    Remember your password?{' '}
+                  <div className="text-center">
                     <button
                       type="button"
                       onClick={() => navigate(createPageUrl("SignIn"))}
-                      className="text-blue-600 hover:text-blue-700 font-medium"
+                      className="text-[10px] font-black text-slate-400 hover:text-slate-900 uppercase tracking-widest transition-all"
                     >
-                      Sign In
+                      Back to Login
                     </button>
-                  </p>
+                  </div>
                 </div>
               </form>
             )}
           </CardContent>
         </Card>
+
+        {/* Footer Info */}
+        <p className="text-center mt-10 text-[10px] font-bold text-slate-400 uppercase tracking-widest opacity-60">
+          Powered by Groona AI &bull; Secure Authentication
+        </p>
       </div>
     </div>
   );
 }
+

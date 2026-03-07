@@ -264,9 +264,15 @@ export default function Register() {
       <main className="flex-1 flex flex-col relative h-full bg-white overflow-y-auto">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-6 border-b shrink-0">
-          <div className="flex items-center gap-2">
-            <Rocket className="w-6 h-6 text-blue-600" />
-            <span className="font-bold text-lg">Groona</span>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-slate-500 flex items-center gap-1.5 text-sm font-medium hover:text-blue-600 transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Home</span>
+            </Link>
+            <div className="flex items-center gap-2">
+              <Rocket className="w-6 h-6 text-blue-600" />
+              <span className="font-bold text-lg">Groona</span>
+            </div>
           </div>
           <Link to={createPageUrl("SignIn")} className="text-sm font-bold text-blue-600">
             Log In
@@ -275,14 +281,17 @@ export default function Register() {
 
         {/* Top Header */}
         <header className="hidden md:flex h-14 lg:h-16 items-center justify-between px-12 shrink-0">
-          <Link to={createPageUrl("SignIn")} className="group flex items-center gap-4 text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors">
-            <div className="w-8 h-8 rounded-full border border-slate-100 flex items-center justify-center group-hover:bg-slate-50 transition-colors">
+          <Link to="/">
+            <Button variant="ghost" className="rounded-full text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 gap-2 font-medium">
               <ArrowLeft className="w-4 h-4" />
-            </div>
-            Back to Login
+              Back to Website
+            </Button>
           </Link>
 
           <div className="flex items-center gap-4">
+            <Link to={createPageUrl("SignIn")} className="text-sm font-bold text-slate-400 hover:text-slate-900 transition-colors mr-4">
+              Back to Login
+            </Link>
             <span className="text-sm font-medium text-slate-500">Already a member?</span>
             <Link to={createPageUrl("SignIn")}>
               <Button variant="outline" className="rounded-full px-6 font-bold border-slate-200">

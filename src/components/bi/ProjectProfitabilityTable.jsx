@@ -643,32 +643,32 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
   };
 
   return (
-    <div className="space-y-6">
-      {/* Date Filter & Currency Selector */}
-      <div className="flex flex-wrap items-end gap-4 bg-white/50 p-4 rounded-xl border border-slate-100 backdrop-blur-sm">
+    <div className="space-y-8">
+      {/* Filter Bar */}
+      <div className="flex flex-wrap items-end gap-4 bg-white border border-slate-200/60 p-5 rounded-[1.5rem] shadow-[0_2px_15px_rgba(0,0,0,0.03)]">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Project</label>
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Project</label>
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger className="w-[200px] bg-white text-left">
+            <SelectTrigger className="w-[200px] h-11 bg-white rounded-xl border-slate-200 font-bold text-slate-700">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
+            <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+              <SelectItem value="all" className="font-bold">All Projects</SelectItem>
               {projects.map(p => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                <SelectItem key={p.id} value={p.id} className="font-bold">{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Currency</label>
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Currency</label>
           <Select value={targetCurrency} onValueChange={setTargetCurrency}>
-            <SelectTrigger className="w-[100px] bg-white">
+            <SelectTrigger className="w-[110px] h-11 bg-white rounded-xl border-slate-200 font-bold text-slate-700">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="rounded-xl border-slate-100 shadow-xl">
               {CURRENCIES.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c} className="font-bold">{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -678,367 +678,325 @@ export default function ProjectProfitabilityTable({ projects, users, timesheets,
             variant="outline"
             onClick={handleRefresh}
             title="Refresh Data"
-            className="h-10 px-4 bg-white border-slate-200 gap-2 font-medium text-slate-700"
+            className="h-11 px-5 bg-white border-slate-200 rounded-xl gap-2 font-bold text-slate-700 hover:bg-slate-50"
           >
-            <RefreshCw className={`h-4 w-4 text-slate-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Refresh Data</span>
           </Button>
         </div>
       </div>
 
       {/* Header Row with Legend */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-2">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <PieChart className="h-5 w-5 text-indigo-600" />
-            Overall Company Profitability
-          </h3>
-
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-indigo-600">
-                <HelpCircle className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-96 p-4 text-xs shadow-xl" align="start">
-              <div className="space-y-4">
-                <h4 className="font-semibold text-sm border-b pb-2 mb-2">How Metrics are Calculated</h4>
-
-                <div className="grid grid-cols-[1fr_2fr] gap-2">
-                  <span className="font-semibold text-blue-700">Labor Cost:</span>
-                  <span className="text-slate-600">Sum of (Logged Hours × User Hourly Rate) for all employees across selected period.</span>
-
-                  <span className="font-semibold text-amber-700">Non-Labor:</span>
-                  <span className="text-slate-600">Total of all <strong>Approved</strong> project expenses (software, travel, etc.).</span>
-
-                  <span className="font-semibold text-green-700">Profit:</span>
-                  <span className="text-slate-600">Revenue (Budget/Retainer) - (Labor Cost + Non-Labor Cost).</span>
-
-                  <span className="font-semibold text-purple-700">Margin %:</span>
-                  <span className="text-slate-600">(Net Profit / Total Revenue) × 100.</span>
-                </div>
-
-                <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-100 italic text-[10px] text-slate-500">
-                  * Currencies are automatically converted to the selected target currency for aggregation.
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="h-9 w-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+            <PieChart className="h-4 w-4 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              Overall Company Profitability
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-indigo-600">
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-96 p-4 text-xs shadow-xl rounded-xl" align="start">
+                  <div className="space-y-4">
+                    <h4 className="font-black text-sm border-b border-slate-100 pb-2 mb-2">How Metrics are Calculated</h4>
+                    <div className="grid grid-cols-[1fr_2fr] gap-2">
+                      <span className="font-black text-blue-700">Labor Cost:</span>
+                      <span className="text-slate-600">Sum of (Logged Hours × User Hourly Rate) for all employees across selected period.</span>
+                      <span className="font-black text-amber-700">Non-Labor:</span>
+                      <span className="text-slate-600">Total of all <strong>Approved</strong> project expenses (software, travel, etc.).</span>
+                      <span className="font-black text-green-700">Profit:</span>
+                      <span className="text-slate-600">Revenue (Budget/Retainer) - (Labor Cost + Non-Labor Cost).</span>
+                      <span className="font-black text-purple-700">Margin %:</span>
+                      <span className="text-slate-600">(Net Profit / Total Revenue) × 100.</span>
+                    </div>
+                    <div className="mt-2 p-2 bg-slate-50 rounded-lg border border-slate-100 italic text-[10px] text-slate-500">
+                      * Currencies are automatically converted to the selected target currency for aggregation.
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </h3>
+          </div>
         </div>
-
-        {/* Compact Legend */}
-        <div className="flex items-center gap-4 text-xs font-medium text-slate-600 bg-white/50 px-4 py-2 rounded-full border border-slate-200/60 backdrop-blur-sm">
-          <span className="text-slate-500">Margin:</span>
-          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>{'>'}20%</div>
-          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>10-20%</div>
-          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>0-10%</div>
-          <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>{'<'}0%</div>
+        {/* Legend */}
+        <div className="flex items-center gap-3 text-xs font-black text-slate-500 bg-white border border-slate-200/60 px-4 py-2 rounded-full shadow-sm">
+          <span className="text-slate-400 uppercase tracking-widest">Margin:</span>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500"></div>{'>'}20%</div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500"></div>10-20%</div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-500"></div>0-10%</div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500"></div>{'<'}0%</div>
         </div>
       </div>
 
-      {/* Summary Cards Grid - 9 columns */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-3 mb-8">
+      {/* Summary Cards Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-4">
 
         {/* Contract Amount */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Contract Amount ({targetCurrency})</p>
-                <h3 className="text-lg font-bold text-green-700 truncate">
-                  {formatCurrency(processedData.aggregates.totalRevenueConverted, targetCurrency)}
-                </h3>
-              </div>
-              <div title="Sum of all project contract/retainer/T&M budgets" className="p-1.5 bg-green-50 rounded-lg cursor-help ml-2 shrink-0">
-                <Banknote className="h-4 w-4 text-green-600 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contract Amt ({targetCurrency})</p>
+            <p className="text-xl font-black text-emerald-600 truncate" title={formatCurrency(processedData.aggregates.totalRevenueConverted, targetCurrency)}>
+              {formatCurrency(processedData.aggregates.totalRevenueConverted, targetCurrency)}
+            </p>
           </CardContent>
         </Card>
 
         {/* Labor Cost */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Labor Cost ({targetCurrency})</p>
-                <h3 className="text-lg font-bold text-slate-900 truncate">
-                  {formatCurrency(processedData.aggregates.totalLaborCostConverted, targetCurrency)}
-                </h3>
-              </div>
-              <div title="Sum of Employee Costs" className="p-1.5 bg-blue-50 rounded-lg cursor-help ml-2 shrink-0">
-                <Banknote className="h-4 w-4 text-blue-600 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Labor Cost ({targetCurrency})</p>
+            <p className="text-xl font-black text-slate-900 truncate">
+              {formatCurrency(processedData.aggregates.totalLaborCostConverted, targetCurrency)}
+            </p>
           </CardContent>
         </Card>
 
         {/* Non-Labor Cost */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Non-Labor ({targetCurrency})</p>
-                <h3 className="text-lg font-bold text-slate-900 truncate">
-                  {formatCurrency(processedData.aggregates.totalNonLaborCostConverted, targetCurrency)}
-                </h3>
-              </div>
-              <div title="Sum of Expenses" className="p-1.5 bg-amber-50 rounded-lg cursor-help ml-2 shrink-0">
-                <Banknote className="h-4 w-4 text-amber-600 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Non-Labor ({targetCurrency})</p>
+            <p className="text-xl font-black text-slate-900 truncate">
+              {formatCurrency(processedData.aggregates.totalNonLaborCostConverted, targetCurrency)}
+            </p>
           </CardContent>
         </Card>
 
         {/* Project Profit / Loss */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Total Profit / Loss ({targetCurrency})</p>
-                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalProfitConverted >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(processedData.aggregates.totalProfitConverted, targetCurrency)}
-                </h3>
-              </div>
-              <div title="Revenue - Cost" className={`ml-2 p-1.5 rounded-lg cursor-help shrink-0 ${processedData.aggregates.totalProfit >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                <TrendingUp className={`h-4 w-4 ${processedData.aggregates.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Profit / Loss ({targetCurrency})</p>
+            <p className={`text-xl font-black truncate ${processedData.aggregates.totalProfitConverted >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {formatCurrency(processedData.aggregates.totalProfitConverted, targetCurrency)}
+            </p>
           </CardContent>
         </Card>
 
         {/* Profit Margin % */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">
-                  {processedData.aggregates.overallMargin < 0 ? 'Profit Leakage %' : 'Profit Margin %'}
-                </p>
-                <h3 className={`text-lg font-bold ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`}>
-                  {formatPercent(processedData.aggregates.overallMargin)}
-                </h3>
-              </div>
-              <div title="(Profit / Revenue) * 100" className="p-1.5 bg-purple-50 rounded-lg cursor-help ml-2 shrink-0">
-                <AlertCircle className="h-4 w-4 text-purple-600 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
+              {processedData.aggregates.overallMargin < 0 ? 'Leakage %' : 'Profit Margin %'}
+            </p>
+            <p className={`text-xl font-black ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`}>
+              {formatPercent(processedData.aggregates.overallMargin)}
+            </p>
           </CardContent>
         </Card>
 
         {/* Profit Leakage */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight text-red-600">Profit Leakage ({targetCurrency})</p>
-                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalLeakageConverted > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                  {formatCurrency(processedData.aggregates.totalLeakageConverted, targetCurrency)}
-                </h3>
-                {processedData.aggregates.totalLeakageConverted > 0 && (
-                  <p className="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">
-                    {processedData.aggregates.overallLeakagePercent.toFixed(1)}% of Revenue
-                  </p>
-                )}
-              </div>
-              <div title="Unbillable hours, bench cost, or budget overruns" className="p-1.5 bg-red-50 rounded-lg cursor-help ml-2 shrink-0">
-                <TrendingDown className="h-4 w-4 text-red-500 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Profit Leakage ({targetCurrency})</p>
+            <p className={`text-xl font-black truncate ${processedData.aggregates.totalLeakageConverted > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+              {formatCurrency(processedData.aggregates.totalLeakageConverted, targetCurrency)}
+            </p>
+            {processedData.aggregates.totalLeakageConverted > 0 && (
+              <p className="text-[10px] font-bold text-slate-400 mt-1">
+                {processedData.aggregates.overallLeakagePercent.toFixed(1)}% of Revenue
+              </p>
+            )}
           </CardContent>
         </Card>
 
         {/* Expense Budget */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Expense Budget ({targetCurrency})</p>
-                <h3 className={`text-lg font-bold truncate ${processedData.aggregates.totalExpenseBudgetConverted > 0 ? 'text-blue-600' : 'text-slate-400'}`}>
-                  {processedData.aggregates.totalExpenseBudgetConverted > 0
-                    ? formatCurrency(processedData.aggregates.totalExpenseBudgetConverted, targetCurrency)
-                    : '—'}
-                </h3>
-              </div>
-              <div className="p-1.5 bg-blue-50 rounded-lg ml-2 shrink-0">
-                <Banknote className="h-4 w-4 text-blue-500 opacity-80" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Budget Used % */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Budget Used %</p>
-                {processedData.aggregates.overallBudgetUsedPercent != null ? (
-                  <div className="flex flex-col">
-                    <h3 className={`text-lg font-bold ${processedData.aggregates.overallBudgetUsedPercent > 100 ? 'text-red-600' :
-                      processedData.aggregates.overallBudgetUsedPercent > 80 ? 'text-amber-600' :
-                        'text-green-600'
-                      }`}>
-                      {processedData.aggregates.overallBudgetUsedPercent.toFixed(1)}%
-                    </h3>
-                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                      {formatCurrency(processedData.aggregates.totalCostConverted, targetCurrency)} of {formatCurrency(processedData.aggregates.totalExpenseBudgetConverted, targetCurrency)}
-                    </p>
-                    <div className="mt-1.5 w-full bg-slate-100 rounded-full h-1.5">
-                      <div
-                        className={`h-1.5 rounded-full ${processedData.aggregates.overallBudgetUsedPercent > 100 ? 'bg-red-500' :
-                          processedData.aggregates.overallBudgetUsedPercent > 80 ? 'bg-amber-500' :
-                            'bg-green-500'
-                          }`}
-                        style={{ width: `${Math.min(100, processedData.aggregates.overallBudgetUsedPercent)}%` }}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <h3 className="text-lg font-bold text-slate-400">—</h3>
-                )}
-              </div>
-              <div className="p-1.5 bg-indigo-50 rounded-lg ml-2 shrink-0">
-                <AlertCircle className="h-4 w-4 text-indigo-500 opacity-80" />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Expense Budget ({targetCurrency})</p>
+            <p className={`text-xl font-black truncate ${processedData.aggregates.totalExpenseBudgetConverted > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
+              {processedData.aggregates.totalExpenseBudgetConverted > 0
+                ? formatCurrency(processedData.aggregates.totalExpenseBudgetConverted, targetCurrency)
+                : '—'}
+            </p>
           </CardContent>
         </Card>
 
         {/* Status */}
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-slate-600 mb-1 leading-tight">Status</p>
-                <Badge className={`mt-0.5 text-xs font-medium px-2 py-0.5 ${getStatusColor(processedData.aggregates.overallMargin)} border-none shadow-none`}>
-                  {getStatusLabel(processedData.aggregates.overallMargin)}
-                </Badge>
-              </div>
-              <div className={`p-1.5 rounded-lg shrink-0 ml-2 ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[1].replace('100', '50')}`}>
-                <TrendingUp className={`h-4 w-4 ${getStatusColor(processedData.aggregates.overallMargin).split(' ')[0]}`} />
-              </div>
-            </div>
+        <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] hover:shadow-md transition-all duration-200">
+          <CardContent className="p-5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Status</p>
+            <Badge className={`text-xs font-black px-3 py-1.5 rounded-lg ${getStatusColor(processedData.aggregates.overallMargin)} border-none shadow-none`}>
+              {getStatusLabel(processedData.aggregates.overallMargin)}
+            </Badge>
           </CardContent>
         </Card>
       </div>
 
       {/* Main Table */}
-      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-sm">
-        <CardHeader className="pb-4">
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5 text-blue-600" />
-            <CardTitle className="text-lg font-bold text-slate-900">Project Profitability Details</CardTitle>
+      <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[1.5rem] overflow-hidden">
+        <CardHeader className="border-b border-slate-50 bg-slate-50/30 py-6 px-8">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Briefcase className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-black text-slate-900">Project Profitability Details</CardTitle>
+              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                Detailed breakdown by Project, and drill down to Sprint/Task/Employee
+              </CardDescription>
+            </div>
           </div>
-          <CardDescription className="text-slate-500 pl-7">
-            Detailed breakdown by Project, and drill down to Sprint/Task/Employee
-          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50/80">
-                <TableRow className="border-b border-slate-200 hover:bg-transparent">
-                  <TableHead className="w-[50px]"></TableHead>
-                  <TableHead className="font-bold text-slate-900 text-center">Project</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Contract Amount</TableHead>
-                  <TableHead className="text-center font-bold text-blue-700">Converted ({targetCurrency})</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Total Logged</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Approved Billable</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Labor Cost</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Non-Labor Exp</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Total Cost</TableHead>
-                  <TableHead className="text-center font-bold text-blue-700">Converted Cost ({targetCurrency})</TableHead>
-                  <TableHead className="text-center font-bold text-red-700">Leakage</TableHead>
-                  <TableHead className="text-center font-bold text-blue-700">Expense Budget</TableHead>
-                  <TableHead className="text-center font-bold text-blue-700">Budget Used %</TableHead>
-                  <TableHead className="text-center font-bold text-slate-900">Actions</TableHead>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="border-b border-slate-100 hover:bg-transparent">
+                  <TableHead className="font-black text-slate-500 text-xs uppercase tracking-wider pl-8 py-4 w-[220px]">Project</TableHead>
+                  <TableHead className="text-right font-black text-slate-500 text-xs uppercase tracking-wider py-4 pr-6">Contract / Converted</TableHead>
+                  <TableHead className="text-center font-black text-slate-500 text-xs uppercase tracking-wider py-4">Hours</TableHead>
+                  <TableHead className="text-right font-black text-slate-500 text-xs uppercase tracking-wider py-4 pr-6">Labor & Non-Labor</TableHead>
+                  <TableHead className="text-right font-black text-slate-500 text-xs uppercase tracking-wider py-4 pr-6">Profit / Margin</TableHead>
+                  <TableHead className="text-right font-black text-red-400 text-xs uppercase tracking-wider py-4 pr-6">Leakage / Budget</TableHead>
+                  <TableHead className="text-center font-black text-slate-500 text-xs uppercase tracking-wider py-4 pr-6">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {processedData.rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-24 text-center text-slate-500">
-                      No data found for the selected period.
+                    <TableCell colSpan={7} className="py-20 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center">
+                          <Briefcase className="h-8 w-8 text-slate-300" />
+                        </div>
+                        <p className="font-black text-slate-500">No data found for the selected filters.</p>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  processedData.rows.map((project) => (
-                    <React.Fragment key={project.id}>
-                      {/* Parent Project Row */}
-                      <TableRow
-                        className="cursor-pointer hover:bg-slate-50/80 transition-colors border-b border-slate-300"
-                        onClick={() => toggleProject(project.id)}
-                      >
-                        <TableCell>
-                          {/* Removed Expansion Icon */}
-                        </TableCell>
-                        <TableCell className="font-medium text-slate-900 text-center">{project.projectName}</TableCell>
-                        <TableCell className="text-center font-medium text-slate-600">
-                          <div className="flex flex-col items-center gap-0.5">
-                            <span>{formatCurrency(project.allocatedBudget, project.currency)}</span>
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-medium uppercase tracking-wide">
-                              {project.revenueLabel || project.billing_model || 'Budget'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center font-medium text-blue-600">
-                          {formatCurrency(getConvertedAmount(project.allocatedBudget, project.currency), targetCurrency)}
-                        </TableCell>
-                        <TableCell className="text-center text-slate-600">{project.totalLoggedHours.toFixed(2)} h</TableCell>
-                        <TableCell className="text-center text-slate-600">{project.totalApprovedHours.toFixed(2)} h</TableCell>
-                        <TableCell className="text-center font-medium text-slate-600">
-                          {formatCurrency(project.totalLaborCost, project.currency)}
-                        </TableCell>
-                        <TableCell className="text-center font-medium text-slate-600">
-                          {formatCurrency(project.totalNonLaborCost, project.currency)}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-slate-900">
-                          {formatCurrency(project.totalCost, project.currency)}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-blue-700">
-                          {/* Calculate Total Converted Cost for this Row */}
-                          {formatCurrency(
-                            getConvertedAmount(project.totalLaborCost, project.currency) + project.totalNonLaborCostConverted,
-                            targetCurrency
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-red-600">
-                          {project.projectLeakage > 0 ? formatCurrency(project.projectLeakage, project.currency) : '—'}
-                        </TableCell>
-                        <TableCell className="text-center font-medium text-blue-600">
-                          {project.expenseBudgetValue > 0 ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                              <span>{formatCurrency(project.expenseBudgetValue, project.currency)}</span>
-                              {project.billing_model === 'time_and_materials' && (
-                                <span className="text-[10px] text-slate-400">exp_budget × duration</span>
+                  processedData.rows.map((project) => {
+                    const convertedCost = getConvertedAmount(project.totalLaborCost, project.currency) + project.totalNonLaborCostConverted;
+                    const convertedRevenue = getConvertedAmount(project.allocatedBudget, project.currency);
+                    const profit = convertedRevenue - convertedCost;
+                    const margin = convertedRevenue > 0 ? (profit / convertedRevenue) * 100 : 0;
+                    const budgetPct = project.budgetUsedPercent;
+                    return (
+                      <React.Fragment key={project.id}>
+                        <TableRow
+                          className="group cursor-pointer hover:bg-blue-50/20 transition-colors border-b border-slate-50"
+                          onClick={() => toggleProject(project.id)}
+                        >
+                          {/* Project Name + Billing Model */}
+                          <TableCell className="pl-8 py-5">
+                            <div className="space-y-1">
+                              <p className="font-black text-sm text-slate-900 group-hover:text-blue-700 transition-colors">{project.projectName}</p>
+                              <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-500 font-black uppercase tracking-wide">
+                                {project.revenueLabel || project.billing_model || 'Budget'}
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* Contract / Converted */}
+                          <TableCell className="text-right pr-6 py-5">
+                            <div className="space-y-0.5">
+                              <p className="font-black text-slate-800 text-sm">{formatCurrency(project.allocatedBudget, project.currency)}</p>
+                              <p className="text-xs font-bold text-blue-500">{formatCurrency(convertedRevenue, targetCurrency)} {targetCurrency}</p>
+                            </div>
+                          </TableCell>
+
+                          {/* Hours: Logged / Approved */}
+                          <TableCell className="text-center py-5">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-center gap-4">
+                                <span className="text-[10px] font-black text-slate-400 uppercase">Logged</span>
+                                <span className="font-black text-slate-800 text-sm">{project.totalLoggedHours.toFixed(1)}h</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-4">
+                                <span className="text-[10px] font-black text-emerald-400 uppercase">Approved</span>
+                                <span className="font-bold text-emerald-600 text-sm">{project.totalApprovedHours.toFixed(1)}h</span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Labor & Non-Labor → Total Cost */}
+                          <TableCell className="text-right pr-6 py-5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase">Labor</span>
+                                <span className="font-bold text-slate-700 text-sm">{formatCurrency(project.totalLaborCost, project.currency)}</span>
+                              </div>
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-[10px] font-black text-amber-400 uppercase">Non-Labor</span>
+                                <span className="font-bold text-slate-700 text-sm">{formatCurrency(project.totalNonLaborCost, project.currency)}</span>
+                              </div>
+                              <div className="h-px bg-slate-100 my-1" />
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-[10px] font-black text-slate-500 uppercase">Total</span>
+                                <span className="font-black text-slate-900 text-sm">{formatCurrency(convertedCost, targetCurrency)} <span className="text-xs text-blue-400">{targetCurrency}</span></span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Profit & Margin */}
+                          <TableCell className="text-right pr-6 py-5">
+                            <div className="space-y-1.5">
+                              <p className={`font-black text-sm ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                {formatCurrency(profit, targetCurrency)}
+                              </p>
+                              <div className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-black ${margin > 20 ? 'bg-emerald-50 text-emerald-700' :
+                                margin >= 10 ? 'bg-yellow-50 text-yellow-700' :
+                                  margin >= 0 ? 'bg-orange-50 text-orange-700' :
+                                    'bg-red-50 text-red-700'
+                                }`}>
+                                {margin.toFixed(1)}% margin
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Leakage & Budget */}
+                          <TableCell className="text-right pr-6 py-5">
+                            <div className="space-y-2">
+                              {/* Leakage */}
+                              <div className="flex items-center justify-end gap-2">
+                                <span className="text-[10px] font-black text-red-400 uppercase">Leakage</span>
+                                <span className={`font-black text-sm ${project.projectLeakage > 0 ? 'text-red-600' : 'text-slate-300'}`}>
+                                  {project.projectLeakage > 0 ? formatCurrency(project.projectLeakage, project.currency) : '—'}
+                                </span>
+                              </div>
+                              {/* Budget bar */}
+                              {project.expenseBudgetValue > 0 && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Budget</span>
+                                    <span className="font-bold text-blue-600 text-xs">{formatCurrency(project.expenseBudgetValue, project.currency)}</span>
+                                  </div>
+                                  {budgetPct != null && (
+                                    <div className="flex items-center justify-end gap-2">
+                                      <div className="w-20 bg-slate-100 rounded-full h-1.5">
+                                        <div
+                                          className={`h-1.5 rounded-full ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                          style={{ width: `${Math.min(100, budgetPct)}%` }}
+                                        />
+                                      </div>
+                                      <span className={`text-xs font-black ${budgetPct > 100 ? 'text-red-600' : budgetPct > 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                        {budgetPct.toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               )}
                             </div>
-                          ) : '—'}
-                        </TableCell>
-                        <TableCell className="text-center font-bold">
-                          {project.budgetUsedPercent != null
-                            ? (
-                              <span className={
-                                project.budgetUsedPercent > 100 ? 'text-red-600' :
-                                  project.budgetUsedPercent > 80 ? 'text-amber-600' :
-                                    'text-green-600'
-                              }>
-                                {project.budgetUsedPercent.toFixed(1)}%
-                              </span>
-                            )
-                            : <span className="text-slate-400">—</span>
-                          }
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); navigate(`/ProjectProfitabilityDetail?projectId=${project.id}`); }}>
-                            View Details
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                          </TableCell>
 
-                    </React.Fragment>
-                  ))
+                          {/* Actions */}
+                          <TableCell className="text-center pr-6 py-5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-xl border-slate-200 font-black text-xs hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-colors"
+                              onClick={(e) => { e.stopPropagation(); navigate(`/ProjectProfitabilityDetail?projectId=${project.id}`); }}
+                            >
+                              View Details
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

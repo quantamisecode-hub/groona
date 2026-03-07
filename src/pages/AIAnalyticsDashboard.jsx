@@ -175,7 +175,7 @@ Format as JSON with sections: performance_trends, engagement_insights, project_h
             <Button
               onClick={generateDeepAnalysis}
               disabled={loadingAnalysis}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              className="bg-gradient-to-r from-blue-600 to-slate-900 hover:from-blue-700 hover:to-slate-950 border-0 shadow-lg shadow-blue-500/20 text-white h-10 rounded-lg px-4 font-bold transition-all active:scale-95 hover:opacity-90"
             >
               {loadingAnalysis ? (
                 <>

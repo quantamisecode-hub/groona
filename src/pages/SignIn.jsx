@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createPageUrl } from "@/utils";
-import { Sparkles, Mail, Loader2, Eye, EyeOff, ArrowRight, Check, Rocket } from "lucide-react";
+import { Sparkles, Mail, Loader2, Eye, EyeOff, ArrowRight, Check, Rocket, ArrowLeft } from "lucide-react";
 import { groonabackend } from "@/api/groonabackend";
 import { getOtpEmailTemplate } from "@/utils/emailTemplates";
 import { motion } from "framer-motion";
@@ -196,9 +196,15 @@ export default function SignIn() {
       <main className="flex-1 flex flex-col relative h-full bg-white overflow-y-auto">
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-2">
-            <Rocket className="w-6 h-6 text-blue-600" />
-            <span className="font-bold text-lg">Groona</span>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="text-slate-500 flex items-center gap-1.5 text-sm font-medium hover:text-blue-600 transition-colors">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Home</span>
+            </Link>
+            <div className="flex items-center gap-2">
+              <Rocket className="w-6 h-6 text-blue-600" />
+              <span className="font-bold text-lg">Groona</span>
+            </div>
           </div>
           <Link to={createPageUrl("Register")} className="text-sm font-bold text-blue-600">
             Sign Up
@@ -206,7 +212,13 @@ export default function SignIn() {
         </div>
 
         {/* Top Navigation for Desktop */}
-        <header className="hidden md:flex h-14 lg:h-16 items-center justify-end px-8 lg:px-12 shrink-0">
+        <header className="hidden md:flex h-14 lg:h-16 items-center justify-between px-8 lg:px-12 shrink-0">
+          <Link to="/">
+            <Button variant="ghost" className="rounded-full text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 gap-2 font-medium">
+              <ArrowLeft className="w-4 h-4" />
+              Back to Website
+            </Button>
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium text-slate-500">Don't have an account?</span>
             <Link to={createPageUrl("Register")}>

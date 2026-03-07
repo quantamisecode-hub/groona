@@ -1329,343 +1329,306 @@ export default function GroonaAssistant() {
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex relative overflow-hidden">
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div className={`
-        fixed lg:relative inset-y-0 left-0 z-50
-        w-64 sm:w-72 md:w-80 border-r border-slate-200 bg-white/95 backdrop-blur-xl flex flex-col
-        transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        max-h-[calc(100vh-4rem)]
-      `}>
-        <div className="p-3 sm:p-4 border-b border-slate-200 flex items-center gap-2">
-          <Button
-            onClick={handleNewConversation}
-            disabled={createConversationMutation.isPending}
-            className="flex-1 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-          >
-            {createConversationMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            <span className="hidden sm:inline">New Conversation</span>
-            <span className="sm:hidden">New</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
-          {conversationsLoading && conversations.length === 0 ? (
-            // Skeleton loading state with shimmer effect
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="p-2.5 sm:p-3 rounded-lg border border-slate-200 bg-white animate-pulse">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <Skeleton className="h-4 w-3/4 rounded bg-slate-200" />
-                      <Skeleton className="h-3 w-1/2 rounded bg-slate-200" />
-                    </div>
-                    <Skeleton className="h-6 w-6 rounded-full bg-slate-200" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : conversations.length === 0 ? (
-            <div className="text-center py-8 text-slate-500 text-sm">
-              <MessageSquare className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-slate-300" />
-              <p>No conversations yet</p>
-              <p className="text-xs mt-1">Start a new one!</p>
-            </div>
-          ) : (
-            conversations.map((conv) => {
-              const convId = conv.id || conv._id;
-              return (
-                <div
-                  key={convId}
-                  className={`group p-2.5 sm:p-3 rounded-lg cursor-pointer transition-all ${activeConversationId === convId
-                    ? 'bg-purple-50 border border-purple-200'
-                    : 'hover:bg-slate-50 border border-transparent'
-                    }`}
-                  onClick={() => {
-                    setActiveConversationId(convId);
-                    setActiveConversation(conv);
-                    const convMessages = conv.messages || [];
-                    setMessages(convMessages);
-                    // Mark as started if conversation has messages
-                    setHasStartedConversation(convMessages.length > 0);
-                    // Save to localStorage
-                    if (currentUser) {
-                      localStorage.setItem(`groona_active_conversation_${currentUser.id}`, convId);
-                    }
-                    setSidebarOpen(false);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">
-                        {conv.metadata?.name || conv.title || 'Untitled Conversation'}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {conv.messages?.length || 0} messages
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                      onClick={(e) => handleDeleteConversation(convId, e)}
-                      disabled={deleteConversationMutation.isPending}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-gradient-to-br from-slate-50 via-purple-50/30 to-pink-50/20 min-w-0 overflow-hidden max-h-[calc(100vh-4rem)]">
-        <div className="p-3 sm:p-4 md:p-6 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex-shrink-0">
-          <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex flex-col bg-[#f8f9fa] w-full relative h-[calc(100vh-4rem)] overflow-hidden">
+      <div className="max-w-screen-2xl mx-auto w-full flex flex-1 relative overflow-hidden h-full">
+        {/* Sidebar - Conversation History */}
+        <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} fixed lg:relative z-40 w-80 h-full bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out shadow-lg lg:shadow-none`}>
+          <div className="p-4 sm:p-6 border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
             <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden flex-shrink-0"
-              onClick={() => setSidebarOpen(true)}
+              onClick={handleNewConversation}
+              disabled={createConversationMutation.isPending}
+              className="w-full bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-12 rounded-xl font-bold transition-all active:scale-[0.98] group"
             >
-              <Menu className="h-5 w-5" />
+              {createConversationMutation.isPending ? (
+                <Loader2 className="h-4.5 w-4.5 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4.5 w-4.5 mr-2 group-hover:rotate-90 transition-transform duration-300" />
+              )}
+              New Conversation
             </Button>
+          </div>
 
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/25 flex-shrink-0">
-              <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 flex items-center gap-2 truncate">
-                Groona Assistant
-                <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 flex-shrink-0" />
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">
-                Intelligent project management assistant
-              </p>
-            </div>
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-2 custom-scrollbar">
+            <h3 className="px-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Recent Chats</h3>
+            {conversationsLoading && conversations.length === 0 ? (
+              <div className="space-y-3 px-2">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-14 w-full rounded-xl bg-slate-100" />)}
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-10 px-4">
+                <div className="h-16 w-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="h-8 w-8 text-slate-300" />
+                </div>
+                <p className="text-sm font-medium text-slate-500 italic">No conversations found</p>
+              </div>
+            ) : (
+              conversations.map((conv) => {
+                const convId = conv.id || conv._id;
+                const isActive = activeConversationId === convId;
+                return (
+                  <div
+                    key={convId}
+                    className={`group relative p-3 rounded-xl cursor-pointer transition-all duration-200 active:scale-[0.98] ${isActive
+                      ? 'bg-blue-50 border border-blue-100 shadow-sm'
+                      : 'hover:bg-slate-50 border border-transparent'
+                      }`}
+                    onClick={() => {
+                      setActiveConversationId(convId);
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate ${isActive ? 'text-blue-700' : 'text-slate-700'}`}>
+                          {conv.metadata?.name || conv.title || 'Untitled Conversation'}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-1 flex items-center gap-1.5 uppercase tracking-tight">
+                          <Sparkles className="h-3 w-3" />
+                          {conv.messages?.length || 0} messages • {new Date(conv.created_at || conv.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConversation(convId, e);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
-        <div
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6"
-          onScroll={() => {
-            // Update auto-scroll preference when user manually scrolls
-            if (chatContainerRef.current) {
-              const container = chatContainerRef.current;
-              const scrollHeight = container.scrollHeight;
-              const scrollTop = container.scrollTop;
-              const clientHeight = container.clientHeight;
-              const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
-              shouldAutoScrollRef.current = isNearBottom;
-            }
-          }}
-        >
-          {messages.length === 0 && !hasStartedConversation ? (
-            <div className="max-w-3xl mx-auto">
-              <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 mb-4 sm:mb-6">
-                <CardContent className="p-4 sm:p-6 md:p-8 text-center">
-                  <div className="h-14 w-14 sm:h-16 sm:w-16 md:h-20 md:w-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg shadow-purple-500/25">
-                    <Sparkles className="h-7 w-7 sm:h-8 sm:w-8 md:h-10 md:w-10 text-white" />
-                  </div>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">
-                    Welcome to Groona Assistant
-                  </h2>
-                  <p className="text-sm sm:text-base text-slate-600 mb-3 sm:mb-4">
-                    Your intelligent project management assistant. I can help you manage projects, tasks, and provide insights.
-                    Ask me anything or try one of the suggestions below!
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col bg-[#f8f9fa] min-w-0 overflow-hidden relative h-full">
+          <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-4 border-b border-slate-200 bg-white/50 backdrop-blur-sm z-10 shrink-0">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="lg:hidden flex-shrink-0 -ml-1 text-slate-500 hover:bg-slate-100"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-xl shadow-blue-500/30 flex-shrink-0 animate-in zoom-in-50 duration-500">
+                  <Sparkles className="h-6 w-6 text-white animate-pulse" />
+                </div>
+                <div className="space-y-0.5">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    Groona AI Assistant
+                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0 h-4.5">Pro</Badge>
+                  </h1>
+                  <p className="text-sm text-slate-500 font-medium">
+                    Intelligent project management & task companion
                   </p>
-                  <div className="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-slate-500">
-                    <Badge variant="outline" className="text-xs">Project Management</Badge>
-                    <Badge variant="outline" className="text-xs">Task Management</Badge>
-                    <Badge variant="outline" className="text-xs">Analytics</Badge>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <ConversationSuggestions
-                suggestions={suggestions}
-                onSelect={handleSuggestionClick}
-              />
+              {/* Model Selection in Header */}
+              <div className="flex items-center gap-3 w-full lg:w-auto">
+                {availableModels.length > 0 && (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-xl p-1 px-3 h-11 w-full lg:w-auto transition-all hover:border-blue-200 focus-within:ring-2 focus-within:ring-blue-500/10">
+                    <Zap className="h-4 w-4 text-blue-600 animate-pulse" />
+                    <Select
+                      value={selectedModel || availableModels[0]?.id}
+                      onValueChange={(value) => setSelectedModel(value)}
+                      disabled={sendMessageMutation.isPending || isStreaming}
+                    >
+                      <SelectTrigger className="h-9 w-full lg:w-[180px] text-xs font-bold border-0 shadow-none focus:ring-0 bg-transparent px-1 text-slate-700">
+                        <SelectValue placeholder="Select Intelligence" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-slate-200 shadow-xl">
+                        {availableModels.map((model) => (
+                          <SelectItem key={model.id} value={model.id} className="text-xs font-medium py-2.5 cursor-pointer">
+                            {model.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4">
-              {messages.map((message, idx) => {
-                const isLastUserMessage = message.role === 'user' && idx === messages.length - 1;
-                const isLastAssistantMessage = message.role === 'assistant' && idx === messages.length - 1;
-                // Show streaming indicator for the last assistant message when streaming
-                const shouldStream = isStreaming && isLastAssistantMessage;
-                return (
-                  <EnhancedMessageBubble
-                    key={`${message.id || idx}-${message.content?.substring(0, 20)}`}
-                    message={message}
-                    currentUser={currentUser}
-                    onAction={() => { }}
-                    isStreaming={shouldStream}
-                    onReload={message.role === 'user' ? () => {
-                      // Resend the message
-                      const messageContent = message.content;
-                      setInputMessage(messageContent);
-                      sendMessageMutation.mutate({ message: messageContent });
-                    } : undefined}
-                    onViewProject={message.createdProjectId ? () => {
-                      navigate(createPageUrl("ProjectDetail") + `?id=${message.createdProjectId}`);
-                    } : undefined}
-                    onViewTask={message.createdTaskId ? async () => {
-                      // Navigate to project detail page with task ID to highlight the task
-                      if (message.createdTaskProjectId) {
-                        navigate(createPageUrl("ProjectDetail") + `?id=${message.createdTaskProjectId}&taskId=${message.createdTaskId}`);
-                      } else {
-                        // If no project ID, fetch the task to get its project_id
-                        try {
-                          const tasks = await groonabackend.entities.Task.filter({ _id: message.createdTaskId });
-                          const task = tasks && tasks.length > 0 ? tasks[0] : null;
+          </div>
 
-                          if (!task) {
-                            // Try with id field instead of _id
-                            const tasksById = await groonabackend.entities.Task.filter({ id: message.createdTaskId });
-                            const taskById = tasksById && tasksById.length > 0 ? tasksById[0] : null;
-
-                            if (taskById && taskById.project_id) {
-                              navigate(createPageUrl("ProjectDetail") + `?id=${taskById.project_id}&taskId=${message.createdTaskId}`);
-                            } else {
-                              toast.error('Task not found or has no project');
-                              navigate(createPageUrl("Projects"));
-                            }
-                          } else if (task.project_id) {
-                            navigate(createPageUrl("ProjectDetail") + `?id=${task.project_id}&taskId=${message.createdTaskId}`);
-                          } else {
-                            toast.error('Task has no associated project');
-                            navigate(createPageUrl("Projects"));
-                          }
-                        } catch (error) {
-                          console.error('[GroonaAssistant] Error fetching task:', error);
-                          toast.error('Failed to load task');
-                          navigate(createPageUrl("Projects"));
-                        }
-                      }
-                    } : undefined}
-                  />
-                );
-              })}
-              {/* Show floating dots ONLY when streaming AND last message is user (waiting for assistant response) */}
-              {/* Don't show if last message is already assistant (assistant is responding) */}
-              {isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
-                <div className="flex gap-3 justify-start">
-                  <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mt-0.5 flex-shrink-0">
-                    <Zap className="h-4 w-4 text-white" />
+          <div
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 custom-scrollbar"
+            onScroll={() => {
+              if (chatContainerRef.current) {
+                const container = chatContainerRef.current;
+                const scrollHeight = container.scrollHeight;
+                const scrollTop = container.scrollTop;
+                const clientHeight = container.clientHeight;
+                const isNearBottom = scrollHeight - scrollTop - clientHeight < 200;
+                shouldAutoScrollRef.current = isNearBottom;
+              }
+            }}
+          >
+            {messages.length === 0 && !hasStartedConversation ? (
+              <div className="max-w-4xl mx-auto space-y-12 py-10">
+                <div className="text-center space-y-4">
+                  <div className="h-24 w-24 rounded-[2rem] bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-500/40 relative group transition-transform duration-500 hover:rotate-6">
+                    <Sparkles className="h-12 w-12 text-white group-hover:scale-110 transition-transform duration-300" />
+                    <div className="absolute -top-1 -right-1 h-6 w-6 bg-amber-400 rounded-full border-4 border-white shadow-sm animate-bounce" />
                   </div>
-                  <div className="max-w-[85%] min-w-0">
-                    <div className="rounded-2xl px-4 py-3 bg-white border border-slate-200 shadow-sm">
-                      <div className="flex items-center gap-1.5 py-2">
-                        <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
-                        <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.4s' }}></div>
-                        <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.4s' }}></div>
+                  <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                    How can I help you today?
+                  </h2>
+                  <p className="text-lg text-slate-500 max-w-2xl mx-auto font-medium">
+                    I'm your AI workspace assistant. You can ask me to analyze projects, manage tasks, or generate insights for your organization.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {suggestions.map((suggestion, idx) => (
+                    <Card
+                      key={idx}
+                      className="group cursor-pointer hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 border-slate-200 bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden active:scale-[0.98]"
+                      onClick={() => handleSuggestionClick(suggestion.text)}
+                    >
+                      <CardContent className="p-6 flex items-center gap-5">
+                        <div className="h-12 w-12 rounded-xl bg-slate-50 group-hover:bg-blue-50 flex items-center justify-center transition-colors">
+                          <Bot className="h-6 w-6 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {suggestion.text}
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium">Click to try this command</p>
+                        </div>
+                        <Plus className="h-5 w-5 text-slate-300 group-hover:text-blue-400 group-hover:rotate-90 transition-all" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="max-w-4xl mx-auto space-y-6 pb-4">
+                {messages.map((message, idx) => {
+                  const isLastAssistantMessage = message.role === 'assistant' && idx === messages.length - 1;
+                  const shouldStream = isStreaming && isLastAssistantMessage;
+                  return (
+                    <EnhancedMessageBubble
+                      key={`${message.id || idx}-${message.content?.substring(0, 20)}`}
+                      message={message}
+                      currentUser={currentUser}
+                      onAction={() => { }}
+                      isStreaming={shouldStream}
+                      onReload={message.role === 'user' ? () => {
+                        const messageContent = message.content;
+                        setInputMessage(messageContent);
+                        sendMessageMutation.mutate({ message: messageContent });
+                      } : undefined}
+                      onViewProject={message.createdProjectId ? () => {
+                        navigate(createPageUrl("ProjectDetail") + `?id=${message.createdProjectId}`);
+                      } : undefined}
+                      onViewTask={message.createdTaskId ? async () => {
+                        if (message.createdTaskProjectId) {
+                          navigate(createPageUrl("ProjectDetail") + `?id=${message.createdTaskProjectId}&taskId=${message.createdTaskId}`);
+                        } else {
+                          try {
+                            const tasks = await groonabackend.entities.Task.filter({ _id: message.createdTaskId });
+                            const task = tasks && tasks.length > 0 ? tasks[0] : null;
+                            if (task && task.project_id) {
+                              navigate(createPageUrl("ProjectDetail") + `?id=${task.project_id}&taskId=${message.createdTaskId}`);
+                            } else { navigate(createPageUrl("Projects")); }
+                          } catch (error) { navigate(createPageUrl("Projects")); }
+                        }
+                      } : undefined}
+                    />
+                  );
+                })}
+                {isStreaming && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
+                  <div className="flex gap-3 justify-start animate-in fade-in slide-in-from-left-4 duration-300">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20">
+                      <Zap className="h-5 w-5 text-white animate-pulse" />
+                    </div>
+                    <div className="max-w-[85%] min-w-0">
+                      <div className="rounded-2xl px-5 py-4 bg-white border border-slate-200 shadow-sm flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Thinking</span>
+                        <div className="flex gap-1">
+                          <div className="h-1.5 w-1.5 bg-blue-600/30 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                          <div className="h-1.5 w-1.5 bg-blue-600/60 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                          <div className="h-1.5 w-1.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-        </div>
+                )}
+                <div ref={messagesEndRef} className="h-4" />
+              </div>
+            )}
+          </div>
 
-        <div className="p-3 sm:p-4 md:p-6 border-t border-slate-200 bg-white/80 backdrop-blur-xl flex-shrink-0">
-          <div className="max-w-3xl mx-auto w-full">
-            <div className="flex gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-              <div className="flex-1 space-y-2 min-w-0 w-full sm:w-auto">
-                <div className="flex items-center gap-1 sm:gap-2 bg-white rounded-lg border border-slate-300 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500/20 transition-all w-full min-h-[48px] sm:min-h-[52px]">
-                  {/* Model Selection */}
-                  {availableModels.length > 0 && (
-                    <div className="pl-2 sm:pl-3 flex-shrink-0 border-r border-slate-200 pr-2 sm:pr-3">
-                      <Select
-                        value={selectedModel || availableModels[0]?.id}
-                        onValueChange={(value) => setSelectedModel(value)}
-                        disabled={sendMessageMutation.isPending || isStreaming}
-                      >
-                        <SelectTrigger className="h-7 text-xs border-0 bg-transparent p-0 focus:ring-0 focus:ring-offset-0 w-[140px] sm:w-[160px] font-medium text-slate-700 hover:text-slate-900 [&>svg]:h-3 [&>svg]:w-3">
-                          <SelectValue placeholder="Select model" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {availableModels.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                              <span className="text-xs font-medium">{model.name}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+          {/* Chat Input Container - FIXED AT BOTTOM */}
+          <div className="px-4 sm:px-6 lg:px-8 py-6 border-t border-slate-200 bg-white/90 backdrop-blur-xl shrink-0 sticky bottom-0 z-20 shadow-[0_-10px_20px_-15px_rgba(0,0,0,0.1)]">
+            <div className="max-w-4xl mx-auto w-full">
+              <div className="relative group">
+                <div className="absolute inset-0 bg-blue-500/5 rounded-[1.5rem] blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity" />
+
+                <div className="relative flex flex-col sm:flex-row gap-3 bg-white p-2 rounded-[1.5rem] border border-slate-200 shadow-xl shadow-slate-200/60 focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
+                  <div className="flex-1 flex items-center min-w-0">
+                    <div className="pl-3 h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center shrink-0">
+                      <Zap className="h-5 w-5 text-blue-600 group-focus-within:animate-pulse" />
                     </div>
-                  )}
+                    <Input
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type your instruction (e.g., 'Analyze project performance')..."
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-base md:text-lg font-medium text-slate-700 bg-transparent placeholder:text-slate-400 h-14"
+                      disabled={sendMessageMutation.isPending || isStreaming}
+                    />
+                  </div>
 
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder="Ask Groona anything..."
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base flex-1 min-w-0 py-3"
-                    disabled={sendMessageMutation.isPending || isStreaming}
-                  />
+                  <div className="flex items-center gap-2 pr-1">
+                    {sendMessageMutation.isPending || isStreaming ? (
+                      <Button
+                        onClick={() => {
+                          setIsStreaming(false);
+                          sendMessageMutation.reset();
+                        }}
+                        className="bg-red-500 hover:bg-red-600 hover:scale-[1.02] active:scale-[0.98] h-12 px-6 rounded-2xl text-white font-bold transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-red-500/20"
+                      >
+                        <Square className="h-4.5 w-4.5 fill-white" />
+                        <span>Stop</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!inputMessage.trim()}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 hover:scale-[1.02] active:scale-[0.98] h-12 px-6 rounded-2xl text-white font-bold transition-all flex items-center gap-2 shrink-0 shadow-lg shadow-blue-600/25 disabled:opacity-50 disabled:grayscale disabled:scale-100"
+                      >
+                        <span>Send</span>
+                        <Send className="h-4.5 w-4.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-              {sendMessageMutation.isPending || isStreaming ? (
-                <Button
-                  onClick={() => {
-                    setIsStreaming(false);
-                    sendMessageMutation.reset();
-                  }}
-                  className="bg-red-500 hover:bg-red-600 h-10 sm:h-12 px-3 sm:px-6 flex-shrink-0 w-full sm:w-auto"
-                >
-                  <Square className="h-4 w-4 sm:h-5 sm:w-5 fill-white" />
-                  <span className="hidden sm:inline ml-2">Stop</span>
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim()}
-                  className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 h-10 sm:h-12 px-3 sm:px-6 flex-shrink-0 w-full sm:w-auto"
-                >
-                  <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="hidden sm:inline ml-2">Send</span>
-                </Button>
-              )}
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-3 text-center font-medium tracking-wide">
+                Powered by Groona AI • Responses may be subject to character limits • <span className="text-blue-500 hover:underline cursor-pointer">Learn more</span>
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-2 text-center hidden sm:block break-words">
-              Verify important information before taking action.
-            </p>
           </div>
         </div>
       </div>
     </div>
   );
 }
-

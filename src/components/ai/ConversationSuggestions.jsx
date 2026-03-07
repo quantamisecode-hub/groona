@@ -1,11 +1,11 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { 
-  FileText, 
-  Plus, 
-  AlertCircle, 
-  TrendingUp, 
+import {
+  FileText,
+  Plus,
+  AlertCircle,
+  TrendingUp,
   Calendar,
   Users,
   Target,
@@ -35,7 +35,7 @@ export default function ConversationSuggestions({ suggestions = [], onSelect, cl
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {suggestions.map((suggestion, idx) => {
           const Icon = iconMap[suggestion.icon] || Sparkles;
-          
+
           return (
             <Button
               key={idx}
@@ -47,7 +47,7 @@ export default function ConversationSuggestions({ suggestions = [], onSelect, cl
               )}
             >
               <div className="flex items-start gap-3 w-full">
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center flex-shrink-0 group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
+                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
                   <Icon className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="flex-1 min-w-0">

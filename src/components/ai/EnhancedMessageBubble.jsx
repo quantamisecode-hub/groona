@@ -56,7 +56,7 @@ const TaskCard = ({ task, onAction }) => (
 );
 
 const ProjectSummaryCard = ({ project, onAction }) => (
-  <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+  <Card className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border-blue-200 hover:shadow-md transition-all">
     <CardContent className="p-4">
       <div className="space-y-3">
         <div>
@@ -225,9 +225,9 @@ const FunctionDisplay = ({ toolCall }) => {
 // Floating dots animation for initial loading
 const FloatingDots = () => (
   <div className="flex items-center gap-1.5 py-2">
-    <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
-    <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.4s' }}></div>
-    <div className="h-2 w-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.4s' }}></div>
+    <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms', animationDuration: '1.4s' }}></div>
+    <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '200ms', animationDuration: '1.4s' }}></div>
+    <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '400ms', animationDuration: '1.4s' }}></div>
   </div>
 );
 
@@ -238,7 +238,7 @@ const ThinkingIndicator = ({ onExpand, expanded }) => (
       onClick={onExpand}
       className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
     >
-      <Loader2 className="h-4 w-4 animate-spin text-purple-500" />
+      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
       <span>Thinking...</span>
       <ChevronDown className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")} />
     </button>
@@ -533,7 +533,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
   return (
     <div className={cn("flex gap-3", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mt-0.5 flex-shrink-0">
+        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#1e40af] to-[#1e3a8a] flex items-center justify-center mt-0.5 flex-shrink-0">
           <Zap className="h-4 w-4 text-white" />
         </div>
       )}
@@ -609,7 +609,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                       <Button
                         size="sm"
                         onClick={onViewProject}
-                        className="mt-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-sm"
+                        className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#1e3a8a] hover:from-[#1d4ed8] hover:to-[#1e40af] text-white shadow-sm border-0"
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
                         View Project
@@ -666,7 +666,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
                       <Button
                         size="sm"
                         onClick={onViewTask}
-                        className="mt-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-sm"
+                        className="mt-2 bg-gradient-to-r from-[#1e40af] to-[#1e3a8a] hover:from-[#1d4ed8] hover:to-[#1e40af] text-white shadow-sm border-0"
                       >
                         <ExternalLink className="h-4 w-4 mr-2" />
                         View Task
@@ -774,7 +774,7 @@ export default function EnhancedMessageBubble({ message, onAction, isStreaming =
               src={currentUser?.profile_image_url || currentUser?.profile_picture_url}
               alt={currentUser?.full_name || 'User'}
             />
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xs font-semibold">
+            <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-900 text-white text-xs font-semibold">
               {getInitials(currentUser?.full_name || currentUser?.email || 'U')}
             </AvatarFallback>
           </Avatar>

@@ -224,472 +224,333 @@ export default function AdminBIDashboard() {
 
   return (
     <PermissionGuard permissionKey="can_view_reports">
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="flex flex-col h-full">
-        <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+      <div className="flex flex-col bg-[#f8f9fa] w-full min-h-screen relative overflow-x-hidden">
+        <div className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10 space-y-8 flex-1 flex flex-col">
 
-          {/* Main Content Rendered Naturally */}
-          <div className="w-full relative h-full flex flex-col" style={{ maxWidth: '100vw' }}>
-            <div className="max-w-[1800px] mx-auto w-full flex flex-col relative h-full" style={{ maxWidth: '100%' }}>
-              {/* Header Section (Scrollable) */}
-              {showSummary && (
-                <div className="bg-white border-b border-slate-200/60 flex-shrink-0 z-30">
-                  <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
-                    {/* Header */}
-                    <div className="flex flex-row justify-between items-start gap-4 mb-4">
-                      <div>
-                        <h1 className="text-2xl md:text-4xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                          <BarChart3 className="h-6 w-6 md:h-8 md:w-8 text-blue-600 flex-shrink-0" />
-                          <span>Productivity Dashboard</span>
-                        </h1>
-                        <p className="text-sm md:text-base text-slate-600">
-                          Unified productivity hub for projects, resources, and AI insights
-                        </p>
-                      </div>
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+                <BarChart3 className="h-7 w-7 md:h-9 md:w-9 text-blue-600 flex-shrink-0" />
+                Productivity Dashboard
+              </h1>
+              <p className="text-sm sm:text-base text-slate-500 font-medium">
+                Unified productivity hub for projects, resources, and AI insights
+              </p>
+            </div>
 
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRefreshAll}
-                          disabled={projectsLoading || tasksLoading || usersLoading || timesheetsLoading || activitiesLoading}
-                          className="flex items-center gap-2"
-                        >
-                          <RefreshCw className={`h-4 w-4 ${(projectsLoading || tasksLoading || usersLoading || timesheetsLoading || activitiesLoading) ? 'animate-spin' : ''}`} />
-                          <span className="hidden sm:inline">Refresh All</span>
-                        </Button>
-                      </div>
-                    </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshAll}
+              disabled={projectsLoading || tasksLoading || usersLoading || timesheetsLoading || activitiesLoading}
+              className="flex items-center gap-2 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl px-4 py-5 shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 ${(projectsLoading || tasksLoading || usersLoading || timesheetsLoading || activitiesLoading) ? "animate-spin" : ""}`} />
+              <span className="font-semibold text-xs uppercase tracking-wider">Refresh All</span>
+            </Button>
+          </div>
 
-                    {/* Quick Stats Cards */}
-                    {!isLoading && (
-                      <div
-                        className="flex overflow-x-auto gap-4 pb-4 hide-scrollbar snap-x snap-mandatory"
-                      >
-                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
-                          <CardContent className="p-6">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-slate-600 mb-1">Total Projects</p>
-                                <p className="text-3xl font-bold text-slate-900">{projects.length}</p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {projects.filter(p => p.status === 'active').length} active
-                                </p>
-                              </div>
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                                <FolderKanban className="h-6 w-6 text-white" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
-                          <CardContent className="p-6">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-slate-600 mb-1">Total Tasks</p>
-                                <p className="text-3xl font-bold text-slate-900">{tasks.length}</p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {tasks.filter(t => t.status === 'completed').length} completed
-                                </p>
-                              </div>
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
-                                <CheckCircle2 className="h-6 w-6 text-white" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
-                          <CardContent className="p-6">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-slate-600 mb-1">Team Members</p>
-                                <p className="text-3xl font-bold text-slate-900">{users.length}</p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {users.filter(u => u.role === 'admin').length} admins
-                                </p>
-                              </div>
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
-                                <Users className="h-6 w-6 text-white" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="min-w-[260px] flex-1 flex-shrink-0 snap-center bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg hover:shadow-xl transition-all">
-                          <CardContent className="p-6">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-sm font-medium text-slate-600 mb-1">Logged Hours</p>
-                                <p className="text-3xl font-bold text-slate-900">
-                                  {Math.round(timesheets.reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60)}
-                                </p>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {timesheets.filter(t => t.status === 'approved').length} approved
-                                </p>
-                              </div>
-                              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
-                                <Clock className="h-6 w-6 text-white" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            {/* Total Projects */}
+            <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2.5rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Projects</p>
+                    <p className="text-4xl font-black text-slate-900 leading-tight">{projects.length}</p>
+                    <p className="text-xs font-bold text-slate-400">{projects.filter(p => p.status === "active").length} active</p>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-blue-500 shadow-[0_8px_16px_rgba(59,130,246,0.25)] flex items-center justify-center">
+                    <FolderKanban className="h-7 w-7 text-white" />
                   </div>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              {/* Sticky Tabs Section - Moved outside to be sibling if needed, or kept here but made sticky */}
-              <div
-                ref={tabsRef}
-                className="sticky z-20 bg-white/95 backdrop-blur-xl border-b border-slate-200/60 shadow-sm transition-all duration-300 flex-shrink-0"
-                style={{ top: 0 }}
-              >
-                <div className="px-4 md:px-6 lg:px-8 py-2">
-                  <TabsList className="bg-transparent border-none p-0 flex justify-start overflow-x-auto h-auto gap-1 hide-scrollbar snap-x">
-                    <TabsTrigger value="overview" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                      <TrendingUp className="h-4 w-4" />
-                      System Overview
-                    </TabsTrigger>
-                    <TabsTrigger value="projects" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                      <Target className="h-4 w-4" />
-                      Project Analytics
-                    </TabsTrigger>
-                    <TabsTrigger value="resources" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                      <Users className="h-4 w-4" />
-                      Resource Management
-                    </TabsTrigger>
-                    <TabsTrigger value="insights" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                      <BrainCircuit className="h-4 w-4" />
-                      AI & Insights
-                    </TabsTrigger>
-                    <TabsTrigger value="reports" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                      <FileText className="h-4 w-4" />
-                      Custom Reports
-                    </TabsTrigger>
-                    {/* Show Profitability tab only for owners */}
-                    {currentUser && currentUser.custom_role === 'owner' && (
-                      <TabsTrigger value="profitability" className="gap-2 whitespace-nowrap snap-start" onClick={() => setShowSummary(false)}>
-                        <DollarSign className="h-4 w-4" />
-                        Profitability
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
+            {/* Total Tasks */}
+            <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2.5rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Tasks</p>
+                    <p className="text-4xl font-black text-slate-900 leading-tight">{tasks.length}</p>
+                    <p className="text-xs font-bold text-slate-400">{tasks.filter(t => t.status === "completed").length} completed</p>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-emerald-500 shadow-[0_8px_16px_rgba(16,185,129,0.25)] flex items-center justify-center">
+                    <CheckCircle2 className="h-7 w-7 text-white" />
+                  </div>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              {/* Main Content */}
-              <div className="w-full flex-1 overflow-y-auto min-h-0">
-                <div className="px-3 pb-24 md:pb-32 pt-3">
-                  {/* Loading State - Only shows on initial hard load when we have no cached data */}
-                  {isLoading ? (
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                      <CardContent className="py-12">
-                        <div className="text-center">
-                          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-                          <p className="text-slate-600">Loading business intelligence data...</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <>
-                      <TabsContent value="overview" className="space-y-6 mt-4">
-                        {!showSummary && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 text-slate-600 hover:text-slate-900"
-                              onClick={() => setShowSummary(true)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                              Back to Dashboard
-                            </Button>
-                          </div>
-                        )}
-                        <SystemHealthOverview
-                          projects={projects}
-                          tasks={tasks}
-                          users={users}
-                          tenant={tenant || tenantData}
-                          activities={activities}
-                          timesheets={timesheets}
-                          sprints={isMarketingCompany ? [] : sprints}
-                        />
-                      </TabsContent>
+            {/* Team Members */}
+            <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2.5rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Team Members</p>
+                    <p className="text-4xl font-black text-slate-900 leading-tight">{users.length}</p>
+                    <p className="text-xs font-bold text-slate-400">{users.filter(u => u.role === "admin").length} admins</p>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-purple-500 shadow-[0_8px_16px_rgba(168,85,247,0.25)] flex items-center justify-center">
+                    <Users className="h-7 w-7 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                      <TabsContent value="projects" className="space-y-6 mt-4">
-                        {!showSummary && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 text-slate-600 hover:text-slate-900"
-                              onClick={() => setShowSummary(true)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                              Back to Dashboard
-                            </Button>
-                          </div>
-                        )}
-                        <Tabs defaultValue="health" className="w-full">
-                          <TabsList className="bg-slate-100/80 p-1 w-full justify-start overflow-x-auto">
-                            <TabsTrigger value="health" className="gap-2">
-                              <Target className="h-4 w-4" /> Health Matrix
-                            </TabsTrigger>
-                            <TabsTrigger value="timeline" className="gap-2">
-                              <Calendar className="h-4 w-4" /> Timeline
-                            </TabsTrigger>
-                            <TabsTrigger value="risks" className="gap-2">
-                              <AlertTriangle className="h-4 w-4" /> Risk Assessment
-                            </TabsTrigger>
-                            <TabsTrigger value="reports" className="gap-2">
-                              <FileText className="h-4 w-4" /> Project Reports
-                            </TabsTrigger>
-                          </TabsList>
+            {/* Logged Hours */}
+            <Card className="bg-white border border-slate-200/60 shadow-[0_2px_15px_rgba(0,0,0,0.03)] rounded-[2.5rem] transition-all hover:shadow-lg hover:-translate-y-1 duration-300">
+              <CardContent className="p-6 md:p-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Logged Hours</p>
+                    <p className="text-4xl font-black text-slate-900 leading-tight">
+                      {Math.round(timesheets.reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60)}
+                    </p>
+                    <p className="text-xs font-bold text-slate-400">{timesheets.filter(t => t.status === "approved").length} approved</p>
+                  </div>
+                  <div className="h-14 w-14 rounded-2xl bg-amber-500 shadow-[0_8px_16_rgba(245,158,11,0.25)] flex items-center justify-center">
+                    <Clock className="h-7 w-7 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-                          <div className="mt-6">
-                            <TabsContent value="health">
-                              <ProjectHealthMatrix
-                                projects={projects}
-                                tasks={tasks}
-                                activities={activities}
-                              />
-                            </TabsContent>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex-1 flex flex-col">
+            <div className="border-b border-slate-200/60 pb-1">
+              <TabsList className="bg-transparent border-none p-0 flex justify-start overflow-x-auto h-auto gap-2 md:gap-4 hide-scrollbar">
+                {[
+                  { id: "overview", label: "System Overview", icon: TrendingUp },
+                  { id: "projects", label: "Project Analytics", icon: Target },
+                  { id: "resources", label: "Resource Management", icon: Users },
+                  { id: "insights", label: "AI & Insights", icon: BrainCircuit },
+                  { id: "reports", label: "Custom Reports", icon: FileText },
+                  ...(currentUser && currentUser.custom_role === "owner" ? [{ id: "profitability", label: "Profitability", icon: DollarSign }] : []),
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    onClick={() => setShowSummary(false)}
+                    className="flex items-center gap-2 whitespace-nowrap px-4 py-3 rounded-xl data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm text-slate-500 font-bold transition-all border-none"
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
 
-                            <TabsContent value="timeline">
-                              <div className="space-y-6">
-                                {/* Timeline Prediction Card - Above GanttChart */}
-                                <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-                                  <h3 className="text-lg font-semibold mb-4">Timeline Prediction</h3>
-                                  <div className="max-w-xs">
-                                    <Select
-                                      value={selectedProjectId || 'none'}
-                                      onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
-                                    >
-                                      <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select a project to predict timeline..." />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper" sideOffset={5} className="z-50 max-h-[300px]">
-                                        <SelectItem value="none">Select a project to predict timeline...</SelectItem>
-                                        {projects.map(p => (
-                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  {selectedProject && (
-                                    <div className="mt-6">
-                                      <TimelinePrediction
-                                        project={selectedProject}
-                                        tasks={projectTasks}
-                                        activities={projectActivities}
-                                      />
-                                    </div>
-                                  )}
-                                </Card>
+            <div className="mt-8 flex-1 flex flex-col">
+              {/* Content Areas */}
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-20">
+                  <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+                  <p className="text-slate-600">Loading business intelligence data...</p>
+                </div>
+              ) : (
+                <>
+                  <TabsContent value="overview" className="m-0 focus-visible:outline-none space-y-6">
+                    <SystemHealthOverview
+                      projects={projects}
+                      tasks={tasks}
+                      users={users}
+                      tenant={tenant || tenantData}
+                      activities={activities}
+                      timesheets={timesheets}
+                      sprints={isMarketingCompany ? [] : sprints}
+                    />
+                  </TabsContent>
 
-                                {/* GanttChart - Always visible, shows all projects or filtered by selection */}
-                                <GanttChart
-                                  projects={projects}
-                                  tasks={tasks}
-                                  users={users}
-                                />
-                              </div>
-                            </TabsContent>
+                  <TabsContent value="projects" className="m-0 focus-visible:outline-none space-y-6">
+                    <Tabs defaultValue="health" className="w-full">
+                      <TabsList className="bg-slate-100/80 p-1 w-full justify-start overflow-x-auto rounded-xl">
+                        <TabsTrigger value="health" className="gap-2 rounded-lg">
+                          <Target className="h-4 w-4" /> Health Matrix
+                        </TabsTrigger>
+                        <TabsTrigger value="timeline" className="gap-2 rounded-lg">
+                          <Calendar className="h-4 w-4" /> Timeline
+                        </TabsTrigger>
+                        <TabsTrigger value="risks" className="gap-2 rounded-lg">
+                          <AlertTriangle className="h-4 w-4" /> Risk Assessment
+                        </TabsTrigger>
+                        <TabsTrigger value="reports" className="gap-2 rounded-lg">
+                          <FileText className="h-4 w-4" /> Project Reports
+                        </TabsTrigger>
+                      </TabsList>
 
-                            <TabsContent value="risks">
-                              <div className="space-y-6">
-                                <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-                                  <h3 className="text-lg font-semibold mb-4">Project Risk Analysis</h3>
-                                  <div className="max-w-xs">
-                                    <Select
-                                      value={selectedProjectId || 'none'}
-                                      onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
-                                    >
-                                      <SelectTrigger className="w-full bg-white border-slate-200">
-                                        <SelectValue placeholder="Select a project to analyze risks..." />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper" className="z-50 max-h-[300px]">
-                                        <SelectItem value="none">Select a project to analyze risks...</SelectItem>
-                                        {projects.map(p => (
-                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  {selectedProject && (
-                                    <div className="mt-6">
-                                      <RiskAssessment
-                                        project={selectedProject}
-                                        tasks={projectTasks}
-                                      />
-                                    </div>
-                                  )}
-                                </Card>
-                              </div>
-                            </TabsContent>
-
-                            <TabsContent value="reports">
-                              <div className="space-y-6">
-                                <Card className="p-6 bg-white/60 backdrop-blur-xl border-slate-200/60">
-                                  <h3 className="text-lg font-semibold mb-4">Generate Project Report</h3>
-                                  <div className="max-w-xs">
-                                    <Select
-                                      value={selectedProjectId || 'none'}
-                                      onValueChange={(value) => setSelectedProjectId(value === 'none' ? null : value)}
-                                    >
-                                      <SelectTrigger className="w-full bg-white border-slate-200">
-                                        <SelectValue placeholder="Select a project..." />
-                                      </SelectTrigger>
-                                      <SelectContent position="popper" className="z-50 max-h-[300px]">
-                                        <SelectItem value="none">Select a project...</SelectItem>
-                                        {projects.map(p => (
-                                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  {selectedProject && (
-                                    <div className="mt-6">
-                                      <ProjectReport
-                                        project={selectedProject}
-                                        tasks={projectTasks}
-                                        activities={projectActivities}
-                                      />
-                                    </div>
-                                  )}
-                                </Card>
-                              </div>
-                            </TabsContent>
-                          </div>
-                        </Tabs>
-                      </TabsContent>
-
-                      <TabsContent value="resources" className="space-y-6 mt-4">
-                        {!showSummary && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 text-slate-600 hover:text-slate-900"
-                              onClick={() => setShowSummary(true)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                              Back to Dashboard
-                            </Button>
-                          </div>
-                        )}
-                        <ResourceUtilization
-                          users={users}
-                          tasks={tasks}
-                          timesheets={timesheets}
-                          projects={projects}
-                        />
-                      </TabsContent>
-
-                      <TabsContent value="insights" className="space-y-6 mt-4">
-                        {!showSummary && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 text-slate-600 hover:text-slate-900"
-                              onClick={() => setShowSummary(true)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                              Back to Dashboard
-                            </Button>
-                          </div>
-                        )}
-                        <Tabs defaultValue="deep-analytics" className="w-full">
-                          <TabsList className="bg-slate-100/80 p-1">
-                            <TabsTrigger value="deep-analytics" className="gap-2">
-                              <Sparkles className="h-4 w-4" /> Deep Analytics
-                            </TabsTrigger>
-                            <TabsTrigger value="ask-ai" className="gap-2">
-                              <BrainCircuit className="h-4 w-4" /> Ask AI
-                            </TabsTrigger>
-                          </TabsList>
-                          <div className="mt-6">
-                            <TabsContent value="deep-analytics">
-                              <DeepAnalytics
-                                projects={projects}
-                                tasks={tasks}
-                                users={users}
-                                activities={activities}
-                                tenants={tenant || tenantData ? [tenant || tenantData] : []}
-                              />
-                            </TabsContent>
-                            <TabsContent value="ask-ai">
-                              <AskAIInsights
-                                projects={projects}
-                                tasks={tasks}
-                                activities={activities}
-                              />
-                            </TabsContent>
-                          </div>
-                        </Tabs>
-                      </TabsContent>
-
-                      <TabsContent value="reports" className="space-y-6 mt-4">
-                        {!showSummary && (
-                          <div className="flex items-center gap-2 mb-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 text-slate-600 hover:text-slate-900"
-                              onClick={() => setShowSummary(true)}
-                            >
-                              <ArrowLeft className="h-4 w-4" />
-                              Back to Dashboard
-                            </Button>
-                          </div>
-                        )}
-                        <CustomReportBuilder
-                          projects={projects}
-                          tasks={tasks}
-                          users={users}
-                          timesheets={timesheets}
-                          activities={activities}
-                        />
-                      </TabsContent>
-
-                      {/* Profitability Tab Content */}
-                      {currentUser && currentUser.custom_role === 'owner' && (
-                        <TabsContent value="profitability" className="space-y-6 mt-4">
-                          {!showSummary && (
-                            <div className="flex items-center gap-2 mb-4">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2 text-slate-600 hover:text-slate-900"
-                                onClick={() => setShowSummary(true)}
-                              >
-                                <ArrowLeft className="h-4 w-4" />
-                                Back to Dashboard
-                              </Button>
-                            </div>
-                          )}
-                          <ProjectProfitabilityTable
+                      <div className="mt-6">
+                        <TabsContent value="health" className="m-0 focus-visible:outline-none">
+                          <ProjectHealthMatrix
                             projects={projects}
-                            users={users}
-                            timesheets={timesheets}
                             tasks={tasks}
-                            sprints={sprints}
-                            onRefresh={handleRefreshAll}
+                            activities={activities}
                           />
                         </TabsContent>
-                      )}
-                    </>
+
+                        <TabsContent value="timeline" className="m-0 focus-visible:outline-none">
+                          <div className="space-y-6">
+                            <Card className="p-6 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm">
+                              <h3 className="text-lg font-bold text-slate-900 mb-4">Timeline Prediction</h3>
+                              <div className="max-w-xs">
+                                <Select
+                                  value={selectedProjectId || "none"}
+                                  onValueChange={(value) => setSelectedProjectId(value === "none" ? null : value)}
+                                >
+                                  <SelectTrigger className="w-full bg-slate-50 border-slate-200 rounded-xl">
+                                    <SelectValue placeholder="Select a project" />
+                                  </SelectTrigger>
+                                  <SelectContent position="popper" className="z-50">
+                                    <SelectItem value="none">Select a project</SelectItem>
+                                    {projects.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {selectedProject && (
+                                <div className="mt-8">
+                                  <TimelinePrediction
+                                    project={selectedProject}
+                                    tasks={projectTasks}
+                                    activities={projectActivities}
+                                  />
+                                </div>
+                              )}
+                            </Card>
+
+                            <GanttChart projects={projects} tasks={tasks} users={users} />
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="risks" className="m-0 focus-visible:outline-none">
+                          <Card className="p-6 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-900 mb-4">Project Risk Analysis</h3>
+                            <div className="max-w-xs mb-8">
+                              <Select
+                                value={selectedProjectId || "none"}
+                                onValueChange={(value) => setSelectedProjectId(value === "none" ? null : value)}
+                              >
+                                <SelectTrigger className="w-full bg-slate-50 border-slate-200 rounded-xl">
+                                  <SelectValue placeholder="Select a project" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="z-50">
+                                  <SelectItem value="none">Select a project</SelectItem>
+                                  {projects.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {selectedProject && (
+                              <RiskAssessment project={selectedProject} tasks={projectTasks} />
+                            )}
+                          </Card>
+                        </TabsContent>
+
+                        <TabsContent value="reports" className="m-0 focus-visible:outline-none">
+                          <Card className="p-6 bg-white border border-slate-200/60 rounded-[2rem] shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-900 mb-4">Generate Project Report</h3>
+                            <div className="max-w-xs mb-8">
+                              <Select
+                                value={selectedProjectId || "none"}
+                                onValueChange={(value) => setSelectedProjectId(value === "none" ? null : value)}
+                              >
+                                <SelectTrigger className="w-full bg-slate-50 border-slate-200 rounded-xl">
+                                  <SelectValue placeholder="Select a project" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="z-50">
+                                  <SelectItem value="none">Select a project</SelectItem>
+                                  {projects.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {selectedProject && (
+                              <ProjectReport
+                                project={selectedProject}
+                                tasks={projectTasks}
+                                activities={projectActivities}
+                              />
+                            )}
+                          </Card>
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </TabsContent>
+
+                  <TabsContent value="resources" className="m-0 focus-visible:outline-none space-y-6">
+                    <ResourceUtilization
+                      users={users}
+                      tasks={tasks}
+                      timesheets={timesheets}
+                      projects={projects}
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="insights" className="m-0 focus-visible:outline-none space-y-6">
+                    <Tabs defaultValue="deep-analytics" className="w-full">
+                      <TabsList className="bg-slate-100/80 p-1 rounded-xl">
+                        <TabsTrigger value="deep-analytics" className="gap-2 rounded-lg">
+                          <Sparkles className="h-4 w-4" /> Deep Analytics
+                        </TabsTrigger>
+                        <TabsTrigger value="ask-ai" className="gap-2 rounded-lg">
+                          <BrainCircuit className="h-4 w-4" /> Ask AI
+                        </TabsTrigger>
+                      </TabsList>
+                      <div className="mt-6">
+                        <TabsContent value="deep-analytics" className="m-0 focus-visible:outline-none">
+                          <DeepAnalytics
+                            projects={projects}
+                            tasks={tasks}
+                            users={users}
+                            activities={activities}
+                            tenants={tenant || tenantData ? [tenant || tenantData] : []}
+                          />
+                        </TabsContent>
+                        <TabsContent value="ask-ai" className="m-0 focus-visible:outline-none">
+                          <AskAIInsights
+                            projects={projects}
+                            tasks={tasks}
+                            activities={activities}
+                          />
+                        </TabsContent>
+                      </div>
+                    </Tabs>
+                  </TabsContent>
+
+                  <TabsContent value="reports" className="m-0 focus-visible:outline-none space-y-6">
+                    <CustomReportBuilder
+                      projects={projects}
+                      tasks={tasks}
+                      users={users}
+                      timesheets={timesheets}
+                      activities={activities}
+                    />
+                  </TabsContent>
+
+                  {currentUser?.custom_role === "owner" && (
+                    <TabsContent value="profitability" className="m-0 focus-visible:outline-none space-y-6">
+                      <ProjectProfitabilityTable
+                        projects={projects}
+                        users={users}
+                        timesheets={timesheets}
+                        tasks={tasks}
+                        sprints={sprints}
+                        onRefresh={handleRefreshAll}
+                      />
+                    </TabsContent>
                   )}
-                </div>
-              </div>
+                </>
+              )}
             </div>
-          </div>
+          </Tabs>
         </div>
-      </Tabs>
+      </div>
     </PermissionGuard>
   );
 }

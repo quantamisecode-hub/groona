@@ -19,7 +19,7 @@ function App() {
               <Pages />
             </TenantGuard>
             {/* FIX: Position top-right to match your preference, remove duplicate bottom-right */}
-            <Toaster position="top-right" richColors closeButton />
+            <Toaster position="top-right" expand={true} />
           </UserProvider>
         </BrowserRouter>
       </TooltipProvider>

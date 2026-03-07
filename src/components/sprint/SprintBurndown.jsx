@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { format, eachDayOfInterval, isAfter, isBefore, startOfDay, parseISO, isValid } from 'date-fns';
+import { TrendingUp } from 'lucide-react';
 import BurndownChartGuide from './BurndownChartGuide';
 
 export default function SprintBurndown({ sprint, tasks }) {
@@ -34,13 +35,13 @@ export default function SprintBurndown({ sprint, tasks }) {
       } else {
         end = new Date(sprint.end_date);
       }
-      
+
       // Validate dates
       if (!isValid(start) || !isValid(end) || isNaN(start.getTime()) || isNaN(end.getTime())) {
         console.warn('SprintBurndown: Invalid dates', { start_date: sprint.start_date, end_date: sprint.end_date });
         return [];
       }
-      
+
       // Ensure end is after start
       if (end <= start) {
         console.warn('SprintBurndown: End date must be after start date', { start, end });
@@ -50,7 +51,7 @@ export default function SprintBurndown({ sprint, tasks }) {
       console.error('SprintBurndown: Error parsing dates', e);
       return [];
     }
-    
+
     const today = startOfDay(new Date());
 
     // Generate all days in sprint
@@ -71,7 +72,7 @@ export default function SprintBurndown({ sprint, tasks }) {
       const hours = Number(t.estimated_hours) || 0;
       return sum + (points || hours || 0);
     }, 0);
-    
+
     // If no effort, still show the chart with 0 effort
     const idealBurnRate = totalEffort > 0 ? totalEffort / Math.max(days.length - 1, 1) : 0; // Linear burn
 
@@ -117,7 +118,7 @@ export default function SprintBurndown({ sprint, tasks }) {
               doneDate = null;
             }
           }
-          
+
           if ((!doneDate || !isValid(doneDate)) && t.updated_date) {
             try {
               if (t.updated_date instanceof Date) {
@@ -191,79 +192,142 @@ export default function SprintBurndown({ sprint, tasks }) {
   }, [data, sprint, tasks, totalEffort]);
 
   return (
-    <div className="space-y-4">
-      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 shadow-lg h-full flex flex-col">
-        <CardHeader className="pb-2">
+    <div className="space-y-6">
+      <Card className="bg-white/70 backdrop-blur-xl border-slate-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[28px] overflow-hidden transition-all duration-500 hover:shadow-[0_8px_40px_rgb(0,0,0,0.08)] group">
+        <CardHeader className="p-8 pb-4">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-sm font-medium text-slate-500">Sprint Burndown</CardTitle>
-            <div className="text-2xl font-bold text-slate-900">
-              {remainingEffort} <span className="text-sm font-normal text-slate-500">pts remaining</span>
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100/50">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+              <div className="space-y-0.5">
+                <CardTitle className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em]">Sprint Burndown</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-black text-slate-800 tracking-tight leading-none uppercase">Progress Tracking</span>
+                </div>
+              </div>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-black text-slate-900 tracking-tighter">{remainingEffort}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">pts remaining</span>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 min-h-[300px] w-full" style={{ height: '400px' }}>
+        <CardContent className="p-8 pt-4">
+          <div className="h-[420px] w-full">
             {data.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-slate-500">
-                <div className="text-center">
-                  <p className="text-sm">No data available for burndown chart</p>
-                  <p className="text-xs text-slate-400 mt-1">Sprint dates or tasks are missing</p>
-                  {sprint && (
-                    <p className="text-xs text-slate-400 mt-1">
-                      Sprint: {sprint.name}, Start: {sprint.start_date?.toString()}, End: {sprint.end_date?.toString()}
-                    </p>
-                  )}
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 bg-slate-50/50 rounded-[20px] border border-dashed border-slate-200">
+                <div className="h-16 w-16 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm">
+                  <TrendingUp className="h-8 w-8 text-slate-200" />
                 </div>
+                <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">Insufficient Data</h3>
+                <p className="text-sm font-medium text-slate-400 max-w-xs mx-auto text-center mt-2 leading-relaxed">
+                  {sprint?.start_date && sprint?.end_date
+                    ? "This sprint doesn't have enough tasks or completed work history to generate a burndown visual."
+                    : "Please set sprint start and end dates to enable progress tracking."}
+                </p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={400}>
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorIdeal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#94a3b8" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
-                />
-                <Legend verticalAlign="top" height={36} />
-                <Area
-                  type="monotone"
-                  dataKey="ideal"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  fillOpacity={1}
-                  fill="url(#colorIdeal)"
-                  name="Ideal Guideline"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="actual"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorActual)"
-                  name="Actual Remaining"
-                  connectNulls={true}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                  <defs>
+                    <linearGradient id="colorIdeal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#94a3b8" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05} />
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                  </defs>
+                  <CartesianGrid strokeDasharray="5 5" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="date"
+                    fontSize={10}
+                    fontFamily="inherit"
+                    fontWeight={700}
+                    tick={{ fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    dy={10}
+                  />
+                  <YAxis
+                    fontSize={10}
+                    fontFamily="inherit"
+                    fontWeight={700}
+                    tick={{ fill: '#94a3b8' }}
+                    tickLine={false}
+                    axisLine={false}
+                    dx={-10}
+                  />
+                  <Tooltip
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-100 min-w-[150px]">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 border-b border-slate-50 pb-2">{label}</p>
+                            <div className="space-y-2">
+                              {payload.map((entry, index) => (
+                                <div key={index} className="flex items-center justify-between gap-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                                    <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{entry.name}</span>
+                                  </div>
+                                  <span className="text-[13px] font-black text-slate-800">{entry.value} pts</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend
+                    verticalAlign="top"
+                    align="right"
+                    wrapperStyle={{ paddingTop: '0px', paddingBottom: '30px' }}
+                    iconType="circle"
+                    formatter={(value) => <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{value}</span>}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="ideal"
+                    stroke="#cbd5e1"
+                    strokeWidth={2}
+                    strokeDasharray="8 8"
+                    fillOpacity={1}
+                    fill="url(#colorIdeal)"
+                    name="Ideal Guideline"
+                    animationDuration={1500}
+                    animationEasing="ease-in-out"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="actual"
+                    stroke="#6366f1"
+                    strokeWidth={4}
+                    fillOpacity={1}
+                    fill="url(#colorActual)"
+                    name="Actual Remaining"
+                    connectNulls={true}
+                    animationDuration={2000}
+                    animationEasing="ease-in-out"
+                    style={{ filter: 'url(#glow)' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
           </div>
         </CardContent>
       </Card>
-      
-      {/* Guide Section - Separated into its own component to avoid conflicts */}
+
       <BurndownChartGuide />
     </div>
   );

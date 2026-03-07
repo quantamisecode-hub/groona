@@ -259,18 +259,21 @@ export default function SprintKanbanBoard({
 
   return (
     <div className="flex flex-col h-full w-full max-w-full overflow-hidden">
-      <div className="mb-4 flex items-center justify-between flex-shrink-0 px-1">
-        <h3 className="text-lg font-bold text-slate-900">{sprint.name} Board</h3>
+      <div className="mb-6 flex items-center justify-between flex-shrink-0 px-2 mt-4">
+        <div className="space-y-1">
+          <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">{sprint.name} Board</h3>
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em]">Sprint Overview & Tasks</p>
+        </div>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-2 h-9 bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all text-slate-600"
+            className="flex items-center gap-2 h-10 px-4 bg-white/80 hover:bg-slate-50 border-slate-200/60 shadow-sm transition-all text-slate-600 rounded-full font-bold text-xs"
             title="Refresh Board"
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
 
@@ -279,10 +282,10 @@ export default function SprintKanbanBoard({
               variant="outline"
               size="sm"
               onClick={() => onEditSprint(sprint)}
-              className="flex items-center gap-2 h-9 bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all text-slate-600"
+              className="flex items-center gap-2 h-10 px-4 bg-white/80 hover:bg-slate-50 border-slate-200/60 shadow-sm transition-all text-slate-600 rounded-full font-bold text-xs"
               title="Edit Sprint"
             >
-              <Edit2 className="h-4 w-4" />
+              <Edit2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Edit Sprint</span>
             </Button>
           )}
@@ -292,30 +295,30 @@ export default function SprintKanbanBoard({
               variant="outline"
               size="sm"
               onClick={() => setIsManageColumnsOpen(true)}
-              className="flex items-center gap-2 h-9 bg-white hover:bg-slate-50 border-slate-200 shadow-sm transition-all"
+              className="flex items-center gap-2 h-10 px-4 bg-white/80 hover:bg-slate-50 border-slate-200/60 shadow-sm transition-all rounded-full font-bold text-xs"
             >
-              <Settings2 className="h-4 w-4 text-slate-500" />
+              <Settings2 className="h-3.5 w-3.5 text-slate-500" />
               <span className="hidden sm:inline">Edit Columns</span>
               <span className="sm:hidden">Edit</span>
             </Button>
           )}
 
-          <Badge variant="outline" className="text-sm h-9 px-3">
+          <Badge variant="outline" className="text-[11px] h-10 px-4 rounded-full border-slate-200/60 bg-slate-50/50 font-bold text-slate-500 shadow-none capitalize">
             {localTasks.length} tasks
           </Badge>
         </div>
       </div>
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex-1 min-w-0 w-full relative h-[calc(100vh-250px)] min-h-[500px]">
-          <div className="absolute inset-0 overflow-x-auto overflow-y-hidden pb-4">
-            <div className="inline-flex gap-4 h-full px-1 align-top">
+        <div className="flex-1 min-w-0 w-full relative h-[calc(100vh-140px)] min-h-[600px] mt-2">
+          <div className="absolute inset-0 overflow-x-auto overflow-y-hidden pb-6">
+            <div className="flex gap-6 h-full px-1 align-top items-stretch w-full">
               {columns.map((col) => {
                 const columnTasks = localTasks.filter((t) => t.status === col.id);
                 return (
-                  <div key={col.id} className="flex-shrink-0 w-80 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200/50 max-h-full shadow-sm">
-                    <div className="p-3 font-semibold text-slate-700 border-b border-slate-200 flex items-center justify-between flex-shrink-0 bg-white/50 rounded-t-xl backdrop-blur-sm">
-                      <span className="truncate mr-2" title={col.title}>{col.title}</span>
-                      <Badge variant="secondary" className="text-xs bg-slate-200 text-slate-700 hover:bg-slate-300">
+                  <div key={col.id} className="flex-1 min-w-[320px] flex flex-col bg-slate-50/50 backdrop-blur-md rounded-[28px] border border-slate-200/50 max-h-full shadow-sm hover:shadow-md transition-all duration-300">
+                    <div className="p-4 font-bold text-slate-800 border-b border-slate-100/50 flex items-center justify-between flex-shrink-0 bg-white/60 rounded-t-[28px] backdrop-blur-sm">
+                      <span className="truncate mr-2 text-[15px] tracking-tight" title={col.title}>{col.title}</span>
+                      <Badge variant="secondary" className="text-[11px] bg-slate-200/80 text-slate-700 hover:bg-slate-300 rounded-full px-2.5 h-5 font-bold shadow-none">
                         {columnTasks.length}
                       </Badge>
                     </div>
