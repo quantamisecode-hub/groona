@@ -59,154 +59,162 @@ export default function RequestLeaveDialog({ open, onClose, onSubmit, loading })
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Request Leave</DialogTitle>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="leave_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Leave Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="vacation">Vacation</SelectItem>
-                      <SelectItem value="sick">Sick Leave</SelectItem>
-                      <SelectItem value="personal">Personal</SelectItem>
-                      <SelectItem value="public_holiday">Public Holiday</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="start_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Start Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="end_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>End Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          disabled={(date) =>
-                            date < new Date(new Date().setHours(0, 0, 0, 0))
-                          }
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[440px] border-none rounded-[16px] p-0 shadow-2xl overflow-hidden bg-white">
+          <DialogHeader className="px-6 py-6 border-b border-slate-100 flex flex-row items-center gap-4 space-y-0 text-left">
+            <div className="h-10 w-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+              <CalendarIcon className="h-5 w-5" />
             </div>
+            <div>
+              <DialogTitle className="text-[17px] font-black text-slate-800 tracking-tight leading-none">Request Leave</DialogTitle>
+              <p className="text-[13px] font-medium text-slate-400 mt-1.5">Schedule your time off for approval.</p>
+            </div>
+          </DialogHeader>
 
-            <FormField
-              control={form.control}
-              name="reason"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reason</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Reason for leave..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="p-6 space-y-6">
+              <FormField
+                control={form.control}
+                name="leave_type"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Leave Type</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-11 bg-slate-50 border-slate-200/60 rounded-[10px] text-[13px] font-bold shadow-none focus:bg-white transition-all">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-[10px] border-slate-200">
+                        <SelectItem value="vacation" className="text-[13px] font-medium">Vacation</SelectItem>
+                        <SelectItem value="sick" className="text-[13px] font-medium">Sick Leave</SelectItem>
+                        <SelectItem value="personal" className="text-[13px] font-medium">Personal</SelectItem>
+                        <SelectItem value="public_holiday" className="text-[13px] font-medium">Public Holiday</SelectItem>
+                        <SelectItem value="other" className="text-[13px] font-medium">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[11px] font-bold text-red-500 ml-1" />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Request
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="start_date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col space-y-2">
+                      <FormLabel className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Start Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "h-11 pl-3 text-left text-[13px] font-bold bg-slate-50/50 border-slate-100 rounded-[10px] shadow-sm hover:bg-white transition-all",
+                                !field.value && "text-slate-400 font-medium"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "MMM d, yyyy")
+                              ) : (
+                                <span>Pick date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-30" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-none rounded-[16px] shadow-2xl overflow-hidden" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage className="text-[11px] font-bold text-red-500 ml-1" />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="end_date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col space-y-2">
+                      <FormLabel className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">End Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "h-11 pl-3 text-left text-[13px] font-bold bg-slate-50/50 border-slate-100 rounded-[10px] shadow-sm hover:bg-white transition-all",
+                                !field.value && "text-slate-400 font-medium"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "MMM d, yyyy")
+                              ) : (
+                                <span>Pick date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-30" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 border-none rounded-[16px] shadow-2xl overflow-hidden" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date < new Date(new Date().setHours(0, 0, 0, 0))
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage className="text-[11px] font-bold text-red-500 ml-1" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="reason"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Reason for Leave</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Briefly explain your request..."
+                        className="min-h-[100px] bg-slate-50 border-slate-200/60 rounded-[12px] text-[13px] font-medium p-4 focus:bg-white transition-all leading-relaxed resize-none"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className="text-[11px] font-bold text-red-500 ml-1" />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-4 border-t border-slate-100">
+                <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-11 rounded-[10px] font-bold text-[13px] border-slate-200 text-slate-600 hover:bg-slate-50">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading} className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-[10px] font-black text-[13px] shadow-lg shadow-slate-200">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Request
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

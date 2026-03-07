@@ -300,16 +300,19 @@ export default function NotificationCenter({ currentUser }) {
           size="icon"
           className="relative h-10 w-10 rounded-full hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100"
         >
-          <Bell className="h-5 w-5 text-slate-600" />
+          <Bell className="h-5 w-5 text-slate-700" />
           <AnimatePresence>
             {allUnreadCount > 0 && (
               <motion.div
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0, opacity: 0 }}
-                className="absolute top-1.5 right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 border-2 border-white"
+                className={cn(
+                  "absolute top-0 right-0 flex items-center justify-center rounded-full bg-red-600 border-2 border-white shadow-lg translate-x-1/3 -translate-y-1/3",
+                  allUnreadCount > 9 ? "h-5 px-1.5" : "h-5 w-5"
+                )}
               >
-                <span className="text-[9px] font-bold text-white leading-none">
+                <span className="text-[10px] font-black text-white leading-none">
                   {allUnreadCount > 9 ? '9+' : allUnreadCount}
                 </span>
               </motion.div>

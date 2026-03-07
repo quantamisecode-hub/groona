@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar as CalendarIcon, Gift, Loader2, RefreshCw } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { toast } from "sonner";
@@ -36,8 +37,8 @@ export default function CompOffManager({ currentUser, tenantId }) {
   const { data: credits = [] } = useQuery({
     queryKey: ['comp-off-credits', tenantId],
     queryFn: async () => {
-       if (!groonabackend.entities.CompOffCredit) return []; 
-       return groonabackend.entities.CompOffCredit.filter({ tenant_id: tenantId }, '-created_date');
+      if (!groonabackend.entities.CompOffCredit) return [];
+      return groonabackend.entities.CompOffCredit.filter({ tenant_id: tenantId }, '-created_date');
     },
     enabled: !!tenantId,
   });
@@ -152,39 +153,39 @@ export default function CompOffManager({ currentUser, tenantId }) {
         let totalUsedFromBalance = Number(balance.used) || 0;
 
         for (const credit of userCredits) {
-            const originalAmount = Number(credit.credited_days);
-            let newUsed = 0;
+          const originalAmount = Number(credit.credited_days);
+          let newUsed = 0;
 
-            if (totalUsedFromBalance > 0) {
-                if (totalUsedFromBalance >= originalAmount) {
-                    newUsed = originalAmount;
-                    totalUsedFromBalance -= originalAmount;
-                } else {
-                    newUsed = totalUsedFromBalance;
-                    totalUsedFromBalance = 0;
-                }
+          if (totalUsedFromBalance > 0) {
+            if (totalUsedFromBalance >= originalAmount) {
+              newUsed = originalAmount;
+              totalUsedFromBalance -= originalAmount;
+            } else {
+              newUsed = totalUsedFromBalance;
+              totalUsedFromBalance = 0;
             }
+          }
 
-            const newRemaining = originalAmount - newUsed;
+          const newRemaining = originalAmount - newUsed;
 
-            // Only update if changed
-            if (Number(credit.used_days) !== newUsed) {
-                await groonabackend.entities.CompOffCredit.update(credit.id, {
-                    used_days: newUsed,
-                    remaining_days: newRemaining
-                });
-                updatedCount++;
-            }
+          // Only update if changed
+          if (Number(credit.used_days) !== newUsed) {
+            await groonabackend.entities.CompOffCredit.update(credit.id, {
+              used_days: newUsed,
+              remaining_days: newRemaining
+            });
+            updatedCount++;
+          }
         }
       }
 
       queryClient.invalidateQueries({ queryKey: ['comp-off-credits'] });
       toast.success(`Sync Complete. Updated ${updatedCount} records.`);
     } catch (error) {
-        console.error("Sync failed", error);
-        toast.error("Sync failed: " + error.message);
+      console.error("Sync failed", error);
+      toast.error("Sync failed: " + error.message);
     } finally {
-        setIsSyncing(false);
+      setIsSyncing(false);
     }
   };
 
@@ -209,78 +210,86 @@ export default function CompOffManager({ currentUser, tenantId }) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Comp Off Management</CardTitle>
-            <div className="flex gap-2">
-                {/* ADMIN ONLY SYNC BUTTON */}
-                {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
-                    <Button 
-                        variant="outline" 
-                        onClick={handleSyncData} 
-                        disabled={isSyncing}
-                        title="Fix '0 Used' days by syncing with Leave Balance"
-                    >
-                        <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
-                        {isSyncing ? "Syncing..." : "Sync History"}
-                    </Button>
-                )}
+      <Card className="bg-white border-none shadow-sm rounded-[16px] overflow-hidden">
+        <CardHeader className="border-b border-slate-50 px-8 py-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <CardTitle className="text-[17px] font-black text-slate-800 tracking-tight">Comp Off Management</CardTitle>
+              <p className="text-[12px] text-slate-400 mt-1 font-medium">Issue and track compensatory time off credits for overtime work.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              {(currentUser.role === 'admin' || currentUser.role === 'super_admin') && (
                 <Button
-                onClick={() => setShowDialog(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600"
+                  variant="outline"
+                  onClick={handleSyncData}
+                  disabled={isSyncing}
+                  className="h-10 px-6 rounded-[12px] text-[12px] font-black uppercase tracking-widest shadow-sm transition-all text-slate-500 hover:text-slate-900 border-slate-200/60"
                 >
-                <Plus className="h-4 w-4 mr-2" />
-                Credit Comp Off
+                  <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isSyncing && "animate-spin")} />
+                  Sync
                 </Button>
+              )}
+              <Button
+                onClick={() => setShowDialog(true)}
+                className="h-10 px-6 rounded-[12px] text-[12px] font-black uppercase tracking-widest shadow-lg shadow-slate-100 transition-all bg-slate-900 hover:bg-slate-800 text-white"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Issue Credit
+              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="p-8">
+          <div className="grid gap-4 lg:grid-cols-2">
             {credits.length === 0 ? (
-              <div className="text-center p-12">
-                <Gift className="h-12 w-12 mx-auto text-slate-300 mb-4" />
-                <p className="text-slate-600">No comp off credits yet</p>
+              <div className="lg:col-span-2 text-center py-16 bg-slate-50/50 rounded-[16px] border border-dashed border-slate-200">
+                <Gift className="h-12 w-12 mx-auto text-slate-200 mb-4" />
+                <p className="text-[14px] font-black text-slate-800 tracking-tight">No credits issued yet</p>
+                <p className="text-[12px] text-slate-400 font-medium mt-1">Reward your team for their extra effort.</p>
               </div>
             ) : (
               credits.map((credit, index) => (
                 <div
                   key={credit.id || index}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50"
+                  className="group p-5 border border-slate-100 rounded-[16px] hover:shadow-md transition-all bg-white shadow-sm flex flex-col gap-4"
                 >
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                       <div>
-                          <h3 className="font-medium text-slate-900">{credit.user_name}</h3>
-                          <div className="flex gap-4 mt-1 text-sm text-slate-600">
-                            <span className="font-medium text-blue-700">Credited: {credit.credited_days} days</span>
-                            
-                            {/* FETCHED DIRECTLY FROM DB */}
-                            <span className={cn(
-                                "font-medium",
-                                credit.used_days > 0 ? "text-orange-600" : "text-slate-500"
-                            )}>
-                                Used: {credit.used_days || 0} days
-                            </span>
-                            
-                            <span className={cn(
-                                "font-medium",
-                                credit.remaining_days > 0 ? "text-green-600" : "text-slate-400"
-                            )}>
-                                Remaining: {credit.remaining_days} days
-                            </span>
-                            
-                            <span className="text-xs text-slate-400 mt-0.5 block">
-                              Expires: {format(new Date(credit.expires_at), 'MMM dd, yyyy')}
-                            </span>
-                          </div>
-                       </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 text-[12px] font-black shadow-none group-hover:scale-105 transition-transform uppercase">
+                        {credit.user_name?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <h3 className="text-[14px] font-black text-slate-800 tracking-tight leading-none">{credit.user_name}</h3>
+                        <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                          EXP: {format(new Date(credit.expires_at), 'MMM dd, yyyy')}
+                        </p>
+                      </div>
                     </div>
-                    {credit.reason && (
-                      <p className="text-sm text-slate-500 mt-1">{credit.reason}</p>
-                    )}
+                    <Badge className="bg-emerald-50 text-emerald-600 text-[9px] border-none rounded-full font-black uppercase tracking-widest shadow-none px-2.5">
+                      ACTIVE
+                    </Badge>
                   </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-50/80 rounded-[12px] p-3 text-center border border-slate-100/50">
+                      <p className="text-[20px] font-black text-slate-900 leading-none mb-1 tracking-tighter">{credit.credited_days}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Issued</p>
+                    </div>
+                    <div className="bg-amber-50/50 rounded-[12px] p-3 text-center border border-amber-100/50">
+                      <p className="text-[20px] font-black text-amber-600 leading-none mb-1 tracking-tighter">{credit.used_days || 0}</p>
+                      <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest">Consumed</p>
+                    </div>
+                    <div className="bg-emerald-50/50 rounded-[12px] p-3 text-center border border-emerald-100/50">
+                      <p className="text-[20px] font-black text-emerald-600 leading-none mb-1 tracking-tighter">{credit.remaining_days}</p>
+                      <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Balance</p>
+                    </div>
+                  </div>
+
+                  {credit.reason && (
+                    <div className="px-1 pt-1 border-t border-slate-50">
+                      <p className="text-[12px] text-slate-500 font-medium leading-relaxed italic">“{credit.reason}”</p>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -295,16 +304,16 @@ export default function CompOffManager({ currentUser, tenantId }) {
             <DialogTitle>Credit Comp Off</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5 pt-4">
             <div className="space-y-2">
-              <Label>User *</Label>
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Team Member *</Label>
               <select
                 value={formData.user_email}
                 onChange={(e) => setFormData({ ...formData, user_email: e.target.value })}
-                className="w-full p-2 border rounded-md"
+                className="w-full h-11 bg-white border border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all px-4 appearance-none"
                 required
               >
-                <option value="">Select user...</option>
+                <option value="">Select individual...</option>
                 {users.map((user) => (
                   <option key={user.id} value={user.email}>
                     {user.full_name}
@@ -314,7 +323,7 @@ export default function CompOffManager({ currentUser, tenantId }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Days To Credit *</Label>
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Days to Credit *</Label>
               <Input
                 type="number"
                 min="0.5"
@@ -322,36 +331,38 @@ export default function CompOffManager({ currentUser, tenantId }) {
                 value={formData.credited_days}
                 onChange={(e) => setFormData({ ...formData, credited_days: parseFloat(e.target.value) || 1 })}
                 required
+                className="h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Reason *</Label>
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Reason for Credit *</Label>
               <Textarea
                 value={formData.reason}
                 onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                placeholder="Holiday work, overtime, etc..."
+                placeholder="e.g. Worked over the weekend for project launch..."
                 rows={3}
                 required
+                className="bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all resize-none p-4"
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Expiry Date *</Label>
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Expiry Date *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
+                      "w-full h-11 justify-start text-left font-medium text-[13px] rounded-[10px] border-slate-200 bg-white hover:bg-slate-50 transition-all",
                       !formData.expires_at && "text-muted-foreground"
                     )}
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(formData.expires_at, "PPP")}
+                    <CalendarIcon className="mr-2.5 h-4 w-4 text-slate-400" />
+                    {formData.expires_at ? format(formData.expires_at, "PPP") : "Select expiry..."}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
+                <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
                     selected={formData.expires_at}
@@ -362,19 +373,19 @@ export default function CompOffManager({ currentUser, tenantId }) {
               </Popover>
             </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
+            <div className="flex gap-3 pt-6">
+              <Button type="button" variant="outline" onClick={handleClose} className="flex-1 h-11 rounded-[10px] font-bold text-[13px] border-slate-200 text-slate-600 hover:bg-slate-50 transition-all">
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={creditMutation.isPending}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600"
+                className="flex-1 h-11 rounded-[10px] font-bold text-[13px] shadow-sm transition-all bg-slate-900 hover:bg-slate-800 text-white"
               >
                 {creditMutation.isPending ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Issuing...</>
                 ) : (
-                    "Credit Comp Off"
+                  "Issue Credit"
                 )}
               </Button>
             </div>

@@ -3464,13 +3464,28 @@ router.get('/admin/payments-history', async (req, res) => {
   }
 });
 
-// Tenant: Get my payment history
+// Tenant: Get my payment history (Cursor-based)
 router.get('/tenant/payments-history/:tenantId', async (req, res) => {
   try {
     const { tenantId } = req.params;
+    const { cursor, limit = 10 } = req.query;
     const Payment = Models.Payment;
-    const history = await Payment.find({ tenant_id: tenantId }).sort({ payment_date: -1 }).limit(50);
-    res.json(history);
+
+    const query = { tenant_id: tenantId };
+    if (cursor) {
+      query._id = { $lt: cursor };
+    }
+
+    const totalCount = await Payment.countDocuments({ tenant_id: tenantId });
+    const history = await Payment.find(query)
+      .sort({ _id: -1 })
+      .limit(parseInt(limit));
+
+    res.json({
+      results: history,
+      totalCount,
+      nextCursor: history.length === parseInt(limit) ? history[history.length - 1]._id : null
+    });
   } catch (error) {
     console.error('[API] Tenant Payment History error:', error);
     res.status(500).json({ error: error.message });

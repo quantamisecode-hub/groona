@@ -1,7 +1,7 @@
 // src/pages/PaymentGateways.jsx
 import React, { useState, useEffect } from "react";
 import { groonabackend } from "@/api/groonabackend";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,11 +36,23 @@ export default function PaymentGateways() {
         }
     }, [config]);
 
-    const { data: subscriptions = [], isLoading: isSubLoading } = useQuery({
+    const {
+        data: paginatedData,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading: isSubLoading
+    } = useInfiniteQuery({
         queryKey: ['admin-payment-history'],
-        queryFn: async () => await groonabackend.payments.getAdminHistory(),
+        queryFn: async ({ pageParam = null }) => await groonabackend.payments.getAdminHistory(pageParam, 10),
+        initialPageParam: null,
+        getNextPageParam: (lastPage) => lastPage.nextCursor,
         enabled: !!user?.is_super_admin,
     });
+
+    const subscriptions = React.useMemo(() => {
+        return paginatedData?.pages.flatMap(page => page.results) || [];
+    }, [paginatedData]);
 
     const updateMutation = useMutation({
         mutationFn: async (data) => {
@@ -205,12 +217,32 @@ export default function PaymentGateways() {
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="p-6 pt-0">
+                    <CardContent className="p-0">
                         <SubscriptionHistoryTable
                             subscriptions={subscriptions}
                             isLoading={isSubLoading}
                             isSuperAdmin={true}
                         />
+                        {hasNextPage && (
+                            <div className="p-4 border-t border-slate-100 flex justify-center bg-slate-50/30">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fetchNextPage()}
+                                    disabled={isFetchingNextPage}
+                                    className="h-8 px-6 rounded-full text-indigo-600 border-indigo-200 hover:bg-indigo-50 font-medium transition-all"
+                                >
+                                    {isFetchingNextPage ? (
+                                        <>
+                                            <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        "Load More History"
+                                    )}
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>

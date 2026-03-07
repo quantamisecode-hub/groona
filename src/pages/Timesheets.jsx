@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus,
+  TrendingUp,
   Clock,
   CheckCircle,
   AlertCircle,
@@ -41,7 +42,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   XCircle,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -106,9 +109,11 @@ export default function TimesheetsPage() {
   const [projectFilter, setProjectFilter] = useState("all");
   const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [userFilter, setUserFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const queryClient = useQueryClient();
   const lastAutoOpenedId = React.useRef(null);
-
 
   const canApproveTimesheets = useHasPermission('can_approve_timesheet');
   const isAdmin = currentUser?.role === 'admin' || currentUser?.is_super_admin || currentUser?.custom_role === 'owner';
@@ -134,9 +139,22 @@ export default function TimesheetsPage() {
 
   const isPM = pmData.isPM || currentUser?.custom_role === 'project_manager';
 
-  // Fetch user's timesheets (Needed for the "Submit Drafts" button)
-  const { data: myTimesheets = [], isLoading: myLoading } = useQuery({
-    queryKey: ['my-timesheets', currentUser?.email],
+  // Fetch ALL timesheets (unfiltered/unpaginated) JUST FOR STATS AND DRAFTS
+  const { data: allStatsTimesheets = [], isLoading: allLoading } = useQuery({
+    queryKey: ['all-stats-timesheets', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return [];
+      return groonabackend.entities.Timesheet.filter(
+        { tenant_id: effectiveTenantId },
+        '-date'
+      );
+    },
+    enabled: !!currentUser && (isAdmin || isPM),
+    refetchInterval: 5000,
+  });
+
+  const { data: myStatsTimesheets = [], isLoading: myLoading } = useQuery({
+    queryKey: ['my-stats-timesheets', currentUser?.email],
     queryFn: async () => {
       if (!currentUser?.email) return [];
       return groonabackend.entities.Timesheet.filter(
@@ -145,24 +163,79 @@ export default function TimesheetsPage() {
       );
     },
     enabled: !!currentUser,
-    staleTime: 0, // Ensure fresh data on mount
-    refetchInterval: 5000, // Poll every 5s for real-time updates
-  });
-
-  // Fetch all timesheets for admin OR Project Manager (PM needs it to see team's work)
-  const { data: allTimesheets = [], isLoading: allLoading } = useQuery({
-    queryKey: ['all-timesheets', effectiveTenantId],
-    queryFn: async () => {
-      if (!effectiveTenantId) return [];
-      return groonabackend.entities.Timesheet.filter(
-        { tenant_id: effectiveTenantId },
-        '-date'
-      );
-    },
-    // ENABLE FOR PM AS WELL
-    enabled: !!currentUser && (isAdmin || isPM),
     refetchInterval: 5000,
   });
+
+  // Switch stats source based on role
+  const statsTimesheets = (isAdmin || isPM) ? allStatsTimesheets : myStatsTimesheets;
+
+  // Serverside Paginated Main Timesheets Fetch
+  const { data: paginatedData = { results: [], totalCount: 0 }, isLoading: isTimesheetsLoading } = useQuery({
+    queryKey: ['paginated-timesheets', effectiveTenantId, currentPage, userFilter, statusFilter, projectFilter, dateRangeFilter, isAdmin, isPM, currentUser?.email],
+    queryFn: async () => {
+      const filters = {};
+      if (isAdmin || isPM) {
+        if (!effectiveTenantId) return { results: [], totalCount: 0 };
+        filters.tenant_id = effectiveTenantId;
+      } else {
+        if (!currentUser?.email) return { results: [], totalCount: 0 };
+        filters.user_email = currentUser.email;
+      }
+
+      // Apply User Filter
+      if (userFilter !== 'all') {
+        filters.user_email = userFilter;
+      }
+      // Apply Status Filter
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+      // Apply Project Filter
+      if (projectFilter !== 'all') {
+        filters.project_id = projectFilter;
+      }
+      // Apply Date Filter
+      if (dateRangeFilter !== 'all') {
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        if (dateRangeFilter === 'today') {
+          filters.date = todayStr;
+        } else if (dateRangeFilter === 'week') {
+          const past = new Date(); past.setDate(past.getDate() - 7);
+          const pastStr = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}-${String(past.getDate()).padStart(2, '0')}`;
+          filters.date = { $gte: pastStr };
+        } else if (dateRangeFilter === 'month') {
+          const past = new Date(); past.setDate(past.getDate() - 30);
+          const pastStr = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, '0')}-${String(past.getDate()).padStart(2, '0')}`;
+          filters.date = { $gte: pastStr };
+        }
+      }
+
+      const res = await groonabackend.entities.Timesheet.filter(
+        filters,
+        '-date',
+        currentPage,
+        itemsPerPage
+      );
+
+      if (Array.isArray(res)) return { results: res, totalCount: res.length };
+      return res;
+    },
+    enabled: !!currentUser && !!effectiveTenantId,
+    refetchInterval: 5000,
+  });
+
+  const isLoading = isTimesheetsLoading;
+  const targetTimesheets = paginatedData.results || [];
+  const targetTotalCount = paginatedData.totalCount || 0;
+  const totalPages = Math.ceil(targetTotalCount / itemsPerPage);
+
+  // Filter handlers
+  const handleFilterChange = (setter) => (val) => {
+    setter(val);
+    setCurrentPage(1);
+  };
+
 
   // Fetch users for reports
   const { data: users = [] } = useQuery({
@@ -189,9 +262,7 @@ export default function TimesheetsPage() {
     staleTime: 60000
   });
 
-  // Switch Data Source Based on Role - PMs now see all sheets too
-  const targetTimesheets = (isAdmin || isPM) ? allTimesheets : myTimesheets;
-  const isLoading = (isAdmin || isPM) ? allLoading : myLoading;
+
 
   const saveTimesheetMutation = useMutation({
     mutationFn: async (data) => {
@@ -538,21 +609,21 @@ export default function TimesheetsPage() {
   });
 
   // Stats calculation
-  const draftTimesheets = targetTimesheets.filter(t => t.status === 'draft');
+  const draftTimesheets = statsTimesheets.filter(t => t.status === 'draft');
   const draftCount = draftTimesheets.length;
   // Count both pending states as "Submitted" for the user stats
-  const submittedCount = targetTimesheets.filter(t => t.status === 'pending_pm' || t.status === 'pending_admin' || t.status === 'submitted').length;
-  const approvedCount = targetTimesheets.filter(t => t.status === 'approved').length;
+  const submittedCount = statsTimesheets.filter(t => t.status === 'pending_pm' || t.status === 'pending_admin' || t.status === 'submitted').length;
+  const approvedCount = statsTimesheets.filter(t => t.status === 'approved').length;
 
-  const totalHours = targetTimesheets
+  const totalHours = statsTimesheets
     .filter(t => t.status === 'approved')
     .reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60;
 
-  const billableHours = targetTimesheets
+  const billableHours = statsTimesheets
     .filter(t => t.status === 'approved' && t.is_billable)
     .reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60;
 
-  const nonBillableHours = targetTimesheets
+  const nonBillableHours = statsTimesheets
     .filter(t => t.status === 'approved' && !t.is_billable)
     .reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60;
 
@@ -560,7 +631,7 @@ export default function TimesheetsPage() {
   const pendingApprovals = useMemo(() => {
     // 1. Project Managers (Priority check: strictly PM role, even if they are admin)
     if (currentUser?.custom_role === 'project_manager') {
-      return allTimesheets.filter(t =>
+      return allStatsTimesheets.filter(t =>
         (t.status === 'pending_pm' || t.status === 'submitted') &&
         t.user_email !== currentUser.email &&
         !allPMEmails.includes(t.user_email)
@@ -569,11 +640,11 @@ export default function TimesheetsPage() {
 
     // 2. Owner/Admin sees 'pending_admin'
     if (currentUser?.custom_role === 'owner' || currentUser?.role === 'admin' || currentUser?.is_super_admin) {
-      return allTimesheets.filter(t => t.status === 'pending_admin' || t.status === 'submitted').length;
+      return allStatsTimesheets.filter(t => t.status === 'pending_admin' || t.status === 'submitted').length;
     }
 
     return 0;
-  }, [allTimesheets, currentUser, pmData, allPMEmails, isAdmin]);
+  }, [allStatsTimesheets, currentUser, pmData, allPMEmails, isAdmin]);
 
   // --- REWORK ALARM ALERT (Viewer Only) ---
   const { data: reworkAlarm } = useQuery({
@@ -741,7 +812,7 @@ export default function TimesheetsPage() {
     refetchInterval: 10000,
   });
 
-  const myDraftEntries = myTimesheets.filter(t => t.status === 'draft');
+  const myDraftEntries = myStatsTimesheets.filter(t => t.status === 'draft');
   const myDraftCount = myDraftEntries.length;
 
   // Robust Daily Target Logic
@@ -759,13 +830,13 @@ export default function TimesheetsPage() {
 
   const uniqueProjects = useMemo(() => {
     const projects = new Map();
-    targetTimesheets.forEach(t => {
+    statsTimesheets.forEach(t => {
       if (t.project_id && t.project_name) {
         projects.set(t.project_id, t.project_name);
       }
     });
     return Array.from(projects.entries());
-  }, [targetTimesheets]);
+  }, [statsTimesheets]);
 
   // === CORRECTED: Sorting Logic (Pending First) ===
   const filteredTimesheets = useMemo(() => {
@@ -836,15 +907,15 @@ export default function TimesheetsPage() {
   }
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative min-h-screen">
-      <div className="max-w-[1800px] mx-auto w-full flex flex-col relative flex-1">
+    <div className="flex flex-col bg-white w-full relative min-h-screen">
+      <div className="max-w-[1800px] mx-auto w-full flex flex-col relative flex-1 pb-10">
         {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/60 pb-4 pt-6">
-          <div className="px-6 md:px-8 pt-0 pb-4">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+        <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-xl border-b border-transparent pb-0 pt-8 transition-all">
+          <div className="px-8 md:px-12 pt-0 pb-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900">Timesheets</h1>
-                <p className="text-slate-600">Track your time and manage work hours</p>
+                <h1 className="text-[32px] md:text-[40px] font-black text-slate-900 tracking-tight leading-none mb-2">Timesheets</h1>
+                <p className="text-[13px] font-semibold text-slate-500 tracking-wide">Track your time and manage work hours</p>
               </div>
               {!showForm && !(isAdmin && currentUser?.custom_role === 'owner') && (
                 <div className="flex gap-2">
@@ -877,112 +948,158 @@ export default function TimesheetsPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3 lg:gap-4 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] w-full items-stretch shrink-0">
               {(() => {
                 const isRestrictedStats = currentUser?.custom_role === 'viewer' || currentUser?.custom_role === 'project_manager';
-                const myTotalHoursVal = myTimesheets
+                const myTotalHoursVal = myStatsTimesheets
                   .filter(t => t.status === 'approved')
                   .reduce((sum, t) => sum + (t.total_minutes || 0), 0) / 60;
 
-                const myApprovedCountVal = myTimesheets.filter(t => t.status === 'approved').length;
-                const mySubmittedCountVal = myTimesheets.filter(t => t.status === 'pending_pm' || t.status === 'pending_admin' || t.status === 'submitted').length;
-                const myDraftCountVal = myTimesheets.filter(t => t.status === 'draft').length;
+                const myApprovedCountVal = myStatsTimesheets.filter(t => t.status === 'approved').length;
+                const mySubmittedCountVal = myStatsTimesheets.filter(t => t.status === 'pending_pm' || t.status === 'pending_admin' || t.status === 'submitted').length;
+                const myDraftCountVal = myStatsTimesheets.filter(t => t.status === 'draft').length;
 
                 return (
                   <>
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-600">{isRestrictedStats ? "My Total Hours" : "Total Hours"}</p>
-                            <p className="text-2xl font-bold text-slate-900">
-                              {isRestrictedStats ? myTotalHoursVal.toFixed(2) : totalHours.toFixed(2)}h
-                            </p>
+                    <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                      <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                        <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                          <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                            {isRestrictedStats ? "My Total Hours" : "Total Hours"}
+                          </p>
+                          <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                            <TrendingUp className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#3B82F6]" strokeWidth={2.5} />
                           </div>
-                          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                            <Clock className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                        </div>
+                        <div className="mt-auto">
+                          <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                            {isRestrictedStats ? myTotalHoursVal.toFixed(2) : totalHours.toFixed(2)}<span className="text-[14px] 2xl:text-[18px] font-bold text-slate-400 ml-0.5 tracking-normal">h</span>
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                            <div className="h-[3px] w-5 rounded-full bg-[#3B82F6]"></div>
+                            <div className="h-[3px] w-1.5 rounded-full bg-[#3B82F6]/20"></div>
                           </div>
                         </div>
                       </CardContent>
+                      <TrendingUp className="absolute -bottom-2 -right-1 text-[#3B82F6]/[0.03] w-16 h-16 2xl:w-20 2xl:h-20 z-0 -rotate-12" strokeWidth={4} />
                     </Card>
 
                     {!isRestrictedStats && (
                       <>
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                          <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-slate-600">Billable Hours</p>
-                                <p className="text-2xl font-bold text-green-600">{billableHours.toFixed(2)}h</p>
+                        <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                          <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                            <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                              <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                                Billable Hours
+                              </p>
+                              <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                                <CheckCircle className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#2ECC71]" strokeWidth={2.5} />
                               </div>
-                              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                                <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                            </div>
+                            <div className="mt-auto">
+                              <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                                {billableHours.toFixed(2)}<span className="text-[14px] 2xl:text-[18px] font-bold text-slate-400 ml-0.5 tracking-normal">h</span>
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                                <div className="h-[3px] w-5 rounded-full bg-[#2ECC71]"></div>
+                                <div className="h-[3px] w-1.5 rounded-full bg-[#2ECC71]/20"></div>
                               </div>
                             </div>
                           </CardContent>
+                          <CheckCircle className="absolute -bottom-3 -right-2 text-[#2ECC71]/[0.03] w-16 h-16 2xl:w-24 2xl:h-24 z-0" strokeWidth={4} />
                         </Card>
 
-                        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                          <CardContent className="pt-6">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-sm text-slate-600">Non-Billable</p>
-                                <p className="text-2xl font-bold text-purple-600">{nonBillableHours.toFixed(2)}h</p>
+                        <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                          <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                            <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                              <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                                Non-Billable
+                              </p>
+                              <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                                <Clock className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#9B51E0]" strokeWidth={2.5} />
                               </div>
-                              <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                                <Clock className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                            </div>
+                            <div className="mt-auto">
+                              <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                                {nonBillableHours.toFixed(2)}<span className="text-[14px] 2xl:text-[18px] font-bold text-slate-400 ml-0.5 tracking-normal">h</span>
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                                <div className="h-[3px] w-5 rounded-full bg-[#9B51E0]"></div>
+                                <div className="h-[3px] w-1.5 rounded-full bg-[#9B51E0]/20"></div>
                               </div>
                             </div>
                           </CardContent>
+                          <Clock className="absolute -bottom-3 -right-2 text-[#9B51E0]/[0.03] w-16 h-16 2xl:w-24 2xl:h-24 z-0" strokeWidth={4} />
                         </Card>
                       </>
                     )}
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-600">{isRestrictedStats ? "My Approved" : "Approved"}</p>
-                            <p className="text-2xl font-bold text-green-600">
-                              {isRestrictedStats ? myApprovedCountVal : approvedCount}
-                            </p>
+                    <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                      <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                        <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                          <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                            {isRestrictedStats ? "My Approved" : "Approved"}
+                          </p>
+                          <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                            <CheckCircle className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#2ECC71]" strokeWidth={2.5} />
                           </div>
-                          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
-                            <CheckCircle className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                        </div>
+                        <div className="mt-auto">
+                          <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                            {isRestrictedStats ? myApprovedCountVal : approvedCount}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                            <div className="h-[3px] w-5 rounded-full bg-[#2ECC71]"></div>
+                            <div className="h-[3px] w-1.5 rounded-full bg-[#2ECC71]/20"></div>
                           </div>
                         </div>
                       </CardContent>
+                      <CheckCircle className="absolute -bottom-3 -right-2 text-[#2ECC71]/[0.03] w-16 h-16 2xl:w-24 2xl:h-24 z-0" strokeWidth={4} />
                     </Card>
 
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-600">{isRestrictedStats ? "My Submitted" : "Submitted"}</p>
-                            <p className="text-2xl font-bold text-amber-600">
-                              {isRestrictedStats ? mySubmittedCountVal : submittedCount}
-                            </p>
+                    <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                      <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                        <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                          <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                            {isRestrictedStats ? "My Submitted" : "Submitted"}
+                          </p>
+                          <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                            <AlertCircle className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#F39C12]" strokeWidth={2.5} />
                           </div>
-                          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                            <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                        </div>
+                        <div className="mt-auto">
+                          <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                            {isRestrictedStats ? mySubmittedCountVal : submittedCount}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                            <div className="h-[3px] w-5 rounded-full bg-[#F39C12]"></div>
+                            <div className="h-[3px] w-1.5 rounded-full bg-[#F39C12]/20"></div>
                           </div>
                         </div>
                       </CardContent>
+                      <AlertCircle className="absolute -bottom-3 -right-2 text-[#F39C12]/[0.03] w-16 h-16 2xl:w-24 2xl:h-24 z-0 -rotate-12" strokeWidth={4} />
                     </Card>
 
-                    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 flex-shrink-0 w-[240px] md:w-auto">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-slate-600">{isRestrictedStats ? "My Drafts" : "Drafts"}</p>
-                            <p className="text-2xl font-bold text-slate-600">
-                              {isRestrictedStats ? myDraftCountVal : draftCount}
-                            </p>
+                    <Card className="bg-white border border-slate-100 rounded-[16px] xl:rounded-[20px] shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-shrink-0 w-full md:w-auto transition-transform hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.04)] relative overflow-hidden">
+                      <CardContent className="p-3.5 xl:p-4 2xl:p-5 h-full flex flex-col justify-between relative z-10 w-full min-w-[130px]">
+                        <div className="flex items-start justify-between w-full mb-3 2xl:mb-4">
+                          <p className="text-[12px] xl:text-[13px] font-bold text-[#0F172A] leading-tight pt-0.5 pr-2">
+                            {isRestrictedStats ? "My Drafts" : "Drafts"}
+                          </p>
+                          <div className="h-6 w-6 2xl:h-7 2xl:w-7 rounded-[6px] 2xl:rounded-[8px] border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm">
+                            <FileText className="h-3 w-3 2xl:h-3.5 2xl:w-3.5 text-[#475569]" strokeWidth={2.5} />
                           </div>
-                          <div className="h-10 w-10 md:h-12 md:w-12 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center">
-                            <FileText className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                        </div>
+                        <div className="mt-auto">
+                          <p className="text-2xl xl:text-3xl 2xl:text-[34px] font-black text-[#0F172A] tracking-tight leading-none mb-1.5 2xl:mb-2">
+                            {isRestrictedStats ? myDraftCountVal : draftCount}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1 2xl:mt-1.5">
+                            <div className="h-[3px] w-5 rounded-full bg-[#475569]"></div>
+                            <div className="h-[3px] w-1.5 rounded-full bg-[#475569]/20"></div>
                           </div>
                         </div>
                       </CardContent>
+                      <FileText className="absolute -bottom-3 -right-2 text-[#475569]/[0.03] w-16 h-16 2xl:w-24 2xl:h-24 z-0 -rotate-12" strokeWidth={4} />
                     </Card>
                   </>
                 );
@@ -991,33 +1108,29 @@ export default function TimesheetsPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="px-6 md:px-8 pt-2 pb-2 border-t border-slate-200/60">
-              <div className="flex flex-col xl:flex-row items-center justify-between gap-4">
-                <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 w-full xl:w-auto flex flex-wrap h-auto p-1 gap-1">
-                  <TabsTrigger value="my-timesheets" className="gap-2 flex-1 xl:flex-none">
-                    {isAdmin || isPM ? <Briefcase className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
-                    {isAdmin || isPM ? "All Timesheets" : "My Timesheets"}
+            <div className="px-8 md:px-12 pt-6 pb-2 border-t border-slate-100 mt-2">
+              <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 xl:gap-6">
+                <TabsList className="bg-slate-50/50 border border-slate-200/60 rounded-full w-full xl:w-auto max-w-[100vw] overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-nowrap justify-start items-center h-auto p-1 lg:p-1 gap-1 shadow-sm shrink-0">
+                  <TabsTrigger value="my-timesheets" className="whitespace-nowrap shrink-0 text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                    {isAdmin || isPM ? "ALL TIMESHEETS" : "MY TIMESHEETS"}
                   </TabsTrigger>
-                  <TabsTrigger value="drafts" className="gap-2 flex-1 xl:flex-none relative">
-                    <FileText className="h-4 w-4" />
-                    Drafts
+                  <TabsTrigger value="drafts" className="gap-2 whitespace-nowrap shrink-0 flex items-center text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                    DRAFTS
                     {myDraftCount > 0 && (
-                      <Badge className="ml-1 bg-slate-500 text-white px-1.5 h-5 min-w-[1.25rem]">
+                      <Badge className="p-0 bg-slate-500 text-white min-w-[0.875rem] h-3.5 px-1 text-[9px] shadow-none rounded-full flex items-center justify-center leading-none">
                         {myDraftCount}
                       </Badge>
                     )}
                   </TabsTrigger>
                   {currentUser?.custom_role === 'viewer' && (
                     <>
-                      <TabsTrigger value="rework-info" className="gap-2 flex-1 xl:flex-none">
-                        <AlertCircle className="h-4 w-4" />
-                        Rework Info
+                      <TabsTrigger value="rework-info" className="whitespace-nowrap shrink-0 text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        REWORK INFO
                       </TabsTrigger>
-                      <TabsTrigger value="rework-reviews" className="gap-2 flex-1 xl:flex-none relative">
-                        <Users className="h-4 w-4" />
-                        Rework Reviews
+                      <TabsTrigger value="rework-reviews" className="gap-2 whitespace-nowrap shrink-0 flex items-center text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        REWORK REVIEWS
                         {peerReviewRequests.length > 0 && (
-                          <Badge className="ml-1 bg-amber-500 text-white px-1.5 h-5 min-w-[1.25rem]">
+                          <Badge className="p-0 bg-[#F39C12] text-white min-w-[0.875rem] h-3.5 px-1 text-[9px] shadow-none rounded-full flex items-center justify-center leading-none">
                             {peerReviewRequests.length}
                           </Badge>
                         )}
@@ -1026,20 +1139,18 @@ export default function TimesheetsPage() {
                   )}
                   {(isAdmin || isPM) && (
                     <>
-                      <TabsTrigger value="approvals" className="gap-2 flex-1 xl:flex-none">
-                        <CheckCircle className="h-4 w-4" />
-                        Approvals
+                      <TabsTrigger value="approvals" className="gap-2 whitespace-nowrap shrink-0 flex items-center text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        APPROVALS
                         {pendingApprovals > 0 && (
-                          <Badge className="ml-1 bg-amber-500 text-white">
+                          <Badge className="p-0 bg-[#F39C12] text-white min-w-[0.875rem] h-3.5 px-1 text-[9px] shadow-none rounded-full flex items-center justify-center leading-none">
                             {pendingApprovals}
                           </Badge>
                         )}
                       </TabsTrigger>
-                      <TabsTrigger value="alarms" className="gap-2 flex-1 xl:flex-none">
-                        <ShieldAlert className="h-4 w-4" />
-                        Alarms
+                      <TabsTrigger value="alarms" className="gap-2 whitespace-nowrap shrink-0 flex items-center text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        ALARMS
                         {appealedAlarmsCount > 0 && (
-                          <Badge className="ml-1 bg-amber-500 text-white">
+                          <Badge className="p-0 bg-[#E74C3C] text-white min-w-[0.875rem] h-3.5 px-1 text-[9px] shadow-none rounded-full flex items-center justify-center leading-none">
                             {appealedAlarmsCount}
                           </Badge>
                         )}
@@ -1048,42 +1159,40 @@ export default function TimesheetsPage() {
                   )}
                   {isAdmin && (
                     <>
-                      <TabsTrigger value="team-timesheets" className="gap-2 flex-1 xl:flex-none">
-                        <Users className="h-4 w-4" />
-                        Team Overview
+                      <TabsTrigger value="team-timesheets" className="whitespace-nowrap shrink-0 text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        TEAM OVERVIEW
                       </TabsTrigger>
-                      <TabsTrigger value="reports" className="gap-2 flex-1 xl:flex-none">
-                        <FileText className="h-4 w-4" />
-                        Reports
+                      <TabsTrigger value="reports" className="whitespace-nowrap shrink-0 text-[11px] uppercase tracking-widest font-bold text-slate-500 data-[state=active]:text-slate-900 rounded-full data-[state=active]:bg-transparent data-[state=active]:border-[1.5px] data-[state=active]:border-slate-800 data-[state=active]:shadow-none px-3.5 py-1.5 hover:text-slate-700 transition-all border-[1.5px] border-transparent">
+                        REPORTS
                       </TabsTrigger>
                     </>
                   )}
                 </TabsList>
 
                 {activeTab === "my-timesheets" && (
-                  <div className="flex flex-wrap items-center gap-2 ml-auto w-full xl:w-auto justify-end">
-                    <div className="flex items-center gap-1.5 flex-shrink-0 mr-2">
-                      <Filter className="h-4 w-4 text-slate-600" />
-                      <span className="text-sm font-medium text-slate-600">Filters:</span>
+                  <div className="flex flex-wrap items-center gap-1.5 xl:gap-2 w-full xl:w-auto justify-start xl:justify-end xl:ml-auto">
+                    <div className="flex items-center gap-1.5 flex-shrink-0 mr-1">
+                      <Filter className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Filters:</span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {(isAdmin || isPM) && (
                         <Select value={userFilter} onValueChange={setUserFilter}>
-                          <SelectTrigger className="h-9 w-[150px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                          <SelectTrigger className="h-8 w-[130px] text-[12px] bg-white border-slate-200 font-bold text-slate-700 rounded-[8px] shadow-sm hover:bg-slate-50 transition-colors focus:ring-0 focus:ring-offset-0">
                             <SelectValue placeholder="All Users" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Users</SelectItem>
+                          <SelectContent className="rounded-[10px] shadow-lg border-slate-200">
+                            <SelectItem value="all" className="font-semibold text-[12px] rounded-md mx-1 my-0.5">All Users</SelectItem>
                             {users.map((u) => (
-                              <SelectItem key={u.id} value={u.email}>
+                              <SelectItem key={u.id} value={u.email} className="rounded-md mx-1 my-0.5">
                                 <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6 ring-2 ring-slate-400 ring-offset-1">
+                                  <Avatar className="h-5 w-5">
                                     <AvatarImage src={u.profile_image_url} />
-                                    <AvatarFallback className="text-[10px] bg-slate-100">
+                                    <AvatarFallback className="text-[9px] bg-slate-100 font-bold text-slate-600">
                                       {u.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="truncate text-slate-600 font-medium">{u.full_name || u.email}</span>
+                                  <span className="truncate text-slate-700 font-semibold text-[12px]">{u.full_name || u.email}</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -1092,41 +1201,41 @@ export default function TimesheetsPage() {
                       )}
 
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                        <SelectTrigger className="h-8 w-[120px] text-[12px] bg-white border-slate-200 font-bold text-slate-700 rounded-[8px] shadow-sm hover:bg-slate-50 transition-colors focus:ring-0 focus:ring-offset-0">
                           <SelectValue placeholder="Status" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="submitted">Submitted</SelectItem>
-                          <SelectItem value="pending_pm">Pending PM</SelectItem>
-                          <SelectItem value="pending_admin">Pending Admin</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
+                        <SelectContent className="rounded-[10px] shadow-lg border-slate-200 font-semibold text-[12px]">
+                          <SelectItem value="all" className="rounded-md mx-1 my-0.5">All Status</SelectItem>
+                          <SelectItem value="draft" className="rounded-md mx-1 my-0.5">Draft</SelectItem>
+                          <SelectItem value="submitted" className="rounded-md mx-1 my-0.5">Submitted</SelectItem>
+                          <SelectItem value="pending_pm" className="rounded-md mx-1 my-0.5">Pending PM</SelectItem>
+                          <SelectItem value="pending_admin" className="rounded-md mx-1 my-0.5">Pending Admin</SelectItem>
+                          <SelectItem value="approved" className="rounded-md mx-1 my-0.5">Approved</SelectItem>
+                          <SelectItem value="rejected" className="rounded-md mx-1 my-0.5">Rejected</SelectItem>
                         </SelectContent>
                       </Select>
 
                       <Select value={projectFilter} onValueChange={setProjectFilter}>
-                        <SelectTrigger className="h-9 w-[140px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                        <SelectTrigger className="h-8 w-[130px] text-[12px] bg-white border-slate-200 font-bold text-slate-700 rounded-[8px] shadow-sm hover:bg-slate-50 transition-colors focus:ring-0 focus:ring-offset-0">
                           <SelectValue placeholder="Project" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Projects</SelectItem>
+                        <SelectContent className="rounded-[10px] shadow-lg border-slate-200 font-semibold text-[12px]">
+                          <SelectItem value="all" className="rounded-md mx-1 my-0.5">All Projects</SelectItem>
                           {uniqueProjects.map(([id, name]) => (
-                            <SelectItem key={id} value={id}>{name}</SelectItem>
+                            <SelectItem key={id} value={id} className="rounded-md mx-1 my-0.5">{name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
 
                       <Select value={dateRangeFilter} onValueChange={setDateRangeFilter}>
-                        <SelectTrigger className="h-9 w-[130px] text-sm bg-white/80 backdrop-blur-xl border-slate-200 font-medium">
+                        <SelectTrigger className="h-8 w-[120px] text-[12px] bg-white border-slate-200 font-bold text-slate-700 rounded-[8px] shadow-sm hover:bg-slate-50 transition-colors focus:ring-0 focus:ring-offset-0">
                           <SelectValue placeholder="Date Range" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Time</SelectItem>
-                          <SelectItem value="today">Today</SelectItem>
-                          <SelectItem value="week">Last 7 Days</SelectItem>
-                          <SelectItem value="month">Last 30 Days</SelectItem>
+                        <SelectContent className="rounded-[10px] shadow-lg border-slate-200 font-semibold text-[12px]">
+                          <SelectItem value="all" className="rounded-md mx-1 my-0.5">All Time</SelectItem>
+                          <SelectItem value="today" className="rounded-md mx-1 my-0.5">Today</SelectItem>
+                          <SelectItem value="week" className="rounded-md mx-1 my-0.5">Last 7 Days</SelectItem>
+                          <SelectItem value="month" className="rounded-md mx-1 my-0.5">Last 30 Days</SelectItem>
                         </SelectContent>
                       </Select>
 
@@ -1135,9 +1244,9 @@ export default function TimesheetsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={clearFilters}
-                          className="h-9 px-3 text-sm text-slate-600 hover:bg-slate-100"
+                          className="h-8 px-2.5 text-[12px] font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-[8px] transition-colors"
                         >
-                          <X className="h-4 w-4 mr-1" />
+                          <X className="h-3.5 w-3.5 mr-1" />
                           Clear
                         </Button>
                       )}
@@ -1147,8 +1256,8 @@ export default function TimesheetsPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-6 md:pb-8">
-              <TabsContent value="my-timesheets" className="space-y-4 mt-4 outline-none">
+            <div className="flex-1 overflow-y-auto px-8 md:px-12 pb-8 md:pb-12 bg-slate-50">
+              <TabsContent value="my-timesheets" className="space-y-4 mt-6 outline-none min-h-[500px]">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-20">
                     <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -1167,6 +1276,60 @@ export default function TimesheetsPage() {
                     highlightedId={editIdParam}
                     effectiveTenantId={effectiveTenantId}
                   />
+                )}
+
+                {/* Pagination Controls */}
+                {!isLoading && totalPages > 1 && (
+                  <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-lg hover:bg-slate-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" /> Previous
+                    </Button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }).map((_, i) => {
+                        const pageNum = i + 1;
+                        if (
+                          pageNum === 1 ||
+                          pageNum === totalPages ||
+                          (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                        ) {
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "secondary" : "ghost"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`h-9 w-9 font-bold rounded-lg ${currentPage === pageNum ? 'bg-slate-100 text-slate-900 shadow-none' : 'text-slate-500 hover:bg-slate-50'}`}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        } else if (
+                          pageNum === currentPage - 2 ||
+                          pageNum === currentPage + 2
+                        ) {
+                          return <span key={pageNum} className="px-2 text-slate-300">...</span>;
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-lg hover:bg-slate-50"
+                    >
+                      Next <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </TabsContent>
 
@@ -1262,7 +1425,7 @@ export default function TimesheetsPage() {
                       </div>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {myTimesheets.filter(t => t.work_type === 'rework').length === 0 ? (
+                      {myStatsTimesheets.filter(t => t.work_type === 'rework').length === 0 ? (
                         <div className="col-span-full">
                           <Card className="bg-white/60 backdrop-blur-xl border-dashed border-2 border-slate-200">
                             <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
@@ -1273,7 +1436,7 @@ export default function TimesheetsPage() {
                           </Card>
                         </div>
                       ) : (
-                        myTimesheets.filter(t => t.work_type === 'rework').map(entry => {
+                        myStatsTimesheets.filter(t => t.work_type === 'rework').map(entry => {
                           const assocRequest = sentPeerReviewRequests.find(r => r.task_id === entry.task_id);
                           return (
                             <Card key={entry.id} className="bg-white hover:shadow-md transition-shadow border-l-4 border-l-amber-500">
@@ -1485,10 +1648,10 @@ export default function TimesheetsPage() {
               {isAdmin && (
                 <>
                   <TabsContent value="team-timesheets" className="mt-4 outline-none">
-                    <AdminTimesheetDashboard currentUser={currentUser} effectiveTenantId={effectiveTenantId} allTimesheets={allTimesheets} loading={allLoading} />
+                    <AdminTimesheetDashboard currentUser={currentUser} effectiveTenantId={effectiveTenantId} allTimesheets={allStatsTimesheets} loading={allLoading} />
                   </TabsContent>
                   <TabsContent value="reports" className="mt-4 outline-none">
-                    <TimesheetReportGenerator currentUser={currentUser} effectiveTenantId={effectiveTenantId} users={users} allTimesheets={allTimesheets} />
+                    <TimesheetReportGenerator currentUser={currentUser} effectiveTenantId={effectiveTenantId} users={users} allTimesheets={allStatsTimesheets} />
                   </TabsContent>
                 </>
               )}

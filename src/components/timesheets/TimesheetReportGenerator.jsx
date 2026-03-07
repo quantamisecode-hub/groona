@@ -379,19 +379,19 @@ export default function TimesheetReportGenerator({
   };
 
   return (
-    <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5" />
+    <Card className="bg-transparent border-none shadow-none text-slate-900">
+      <CardHeader className="px-0 pt-0 pb-6">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+          <FileText className="h-4 w-4 text-slate-400" />
           Generate Professional Timesheet Reports
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 px-0 pb-0">
         {/* Employee Selection */}
-        <div className="space-y-2">
-          <Label>Select Employee</Label>
+        <div className="space-y-2.5">
+          <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Select Employee</Label>
           <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-            <SelectTrigger>
+            <SelectTrigger className="h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -414,10 +414,10 @@ export default function TimesheetReportGenerator({
         </div>
 
         {/* Project Selection */}
-        <div className="space-y-2">
-          <Label>Select Project</Label>
+        <div className="space-y-2.5">
+          <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Select Project</Label>
           <Select value={selectedProject} onValueChange={setSelectedProject}>
-            <SelectTrigger>
+            <SelectTrigger className="h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -430,10 +430,10 @@ export default function TimesheetReportGenerator({
         </div>
 
         {/* Period Selection */}
-        <div className="space-y-2">
-          <Label>Report Period</Label>
+        <div className="space-y-2.5">
+          <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Report Period</Label>
           <Select value={reportPeriod} onValueChange={setReportPeriod}>
-            <SelectTrigger>
+            <SelectTrigger className="h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] font-medium focus:ring-1 focus:ring-slate-300 transition-all">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -450,16 +450,16 @@ export default function TimesheetReportGenerator({
 
         {/* Custom Date Range */}
         {reportPeriod === 'custom' && (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Date</Label>
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-2.5">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Start Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !customStartDate && "text-muted-foreground"
+                      "w-full justify-start text-left font-normal h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] transition-all hover:bg-slate-50",
+                      !customStartDate && "text-slate-400"
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -477,15 +477,15 @@ export default function TimesheetReportGenerator({
               </Popover>
             </div>
 
-            <div className="space-y-2">
-              <Label>End Date</Label>
+            <div className="space-y-2.5">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">End Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !customEndDate && "text-muted-foreground"
+                      "w-full justify-start text-left font-normal h-11 bg-white border-slate-200/80 rounded-[10px] shadow-sm text-[13px] transition-all hover:bg-slate-50",
+                      !customEndDate && "text-slate-400"
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -506,40 +506,41 @@ export default function TimesheetReportGenerator({
         )}
 
         {/* Report Preview Info */}
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
+        <div className="p-5 bg-slate-50/80 border border-slate-200/60 rounded-[12px] shadow-sm mt-8">
+          <h4 className="flex items-center gap-2 text-[12px] font-bold text-slate-700 uppercase tracking-widest mb-4">
+            <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
             Report Will Include:
           </h4>
-          <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li>Company branding and information</li>
-            <li>Summary statistics (total hours, billable hours, entries)</li>
-            <li>Time breakdown by project and task</li>
-            <li>Detailed table of all time entries</li>
-            <li>Location information for each entry</li>
-            <li>Professional visual formatting</li>
+          <ul className="text-[13px] text-slate-600 space-y-2 font-medium">
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Company branding and information</li>
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Summary statistics (total hours, billable hours, entries)</li>
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Time breakdown by project and task</li>
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Detailed table of all time entries</li>
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Location information for each entry</li>
+            <li className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-slate-400" />Professional visual formatting</li>
           </ul>
         </div>
 
         {/* Generate Button */}
-        <Button
-          onClick={generatePDFReport}
-          disabled={generating}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-          size="lg"
-        >
-          {generating ? (
-            <>
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Generating Report...
-            </>
-          ) : (
-            <>
-              <Download className="h-5 w-5 mr-2" />
-              Generate PDF Report
-            </>
-          )}
-        </Button>
+        <div className="pt-2">
+          <Button
+            onClick={generatePDFReport}
+            disabled={generating}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-[10px] h-12 font-bold shadow-sm transition-all text-[13px]"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating Report...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                Generate PDF Report
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

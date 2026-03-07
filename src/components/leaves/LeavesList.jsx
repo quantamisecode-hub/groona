@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { Calendar, Clock, AlertCircle, XCircle, Loader2, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { eventEmitter } from "../shared/eventEmitter";
 import ConfirmationDialog from "../shared/ConfirmationDialog";
+import { cn } from "@/lib/utils";
 
 export default function LeavesList({ leaves, currentUser, showActions }) {
   const queryClient = useQueryClient();
@@ -102,97 +103,97 @@ export default function LeavesList({ leaves, currentUser, showActions }) {
     cancelLeaveMutation.mutate({ leave: cancellingLeave, reason: cancellationReason });
   };
   const statusColors = {
-    draft: "bg-gray-100 text-gray-800",
-    submitted: "bg-yellow-100 text-yellow-800",
-    approved: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
-    cancelled: "bg-slate-100 text-slate-800"
+    draft: "bg-blue-50 text-blue-700 border-blue-100",
+    submitted: "bg-blue-100/50 text-blue-700 border-blue-200/60",
+    approved: "bg-indigo-100/50 text-indigo-700 border-indigo-200/60 shadow-sm shadow-indigo-100/50",
+    rejected: "bg-red-100/50 text-red-700 border-red-200/60",
+    cancelled: "bg-slate-100/50 text-slate-600 border-slate-200/60"
   };
 
   if (leaves.length === 0) {
     return (
-      <Card className="text-center p-12">
-        <Calendar className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+      <Card className="text-center p-12 border-blue-50 bg-white">
+        <Calendar className="h-12 w-12 mx-auto text-blue-100 mb-4" />
         <p className="text-slate-600">No leave requests found</p>
       </Card>
     );
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 lg:grid-cols-2">
       {leaves.map((leave) => (
-        <Card key={leave.id} className="hover:shadow-lg transition-shadow">
-          <CardHeader>
+        <Card key={leave.id} className="bg-white border-none shadow-sm hover:shadow-md transition-all rounded-[16px] overflow-hidden group">
+          <CardHeader className="pb-4 px-6 pt-6">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  {leave.leave_type_name}
-                  <Badge className={statusColors[leave.status]}>
-                    {leave.status.toUpperCase()}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[15px] font-black text-slate-800 tracking-tight">{leave.leave_type_name}</h3>
+                  <Badge className={cn("rounded-full text-[9px] px-2 py-0.5 border font-black uppercase tracking-widest shadow-none", statusColors[leave.status])}>
+                    {leave.status}
                   </Badge>
-                </CardTitle>
-                <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded-[8px] border border-blue-50/50">
+                    <Calendar className="h-3.5 w-3.5 text-blue-400" />
                     {format(new Date(leave.start_date), 'MMM dd')} - {format(new Date(leave.end_date), 'MMM dd, yyyy')}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    {leave.total_days} {leave.total_days === 1 ? 'day' : 'days'}
+                  <span className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded-[8px] border border-blue-50/50">
+                    <Clock className="h-3.5 w-3.5 text-blue-400" />
+                    <span className="text-blue-700 font-black">{leave.total_days}</span> {leave.total_days === 1 ? 'DAY' : 'DAYS'}
                   </span>
                 </div>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4 px-6 pb-6 pt-0">
             {leave.reason && (
-              <div>
-                <p className="text-sm font-medium text-slate-700 mb-1">Reason:</p>
-                <p className="text-sm text-slate-600">{leave.reason}</p>
+              <div className="p-3.5 bg-blue-50/20 rounded-[12px] border border-blue-50/50 shadow-inner">
+                <p className="text-[10px] font-black text-blue-400/70 uppercase tracking-widest mb-1.5">Employee Reason</p>
+                <p className="text-[13px] text-slate-600 font-medium leading-relaxed italic">"{leave.reason}"</p>
               </div>
             )}
 
             {leave.status === 'approved' && leave.approved_by && (
-              <div className="text-sm text-green-600 flex items-center gap-1">
-                ✓ Approved by {leave.approved_by}
+              <div className="text-[11px] font-black text-blue-700 flex items-center gap-2 bg-blue-50/50 px-3 py-1.5 rounded-[10px] border border-blue-100/50 uppercase tracking-widest">
+                <CheckCircle className="h-3.5 w-3.5" /> Approved by {leave.approved_by}
               </div>
             )}
 
             {leave.status === 'rejected' && (
-              <div className="text-sm text-red-600">
-                <div className="flex items-center gap-1 mb-1">
-                  <AlertCircle className="h-4 w-4" />
-                  Rejected
+              <div className="text-[11px] text-red-600 bg-red-50/50 p-3.5 rounded-[12px] border border-red-100/50">
+                <div className="flex items-center gap-1.5 mb-1.5 font-black uppercase tracking-widest">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  Management Response
                 </div>
                 {leave.rejection_reason && (
-                  <p className="text-red-600">{leave.rejection_reason}</p>
+                  <p className="text-red-700 font-medium text-[13px]">"{leave.rejection_reason}"</p>
                 )}
               </div>
             )}
 
             {leave.status === 'cancelled' && (
-              <div className="text-sm text-slate-600">
-                <div className="flex items-center gap-1 mb-1">
-                  <XCircle className="h-4 w-4" />
-                  Cancelled
+              <div className="text-[11px] text-slate-500 bg-slate-50/50 p-3.5 rounded-[12px] border border-slate-200/50">
+                <div className="flex items-center gap-1.5 mb-1.5 font-black uppercase tracking-widest">
+                  <XCircle className="h-3.5 w-3.5" />
+                  Request Cancelled
                 </div>
-                {leave.cancelled_reason && (
-                  <p className="text-slate-600">{leave.cancelled_reason}</p>
+                {leave.rejection_reason && (
+                  <p className="text-slate-600 font-medium text-[13px]">"{leave.rejection_reason}"</p>
                 )}
               </div>
             )}
 
             {/* Cancel button for submitted or approved leaves */}
             {showActions && (leave.status === 'submitted' || leave.status === 'approved') && (
-              <div className="mt-3 pt-3 border-t">
+              <div className="pt-2 flex justify-end">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleCancelLeave(leave)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-[10px] h-9 px-4 text-[12px] font-black uppercase tracking-widest transition-all"
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Leave Request
+                  <XCircle className="h-3.5 w-3.5 mr-2" />
+                  Cancel Request
                 </Button>
               </div>
             )}

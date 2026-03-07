@@ -34,6 +34,15 @@
       "type": "string",
       "description": "Job title or position"
     },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "Male",
+        "Female",
+        "Others"
+      ],
+      "description": "User's gender"
+    },
     "bio": {
       "type": "string",
       "description": "Short biography or description"

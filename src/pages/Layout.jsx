@@ -1136,7 +1136,24 @@ function LayoutContentInner({ user, currentUser, isClient, isInPlatformMode, isV
                     </Avatar>
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-bold text-slate-900 truncate">{user?.full_name}</p>
-                      <p className="text-[10px] text-slate-400 font-medium truncate">{user?.email}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[10px] text-slate-400 font-medium truncate">{user?.email}</p>
+                        {user?.is_super_admin && (
+                          <span className="px-1.5 py-0.5 bg-slate-900 text-white text-[7px] font-black uppercase tracking-widest rounded-full shrink-0">SU</span>
+                        )}
+                        {user?.custom_role === 'owner' && (
+                          <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[7px] font-black uppercase tracking-widest rounded-full shrink-0">Owner</span>
+                        )}
+                        {user?.custom_role === 'project_manager' && (
+                          <span className="px-1.5 py-0.5 bg-indigo-600 text-white text-[7px] font-black uppercase tracking-widest rounded-full shrink-0">PM</span>
+                        )}
+                        {user?.role === 'admin' && user?.custom_role !== 'owner' && user?.custom_role !== 'project_manager' && (
+                          <span className="px-1.5 py-0.5 bg-blue-600 text-white text-[7px] font-black uppercase tracking-widest rounded-full shrink-0">Admin</span>
+                        )}
+                        {(user?.role === 'user' || user?.role === 'member') && (
+                          <span className="px-1.5 py-0.5 bg-slate-200 text-slate-600 text-[7px] font-black uppercase tracking-widest rounded-full shrink-0">Member</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </DropdownMenuTrigger>

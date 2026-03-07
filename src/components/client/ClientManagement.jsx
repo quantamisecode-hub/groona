@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { groonabackend, API_BASE } from "@/api/groonabackend";
 import axios from "axios";
@@ -99,127 +100,157 @@ export default function ClientManagement({ tenantId }) {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">Client User Management</h2>
-          <p className="text-slate-500">Manage client users and their access.</p>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Client User Management</h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+            Manage external client users, their organizations, and secure platform access.
+          </p>
         </div>
         {currentUser?.custom_role !== 'project_manager' && (
-          <Button onClick={() => setIsInviteOpen(true)} className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Invite Client Users
+          <Button
+            onClick={() => setIsInviteOpen(true)}
+            className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-11 rounded-lg px-6 font-bold transition-all active:scale-[0.98] w-full sm:w-auto flex items-center gap-2"
+          >
+            <UserPlus className="h-4.5 w-4.5" />
+            <span>Invite Client Users</span>
           </Button>
         )}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-medium">All Client Users</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
-              <Input
-                placeholder="Search users..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        {/* Modern Search Bar */}
+        <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg p-1 px-3 h-11 w-full sm:w-80">
+          <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+          <Input
+            placeholder="Search by name or email..."
+            className="h-9 w-full text-sm border-0 shadow-none focus-visible:ring-0 bg-transparent px-1"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {filteredClients.length > 0 && (
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              Showing {filteredClients.length} Users
+            </span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client Name</TableHead>
-                <TableHead>User Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-slate-400" />
-                  </TableCell>
-                </TableRow>
-              ) : filteredClients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-slate-500">
-                    No client users found. Invite one to get started.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredClients.map((client) => {
-                  const org = organizations.find(o => String(o.id) === String(client.client_id || '')) || {};
-                  return (
-                    <TableRow key={client.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8 border border-slate-200">
-                            <AvatarImage src={org.logo_url} className="object-cover" />
-                            <AvatarFallback className="bg-slate-100 text-slate-500 font-bold">
-                              {org.name ? org.name.charAt(0).toUpperCase() : '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="font-medium text-slate-700">
-                            {org.name || 'N/A'}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border-2 border-slate-200">
-                            <AvatarImage src={client.profile_image_url} alt={client.full_name} />
-                            <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
-                              {client.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                            </AvatarFallback>
-                          </Avatar>
-                          {client.full_name}
-                        </div>
-                      </TableCell>
-                      <TableCell>{client.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={client.status === 'active' ? 'default' : 'secondary'} className={client.status === 'active' ? 'bg-green-100 text-green-700 hover:bg-green-200' : ''}>
-                          {client.status || 'Pending'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        )}
+      </div>
 
-                            <DropdownMenuItem onClick={() => setEditingClient(client)}>
-                              <Edit2 className="mr-2 h-4 w-4" /> Edit Details
-                            </DropdownMenuItem>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-32 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Loading Client Records...</p>
+        </div>
+      ) : filteredClients.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 px-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 mb-6 transition-transform duration-500 hover:scale-110">
+            <Building2 className="h-10 w-10" />
+          </div>
+          <div className="text-center max-w-xs mx-auto space-y-2 mb-8">
+            <h3 className="text-[17px] font-bold text-slate-900 tracking-tight">No client users yet</h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">Collaborate with your partners by inviting them to join your workspace projects.</p>
+          </div>
+          <Button
+            onClick={() => setIsInviteOpen(true)}
+            variant="outline"
+            className="rounded-xl border-slate-200 text-slate-600 font-bold h-11 px-6 hover:bg-slate-50 active:scale-95 transition-all"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite Your First Client
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredClients.map((client) => {
+            const org = organizations.find(o => String(o.id) === String(client.client_id || '')) || {};
+            const initials = client.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
-                            <DropdownMenuItem onClick={() => setResetConfirmationClient(client)}>
-                              <KeyRound className="mr-2 h-4 w-4" /> Reset & View Password
-                            </DropdownMenuItem>
+            return (
+              <div key={client.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 hover:border-blue-100 transition-all duration-500 p-6 flex flex-col gap-6 group">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Avatar className="h-12 w-12 rounded-2xl ring-2 ring-slate-50 transition-all duration-500 group-hover:ring-blue-50">
+                        <AvatarImage src={client.profile_image_url} alt={client.full_name} className="object-cover" />
+                        <AvatarFallback className="bg-purple-50 text-purple-600 font-black text-xs">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-lg bg-white shadow-sm border border-slate-100 flex items-center justify-center">
+                        <Badge className={cn(
+                          "h-2 w-2 rounded-full p-0 border-0",
+                          client.status === 'active' ? "bg-emerald-500" : "bg-slate-300"
+                        )} />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-[15px] font-bold text-slate-900 truncate tracking-tight">{client.full_name}</h4>
+                      <p className="text-xs font-medium text-slate-400 truncate mt-0.5">{client.email}</p>
+                    </div>
+                  </div>
 
-                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeleteConfirmationUser(client)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all">
+                        <MoreHorizontal className="h-4.5 w-4.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="rounded-xl border-slate-100 shadow-xl min-w-[160px]">
+                      <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-3 pt-3">Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => setEditingClient(client)} className="rounded-lg m-1 py-2 font-medium">
+                        <Edit2 className="mr-2 h-4 w-4" /> Edit Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setResetConfirmationClient(client)} className="rounded-lg m-1 py-2 font-medium">
+                        <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-rose-600 focus:text-rose-600 rounded-lg m-1 py-2 font-medium" onClick={() => setDeleteConfirmationUser(client)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete User
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="h-px bg-slate-50" />
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-slate-50 p-2 rounded-xl group-hover:bg-blue-50 transition-colors">
+                        <Building2 className="h-4 w-4 text-slate-400 group-hover:text-blue-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest block">Organization</span>
+                        <span className="text-xs font-bold text-slate-700 truncate block">{org.name || 'Personal Client'}</span>
+                      </div>
+                    </div>
+
+                    <Badge variant="outline" className={cn(
+                      "rounded-lg border-0 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",
+                      client.status === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+                    )}>
+                      {client.status || 'Pending'}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="mt-auto">
+                  <Button
+                    variant="ghost"
+                    className="w-full h-10 rounded-xl bg-slate-50 hover:bg-blue-600 hover:text-white text-slate-600 font-bold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98]"
+                    onClick={() => setResetConfirmationClient(client)}
+                  >
+                    Security Settings
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* --- DIALOGS --- */}
       <InviteClientDialog

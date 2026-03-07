@@ -20,7 +20,9 @@ import {
   AlertTriangle,
   Loader2,
   ShieldAlert,
-  Siren
+  Siren,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -28,20 +30,36 @@ import { toast } from "sonner";
 export default function AlarmsTab({ currentUser, users = [] }) {
   const queryClient = useQueryClient();
 
-  // Fetch all APPEALED notifications
-  const { data: appealedAlarms = [], isLoading } = useQuery({
-    queryKey: ['appealed-alarms'],
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Fetch all APPEALED notifications (Paginated Serverside)
+  const { data: paginatedData = { results: [], totalCount: 0 }, isLoading } = useQuery({
+    queryKey: ['appealed-alarms', currentPage, itemsPerPage],
     queryFn: async () => {
-      // Fetch both appealed and open alarms to provide context for PMs
-      const notifications = await groonabackend.entities.Notification.filter({}, '-created_date');
-      return notifications.filter(n =>
-        (n.status === 'APPEALED') ||
-        (n.status === 'OPEN' && (n.category === 'alarm' || n.type === 'user_streak_escalation')) ||
-        (n.status === 'RESOLVED' && n.type === 'timesheet_lockout_alarm')
+      const filters = {
+        $or: [
+          { status: 'APPEALED' },
+          { status: 'OPEN', category: 'alarm' },
+          { status: 'OPEN', type: 'user_streak_escalation' },
+          { status: 'RESOLVED', type: 'timesheet_lockout_alarm' }
+        ]
+      };
+
+      const res = await groonabackend.entities.Notification.filter(
+        filters,
+        '-created_date',
+        currentPage,
+        itemsPerPage
       );
+
+      return Array.isArray(res) ? { results: res, totalCount: res.length } : res;
     },
     refetchInterval: 10000, // Poll every 10s
   });
+
+  const appealedAlarms = paginatedData.results || [];
+  const totalCount = paginatedData.totalCount || 0;
 
   const resolveMutation = useMutation({
     mutationFn: async ({ id, status, type }) => {
@@ -78,10 +96,7 @@ export default function AlarmsTab({ currentUser, users = [] }) {
     );
   }
 
-  const pendingAppeals = appealedAlarms.filter(a => a.status === 'APPEALED');
-  const activeAlarms = appealedAlarms.filter(a => a.status === 'OPEN');
-
-  if (appealedAlarms.length === 0) {
+  if (totalCount === 0) {
     return (
       <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60 mt-4">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -101,7 +116,7 @@ export default function AlarmsTab({ currentUser, users = [] }) {
         <ShieldAlert className="h-5 w-5 text-red-600" />
         <h3 className="text-lg font-bold text-slate-900">Active Critical Alarms</h3>
         <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-          {appealedAlarms.length} Critical Items
+          {totalCount} Critical Items
         </Badge>
       </div>
 
@@ -206,6 +221,65 @@ export default function AlarmsTab({ currentUser, users = [] }) {
           );
         })}
       </div>
+
+      {totalCount > itemsPerPage && (
+        <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-[10px] hover:bg-slate-50"
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+
+          <div className="flex items-center gap-1">
+            {(() => {
+              const totalPages = Math.ceil(totalCount / itemsPerPage);
+              return Array.from({ length: totalPages }).map((_, i) => {
+                const pageNum = i + 1;
+                if (
+                  pageNum === 1 ||
+                  pageNum === totalPages ||
+                  (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                ) {
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={currentPage === pageNum ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`h-9 w-9 font-bold rounded-[10px] ${currentPage === pageNum ? 'bg-slate-100 text-slate-900 shadow-none' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                } else if (
+                  pageNum === currentPage - 2 ||
+                  pageNum === currentPage + 2
+                ) {
+                  return <span key={pageNum} className="px-2 text-slate-300">...</span>;
+                }
+                return null;
+              });
+            })()}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const totalPages = Math.ceil(totalCount / itemsPerPage);
+              setCurrentPage(prev => Math.min(totalPages, prev + 1));
+            }}
+            disabled={currentPage === Math.ceil(totalCount / itemsPerPage) || totalCount === 0}
+            className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-[10px] hover:bg-slate-50"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

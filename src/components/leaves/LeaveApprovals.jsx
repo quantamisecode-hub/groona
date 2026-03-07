@@ -227,77 +227,92 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header with Refresh Button */}
       <div className="flex items-center justify-between pb-2">
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-medium text-slate-900">Approvals</h3>
+        <div className="flex items-center gap-4">
+          <div>
+            <h3 className="text-[18px] font-black text-slate-800 tracking-tight">Pending Approvals</h3>
+            <p className="text-[12px] text-slate-400 font-medium">Review and respond to team leave requests</p>
+          </div>
           {pendingLeaves.length > 0 && (
-            <Badge className="bg-orange-500 text-white">
-              {pendingLeaves.length}
-            </Badge>
+            <div className="bg-blue-100 text-blue-700 font-black text-[10px] h-6 px-3 rounded-full flex items-center justify-center border border-blue-200 shadow-sm animate-pulse m-0">
+              {pendingLeaves.length} NEW
+            </div>
           )}
         </div>
         <Button
           variant="outline"
           size="sm"
+          className="h-9 px-4 rounded-full text-[12px] font-black uppercase tracking-widest shadow-sm transition-all text-blue-500 hover:text-blue-700 hover:bg-blue-50/50 border-blue-100"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
-          <RefreshCw className={cn("h-4 w-4 mr-2", isRefreshing && "animate-spin")} />
+          <RefreshCw className={cn("h-3.5 w-3.5 mr-2", isRefreshing && "animate-spin")} />
           Refresh
         </Button>
       </div>
 
       {pendingLeaves.length === 0 ? (
-        <Card className="text-center p-12">
-          <Calendar className="h-12 w-12 mx-auto text-slate-300 mb-4" />
-          <p className="text-slate-600">No pending leave approvals</p>
+        <Card className="text-center p-12 bg-white border-blue-50 shadow-sm rounded-[12px]">
+          <Calendar className="h-10 w-10 mx-auto text-blue-100 mb-4" />
+          <p className="text-[13px] font-medium text-slate-500">No pending leave approvals</p>
         </Card>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 lg:grid-cols-2">
           {pendingLeaves.map((leave) => (
-            <Card key={leave.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
+            <Card key={leave.id} className="bg-white border-none shadow-sm hover:shadow-md transition-all rounded-[16px] overflow-hidden group">
+              <CardHeader className="pb-4 px-6 pt-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <User className="h-5 w-5" />
-                      {leave.user_name}
-                    </CardTitle>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                      <Badge className="bg-blue-100 text-blue-800">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-400 font-black text-[12px] shadow-sm transform group-hover:scale-105 transition-transform uppercase">
+                          {leave.user_name?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                          <h3 className="text-[15px] font-black text-slate-800 tracking-tight leading-none">{leave.user_name}</h3>
+                          <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Requested Access</p>
+                        </div>
+                      </div>
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-100 rounded-full text-[9px] px-2 py-0.5 border font-black uppercase tracking-widest shadow-none">PENDING</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Badge className="bg-blue-600 text-white rounded-full text-[9px] px-2.5 py-0.5 border-none font-black uppercase tracking-widest shadow-none">
                         {leave.leave_type_name}
                       </Badge>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(leave.start_date), 'MMM dd')} - {format(new Date(leave.end_date), 'MMM dd')}
-                      </span>
-                      <span>{leave.total_days} days</span>
+                      <div className="flex items-center gap-4 text-[10px] font-black tracking-widest text-slate-400 uppercase">
+                        <span className="flex items-center gap-1.5 bg-blue-50/30 px-2 py-1 rounded-[8px] border border-blue-50/50">
+                          <Calendar className="h-3 w-3 text-blue-400" />
+                          {format(new Date(leave.start_date), 'MMM dd')} - {format(new Date(leave.end_date), 'MMM dd')}
+                        </span>
+                        <span className="flex items-center gap-1.5 bg-blue-50/30 px-2 py-1 rounded-[8px] border border-blue-50/50">
+                          <span className="text-blue-700">{leave.total_days} DAYS</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <Badge className="bg-yellow-100 text-yellow-800">PENDING</Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-6 pb-6 pt-0">
                 {leave.reason && (
-                  <div>
-                    <p className="text-sm font-medium text-slate-700 mb-1">Reason:</p>
-                    <p className="text-sm text-slate-600">{leave.reason}</p>
+                  <div className="p-4 bg-blue-50/20 rounded-[12px] border border-blue-50/50 shadow-inner">
+                    <p className="text-[10px] font-black text-blue-400/70 uppercase tracking-widest mb-1.5">Member's Reason</p>
+                    <p className="text-[13px] text-slate-600 font-medium leading-relaxed italic">"{leave.reason}"</p>
                   </div>
                 )}
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-2">
                   <Button
                     onClick={() => handleAction(leave, 'approve')}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-[12px] h-11 font-black shadow-lg shadow-blue-100 transition-all text-[12px] uppercase tracking-widest border-b-2 border-blue-800 active:border-b-0 active:translate-y-[1px]"
                   >
                     <Check className="h-4 w-4 mr-2" />
                     Approve
                   </Button>
                   <Button
                     onClick={() => handleAction(leave, 'reject')}
-                    variant="destructive"
-                    className="flex-1"
+                    variant="outline"
+                    className="flex-1 text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 border-blue-100 rounded-[12px] h-11 font-black transition-all text-[12px] uppercase tracking-widest"
                   >
                     <X className="h-4 w-4 mr-2" />
                     Reject
@@ -311,49 +326,55 @@ export default function LeaveApprovals({ leaves, currentUser, tenantId, isProjec
 
       {/* Action Dialog */}
       <Dialog open={!!selectedLeave} onOpenChange={handleCloseDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {actionType === 'approve' ? 'Approve' : 'Reject'} Leave Request
+        <DialogContent className="max-w-[420px] border-none rounded-[24px] p-0 shadow-2xl overflow-hidden bg-white">
+          <DialogHeader className="px-8 py-8 border-b border-slate-50">
+            <DialogTitle className="text-[18px] font-black text-slate-800 tracking-tight">
+              {actionType === 'approve' ? 'Confirm Approval' : 'Decline Request'}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="p-8 space-y-8">
             {selectedLeave && (
-              <div className="p-4 bg-slate-50 rounded-lg">
-                <p className="font-medium">{selectedLeave.user_name}</p>
-                <p className="text-sm text-slate-600">
-                  {selectedLeave.leave_type_name} • {selectedLeave.total_days} days
-                </p>
+              <div className="p-5 bg-slate-50/80 rounded-[20px] border border-slate-100/50 flex items-center justify-between">
+                <div>
+                  <p className="text-[15px] font-black text-slate-900 tracking-tight leading-none">{selectedLeave.user_name}</p>
+                  <p className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-widest leading-none">
+                    {selectedLeave.leave_type_name} • {selectedLeave.total_days} DAYS
+                  </p>
+                </div>
+                <div className="h-12 w-12 rounded-full bg-white border border-slate-100 shadow-sm flex items-center justify-center text-slate-400 font-black text-[14px]">
+                  {selectedLeave.user_name?.charAt(0) || 'U'}
+                </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                {actionType === 'reject' ? 'Rejection Reason *' : 'Comment (Optional)'}
+            <div className="space-y-3">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                {actionType === 'reject' ? 'Rejection Reason *' : 'Internal Note (Optional)'}
               </label>
               <Textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder={actionType === 'reject' ? 'Please provide a reason...' : 'Add a comment...'}
-                rows={3}
+                placeholder={actionType === 'reject' ? 'Tell the member why this request was declined...' : 'Add any additional notes for the record...'}
+                rows={4}
+                className="bg-slate-50 border-none rounded-[16px] shadow-inner text-[14px] font-medium focus:ring-2 focus:ring-slate-100 transition-all resize-none p-5 text-slate-700 placeholder:text-slate-300"
               />
             </div>
 
             <div className="flex gap-3">
               <Button
-                variant="outline"
+                variant="ghost"
                 onClick={handleCloseDialog}
-                className="flex-1"
+                className="flex-1 h-12 rounded-[16px] font-black text-[13px] uppercase tracking-widest text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all"
               >
-                Cancel
+                Go Back
               </Button>
               <Button
                 onClick={handleConfirmAction}
                 disabled={actionMutation.isPending}
-                className={`flex-1 ${actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                className={`flex-1 h-12 rounded-[16px] font-black text-[13px] uppercase tracking-widest shadow-xl transition-all shadow-slate-200 ${actionType === 'approve' ? 'bg-slate-900 hover:bg-slate-800 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}
               >
-                Confirm {actionType === 'approve' ? 'Approval' : 'Rejection'}
+                {actionMutation.isPending ? 'Working...' : `Confirm ${actionType === 'approve' ? 'Approve' : 'Reject'}`}
               </Button>
             </div>
           </div>

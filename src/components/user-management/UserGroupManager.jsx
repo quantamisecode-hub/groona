@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { cn } from "@/lib/utils";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -95,94 +96,91 @@ export default function UserGroupManager({ currentUser, effectiveTenantId }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">User Groups</h2>
-          <p className="text-sm text-slate-600">
-            Organize users and manage permissions at scale
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">User Groups</h2>
+          <p className="text-xs sm:text-sm text-slate-500 font-medium">
+            Organize users and manage organizational permissions at scale.
           </p>
         </div>
         <Button
           onClick={() => setShowCreateDialog(true)}
-          className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg"
+          className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-11 rounded-lg px-6 font-bold transition-all active:scale-[0.98] w-full sm:w-auto flex items-center gap-2"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Group
+          <Plus className="h-4.5 w-4.5" />
+          <span>Create Group</span>
         </Button>
       </div>
 
       {groups.length === 0 ? (
-        <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-          <CardContent className="py-12 text-center text-slate-500">
-            <Users className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-            <p className="mb-4">No user groups yet</p>
-            <Button
-              onClick={() => setShowCreateDialog(true)}
-              variant="outline"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Your First Group
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-20 px-4 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 mb-6 group-hover:scale-110 transition-transform duration-500">
+            <Users className="h-10 w-10" />
+          </div>
+          <div className="text-center max-w-xs mx-auto space-y-2 mb-8">
+            <h3 className="text-[17px] font-bold text-slate-900 tracking-tight">Build your first group</h3>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">Groups help you manage permissions for multiple users at once. Start by creating a team group.</p>
+          </div>
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            variant="outline"
+            className="rounded-xl border-slate-200 text-slate-600 font-bold h-11 px-6 hover:bg-slate-50 active:scale-95 transition-all"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Your First Group
+          </Button>
+        </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {groups.map(group => (
-            <Card key={group.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-lg transition-all">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2 mb-2">
-                      <div className={`h-3 w-3 rounded-full bg-${group.color}-500`}></div>
+            <div key={group.id} className="bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 hover:border-blue-100 transition-all duration-500 p-6 flex flex-col gap-6 group">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "h-12 w-12 rounded-2xl flex items-center justify-center shadow-sm transition-transform duration-500 group-hover:scale-110",
+                    group.color ? `bg-${group.color}-50 text-${group.color}-600` : "bg-blue-50 text-blue-600"
+                  )}>
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-[15px] font-bold text-slate-900 truncate tracking-tight flex items-center gap-2">
                       {group.name}
                       {!group.is_active && (
-                        <Badge variant="outline" className="text-xs">Inactive</Badge>
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-none rounded-md px-1.5 py-0 text-[9px] font-black uppercase tracking-widest">Inactive</Badge>
                       )}
-                    </CardTitle>
-                    {group.description && (
-                      <p className="text-sm text-slate-600">{group.description}</p>
-                    )}
+                    </h4>
+                    <p className="text-xs font-medium text-slate-400 mt-0.5 uppercase tracking-widest">
+                      {getMemberCount(group.id)} {getMemberCount(group.id) === 1 ? 'Member' : 'Members'}
+                    </p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Members:</span>
-                  <Badge className="bg-blue-100 text-blue-700">
-                    {getMemberCount(group.id)}
-                  </Badge>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setManagingMembersGroup(group)}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Manage Members
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={() => setEditingGroup(group)}
-                  >
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-900" onClick={() => setEditingGroup(group)}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 text-red-600 hover:bg-red-50"
-                    onClick={() => handleDeleteGroup(group)}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600" onClick={() => handleDeleteGroup(group)}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              {group.description && (
+                <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed font-medium">
+                  {group.description}
+                </p>
+              )}
+
+              <div className="mt-auto pt-2">
+                <Button
+                  onClick={() => setManagingMembersGroup(group)}
+                  className="w-full h-10 rounded-xl bg-slate-50 hover:bg-blue-600 hover:text-white text-slate-600 font-bold text-xs uppercase tracking-widest transition-all active:scale-[0.98] border-0"
+                >
+                  Manage Group Members
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}

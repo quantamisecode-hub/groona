@@ -366,12 +366,6 @@ export default function AdminTimesheetDashboard({
   };
 
 
-  const handleApprove = (entry) => {
-    if (confirm('Approve this timesheet entry?')) {
-      approveTimesheetMutation.mutate(entry);
-    }
-  };
-
   const handleReject = () => {
     if (!rejectionReason.trim()) {
       toast.error('Please provide a rejection reason');
@@ -381,12 +375,6 @@ export default function AdminTimesheetDashboard({
       entry: approvingEntry,
       reason: rejectionReason
     });
-  };
-
-  const handleEditTimesheet = (entry) => {
-    setEditingEntry(entry);
-    setSelectedUserForEdit(entry.user_email);
-    setShowEditForm(true);
   };
 
   const handleCreateForUser = (userEmail) => {
@@ -435,43 +423,45 @@ export default function AdminTimesheetDashboard({
   return (
     <div className="space-y-6">
       <Tabs defaultValue="employees" className="w-full">
-        <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 flex flex-wrap h-auto">
-          <TabsTrigger value="employees" className="gap-2 flex-1 md:flex-none">
-            <Users className="h-4 w-4" />
+        <TabsList className="bg-slate-50 border border-slate-200/60 rounded-[12px] p-1 gap-1 inline-flex h-auto max-w-full overflow-x-auto shadow-sm">
+          <TabsTrigger value="employees" className="gap-2 px-4 py-2 text-[12px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-slate-900 rounded-[10px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">
+            <Users className="h-3.5 w-3.5" />
             All Employees
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-2 flex-1 md:flex-none">
-            <FileText className="h-4 w-4" />
+          <TabsTrigger value="reports" className="gap-2 px-4 py-2 text-[12px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-slate-900 rounded-[10px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all">
+            <FileText className="h-3.5 w-3.5" />
             Generate Reports
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="employees" className="space-y-4 mt-6">
-          <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-            <CardContent className="pt-6">
+          <Card className="bg-transparent border-none shadow-none mb-2">
+            <CardContent className="p-0">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search employees..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 h-10 bg-white border border-slate-200/80 rounded-[10px] shadow-sm text-[13px] focus-visible:ring-1 focus-visible:ring-slate-300 font-medium transition-all"
                   />
                 </div>
 
-                <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">
+                <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-[10px] border border-slate-200/80 shadow-sm transition-all hover:bg-slate-50 cursor-pointer">
                   {processingLock.type === 'all' && (
                     <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
                   )}
-                  <span className={`text-sm font-medium flex items-center gap-2 ${isAllLocked ? 'text-red-700' : 'text-slate-700'}`}>
-                    {isAllLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4 text-slate-500" />}
-                    {isAllLocked ? 'All Users Locked' : 'Audit Lock All'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {isAllLocked ? <Lock className="w-4 h-4 text-red-600" /> : <Unlock className="w-4 h-4 text-slate-400" />}
+                    <span className={`text-[11px] font-bold tracking-widest uppercase mt-0.5 ${isAllLocked ? 'text-red-700' : 'text-slate-600'}`}>
+                      {isAllLocked ? 'All Users Locked' : 'Audit Lock All'}
+                    </span>
+                  </div>
                   <Switch
                     checked={isAllLocked}
                     onCheckedChange={(checked) => handleLockAll(checked)}
-                    className="data-[state=checked]:bg-red-600"
+                    className="data-[state=checked]:bg-red-500 ml-1.5 shadow-sm scale-90"
                     disabled={processingLock.type === 'all'}
                   />
                 </div>
@@ -494,60 +484,64 @@ export default function AdminTimesheetDashboard({
                 const isThisUserLoading = processingLock.type === 'single' && processingLock.id === (user._id || user.id);
 
                 return (
-                  <Card key={user.id} className="bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
-                        <Avatar className="h-12 w-12 ring-2 ring-slate-400 ring-offset-2 shadow-sm">
+                  <Card key={user.id} className="bg-white border border-slate-200/60 rounded-[12px] shadow-sm hover:shadow-md transition-all duration-200 group">
+                    <CardContent className="p-5">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-11 w-11 ring-2 ring-slate-100/80 shadow-sm transition-transform group-hover:scale-[1.03] duration-200">
                           <AvatarImage src={user.profile_image_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                          <AvatarFallback className="bg-slate-50 border border-slate-200/60 text-slate-600 font-bold text-[13px]">
                             {getInitials(user.full_name)}
                           </AvatarFallback>
                         </Avatar>
 
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-slate-600 truncate">{user.full_name}</h4>
-                          <p className="text-sm text-slate-600 truncate">{user.email}</p>
+                          <h4 className="font-bold text-[14px] text-slate-900 truncate leading-snug">{user.full_name}</h4>
+                          <p className="text-[11px] font-medium text-slate-500 truncate mt-0.5">{user.email}</p>
 
-                          <div className="flex items-center gap-3 mt-2">
-                            <div className="text-sm">
-                              <span className="font-semibold text-slate-900">{(totalMinutes / 60).toFixed(2)}h</span>
-                              <span className="text-slate-500 ml-1">logged</span>
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                            <Badge variant="outline" className="bg-slate-50/80 text-slate-700 border-slate-200/80 text-[11px] py-0 px-2 h-5 rounded-full font-bold shadow-none">
+                              {(totalMinutes / 60).toFixed(1)}<span className="text-slate-400 ml-0.5 font-medium">h logged</span>
+                            </Badge>
                             {pendingCount > 0 && (
-                              <Badge className="bg-amber-100 text-amber-700">
-                                {pendingCount} pending
+                              <Badge variant="outline" className="bg-amber-50/80 text-amber-600 border-amber-200 text-[10px] py-0 px-2 h-5 rounded-full font-bold shadow-none uppercase tracking-wide">
+                                {pendingCount} Pending
                               </Badge>
                             )}
                           </div>
-
-                          <div className="flex items-center justify-between mt-3 bg-slate-50 p-2 rounded border border-slate-100">
-                            <div className="flex items-center gap-2">
-                              {isThisUserLoading && (
-                                <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
-                              )}
-                              <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                                {user.is_timesheet_locked ? <Lock className="w-3 h-3 text-red-500" /> : <Unlock className="w-3 h-3 text-slate-400" />}
-                                Audit Lock
-                              </span>
-                            </div>
-                            <Switch
-                              checked={!!user.is_timesheet_locked}
-                              onCheckedChange={(checked) => handleToggleLock(user, checked)}
-                              className="scale-75"
-                              disabled={isThisUserLoading}
-                            />
-                          </div>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleCreateForUser(user.email)}
-                            className="mt-3 w-full"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add Timesheet
-                          </Button>
                         </div>
+                      </div>
+
+                      <div className="mt-5 pt-4 border-t border-slate-100/80 space-y-3">
+                        <div className="flex items-center justify-between p-2.5 rounded-[10px] bg-slate-50/80 border border-slate-200/60">
+                          <div className="flex items-center gap-2">
+                            {isThisUserLoading ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                            ) : user.is_timesheet_locked ? (
+                              <Lock className="w-3.5 h-3.5 text-red-500" />
+                            ) : (
+                              <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                            )}
+                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-0.5">
+                              Audit Lock
+                            </span>
+                          </div>
+                          <Switch
+                            checked={!!user.is_timesheet_locked}
+                            onCheckedChange={(checked) => handleToggleLock(user, checked)}
+                            className="data-[state=checked]:bg-red-500 scale-[0.85] shadow-sm ml-auto"
+                            disabled={isThisUserLoading}
+                          />
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCreateForUser(user.email)}
+                          className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-9 font-bold bg-transparent text-[12px] rounded-[10px] transition-all border border-transparent shadow-none"
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Add Timesheet
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>

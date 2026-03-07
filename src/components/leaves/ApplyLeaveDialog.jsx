@@ -180,57 +180,65 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Apply For Leave</DialogTitle>
-          <DialogDescription>Submit your leave request for approval</DialogDescription>
+      <DialogContent className="max-w-[440px] border-none rounded-[16px] p-0 shadow-2xl overflow-hidden bg-white">
+        <DialogHeader className="px-6 py-6 border-b border-slate-100 flex flex-row items-center gap-4 space-y-0">
+          <div className="h-10 w-10 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400">
+            <CalendarIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <DialogTitle className="text-[17px] font-black text-slate-800 tracking-tight leading-none">Apply for Leave</DialogTitle>
+            <DialogDescription className="text-[13px] font-medium text-slate-400 mt-1.5 line-clamp-1">Submit your request for team review.</DialogDescription>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {error && (
-            <Alert variant="destructive">
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-[10px] text-[12px] font-bold text-red-600">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+              {error}
+            </div>
           )}
 
-          {/* Leave Type Dropdown - Populated ONLY from User's Balances */}
-          <div className="space-y-2">
-            <Label>Leave Type *</Label>
-            <Select
-              value={formData.leave_type_id}
-              onValueChange={(val) => setFormData({ ...formData, leave_type_id: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select leave type..." />
-              </SelectTrigger>
-              <SelectContent>
-                {myBalances.length > 0 ? (
-                  myBalances.map(balance => (
-                    <SelectItem key={balance.leave_type_id} value={balance.leave_type_id}>
-                      {balance.leave_type_name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="p-2 text-sm text-slate-500">No leaves allocated to you</div>
-                )}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+            {/* Leave Type Selector */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Type of Leave</Label>
+              <Select
+                value={formData.leave_type_id}
+                onValueChange={(val) => setFormData({ ...formData, leave_type_id: val })}
+              >
+                <SelectTrigger className="h-11 bg-slate-50 border-slate-200/60 rounded-[10px] text-[13px] font-bold shadow-none focus:bg-white transition-all">
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-[10px] border-slate-200">
+                  {myBalances.length > 0 ? (
+                    myBalances.map(balance => (
+                      <SelectItem key={balance.leave_type_id} value={balance.leave_type_id} className="text-[13px] font-medium">
+                        {balance.leave_type_name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center">
+                      <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">No Leave Allocated</p>
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             {selectedBalance && (
-              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div>
-                    <p className="text-xs text-slate-600">Allocated</p>
-                    <p className="font-semibold text-slate-900">{selectedBalance.allocated}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-600">Used</p>
-                    <p className="font-semibold text-slate-900">{selectedBalance.used}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-600">Remaining</p>
-                    <p className="font-semibold text-green-600">{selectedBalance.remaining}</p>
-                  </div>
+              <div className="p-4 bg-slate-50/50 rounded-[12px] border border-slate-100 flex items-center justify-between shadow-inner">
+                <div className="text-center flex-1 border-r border-slate-200/60 transition-all">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Allocated</p>
+                  <p className="text-[15px] font-bold text-slate-900 mt-1">{selectedBalance.allocated}</p>
+                </div>
+                <div className="text-center flex-1 border-r border-slate-200/60 transition-all">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Used</p>
+                  <p className="text-[15px] font-bold text-slate-900 mt-1">{selectedBalance.used}</p>
+                </div>
+                <div className="text-center flex-1 transition-all">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Balance</p>
+                  <p className="text-[15px] font-black text-emerald-600 mt-1">{selectedBalance.remaining}</p>
                 </div>
               </div>
             )}
@@ -239,23 +247,23 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
           {/* Pending Requests */}
           {pendingLeaves.length > 0 && (
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+              <Label className="flex items-center gap-2 text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">
+                <Clock className="h-3 w-3" />
                 My Pending Requests ({pendingLeaves.length})
               </Label>
-              <Card className="border-amber-200 bg-amber-50">
+              <Card className="border-amber-200 bg-amber-50/50 rounded-[12px] shadow-inner">
                 <CardContent className="p-3">
                   <div className="space-y-2 max-h-32 overflow-y-auto">
                     {pendingLeaves.map((leave) => (
-                      <div key={leave.id || leave._id} className="flex items-center justify-between text-sm p-2 bg-white rounded border border-amber-200">
+                      <div key={leave.id || leave._id} className="flex items-center justify-between text-sm p-2 bg-white rounded-[8px] border border-amber-200 shadow-sm">
                         <div className="flex-1">
-                          <p className="font-medium text-slate-900">{leave.leave_type_name || leave.leave_type}</p>
-                          <p className="text-xs text-slate-600">
+                          <p className="font-bold text-slate-900 text-[13px]">{leave.leave_type_name || leave.leave_type}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
                             {format(parseISO(leave.start_date), 'MMM d')} - {format(parseISO(leave.end_date), 'MMM d')}
                             {leave.duration === 'half_day' && ' (Half Day)'}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] font-bold text-amber-600 bg-amber-100 border-amber-200 px-2 py-0.5 rounded-full">
                           Pending
                         </Badge>
                       </div>
@@ -266,60 +274,78 @@ export default function ApplyLeaveDialog({ open, onClose, currentUser, tenantId 
             </div>
           )}
 
-          {/* Start Date */}
-          <div className="space-y-2">
-            <Label>Start Date *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.start_date && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.start_date ? format(formData.start_date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={formData.start_date} onSelect={(date) => setFormData({ ...formData, start_date: date })} initialFocus />
-              </PopoverContent>
-            </Popover>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Start Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("h-11 w-full justify-start text-[13px] font-bold bg-slate-50/50 border-slate-100 rounded-[10px] shadow-sm hover:bg-white transition-all", !formData.start_date && "text-slate-400 font-medium")}>
+                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                    {formData.start_date ? format(formData.start_date, "MMM d, yyyy") : "Pick start"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 border-none rounded-[16px] shadow-2xl overflow-hidden" align="start">
+                  <Calendar mode="single" selected={formData.start_date} onSelect={(date) => setFormData({ ...formData, start_date: date })} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">End Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("h-11 w-full justify-start text-[13px] font-bold bg-slate-50/50 border-slate-100 rounded-[10px] shadow-sm hover:bg-white transition-all", !formData.end_date && "text-slate-400 font-medium")}>
+                    <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                    {formData.end_date ? format(formData.end_date, "MMM d, yyyy") : "Pick end"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 border-none rounded-[16px] shadow-2xl overflow-hidden" align="start">
+                  <Calendar mode="single" selected={formData.end_date} onSelect={(date) => setFormData({ ...formData, end_date: date })} initialFocus />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
-          {/* End Date */}
           <div className="space-y-2">
-            <Label>End Date *</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !formData.end_date && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {formData.end_date ? format(formData.end_date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={formData.end_date} onSelect={(date) => setFormData({ ...formData, end_date: date })} initialFocus />
-              </PopoverContent>
-            </Popover>
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Duration</Label>
+            <div className="flex bg-slate-50 p-1 rounded-[10px] border border-slate-200/60 shadow-inner">
+              <Button
+                type="button"
+                variant="ghost"
+                className={cn("flex-1 h-9 rounded-[8px] text-[12px] font-bold transition-all", formData.duration === 'full_day' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:bg-white/50")}
+                onClick={() => setFormData({ ...formData, duration: 'full_day' })}
+              >
+                Full Day
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className={cn("flex-1 h-9 rounded-[8px] text-[12px] font-bold transition-all", formData.duration === 'half_day' ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:bg-white/50")}
+                onClick={() => setFormData({ ...formData, duration: 'half_day' })}
+              >
+                Half Day
+              </Button>
+            </div>
           </div>
 
-          {/* Duration */}
           <div className="space-y-2">
-            <Label>Duration</Label>
-            <Select value={formData.duration} onValueChange={(val) => setFormData({ ...formData, duration: val })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="full_day">Full Day</SelectItem>
-                <SelectItem value="half_day">Half Day</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest ml-1">Reason for Leave</Label>
+            <Textarea
+              value={formData.reason}
+              onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+              placeholder="Briefly explain your leave request..."
+              className="min-h-[100px] bg-slate-50 border-slate-200/60 rounded-[12px] text-[13px] font-medium p-4 focus:bg-white transition-all leading-relaxed resize-none"
+              required
+            />
           </div>
 
-          {/* Reason */}
-          <div className="space-y-2">
-            <Label>Reason *</Label>
-            <Textarea value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="Reason for leave..." rows={3} required />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose} disabled={applyLeaveMutation.isPending} className="flex-1">Cancel</Button>
-            <Button type="submit" disabled={applyLeaveMutation.isPending} className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600">
-              {applyLeaveMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</> : 'Submit'}
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={handleClose} disabled={applyLeaveMutation.isPending} className="flex-1 h-11 rounded-[10px] font-bold text-[13px] border-slate-200 text-slate-600 hover:bg-slate-50">Cancel</Button>
+            <Button
+              type="submit"
+              disabled={applyLeaveMutation.isPending}
+              className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 text-white rounded-[10px] font-black text-[13px] shadow-lg shadow-slate-200"
+            >
+              {applyLeaveMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Submit Application"}
             </Button>
           </div>
         </form>

@@ -189,17 +189,17 @@ export default function TimesheetList({
       {Object.entries(groupedTimesheets).sort(([a], [b]) => b.localeCompare(a)).map(([groupKey, entries]) => (
         <div key={groupKey} className="space-y-3">
           {(groupByDate || groupByEmployee) && (
-            <div className="flex items-center gap-2 text-slate-700 font-semibold bg-slate-100/50 p-2 rounded-lg border border-slate-200">
-              {groupByEmployee ? <Users className="h-4 w-4 text-blue-600" /> : <Calendar className="h-4 w-4 text-purple-600" />}
-              {groupByEmployee ? groupKey : (() => {
+            <div className="flex items-center gap-2 text-slate-800 font-medium bg-slate-50/80 p-2.5 rounded-[12px] border border-slate-200/60 mb-1">
+              {groupByEmployee ? <Users className="h-4 w-4 text-slate-500" /> : <Calendar className="h-4 w-4 text-slate-500" />}
+              <span className="text-[13px] font-bold">{groupByEmployee ? groupKey : (() => {
                 try {
                   return format(new Date(groupKey), 'EEEE, MMMM d, yyyy');
                 } catch (e) {
                   return groupKey;
                 }
-              })()}
+              })()}</span>
               <div className="flex-1" />
-              <span className="text-sm text-slate-500 font-normal">
+              <span className="text-[12px] text-slate-500 font-medium">
                 ({(entries.reduce((sum, e) => sum + (e.total_minutes || 0), 0) / 60).toFixed(2)}h total)
               </span>
             </div>
@@ -209,240 +209,235 @@ export default function TimesheetList({
             <Card
               key={entry.id}
               ref={el => itemRefs.current[entry.id || entry._id] = el}
-              className={`bg-white/80 backdrop-blur-xl border-slate-200/60 hover:shadow-md transition-all duration-500 ${(highlightedId === entry.id || highlightedId === entry._id) ? 'ring-2 ring-blue-400' : ''
+              className={`bg-white border border-slate-200/60 rounded-[12px] shadow-sm hover:shadow-md transition-all duration-200 ${(highlightedId === entry.id || highlightedId === entry._id) ? 'ring-2 ring-blue-400' : ''
                 }`}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-slate-900">
-                            {entry.task_title || 'Untitled Task'}
-                          </h4>
-                          <Badge className={getStatusColor(entry.status)}>
-                            {getStatusIcon(entry.status)}
-                            <span className="ml-1 capitalize">{entry.status === 'pending_pm' ? 'Pending PM' : entry.status.replace('pending_', 'Pending ').replace('_', ' ')}</span>
-                          </Badge>
-                          {entry.is_billable ? (
-                            <Badge variant="outline" className="text-green-600 border-green-300">
-                              Billable
+              <CardContent className="p-4 md:p-5">
+                <div className="flex flex-col space-y-3">
+                  {/* Top Row: Title, Badges, Hours, Actions */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center flex-wrap gap-2.5 flex-1">
+                      <h4 className="font-bold text-[13px] text-slate-900 uppercase tracking-wide">
+                        {entry.task_title || 'Untitled Task'}
+                      </h4>
+
+                      <Badge variant="outline" className={`px-2 py-0 h-6 text-[11px] rounded-full font-medium flex items-center gap-1.5 ${getStatusColor(entry.status)} bg-transparent`}>
+                        {getStatusIcon(entry.status)}
+                        <span className="capitalize">{entry.status === 'pending_pm' ? 'Pending PM' : entry.status.replace('pending_', 'Pending ').replace('_', ' ')}</span>
+                      </Badge>
+
+                      {entry.is_billable ? (
+                        <Badge variant="outline" className="text-green-600 border-green-300 px-2 py-0 h-6 text-[11px] rounded-full font-medium bg-transparent">
+                          Billable
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-red-600 border-red-200 px-2 py-0 h-6 text-[11px] rounded-full font-medium bg-transparent">
+                          Non-Billable
+                        </Badge>
+                      )}
+
+                      {/* User Name with Avatar */}
+                      {entry.user_name && (() => {
+                        const user = users.find(u => u.email === entry.user_email);
+                        return (
+                          <div className="flex items-center gap-1.5 px-2 py-0 h-6 bg-transparent rounded-full border border-slate-200 shadow-sm">
+                            <Avatar className="h-4 w-4">
+                              <AvatarImage src={user?.profile_image_url} />
+                              <AvatarFallback className="text-[8px] bg-slate-100 text-slate-600 font-medium border border-slate-200">
+                                {entry.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-[11px] font-bold text-slate-700">{entry.user_name}</span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* PM Status Badge */}
+                      {entry.status === 'pending_admin' && (
+                        <Badge variant="outline" className={`gap-1.5 px-2 py-0 h-6 text-[10px] rounded-full font-bold uppercase tracking-wider bg-transparent ${entry.rejection_reason ? 'text-red-600 border-red-200' : 'text-green-600 border-green-300'}`}>
+                          {entry.rejection_reason ? <XCircle className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
+                          {entry.rejection_reason ? 'PM Recommended Rejection' : 'Accepted by PM'}
+                        </Badge>
+                      )}
+
+                      {/* Settled Badge */}
+                      {(() => {
+                        const project = projectsMap[entry.project_id];
+                        const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
+                        const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
+
+                        if (isSettled) {
+                          return (
+                            <Badge variant="outline" className="text-slate-500 border-slate-200 bg-transparent text-[10px] font-bold uppercase tracking-wider px-2 py-0 h-6 gap-1.5">
+                              <Lock className="h-3 w-3" />
+                              Settled
                             </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
-                              Non-Billable
-                            </Badge>
-                          )}
-                          {/* Show User Name with Avatar */}
-                          {entry.user_name && (() => {
-                            const user = users.find(u => u.email === entry.user_email);
-                            return (
-                              <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-full border border-slate-200">
-                                <Avatar className="h-6 w-6 ring-2 ring-slate-400 ring-offset-1">
-                                  <AvatarImage src={user?.profile_image_url} />
-                                  <AvatarFallback className="text-[10px] bg-white">
-                                    {entry.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs font-bold text-slate-600">{entry.user_name}</span>
-                              </div>
-                            );
-                          })()}
+                          );
+                        }
+                        return null;
+                      })()}
 
-                          {/* PM Status Badge */}
-                          {entry.status === 'pending_admin' && (
-                            <Badge variant="outline" className={`gap-1 py-1 ${entry.rejection_reason ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                              {entry.rejection_reason ? <XCircle className="h-3 w-3" /> : <CheckCircle className="h-3 w-3" />}
-                              <span className="text-[10px] font-bold uppercase tracking-wider">
-                                {entry.rejection_reason ? 'PM Recommended Rejection' : 'Accepted by PM'}
-                              </span>
-                            </Badge>
-                          )}
-                          {/* Settled Badge */}
-                          {(() => {
-                            const project = projectsMap[entry.project_id];
-                            const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
-
-                            const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
-
-                            if (isSettled) {
-                              return (
-                                <Badge className="bg-slate-100 text-slate-500 border-slate-200 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 gap-1.5 opacity-80">
-                                  <Lock className="h-3 w-3" />
-                                  Settled
-                                </Badge>
-                              );
-                            }
-                            return null;
-                          })()}
-                          {/* Edited Badge */}
-                          {entry.last_modified_by_name && (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 gap-1">
-                              <History className="h-3 w-3" />
-                              Edited by {entry.last_modified_by_name}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="text-sm text-slate-600">
-                          {entry.project_name}
-                          {entry.sprint_name && ` • ${entry.sprint_name}`}
-                          {entry.start_time && entry.end_time && (() => {
-                            try {
-                              const userTimezone = currentUser?.timezone || 'Asia/Kolkata';
-                              // Convert UTC stored time to User's Timezone for display
-                              const zonedStart = toZonedTime(new Date(entry.start_time), userTimezone);
-                              const zonedEnd = toZonedTime(new Date(entry.end_time), userTimezone);
-
-                              return (
-                                <span className="ml-2 px-2 py-0.5 bg-slate-100 rounded text-xs" title={`Timezone: ${userTimezone}`}>
-                                  {format(zonedStart, 'HH:mm')} - {format(zonedEnd, 'HH:mm')}
-                                </span>
-                              );
-                            } catch (e) {
-                              return null;
-                            }
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 text-lg font-bold text-slate-900">
-                          <Clock className="h-4 w-4" />
-                          {formatDuration(entry.hours, entry.minutes)}
-                        </div>
-                      </div>
+                      {/* Edited Badge */}
+                      {entry.last_modified_by_name && (
+                        <Badge variant="outline" className="text-amber-600 border-amber-200 bg-transparent px-2 py-0 h-6 text-[10px] gap-1.5 font-medium">
+                          <History className="h-3 w-3" />
+                          Edited by {entry.last_modified_by_name}
+                        </Badge>
+                      )}
                     </div>
 
-                    {entry.description && (
-                      <div className="text-sm text-slate-600">
-                        {(() => {
-                          // Robust splitting: Look for point patterns like "1." or "2." 
-                          // The lookahead (?=\b\d+\.) splits *before* the number, keeping the number in the next chunk.
-                          // We accept "1.Text" (no space) and "1. Text" (space).
-                          const rawParts = entry.description.split(/(?=\b\d+\.)/);
-
-                          // Filter out completely empty strings/whitespace
-                          const parts = rawParts.map(p => p.trim()).filter(Boolean);
-
-                          // Heuristic: It's a list if we have at least 2 parts starting with numbers OR 1 part that starts with "1." and looks like a list item
-                          // Actually, user wants "1. ... 2. ..." to become a list.
-                          const looksLikeList = parts.filter(p => /^\d+\./.test(p)).length > 0;
-
-                          if (looksLikeList && parts.length > 1) {
-                            return (
-                              <div className="space-y-1.5 mt-1">
-                                {parts.map((point, i) => {
-                                  // Check if this specific part starts with a number (it might be intro text)
-                                  const isPoint = /^\d+\./.test(point);
-                                  return (
-                                    <div key={i} className={`flex items-start gap-1.5 ${isPoint ? 'pl-0' : 'mb-2'}`}>
-                                      <span className="leading-relaxed">{point}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            );
-                          }
-
-                          // Default render if not a list
-                          return <p className="line-clamp-2">{entry.description}</p>;
-                        })()}
-                      </div>
-                    )}
-
-                    {entry.remark && (
-                      <div className="mt-1 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800 italic">
-                        <strong>Remark:</strong> {entry.remark}
-                      </div>
-                    )}
-
-                    {entry.location && (
-                      <div className="flex items-start gap-2 text-xs text-slate-500">
-                        <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-1">
-                          {entry.location.address || `${entry.location.latitude}, ${entry.location.longitude}`}
-                        </span>
-                      </div>
-                    )}
-
-                    {entry.status === 'rejected' && entry.rejection_reason && (
-                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
-                        <strong>Rejection Reason:</strong> {entry.rejection_reason}
-                      </div>
-                    )}
-
-                    {/* Unified Audit Section */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px] text-slate-500">
-                      {/* Created Date */}
-                      <div className="flex items-center gap-1.5" title="Creation Date">
-                        <Calendar className="h-3 w-3 text-slate-400" />
-                        <span className="font-medium">Created:</span>
-                        <span>
-                          {entry.created_date ? format(new Date(entry.created_date), 'MMM d, yyyy HH:mm') : 'N/A'}
-                        </span>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="flex items-center gap-1.5 text-[15px] font-bold text-slate-900">
+                        <Clock className="h-4 w-4 text-slate-700" />
+                        {formatDuration(entry.hours, entry.minutes)}
                       </div>
 
-                      {/* Modified Date */}
-                      {entry.last_modified_at && (
-                        <div className="flex items-center gap-1.5" title="Last Modification">
-                          <History className="h-3 w-3 text-amber-400" />
-                          <span className="font-medium">Modified:</span>
-                          <span>
-                            {format(new Date(entry.last_modified_at), 'MMM d, yyyy HH:mm')}
-                          </span>
-                        </div>
-                      )}
+                      {/* Actions */}
+                      {(() => {
+                        const project = projectsMap[entry.project_id];
+                        const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
+                        const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
 
-                      {/* Approval Section */}
-                      {entry.status === 'approved' && entry.approved_by && (
-                        <div className="flex items-center gap-1.5" title="Approved By">
-                          <CalendarCheck className="h-3 w-3 text-green-500" />
-                          <span className="font-medium text-green-600">Approved By:</span>
-                          <span className="text-slate-700 truncate max-w-[120px]">
-                            {entry.approved_by}
-                          </span>
-                        </div>
-                      )}
+                        return showActions && (!entry.is_locked || canEditLocked) && !isSettled && (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onEdit(entry)}
+                              className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md"
+                              title="Edit timesheet"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setDeleteConfirmation({
+                                  isOpen: true,
+                                  timesheetId: entry.id,
+                                  isApproved: entry.status === 'approved'
+                                });
+                              }}
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
+                              title="Delete timesheet"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  {/* Actions Logic: Show only if allowed and NOT settled */}
-                  {(() => {
-                    const project = projectsMap[entry.project_id];
-                    const milestone = entry.milestone_id ? milestonesMap[entry.milestone_id] : null;
-                    const isSettled = (milestone?.status === 'completed') || (!entry.milestone_id && project?.status === 'completed');
+                  {/* Second Row: Project Name & Timeline */}
+                  <div className="text-[13px] text-slate-600 flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-slate-700">{entry.project_name}</span>
+                    {entry.sprint_name && <span className="text-slate-400">• {entry.sprint_name}</span>}
+                    {entry.start_time && entry.end_time && (() => {
+                      try {
+                        const userTimezone = currentUser?.timezone || 'Asia/Kolkata';
+                        const zonedStart = toZonedTime(new Date(entry.start_time), userTimezone);
+                        const zonedEnd = toZonedTime(new Date(entry.end_time), userTimezone);
 
-                    return showActions && (!entry.is_locked || canEditLocked) && !isSettled && (
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(entry)}
-                          className="h-8 w-8"
-                          title="Edit timesheet"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setDeleteConfirmation({
-                              isOpen: true,
-                              timesheetId: entry.id,
-                              isApproved: entry.status === 'approved'
-                            });
-                          }}
-                          className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          title="Delete timesheet"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        return (
+                          <span className="bg-slate-100 px-2 py-0.5 rounded-[6px] text-[12px] font-medium text-slate-600 ml-1">
+                            {format(zonedStart, 'HH:mm')} - {format(zonedEnd, 'HH:mm')}
+                          </span>
+                        );
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
+                  </div>
+
+                  {/* Third Row: Description */}
+                  {entry.description && (
+                    <div className="text-[13px] text-slate-600 leading-relaxed mt-1">
+                      {(() => {
+                        const rawParts = entry.description.split(/(?=\b\d+\.)/);
+                        const parts = rawParts.map(p => p.trim()).filter(Boolean);
+                        const looksLikeList = parts.filter(p => /^\d+\./.test(p)).length > 0;
+
+                        if (looksLikeList && parts.length > 1) {
+                          return (
+                            <div className="space-y-1 mt-0.5">
+                              {parts.map((point, i) => {
+                                const isPoint = /^\d+\./.test(point);
+                                return (
+                                  <div key={i} className={`flex items-start gap-1.5 ${isPoint ? 'pl-0' : 'mb-1'}`}>
+                                    <span>{point}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        }
+
+                        return <p className="line-clamp-2">{entry.description}</p>;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Fourth Row: Location & Remark */}
+                  {(entry.location || entry.remark || entry.status === 'rejected') && (
+                    <div className="flex flex-col gap-2 mt-2">
+                      {entry.location && (
+                        <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
+                          <MapPin className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">
+                            {entry.location.address || `${entry.location.latitude}, ${entry.location.longitude}`}
+                          </span>
+                        </div>
+                      )}
+
+                      {entry.remark && (
+                        <div className="p-2 bg-[#FFFDF0] border border-amber-100/50 rounded-lg text-[12px] text-amber-800">
+                          <strong className="font-semibold italic text-amber-900 mr-1">Remark:</strong>
+                          {entry.remark}
+                        </div>
+                      )}
+
+                      {entry.status === 'rejected' && entry.rejection_reason && (
+                        <div className="p-2 bg-red-50 border border-red-100 rounded-lg text-[12px] text-red-800">
+                          <strong className="font-semibold text-red-900 mr-1">Rejection Reason:</strong>
+                          {entry.rejection_reason}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Fifth Row: Audit (Created Date etc) */}
+                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-400 mt-2">
+                    <div className="flex items-center gap-1.5" title="Creation Date">
+                      <Calendar className="h-3 w-3 opacity-60" />
+                      <span className="font-medium">Created:</span>
+                      <span>
+                        {entry.created_date ? format(new Date(entry.created_date), 'MMM d, yyyy HH:mm') : 'N/A'}
+                      </span>
+                    </div>
+
+                    {entry.last_modified_at && (
+                      <div className="flex items-center gap-1.5" title="Last Modification">
+                        <History className="h-3 w-3 opacity-60 text-amber-500" />
+                        <span className="font-medium">Modified:</span>
+                        <span>
+                          {format(new Date(entry.last_modified_at), 'MMM d, yyyy HH:mm')}
+                        </span>
                       </div>
-                    );
-                  })()}
+                    )}
+
+                    {entry.status === 'approved' && entry.approved_by && (
+                      <div className="flex items-center gap-1.5" title="Approved By">
+                        <CalendarCheck className="h-3 w-3 opacity-60 text-green-500" />
+                        <span className="font-medium text-green-600">Approved By:</span>
+                        <span className="text-slate-600 truncate max-w-[120px]">
+                          {entry.approved_by}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </CardContent>
             </Card>

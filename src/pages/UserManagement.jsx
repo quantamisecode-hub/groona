@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { cn } from "@/lib/utils";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -208,318 +209,237 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
-      <div className="max-w-[1800px] mx-auto w-full flex flex-col h-full relative" style={{ maxWidth: '100%' }}>
-        {/* Sticky Header Section */}
-        <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0">
-          <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
-            {/* Header */}
-            <div className="flex flex-row justify-between items-start gap-4 mb-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 ${isInPlatformMode
-                    ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
-                    : 'bg-gradient-to-br from-blue-500 to-indigo-600 shadow-blue-500/20'
-                    }`}>
-                    <Users className="h-5 w-5 md:h-6 md:w-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl md:text-4xl font-bold text-slate-900">User Management</h1>
-                    <p className="text-xs md:text-base text-slate-600 hidden sm:block">
-                      {isInPlatformMode
-                        ? 'Manage users across all tenants'
-                        : 'Manage users, roles, and permissions for your organization'
-                      }
-                    </p>
-                  </div>
-                </div>
+    <div className="flex flex-col bg-[#f8f9fa] w-full relative min-h-screen selection:bg-blue-100 selection:text-blue-900">
+      <div className="max-w-screen-2xl mx-auto w-full flex flex-col relative">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-6 pb-8 space-y-6 lg:space-y-8">
+
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight">
+                Team Management
+              </h1>
+              <p className="text-sm sm:text-base text-slate-500 font-medium">
+                {isInPlatformMode
+                  ? 'Manage users and global platform settings across all tenants.'
+                  : 'Administration of users, roles, and organizational permissions.'}
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+              {/* Search Bar matching Dashboard filter style */}
+              <div className="flex items-center gap-2 bg-white border border-slate-200 shadow-sm rounded-lg p-1 px-3 h-11 w-full sm:w-64 lg:w-80">
+                <Search className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-9 w-full text-sm border-0 shadow-none focus-visible:ring-0 bg-transparent px-1"
+                />
               </div>
+
               {(currentUser.is_super_admin || (currentUser.role === 'admin' && currentUser.custom_role !== 'project_manager')) && (
                 <Button
                   onClick={() => setShowInviteDialog(true)}
-                  className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md transition-all hover:shadow-lg flex-shrink-0"
+                  className="bg-gradient-to-r from-blue-600 to-slate-900 border-0 shadow-lg shadow-blue-500/20 hover:from-blue-700 hover:to-slate-950 hover:opacity-90 text-white h-11 rounded-lg px-6 font-bold transition-all active:scale-[0.98] w-full sm:w-auto flex items-center gap-2"
                 >
-                  <UserPlus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Invite User</span>
+                  <UserPlus className="h-4.5 w-4.5" />
+                  <span>Invite User</span>
                 </Button>
               )}
             </div>
+          </div>
 
-            {/* Viewing Context Alert */}
-            {currentUser.is_super_admin && effectiveTenantId && (
-              <Alert className="border-blue-200 bg-blue-50 mb-4">
-                <CheckCircle className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-900 text-sm">
-                  Viewing users for the selected tenant. Super Admin users are hidden from this view.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Tabs with Search Bar */}
-            <div className="flex items-center justify-between gap-4">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-                <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 inline-flex justify-start overflow-x-auto h-auto gap-1 hide-scrollbar snap-x p-1 w-fit">
-                  <TabsTrigger value="users" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
-                    <Users className="h-4 w-4" />
-                    Users ({filteredUsers.length})
+          {/* Sub-navigation & Filters */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100/60 pb-1">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-auto">
+                <TabsList className="bg-transparent h-10 p-0 gap-8">
+                  <TabsTrigger
+                    value="users"
+                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none h-10 px-0 text-xs font-bold uppercase tracking-tight text-slate-400 data-[state=active]:text-slate-900 transition-all gap-2"
+                  >
+                    Users <span className="text-[10px] opacity-60">({filteredUsers.length})</span>
                   </TabsTrigger>
-                  <TabsTrigger value="groups" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
-                    <Shield className="h-4 w-4" />
-                    Groups ({groups.length})
+                  <TabsTrigger
+                    value="groups"
+                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none h-10 px-0 text-xs font-bold uppercase tracking-tight text-slate-400 data-[state=active]:text-slate-900 transition-all gap-2"
+                  >
+                    Groups <span className="text-[10px] opacity-60">({groups.length})</span>
                   </TabsTrigger>
-                  <TabsTrigger value="clients" className="gap-2 whitespace-nowrap snap-start flex-shrink-0">
-                    <UserPlus className="h-4 w-4" />
+                  <TabsTrigger
+                    value="clients"
+                    className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none h-10 px-0 text-xs font-bold uppercase tracking-tight text-slate-400 data-[state=active]:text-slate-900 transition-all gap-2"
+                  >
                     Client Users
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-              {/* Search Bar - Beside Clients button */}
-              {activeTab === 'users' && (
-                <div className="relative flex-1 max-w-md ml-auto">
-                  <Input
-                    placeholder="Search users by name, email, or role..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-white/80 backdrop-blur-xl h-9"
-                  />
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-              )}
             </div>
-          </div>
-        </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <div className="px-3 pb-24 md:pb-32 pt-3">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-
-              {/* Users Tab */}
-              <TabsContent value="users" className="space-y-6 mt-4">
+              <TabsContent value="users" className="space-y-8 mt-0 border-none p-0 outline-none">
                 {usersLoading && users.length === 0 ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                  <div className="flex flex-col items-center justify-center py-24 gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Accessing Directory...</p>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="grid grid-cols-1 gap-10">
                     {/* Super Administrators */}
                     {isInPlatformMode && superAdmins.length > 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-amber-200/60">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-amber-700">
-                            <Crown className="h-5 w-5" />
-                            Super Administrators ({superAdmins.length})
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
+                      <div className="space-y-4">
+                        <div className="px-1 flex items-center gap-2">
+                          <h3 className="text-[14px] font-black text-[#1D1D1F] uppercase tracking-widest">Super Administrators</h3>
+                          <div className="h-px flex-1 bg-slate-100" />
+                          <span className="text-[10px] font-bold text-slate-400">{superAdmins.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {superAdmins.map(user => (
-                            <UserCard
-                              key={user.id}
-                              user={user}
-                              currentUser={currentUser}
-                              groups={getUserGroups(user.email)}
-                              onEdit={() => setEditingUser(user)}
-                              onManagePermissions={() => setManagingPermissions(user)}
-                              onPromote={handlePromoteToAdmin}
-                              onDemote={handleDemoteToUser}
-                              onDelete={handleDeleteUser}
-                              getInitials={getInitials}
-                              isSuperAdmin={true}
-                              tenantName={getTenantName(user.tenant_id)}
-                              showTenant={false}
-                            />
+                            <UserCard key={user.id} user={user} currentUser={currentUser} groups={getUserGroups(user.email)} onEdit={() => setEditingUser(user)} onManagePermissions={() => setManagingPermissions(user)} onPromote={handlePromoteToAdmin} onDemote={handleDemoteToUser} onDelete={handleDeleteUser} getInitials={getInitials} isSuperAdmin={true} tenantName={getTenantName(user.tenant_id)} showTenant={false} />
                           ))}
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     )}
 
                     {/* Administrators */}
                     {admins.length > 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-blue-700">
-                            <Shield className="h-5 w-5" />
-                            Administrators ({admins.length})
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
+                      <div className="space-y-4">
+                        <div className="px-1 flex items-center gap-2">
+                          <h3 className="text-[14px] font-black text-[#1D1D1F] uppercase tracking-widest text-blue-600">Administrators</h3>
+                          <div className="h-px flex-1 bg-blue-50" />
+                          <span className="text-[10px] font-bold text-slate-400">{admins.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {admins.map(user => (
-                            <UserCard
-                              key={user.id}
-                              user={user}
-                              currentUser={currentUser}
-                              groups={getUserGroups(user.email)}
-                              onEdit={() => setEditingUser(user)}
-                              onManagePermissions={() => setManagingPermissions(user)}
-                              onPromote={handlePromoteToAdmin}
-                              onDemote={handleDemoteToUser}
-                              onDelete={handleDeleteUser}
-                              getInitials={getInitials}
-                              tenantName={getTenantName(user.tenant_id)}
-                              showTenant={isInPlatformMode}
-                            />
+                            <UserCard key={user.id} user={user} currentUser={currentUser} groups={getUserGroups(user.email)} onEdit={() => setEditingUser(user)} onManagePermissions={() => setManagingPermissions(user)} onPromote={handlePromoteToAdmin} onDemote={handleDemoteToUser} onDelete={handleDeleteUser} getInitials={getInitials} tenantName={getTenantName(user.tenant_id)} showTenant={isInPlatformMode} />
                           ))}
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     )}
 
-                    {/* Project Managers Section */}
+                    {/* Project Managers */}
                     {projectManagers.length > 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-indigo-200/60">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-indigo-700">
-                            <Briefcase className="h-5 w-5" />
-                            Project Managers ({projectManagers.length})
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
+                      <div className="space-y-4">
+                        <div className="px-1 flex items-center gap-2">
+                          <h3 className="text-[14px] font-black text-[#1D1D1F] uppercase tracking-widest text-indigo-600">Project Managers</h3>
+                          <div className="h-px flex-1 bg-indigo-50" />
+                          <span className="text-[10px] font-bold text-slate-400">{projectManagers.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {projectManagers.map(user => (
-                            <UserCard
-                              key={user.id}
-                              user={user}
-                              currentUser={currentUser}
-                              groups={getUserGroups(user.email)}
-                              onEdit={() => setEditingUser(user)}
-                              onManagePermissions={() => setManagingPermissions(user)}
-                              onPromote={handlePromoteToAdmin}
-                              onDemote={handleDemoteToUser}
-                              onDelete={handleDeleteUser}
-                              getInitials={getInitials}
-                              tenantName={getTenantName(user.tenant_id)}
-                              showTenant={isInPlatformMode}
-                              isProjectManager={true}
-                            />
+                            <UserCard key={user.id} user={user} currentUser={currentUser} groups={getUserGroups(user.email)} onEdit={() => setEditingUser(user)} onManagePermissions={() => setManagingPermissions(user)} onPromote={handlePromoteToAdmin} onDemote={handleDemoteToUser} onDelete={handleDeleteUser} getInitials={getInitials} tenantName={getTenantName(user.tenant_id)} showTenant={isInPlatformMode} isProjectManager={true} />
                           ))}
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
                     )}
 
-                    {/* Clients Section */}
-                    {clients.length > 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-purple-200/60">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-purple-700">
-                            <UserPlus className="h-5 w-5" />
-                            Client Users ({clients.length})
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          {clients.map(user => (
-                            <UserCard
-                              key={user.id}
-                              user={user}
-                              currentUser={currentUser}
-                              groups={getUserGroups(user.email)}
-                              onEdit={() => setEditingUser(user)}
-                              onManagePermissions={() => setManagingPermissions(user)}
-                              onPromote={handlePromoteToAdmin}
-                              onDemote={handleDemoteToUser}
-                              onDelete={handleDeleteUser}
-                              getInitials={getInitials}
-                              tenantName={getTenantName(user.tenant_id)}
-                              showTenant={isInPlatformMode}
-                            />
-                          ))}
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* General Users */}
+                    {/* Regular Users */}
                     {generalUsers.length > 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" />
-                            All Users ({generalUsers.length})
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
+                      <div className="space-y-4">
+                        <div className="px-1 flex items-center gap-2">
+                          <h3 className="text-[14px] font-black text-[#1D1D1F] uppercase tracking-widest text-slate-500">Resource Team</h3>
+                          <div className="h-px flex-1 bg-slate-100" />
+                          <span className="text-[10px] font-bold text-slate-400">{generalUsers.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {generalUsers.map(user => (
-                            <UserCard
-                              key={user.id}
-                              user={user}
-                              currentUser={currentUser}
-                              groups={getUserGroups(user.email)}
-                              onEdit={() => setEditingUser(user)}
-                              onManagePermissions={() => setManagingPermissions(user)}
-                              onPromote={handlePromoteToAdmin}
-                              onDemote={handleDemoteToUser}
-                              onDelete={handleDeleteUser}
-                              getInitials={getInitials}
-                              tenantName={getTenantName(user.tenant_id)}
-                              showTenant={isInPlatformMode}
-                            />
+                            <UserCard key={user.id} user={user} currentUser={currentUser} groups={getUserGroups(user.email)} onEdit={() => setEditingUser(user)} onManagePermissions={() => setManagingPermissions(user)} onPromote={handlePromoteToAdmin} onDemote={handleDemoteToUser} onDelete={handleDeleteUser} getInitials={getInitials} tenantName={getTenantName(user.tenant_id)} showTenant={isInPlatformMode} />
                           ))}
-                        </CardContent>
-                      </Card>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Clients */}
+                    {clients.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="px-1 flex items-center gap-2">
+                          <h3 className="text-[14px] font-black text-[#1D1D1F] uppercase tracking-widest text-purple-600">Client Partners</h3>
+                          <div className="h-px flex-1 bg-purple-50" />
+                          <span className="text-[10px] font-bold text-slate-400">{clients.length}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {clients.map(user => (
+                            <UserCard key={user.id} user={user} currentUser={currentUser} groups={getUserGroups(user.email)} onEdit={() => setEditingUser(user)} onManagePermissions={() => setManagingPermissions(user)} onPromote={handlePromoteToAdmin} onDemote={handleDemoteToUser} onDelete={handleDeleteUser} getInitials={getInitials} tenantName={getTenantName(user.tenant_id)} showTenant={isInPlatformMode} />
+                          ))}
+                        </div>
+                      </div>
                     )}
 
                     {filteredUsers.length === 0 && (
-                      <Card className="bg-white/80 backdrop-blur-xl border-slate-200/60">
-                        <CardContent className="py-12 text-center text-slate-500">
-                          <Users className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-                          <p>No users found</p>
-                        </CardContent>
-                      </Card>
+                      <div className="flex flex-col items-center justify-center py-24 gap-4 bg-white rounded-3xl border border-slate-100/50 shadow-sm">
+                        <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200">
+                          <Users className="h-8 w-8" />
+                        </div>
+                        <div className="text-center">
+                          <h4 className="text-[15px] font-bold text-slate-900">No members found</h4>
+                          <p className="text-xs text-slate-500 font-medium">Try adjusting your search query.</p>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
               </TabsContent>
 
-              <TabsContent value="groups" className="mt-4">
+              <TabsContent value="groups" className="mt-0 border-none p-0 outline-none">
                 <UserGroupManager currentUser={currentUser} effectiveTenantId={effectiveTenantId} />
               </TabsContent>
 
-              <TabsContent value="clients" className="mt-4">
+              <TabsContent value="clients" className="mt-0 border-none p-0 outline-none">
                 <ClientManagement tenantId={effectiveTenantId} />
               </TabsContent>
             </Tabs>
           </div>
+
+          <footer className="pt-10 border-t border-slate-200/60 pb-8">
+            <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest text-center md:text-left">
+              Aivora Identity & Access Management System
+            </p>
+          </footer>
+
+          {/* Dialogs */}
+          {showInviteDialog && (
+            <InviteUserDialog
+              open={showInviteDialog}
+              onClose={() => setShowInviteDialog(false)}
+              currentUser={currentUser}
+              effectiveTenantId={effectiveTenantId}
+            />
+          )}
+
+          {editingUser && (
+            <EditUserDialog
+              open={!!editingUser}
+              onClose={() => setEditingUser(null)}
+              user={editingUser}
+              currentUser={currentUser}
+              effectiveTenantId={effectiveTenantId}
+            />
+          )}
+
+          {managingPermissions && (
+            <UserPermissionsDialog
+              open={!!managingPermissions}
+              onClose={() => setManagingPermissions(null)}
+              user={managingPermissions}
+              currentUser={currentUser}
+              effectiveTenantId={effectiveTenantId}
+              groups={groups}
+              memberships={memberships}
+            />
+          )}
+
+          <ConfirmationDialog
+            open={!!deletingUser}
+            onClose={() => setDeletingUser(null)}
+            onConfirm={confirmDeleteUser}
+            title="Delete User?"
+            description={`Are you sure you want to delete ${deletingUser?.full_name}?`}
+            confirmLabel="Delete User"
+            confirmType="danger"
+            loading={deleteUserMutation.isPending}
+          />
         </div>
       </div>
-
-      {/* Dialogs */}
-      {showInviteDialog && (
-        <InviteUserDialog
-          open={showInviteDialog}
-          onClose={() => setShowInviteDialog(false)}
-          currentUser={currentUser}
-          effectiveTenantId={effectiveTenantId}
-        />
-      )}
-
-      {editingUser && (
-        <EditUserDialog
-          open={!!editingUser}
-          onClose={() => setEditingUser(null)}
-          user={editingUser}
-          currentUser={currentUser}
-          effectiveTenantId={effectiveTenantId}
-        />
-      )}
-
-      {managingPermissions && (
-        <UserPermissionsDialog
-          open={!!managingPermissions}
-          onClose={() => setManagingPermissions(null)}
-          user={managingPermissions}
-          currentUser={currentUser}
-          effectiveTenantId={effectiveTenantId}
-          groups={groups}
-          memberships={memberships}
-        />
-      )}
-
-      <ConfirmationDialog
-        open={!!deletingUser}
-        onClose={() => setDeletingUser(null)}
-        onConfirm={confirmDeleteUser}
-        title="Delete User?"
-        description={`Are you sure you want to delete ${deletingUser?.full_name}?`}
-        confirmLabel="Delete User"
-        confirmType="danger"
-        loading={deleteUserMutation.isPending}
-      />
     </div>
   );
 }
@@ -542,182 +462,117 @@ function UserCard({ user, currentUser, groups, onEdit, onManagePermissions, onPr
   const displayName = user.full_name || 'Unknown User';
 
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-lg border border-slate-200 bg-white hover:shadow-md transition-all gap-4">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="relative">
-          <Avatar className="h-12 w-12 border-2 border-slate-200">
-            <AvatarImage src={user.profile_image_url} alt={displayName} />
-            <AvatarFallback className={`font-bold ${isSuperAdmin
-              ? 'bg-gradient-to-br from-amber-500 to-orange-600 text-white'
-              : user.role === 'admin'
-                ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                : 'bg-gradient-to-br from-slate-500 to-slate-600 text-white'
-              }`}>
-              {getInitials(displayName)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="absolute -bottom-1 -right-1">
-            <PresenceIndicator status={user.presence_status || 'offline'} size="sm" />
+    <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 hover:border-blue-100 transition-all duration-500 p-6 flex flex-col gap-6 group">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Avatar className="h-11 w-11 rounded-xl ring-2 ring-slate-50 transition-all duration-500">
+              <AvatarImage src={user.profile_image_url} alt={displayName} className="object-cover" />
+              <AvatarFallback className={cn(
+                "rounded-xl font-black text-xs",
+                isSuperAdmin ? "bg-emerald-50 text-emerald-600" :
+                  user.role === 'admin' ? "bg-blue-50 text-blue-600" : "bg-slate-50 text-slate-500"
+              )}>
+                {getInitials(displayName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute -bottom-0.5 -right-0.5 border-2 border-white rounded-full">
+              <PresenceIndicator status={user.presence_status || 'offline'} size="xs" />
+            </div>
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-[15px] font-bold text-slate-900 truncate leading-tight">
+              {displayName}
+              {isCurrentUser && <span className="ml-1.5 text-[10px] font-black text-blue-500 uppercase tracking-widest">You</span>}
+            </h4>
+            <p className="text-xs font-medium text-slate-500 truncate mt-0.5">{user.email}</p>
           </div>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <p className="font-semibold text-slate-900 truncate">{displayName}</p>
-
-            {showTenant && (
-              <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                {tenantName}
-              </Badge>
+        {/* Action icons - Minimal */}
+        {canModify && (
+          <div className="flex items-center gap-1 opacity-20 md:opacity-0 group-hover:opacity-100 transition-all">
+            {canEdit && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-900" onClick={onEdit}>
+                <Edit className="h-3.5 w-3.5" />
+              </Button>
             )}
-
-            {isCurrentUser && (
-              <Badge className="bg-blue-100 text-blue-700 border-blue-200">You</Badge>
+            {(isOwner || currentUser.is_super_admin) && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-900" onClick={onManagePermissions}>
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
             )}
-
-            {/* --- BADGE LOGIC START --- */}
-            {isSuperAdmin ? (
-              <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-                <Crown className="h-3 w-3 mr-1" />
-                Super Admin
-              </Badge>
-            ) : (
-              <>
-                {/* Owner Badge */}
-                {user.custom_role === 'owner' && (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-200">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Owner
-                  </Badge>
-                )}
-
-                {/* Admin Badge - Show for admins but not for project managers. Show for owners too */}
-                {user.role === 'admin' && user.custom_role !== 'project_manager' && (
-                  <Badge className="bg-blue-100 text-blue-700 border-blue-200">Admin</Badge>
-                )}
-
-                {/* Client Badge - Prioritize custom_role */}
-                {user.custom_role === 'client' && (
-                  <Badge className="bg-purple-100 text-purple-700 border-purple-200">
-                    <Building2 className="h-3 w-3 mr-1" />
-                    Client User
-                  </Badge>
-                )}
-
-                {/* Project Manager Badge - Only show this, not Admin badge */}
-                {user.custom_role === 'project_manager' && (
-                  <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-                    <Briefcase className="h-3 w-3 mr-1" />
-                    Project Manager
-                  </Badge>
-                )}
-
-                {/* Manager Badge */}
-                {user.role === 'manager' && user.custom_role !== 'project_manager' && (
-                  <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200">Manager</Badge>
-                )}
-
-                {/* Member Badge (Fallback for regular users) */}
-                {user.role !== 'admin' && user.role !== 'manager' && user.custom_role !== 'client' && user.custom_role !== 'project_manager' && user.custom_role !== 'owner' && (
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-slate-200">Member</Badge>
-                )}
-
-                {/* NEW: Custom Role Badge - Displays any other custom role beside the standard badges */}
-                {user.custom_role && user.custom_role !== 'client' && user.custom_role !== 'project_manager' && user.custom_role !== 'owner' && (
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 capitalize">
-                    {user.custom_role.replace(/_/g, ' ')}
-                  </Badge>
-                )}
-              </>
+            {canDelete && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600" onClick={() => onDelete(user)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
             )}
-            {/* --- BADGE LOGIC END --- */}
-
           </div>
-          <p className="text-sm text-slate-600 truncate">{user.email}</p>
+        )}
+      </div>
 
-          {groups.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {groups.map(group => (
-                <Badge key={group.id} variant="outline" className="text-xs">
-                  {group.name}
-                </Badge>
-              ))}
-            </div>
+      <div className="space-y-3">
+        {/* User Badges - Clean Style */}
+        <div className="flex flex-wrap gap-1.5 min-h-[1.25rem]">
+          {isSuperAdmin ? (
+            <Badge className="bg-emerald-50 text-emerald-600 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100/80 hover:scale-105 transition-all duration-300">Super Admin</Badge>
+          ) : (
+            <>
+              {user.custom_role === 'owner' && (
+                <Badge className="bg-amber-50 text-amber-600 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest hover:bg-amber-100/80 hover:scale-105 transition-all duration-300">Owner</Badge>
+              )}
+              {user.role === 'admin' && user.custom_role !== 'project_manager' && (
+                <Badge className="bg-blue-50 text-blue-600 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest hover:bg-blue-100/80 hover:scale-105 transition-all duration-300">Admin</Badge>
+              )}
+              {user.custom_role === 'client' && (
+                <Badge className="bg-purple-50 text-purple-600 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest leading-none hover:bg-purple-100/80 hover:scale-105 transition-all duration-300">Client</Badge>
+              )}
+              {user.custom_role === 'project_manager' && (
+                <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest leading-none hover:bg-indigo-100/80 hover:scale-105 transition-all duration-300">PM</Badge>
+              )}
+              {user.role !== 'admin' && user.role !== 'manager' && user.custom_role !== 'client' && user.custom_role !== 'project_manager' && user.custom_role !== 'owner' && (
+                <Badge className="bg-slate-50 text-slate-500 border-none rounded-lg px-2 py-0.5 text-[9px] font-black uppercase tracking-widest hover:bg-slate-100/80 hover:scale-105 transition-all duration-300">Member</Badge>
+              )}
+            </>
           )}
+
+          {showTenant && (
+            <Badge variant="outline" className="border-slate-100 bg-white text-slate-400 rounded-lg px-2 py-0.5 text-[8px] font-bold uppercase whitespace-nowrap hover:bg-slate-50 transition-colors duration-300">
+              {tenantName}
+            </Badge>
+          )}
+        </div>
+
+        {/* Group Tags */}
+        <div className="flex flex-wrap gap-1">
+          {groups.length > 0 && groups.map(group => (
+            <span key={group.id} className="text-[10px] font-bold text-slate-300 px-1 bg-slate-50 rounded">@{group.name}</span>
+          ))}
         </div>
       </div>
 
-      {canModify && (
-        <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+      <div className="h-px bg-slate-50" />
 
-          {/* Admin Toggle Button - Only for owners/super admins, not for project managers */}
-          {canChangeRole && !isSuperAdmin && (
-            user.role === 'admin' && user.custom_role !== 'owner' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 flex items-center gap-1 text-orange-600 hover:bg-orange-50"
-                onClick={() => onDemote(user)}
-                title="Remove Admin Rights"
-              >
-                <ShieldOff className="h-4 w-4" />
-                <span className="text-xs font-medium hidden sm:inline">Remove Admin</span>
-              </Button>
-            ) : user.custom_role !== 'owner' && user.custom_role !== 'client' ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 flex items-center gap-1 text-blue-600 hover:bg-blue-50"
-                onClick={() => onPromote(user)}
-                title="Promote to Admin"
-              >
-                <Shield className="h-4 w-4" />
-                <span className="text-xs font-medium hidden sm:inline">Make Admin</span>
-              </Button>
-            ) : null
-          )}
-
-          {/* Edit button - Owners and super admins can edit any user */}
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onEdit(user)}
-              title="Edit User"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* Manage Permissions button - Owners and super admins can manage permissions */}
-          {(isOwner || currentUser.is_super_admin) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onManagePermissions(user)}
-              title="Manage Permissions"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* Delete button - Owners and super admins can delete any user */}
-          {canDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-red-600 hover:bg-red-50"
-              onClick={() => onDelete(user)}
-              title="Delete User"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+      {/* Footer Utility Actions */}
+      <div className="flex items-center justify-between mt-auto">
+        <div className="flex items-center gap-2">
+          <div className="h-5 w-5 rounded-full ring-2 ring-white bg-blue-50 flex items-center justify-center text-blue-500">
+            <Briefcase className="w-2.5 h-2.5" />
+          </div>
+          {user.presence_status === 'online' && (
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Active</span>
           )}
         </div>
-      )}
+
+        {canChangeRole && !isSuperAdmin && (
+          <button
+            onClick={() => user.role === 'admin' ? onDemote(user) : onPromote(user)}
+            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline transition-all"
+          >
+            {user.role === 'admin' ? "Restrict Access" : "Grant Admin"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

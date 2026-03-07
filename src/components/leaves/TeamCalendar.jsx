@@ -325,60 +325,64 @@ export default function TeamCalendar({ currentUser, tenantId }) {
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4">
+        <Card className="bg-white border-blue-100/60 shadow-sm rounded-[12px] overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">
                   {isSameDay(today, currentMonth) || isSameMonth(today, currentMonth)
-                    ? `Team Members Absent Today`
-                    : `Team Members on Leave`}
+                    ? `Absent Today`
+                    : `Team on Leave`}
                 </p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {isSameDay(today, currentMonth) || isSameMonth(today, currentMonth)
-                    ? membersAbsentToday
-                    : usersOnLeave.length}
-                </p>
-                {((isSameDay(today, currentMonth) || isSameMonth(today, currentMonth)) && membersAbsentToday > 0) && (
-                  <p className="text-xs text-slate-500 mt-1">
-                    {membersAbsentToday === 1 ? 'member' : 'members'} absent today
+                <div className="flex items-baseline gap-2 mt-2">
+                  <p className="text-[28px] font-black text-slate-900 tracking-tight leading-none">
+                    {isSameDay(today, currentMonth) || isSameMonth(today, currentMonth)
+                      ? membersAbsentToday
+                      : usersOnLeave.length}
                   </p>
-                )}
+                  <span className="text-[13px] font-bold text-blue-400 tracking-tight">Active</span>
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Users className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600">Total Leaves</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {totalLeaves}
-                </p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-amber-600" />
+              <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center shadow-inner border border-blue-100/50">
+                <Users className="h-5 w-5 text-blue-500" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
+        <Card className="bg-white border-blue-100/60 shadow-sm rounded-[12px] overflow-hidden">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-600">Capacity Reduction</p>
-                <p className="text-2xl font-bold text-slate-900 mt-1">
-                  {Object.values(userCapacityReduction).reduce((sum, r) => sum + r.hours, 0).toFixed(0)}h
-                </p>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">Total Leaves</p>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <p className="text-[28px] font-black text-slate-900 tracking-tight leading-none">
+                    {totalLeaves}
+                  </p>
+                  <span className="text-[13px] font-bold text-sky-400 tracking-tight">Approved</span>
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-red-100 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-red-600" />
+              <div className="h-12 w-12 rounded-full bg-sky-50 flex items-center justify-center shadow-inner border border-sky-100/50">
+                <Calendar className="h-5 w-5 text-sky-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white border-blue-100/60 shadow-sm rounded-[12px] overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-none">Capacity Impact</p>
+                <div className="flex items-baseline gap-2 mt-2">
+                  <p className="text-[28px] font-black text-slate-900 tracking-tight leading-none">
+                    {Object.values(userCapacityReduction).reduce((sum, r) => sum + r.hours, 0).toFixed(0)}h
+                  </p>
+                  <span className="text-[13px] font-bold text-indigo-400 tracking-tight">Reduction</span>
+                </div>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center shadow-inner border border-indigo-100/50">
+                <Clock className="h-5 w-5 text-indigo-500" />
               </div>
             </div>
           </CardContent>
@@ -386,30 +390,22 @@ export default function TeamCalendar({ currentUser, tenantId }) {
       </div>
 
       {/* Month Calendar */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Team Calendar - {format(currentMonth, 'MMMM yyyy')}
-              {filteredMemberEmail && (
-                <Badge variant="outline" className="ml-2">
-                  {teamMembers.find(m => m.email === filteredMemberEmail)?.full_name || filteredMemberEmail}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 ml-1 -mr-1"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFilteredMemberEmail(null);
-                    }}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-            </CardTitle>
-            <div className="flex items-center gap-2 flex-wrap">
+      <Card className="bg-white border-blue-100/60 shadow-sm rounded-[12px] overflow-hidden">
+        <CardHeader className="border-b border-blue-50/50 px-6 py-6">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg ring-4 ring-blue-50 transition-transform hover:scale-110">
+                <Calendar className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-[17px] font-black text-slate-900 tracking-tight">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </CardTitle>
+                <p className="text-[13px] font-medium text-slate-400 mt-0.5">Global team availability overview.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
               {/* Team Member Filter */}
               <Select
                 value={filteredMemberEmail || "all"}
@@ -420,32 +416,45 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                   setSelectedDateLeaves([]);
                 }}
               >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by member" />
+                <SelectTrigger className="h-9 w-[180px] bg-blue-50/30 border-blue-100/60 rounded-[10px] text-[12px] font-bold shadow-none focus:bg-white transition-all">
+                  <SelectValue placeholder="Filter member..." />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Team Members</SelectItem>
+                <SelectContent className="rounded-[10px] border-blue-100">
+                  <SelectItem value="all" className="text-[12px] font-bold">All Members</SelectItem>
                   {teamMembers.map(member => (
-                    <SelectItem key={member.email} value={member.email}>
+                    <SelectItem key={member.email} value={member.email} className="text-[12px] font-bold">
                       {member.full_name || member.name || member.email}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
               {isAdmin && (
                 <Button
-                  variant="default"
-                  size="sm"
                   onClick={() => setShowAddHoliday(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="h-9 px-4 rounded-[10px] text-[12px] font-bold shadow-sm transition-all bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Holiday
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Holiday
                 </Button>
               )}
+
+              <div className="flex items-center bg-blue-50/30 border border-blue-100/60 rounded-[10px] p-0.5">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-[8px] hover:bg-white hover:text-blue-600 hover:shadow-sm" onClick={previousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 px-3 rounded-[8px] text-[11px] font-bold hover:bg-white hover:text-blue-600 hover:shadow-sm" onClick={() => setCurrentMonth(new Date())}>
+                  Today
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-[8px] hover:bg-white hover:text-blue-600 hover:shadow-sm" onClick={nextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
               <Button
                 variant="outline"
                 size="icon"
+                className="h-9 w-9 border-blue-100 rounded-[10px] hover:bg-blue-50/50"
                 onClick={async () => {
                   await Promise.all([
                     refetchLeaves(),
@@ -454,43 +463,34 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                     queryClient.invalidateQueries({ queryKey: ['team-members'] }),
                     queryClient.invalidateQueries({ queryKey: ['holidays'] })
                   ]);
-                  toast.success('Calendar refreshed');
+                  toast.success('Calendar updated');
                 }}
-                title="Refresh calendar"
               >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={previousMonth}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>
-                Today
-              </Button>
-              <Button variant="outline" size="icon" onClick={nextMonth}>
-                <ChevronRight className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4 text-blue-400" />
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto px-2 pb-2">
-            <div className="min-w-[600px] w-full py-1">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px] w-full border-t border-blue-50/30">
               {/* Day Headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                  <div key={day} className="text-center text-xs font-medium text-slate-500 uppercase p-2">
+              <div className="grid grid-cols-7 border-b border-blue-50/30 bg-blue-50/10">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                  <div key={day} className="text-center text-[10px] font-black tracking-widest text-blue-300 uppercase py-3 border-r last:border-r-0 border-blue-50/30">
                     {day}
                   </div>
                 ))}
               </div>
 
               {/* Calendar Grid */}
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7">
                 {calendarDays.map((day, dayIdx) => {
                   const dayKey = format(day, 'yyyy-MM-dd');
                   const dayLeaves = leavesByDay[dayKey] || [];
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isToday = isSameDay(day, today);
+                  const isWeekend = getDay(day) === 0 || getDay(day) === 6;
 
                   return (
                     <div
@@ -499,47 +499,39 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                         if (dayLeaves.length > 0 && !selectedMember) {
                           setSelectedDate(day);
                           setSelectedMember(null);
-                          // Get all leaves for members on this date (from allLeaves, not just monthLeaves)
                           const memberEmails = [...new Set(dayLeaves.map(l => l.user_email))];
                           const allMemberLeaves = allLeaves.filter(l =>
                             memberEmails.includes(l.user_email)
                           );
                           setSelectedDateLeaves(allMemberLeaves);
-                        } else if (dayLeaves.length === 0) {
-                          setSelectedDate(null);
-                          setSelectedMember(null);
-                          setSelectedDateLeaves([]);
                         }
                       }}
                       className={cn(
-                        "min-h-[100px] p-2 rounded-lg border-2 transition-all",
-                        isCurrentMonth
-                          ? "bg-white border-slate-200"
-                          : "bg-slate-50 border-slate-100",
-                        isToday && "ring-2 ring-blue-500 ring-offset-2",
-                        dayLeaves.length > 0 && "border-red-400 hover:border-red-500 hover:shadow-md cursor-pointer"
+                        "min-h-[140px] p-2 border-r border-b border-blue-50/30 transition-all",
+                        !isCurrentMonth ? "bg-slate-50/30" : isWeekend ? "bg-blue-50/10" : "bg-white",
+                        dayLeaves.length > 0 && "hover:bg-blue-50/20 cursor-pointer"
                       )}
                     >
-                      {/* Date Number */}
-                      <div className={cn(
-                        "text-sm font-semibold mb-2",
-                        isToday ? "text-blue-600" : isCurrentMonth ? "text-slate-900" : "text-slate-400"
-                      )}>
-                        {format(day, 'd')}
+                      {/* Date Header */}
+                      <div className="flex items-start justify-between mb-2">
+                        <span className={cn(
+                          "flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-black transition-all",
+                          isToday
+                            ? "bg-blue-600 text-white shadow-md ring-4 ring-blue-50"
+                            : isCurrentMonth ? "text-slate-800" : "text-slate-300"
+                        )}>
+                          {format(day, 'd')}
+                        </span>
+
+                        {/* Holidays */}
+                        {allHolidays.find(h => h.date === dayKey) && (
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-sm" title={allHolidays.find(h => h.date === dayKey)?.name} />
+                        )}
                       </div>
 
-                      {/* Holidays */}
-                      {allHolidays.find(h => h.date === dayKey) && (
-                        <div className="mb-1.5">
-                          <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700 text-[9px] px-1.5 py-0.5">
-                            {allHolidays.find(h => h.date === dayKey)?.name}
-                          </Badge>
-                        </div>
-                      )}
-
-                      {/* Leave Indicators - Show profile avatar and name with scrollbar (hidden) */}
-                      <div className="space-y-1.5 max-h-[70px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-                        {dayLeaves.map((leave, idx) => {
+                      {/* Leaves */}
+                      <div className="space-y-1 mt-2">
+                        {dayLeaves.slice(0, 4).map((leave, idx) => {
                           const member = teamMembers.find(m => m.email === leave.user_email);
                           if (!member) return null;
 
@@ -550,34 +542,28 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                                 e.stopPropagation();
                                 setSelectedDate(day);
                                 setSelectedMember(member);
-                                // Show only this member's leaves
                                 const memberLeaves = allLeaves.filter(l => l.user_email === member.email);
                                 setSelectedDateLeaves(memberLeaves);
                               }}
                               className={cn(
-                                "flex items-center gap-1.5 p-1.5 rounded border-2 cursor-pointer hover:shadow-sm transition-all",
-                                leave.duration === 'half_day'
-                                  ? "bg-amber-50 border-amber-300 hover:bg-amber-100"
-                                  : "bg-red-50 border-red-300 hover:bg-red-100"
+                                "flex items-center gap-1.5 p-1 rounded-full border border-blue-50 hover:border-blue-200 hover:shadow-sm transition-all group overflow-hidden",
+                                leave.duration === 'half_day' ? "bg-sky-50/60" : "bg-blue-50/40 hover:bg-white"
                               )}
                             >
-                              <Avatar className="h-6 w-6 flex-shrink-0 border-2 border-white">
-                                <AvatarImage src={member.profile_picture_url} />
-                                <AvatarFallback className={cn(
-                                  "text-[10px] font-semibold",
-                                  leave.duration === 'half_day'
-                                    ? "bg-amber-500 text-white"
-                                    : "bg-red-500 text-white"
-                                )}>
-                                  {getInitials(member.full_name || member.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="truncate font-semibold text-slate-900 text-[11px]">
-                                {member.full_name || member.name || 'Member'}
+                              <div className="h-5 w-5 rounded-full bg-white border border-blue-100 flex items-center justify-center text-blue-700 text-[8px] font-bold shadow-sm ring-1 ring-blue-50 shrink-0">
+                                {getInitials(member.full_name || member.name)}
+                              </div>
+                              <span className="text-[10px] font-bold text-blue-700 truncate opacity-0 group-hover:opacity-100 transition-opacity -ml-1 pr-2">
+                                {member.full_name?.split(' ')[0]}
                               </span>
                             </div>
                           );
                         })}
+                        {dayLeaves.length > 4 && (
+                          <p className="text-[9px] font-black text-blue-300 text-center uppercase tracking-tighter mt-1">
+                            +{dayLeaves.length - 4} more
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
@@ -596,22 +582,26 @@ export default function TeamCalendar({ currentUser, tenantId }) {
           setSelectedDateLeaves([]);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              {selectedMember
-                ? `${selectedMember.full_name || selectedMember.name}'s Leave Details`
-                : `Team Members on Leave - ${selectedDate && format(selectedDate, 'MMMM d, yyyy')}`
-              }
-              {selectedDateLeaves.length > 0 && (
-                <span className="text-sm font-normal text-slate-500 ml-2">
-                  ({selectedDateLeaves.length} {selectedDateLeaves.length === 1 ? 'leave' : 'leaves'})
-                </span>
-              )}
-            </DialogTitle>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden p-0 border-none rounded-[16px] shadow-2xl bg-white flex flex-col">
+          <DialogHeader className="px-6 py-6 border-b border-blue-50 flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-400">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-[17px] font-black text-slate-800 tracking-tight">
+                  {selectedMember
+                    ? `${selectedMember.full_name || selectedMember.name}'s Timeline`
+                    : `Team Absence • ${selectedDate && format(selectedDate, 'MMM d, yyyy')}`
+                  }
+                </DialogTitle>
+                <DialogDescription className="text-[13px] font-medium text-slate-400 mt-1">
+                  Showing {selectedDateLeaves.length} approved leave {selectedDateLeaves.length === 1 ? 'record' : 'records'}.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50/30">
             {selectedDateLeaves.length === 0 ? (
               <p className="text-center text-slate-500 py-8">No team members on leave for this date</p>
             ) : (
@@ -642,78 +632,49 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                   });
 
                   return (
-                    <div key={email} className="p-4 border border-slate-200 rounded-lg bg-white hover:shadow-md transition-shadow">
-                      <div className="flex items-start gap-4 mb-4">
-                        <Avatar className="h-14 w-14 flex-shrink-0">
-                          <AvatarImage src={member.profile_picture_url} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg">
+                    <div key={email} className="p-4 rounded-[12px] bg-white border border-slate-200/60 shadow-sm flex flex-col gap-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-full bg-white border border-slate-100 flex items-center justify-center text-slate-700 text-[12px] font-bold shadow-sm ring-4 ring-slate-50">
                             {getInitials(member.full_name || member.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <p className="font-semibold text-slate-900 text-lg">
-                                {member.full_name || member.name || member.email}
-                              </p>
-                              <p className="text-sm text-slate-600">{member.email}</p>
-                            </div>
-                            <div className="text-right">
-                              <div className="flex items-center gap-2 text-sm text-slate-600 mb-1">
-                                <Clock className="h-4 w-4" />
-                                <span className="font-medium">
-                                  {capacity.adjustedCapacity.toFixed(0)}h / {capacity.originalCapacity.toFixed(0)}h
-                                </span>
-                              </div>
-                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-black text-slate-800 tracking-tight leading-none">{member.full_name || member.name}</p>
+                            <p className="text-[12px] font-medium text-slate-400 mt-1.5">{member.email}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-full border border-slate-100">
+                            <Clock className="h-3 w-3 text-slate-400" />
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{capacity.adjustedCapacity.toFixed(0)}h Remaining</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* All Leaves for this member */}
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-slate-500 uppercase mb-2">All Approved Leaves:</p>
                         {sortedLeaves.map((leave) => (
                           <div
                             key={leave.id || leave._id}
                             className={cn(
-                              "p-3 rounded-lg border-2",
-                              leave.duration === 'half_day'
-                                ? "bg-amber-50 border-amber-200"
-                                : "bg-red-50 border-red-200"
+                              "p-3 rounded-[10px] border border-slate-100 group transition-all",
+                              leave.duration === 'half_day' ? "bg-amber-50/40 border-amber-100" : "bg-slate-50/50 hover:bg-white"
                             )}
                           >
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Badge
-                                    variant="outline"
-                                    className={cn(
-                                      "text-xs",
-                                      leave.duration === 'half_day'
-                                        ? "bg-amber-100 border-amber-300 text-amber-700"
-                                        : "bg-red-100 border-red-300 text-red-700"
-                                    )}
-                                  >
-                                    {leave.leave_type_name || leave.leave_type?.replace('_', ' ') || 'Leave'}
-                                  </Badge>
-                                  <Badge variant="outline" className="text-xs">
-                                    {leave.duration === 'half_day' ? 'Half Day' : 'Full Day'}
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[12px] font-black tracking-tight text-slate-800">
+                                    {format(parseISO(leave.start_date), 'MMM d')} — {format(parseISO(leave.end_date), 'MMM d, yyyy')}
+                                  </span>
+                                  <Badge className="bg-white text-[9px] font-bold border-slate-200 text-slate-400 rounded-full shadow-none">
+                                    {leave.duration === 'half_day' ? 'Half' : 'Full'}
                                   </Badge>
                                 </div>
-                                <p className="text-sm font-semibold text-slate-900 mb-1">
-                                  📅 {format(parseISO(leave.start_date), 'MMM d, yyyy')} - {format(parseISO(leave.end_date), 'MMM d, yyyy')}
-                                </p>
-                                {leave.reason && (
-                                  <p className="text-xs text-slate-600 mt-1">
-                                    Reason: {leave.reason}
-                                  </p>
-                                )}
+                                <p className="text-[12px] font-medium text-slate-500 italic">“{leave.reason || 'No reason provided'}”</p>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-slate-500">
-                                  {leave.total_days} {leave.total_days === 1 ? 'day' : 'days'}
-                                </p>
+                                <p className="text-[13px] font-black text-slate-900 tracking-tight">{leave.total_days}d</p>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{leave.leave_type_name}</p>
                               </div>
                             </div>
                           </div>

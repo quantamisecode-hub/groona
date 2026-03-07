@@ -41,6 +41,15 @@
       "type": "string",
       "description": "User's professional title (e.g. Senior Developer)"
     },
+    "gender": {
+      "type": "string",
+      "enum": [
+        "Male",
+        "Female",
+        "Others"
+      ],
+      "description": "User's gender"
+    },
     "tenant_id": {
       "type": "string"
     },

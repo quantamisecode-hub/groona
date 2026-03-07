@@ -208,38 +208,38 @@ export default function LeaveGuide() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Info className="h-5 w-5" />
+    <Card className="bg-white border-blue-100 shadow-sm rounded-[12px]">
+      <CardHeader className="border-b border-blue-50 px-6 py-4">
+        <CardTitle className="flex items-center gap-2 text-[15px] font-bold text-slate-800">
+          <Info className="h-4 w-4 text-blue-500" />
           Leave Management Guide
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 p-6">
         {sections.map((section) => {
           const Icon = section.icon;
           const isExpanded = expandedSection === section.id;
 
           return (
-            <div key={section.id} className="border rounded-lg overflow-hidden">
+            <div key={section.id} className="border border-blue-50 rounded-[10px] bg-white overflow-hidden shadow-sm hover:border-blue-200 transition-colors">
               <button
                 onClick={() => toggleSection(section.id)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                className="w-full p-4 flex items-center justify-between transition-colors bg-white hover:bg-blue-50/30"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-lg bg-${section.color}-100 flex items-center justify-center`}>
-                    <Icon className={`h-5 w-5 text-${section.color}-600`} />
+                  <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center border border-blue-100">
+                    <Icon className="h-4 w-4 text-blue-600" />
                   </div>
-                  <span className="font-semibold text-slate-900">{section.title}</span>
+                  <span className="font-bold text-[13px] text-slate-800 tracking-tight">{section.title}</span>
                 </div>
                 {isExpanded ? (
-                  <ChevronUp className="h-5 w-5 text-slate-400" />
+                  <ChevronUp className="h-4 w-4 text-blue-400" />
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-slate-400" />
+                  <ChevronDown className="h-4 w-4 text-blue-400" />
                 )}
               </button>
               {isExpanded && (
-                <div className="p-4 pt-4 border-t bg-slate-50">
+                <div className="p-5 pt-4 border-t border-blue-50 bg-blue-50/10">
                   {section.content}
                 </div>
               )}

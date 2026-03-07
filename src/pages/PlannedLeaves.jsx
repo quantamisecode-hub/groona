@@ -165,18 +165,18 @@ export default function PlannedLeavesPage() {
   }
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
+    <div className="flex flex-col bg-blue-50/20 w-full relative z-0 h-[calc(100vh-5rem)] overflow-hidden">
       <div className="max-w-10xl mx-auto w-full flex flex-col relative h-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
           {/* Sticky Header Section */}
-          <div className="sticky top-0 z-20 bg-white border-b border-slate-200/60 shadow-sm flex-shrink-0 pb-4">
-            <div className="px-4 md:px-6 lg:px-8 pt-4 md:pt-6 lg:pt-8 pb-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-blue-100/60 shadow-sm flex-shrink-0 pb-4">
+            <div className="px-6 lg:px-8 pt-4 lg:pt-5 pb-2">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-2">
+                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
                     Leave Management
                   </h1>
-                  <p className="text-slate-600">
+                  <p className="text-[12px] text-slate-500 mt-0.5 font-medium">
                     {isAdmin && !isProjectManager
                       ? "Manage employee leaves, approvals, and configurations"
                       : isProjectManager
@@ -190,9 +190,9 @@ export default function PlannedLeavesPage() {
                   <Button
                     onClick={() => setShowApplyDialog(true)}
                     data-onboarding="apply-leave-button"
-                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-[8px] h-8 px-4 font-bold shadow-sm transition-all text-[11px] border-b-2 border-blue-800 active:border-b-0 active:translate-y-[1px]"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
                     Apply Leave
                   </Button>
                 )}
@@ -200,28 +200,28 @@ export default function PlannedLeavesPage() {
             </div>
 
             {/* Sticky Tabs Section */}
-            <div className="px-4 md:px-6 lg:px-8 pb-0">
-              <TabsList className="bg-white/80 backdrop-blur-xl border border-slate-200 justify-start overflow-x-auto h-auto p-1 gap-1 hide-scrollbar snap-x">
-                <TabsTrigger value="overview" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                  <Calendar className="h-4 w-4" /> Overview
+            <div className="px-6 lg:px-8 pb-0 overflow-x-auto hide-scrollbar">
+              <TabsList className="bg-blue-50/50 shadow-sm border border-blue-100/60 rounded-[12px] inline-flex h-auto p-1 gap-1 mb-0 mx-0 mt-2 snap-x">
+                <TabsTrigger value="overview" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                  <Calendar className="h-3 w-3" /> Overview
                 </TabsTrigger>
 
                 {(!isAdmin || isProjectManager) && (
                   <>
-                    <TabsTrigger value="my-leaves" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <Calendar className="h-4 w-4" /> My Leaves
+                    <TabsTrigger value="my-leaves" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <Calendar className="h-3 w-3" /> My Leaves
                     </TabsTrigger>
-                    <TabsTrigger value="balances" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <Calendar className="h-4 w-4" /> Balances
+                    <TabsTrigger value="balances" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <Calendar className="h-3 w-3" /> Balances
                     </TabsTrigger>
                   </>
                 )}
 
                 {(isAdmin || canApproveLeaves || isProjectManager) && (
-                  <TabsTrigger value="approvals" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                    <Users className="h-4 w-4" /> Approvals
+                  <TabsTrigger value="approvals" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                    <Users className="h-3 w-3" /> Approvals
                     {allLeaves.filter(l => l.status === 'submitted').length > 0 && (
-                      <Badge className="ml-1 bg-orange-500 text-white h-5 px-1.5 min-w-[1.25rem]">
+                      <Badge className="ml-1 bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200 text-[9px] h-4.5 px-1.5 min-w-[1.25rem] rounded-full shadow-none pb-0.5 border">
                         {allLeaves.filter(l => l.status === 'submitted').length}
                       </Badge>
                     )}
@@ -230,22 +230,22 @@ export default function PlannedLeavesPage() {
 
                 {(isAdmin || isProjectManager) && (
                   <>
-                    <TabsTrigger value="team-calendar" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <Calendar className="h-4 w-4" /> Team Calendar
+                    <TabsTrigger value="team-calendar" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <Calendar className="h-3 w-3" /> Team Calendar
                     </TabsTrigger>
-                    <TabsTrigger value="team-balances" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <BarChart3 className="h-4 w-4" /> Team Balances
+                    <TabsTrigger value="team-balances" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <BarChart3 className="h-3 w-3" /> Team Balances
                     </TabsTrigger>
                   </>
                 )}
 
                 {isAdmin && !isProjectManager && (
                   <>
-                    <TabsTrigger value="comp-off" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <Calendar className="h-4 w-4" /> Comp Off
+                    <TabsTrigger value="comp-off" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <Calendar className="h-3 w-3" /> Comp Off
                     </TabsTrigger>
-                    <TabsTrigger value="config" className="flex-shrink-0 gap-2 whitespace-nowrap snap-start">
-                      <Settings className="h-4 w-4" /> Configuration
+                    <TabsTrigger value="config" className="gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 data-[state=active]:text-blue-700 rounded-[9px] data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all flex-shrink-0 whitespace-nowrap snap-start border border-transparent data-[state=active]:border-blue-100">
+                      <Settings className="h-3 w-3" /> Configuration
                     </TabsTrigger>
                   </>
                 )}

@@ -384,13 +384,28 @@ export const groonabackend = {
     }
   },
   payments: {
-    getAdminHistory: async () => {
-      const res = await api.get('/admin/payments-history');
-      return res.data.map(item => fixId(item));
+    getAdminHistory: async (cursor, limit = 10) => {
+      const res = await api.get('/admin/payments-history', { params: { cursor, limit } });
+      // Support both legacy array response and new paginated object response
+      if (Array.isArray(res.data)) {
+        return { results: res.data.map(item => fixId(item)), nextCursor: null };
+      }
+      return {
+        results: (res.data.results || []).map(item => fixId(item)),
+        nextCursor: res.data.nextCursor
+      };
     },
-    getTenantHistory: async (tenantId) => {
-      const res = await api.get(`/tenant/payments-history/${tenantId}`);
-      return res.data.map(item => fixId(item));
+    getTenantHistory: async (tenantId, cursor, limit = 10, page = 1) => {
+      const res = await api.get(`/tenant/payments-history/${tenantId}`, { params: { cursor, limit, page } });
+      // Support both legacy array response and new paginated object response
+      if (Array.isArray(res.data)) {
+        return { results: res.data.map(item => fixId(item)), nextCursor: null, totalCount: res.data.length };
+      }
+      return {
+        results: (res.data.results || []).map(item => fixId(item)),
+        nextCursor: res.data.nextCursor,
+        totalCount: res.data.totalCount
+      };
     }
   },
   support: {

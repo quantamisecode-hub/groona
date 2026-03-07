@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, XCircle, Clock, MapPin, Calendar, User, Briefcase, History, CalendarCheck, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, Clock, MapPin, Calendar, User, Briefcase, History, CalendarCheck, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -21,6 +21,8 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
   const [editHours, setEditHours] = useState(0);
   const [editMinutes, setEditMinutes] = useState(0);
   const [editIsBillable, setEditIsBillable] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     if (selectedEntry) {
@@ -44,51 +46,51 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
     return <span>{dateObj.toLocaleDateString()}</span>;
   };
 
-  const { data: pendingTimesheets = [], isLoading } = useQuery({
-    queryKey: ['pending-timesheets', effectiveTenantId, currentUser?.email],
+  const { data: paginatedData = { results: [], totalCount: 0 }, isLoading } = useQuery({
+    queryKey: ['pending-timesheets', effectiveTenantId, currentUser?.email, currentPage, itemsPerPage],
     queryFn: async () => {
-      if (!effectiveTenantId) return [];
+      if (!effectiveTenantId) return { results: [], totalCount: 0 };
 
-      // Fetch ALL timesheets and filter in memory
-      const allTimesheets = await groonabackend.entities.Timesheet.filter({
-        tenant_id: effectiveTenantId
-      }, '-submitted_at');
-
-      // Helper for robust sorting (Latest first)
-      const sortDesc = (list) => list.sort((a, b) => {
-        const dateA = new Date(a.submitted_at || a.updated_date || a.created_date || a.date);
-        const dateB = new Date(b.submitted_at || b.updated_date || b.created_date || b.date);
-        return dateB - dateA;
-      });
+      let filters = { tenant_id: effectiveTenantId };
 
       // 1. Owners: See 'pending_admin' (PM-approved/rejected) or 'submitted' (Legacy/Direct)
       if (currentUser?.role === 'admin' && currentUser?.custom_role === 'owner') {
-        return sortDesc(allTimesheets.filter(t =>
-          t.status === 'pending_admin' ||
-          t.status === 'submitted'
-        ));
+        filters.status = { $in: ['pending_admin', 'submitted'] };
       }
-
       // 2. Project Managers: See 'pending_pm' (Team member submitted)
-      if (currentUser?.custom_role === 'project_manager') {
-        // Relaxed Rule: Show ALL 'pending_pm' timesheets regardless of project assignment
-        // (User requested to see everything for now)
-
-        return sortDesc(allTimesheets.filter(t =>
-          (t.status === 'pending_pm' || t.status === 'submitted') &&
-          t.user_email !== currentUser.email
-        ));
+      else if (currentUser?.custom_role === 'project_manager') {
+        filters.status = { $in: ['pending_pm', 'submitted'] };
       }
-
       // Default (Super Admin or other admins who might need to see everything fallback)
-      if (currentUser?.is_super_admin) {
-        return sortDesc(allTimesheets.filter(t => t.status === 'pending_admin' || t.status === 'pending_pm' || t.status === 'submitted'));
+      else if (currentUser?.is_super_admin) {
+        filters.status = { $in: ['pending_admin', 'pending_pm', 'submitted'] };
+      } else {
+        return { results: [], totalCount: 0 };
       }
 
-      return [];
+      const res = await groonabackend.entities.Timesheet.filter(
+        filters,
+        '-submitted_at',
+        currentPage,
+        itemsPerPage
+      );
+
+      let data = Array.isArray(res) ? { results: res, totalCount: res.length } : res;
+
+      // Project Managers specific client-side filter to hide their own pending entries
+      if (currentUser?.custom_role === 'project_manager' && data.results) {
+        const originalLength = data.results.length;
+        data.results = data.results.filter(t => t.user_email !== currentUser.email);
+        data.totalCount -= (originalLength - data.results.length);
+      }
+
+      return data;
     },
     enabled: !!currentUser && !!effectiveTenantId,
   });
+
+  const pendingTimesheets = paginatedData.results || [];
+  const totalCount = paginatedData.totalCount || 0;
 
   // Fetch metadata (Stories, Epics) for rich display
   const projectIds = [...new Set(pendingTimesheets.map(t => t.project_id))];
@@ -366,121 +368,120 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
 
     return (
       <Card
-        className={`hover:shadow-md transition-shadow cursor-pointer ${selectedEntry?.id === timesheet.id ? 'ring-2 ring-blue-500' : ''
-          }`}
+        className={`bg-white border border-slate-200/60 rounded-[12px] shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer ${selectedEntry?.id === timesheet.id ? 'ring-2 ring-blue-500 border-transparent' : ''}`}
         onClick={() => setSelectedEntry(timesheet)}
       >
-        <CardHeader className="pb-3 px-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-base leading-tight break-words pr-2">
-                {timesheet.task_title || 'Untitled Task'}
-                <span className="text-xs font-normal text-slate-500 ml-1">(Task)</span>
-              </CardTitle>
-
-              <div className="space-y-1 mt-2">
-                {timesheet.sprint_name && (
-                  <div className="text-xs text-slate-600 flex items-center gap-1">
-                    <span className="font-semibold w-12 shrink-0">Sprint:</span>
-                    <Badge variant="secondary" className="text-[10px] h-5 truncate max-w-[150px]">{timesheet.sprint_name}</Badge>
-                  </div>
-                )}
-                {story && (
-                  <div className="text-xs text-slate-600 flex items-center gap-1">
-                    <span className="font-semibold w-12 shrink-0">Story:</span>
-                    <span className="truncate">{story.title}</span>
-                  </div>
-                )}
-                {epic && (
-                  <div className="text-xs text-slate-600 flex items-center gap-1">
-                    <span className="font-semibold w-12 shrink-0">Epic:</span>
-                    <span className="truncate">{epic.name}</span>
-                  </div>
-                )}
+        <CardContent className="p-4 md:p-5">
+          <div className="flex flex-col space-y-3">
+            {/* Top Row: Title, Hours, Status */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center flex-wrap gap-2.5 flex-1">
+                <h4 className="font-bold text-[13px] text-slate-900 uppercase tracking-wide">
+                  {timesheet.task_title || 'Untitled Task'}
+                  <span className="text-[10px] font-normal text-slate-400 normal-case tracking-normal ml-1.5">(Task)</span>
+                </h4>
+              </div>
+              <div className="flex flex-col items-end gap-2 shrink-0 min-w-fit">
+                <Badge variant="outline" className="flex items-center gap-1 bg-transparent px-2 py-0 h-6 rounded-full text-[11px] font-medium whitespace-nowrap shadow-none border-slate-200">
+                  <Clock className="h-3 w-3" />
+                  {timesheet.time_spent || `${timesheet.hours || 0}h ${timesheet.minutes || 0}m`}
+                </Badge>
+                <Badge variant="outline" className={`text-[10px] py-0 px-2 h-5 rounded-full border-0 whitespace-nowrap shadow-none font-bold tracking-wide uppercase ${timesheet.status === 'pending_pm' ? 'bg-blue-50 text-blue-700' :
+                  timesheet.status === 'pending_admin' ? (timesheet.rejection_reason ? 'bg-red-50 text-red-700' : 'bg-purple-50 text-purple-700') :
+                    'bg-slate-50 text-slate-600'
+                  }`}>
+                  {timesheet.status === 'pending_admin' && timesheet.rejection_reason ? 'PM REJECTED' :
+                    timesheet.status === 'pending_pm' ? 'Pending PM' :
+                      timesheet.status.replace('pending_', 'Pending ')}
+                </Badge>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-2 shrink-0 min-w-fit">
-              <Badge variant="outline" className="flex items-center gap-1 bg-white whitespace-nowrap">
-                <Clock className="h-3 w-3" />
-                {timesheet.time_spent || `${timesheet.hours || 0}h ${timesheet.minutes || 0}m`}
-              </Badge>
+            {/* User and metadata */}
+            <div className="flex items-center flex-wrap gap-2.5">
+              {(() => {
+                const user = users.find(u => u.email === timesheet.user_email);
+                return (
+                  <div className="flex items-center gap-1.5 px-2 py-0 h-6 bg-transparent rounded-full border border-slate-200 shadow-sm">
+                    <Avatar className="h-4 w-4">
+                      <AvatarImage src={user?.profile_image_url} />
+                      <AvatarFallback className="text-[8px] bg-slate-100 text-slate-600 font-medium border border-slate-200">
+                        {timesheet.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-[11px] font-bold text-slate-700">{timesheet.user_name}</span>
+                  </div>
+                );
+              })()}
 
-              <Badge variant="outline" className={`text-[10px] py-1 px-2 h-auto border-0 whitespace-nowrap shadow-sm ${timesheet.status === 'pending_pm' ? 'bg-blue-50 text-blue-700' :
-                timesheet.status === 'pending_admin' ? (timesheet.rejection_reason ? 'bg-red-50 text-red-700 font-bold' : 'bg-purple-100 text-purple-800') :
-                  'bg-slate-100 text-slate-600'
-                }`}>
-                {timesheet.status === 'pending_admin' && timesheet.rejection_reason ? 'PM REJECTED' :
-                  timesheet.status === 'pending_pm' ? 'Pending PM' :
-                    timesheet.status.replace('pending_', 'Pending ').replace('_', ' ')}
-              </Badge>
-            </div>
-          </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <span className="font-medium text-slate-400">Sprint:</span>
+                <span className="font-bold text-slate-700">{timesheet.sprint_name || 'N/A'}</span>
+              </div>
 
-          <div className="mt-2 flex items-center gap-2 text-sm text-slate-600">
-            {(() => {
-              const user = users.find(u => u.email === timesheet.user_email);
-              return (
-                <div className="flex items-center gap-2 px-2 py-0.5 bg-slate-50 rounded-full border border-slate-100">
-                  <Avatar className="h-5 w-5 ring-2 ring-slate-400 ring-offset-1">
-                    <AvatarImage src={user?.profile_image_url} />
-                    <AvatarFallback className="text-[10px] bg-white">
-                      {timesheet.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate font-bold text-xs text-slate-600">{timesheet.user_name}</span>
+              {story && (
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 border-l border-slate-200 pl-2.5">
+                  <span className="font-medium text-slate-400">Story:</span>
+                  <span className="font-bold text-slate-700">{story.title}</span>
                 </div>
-              );
-            })()}
-          </div>
+              )}
+            </div>
 
-          {/* Edited Badge */}
-          {timesheet.last_modified_by_name && (
-            <div className="flex items-center gap-1 mt-1">
-              <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 text-[10px] py-0 h-4 gap-1">
-                <History className="h-2.5 w-2.5" />
-                Edited by {timesheet.last_modified_by_name}
-              </Badge>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Briefcase className="h-3 w-3" />
-            <span>{timesheet.project_name || 'Unknown Project'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <Calendar className="h-3 w-3" />
-            <SafeDateDisplay date={timesheet.date} />
-            {submissionDate && (
-              <span className="text-xs text-slate-400 flex items-center gap-1">
-                • Submitted <SafeDateDisplay date={submissionDate} format="distance" addSuffix={true} />
-              </span>
+            {/* Edited Badge */}
+            {timesheet.last_modified_by_name && (
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className="bg-amber-50/50 text-amber-600 border-amber-200 text-[10px] py-0 h-5 rounded-full font-medium gap-1 shadow-none">
+                  <History className="h-2.5 w-2.5" />
+                  Edited by {timesheet.last_modified_by_name}
+                </Badge>
+              </div>
             )}
-          </div>
-          {timesheet.location && (
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <MapPin className="h-3 w-3" />
-              <span>{timesheet.location.city || 'Location tracked'}</span>
-            </div>
-          )}
-          {timesheet.description && (
-            <p className="text-sm text-slate-600 line-clamp-2 mt-2 pt-2 border-t">
-              {timesheet.description}
-            </p>
-          )}
-          {timesheet.remark && (
-            <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800 italic">
-              <strong>Remark:</strong> {timesheet.remark}
-            </div>
-          )}
 
-          {/* Mini Audit Section in Card */}
-          <div className="mt-3 pt-2 border-t border-slate-50 flex justify-between text-[10px] text-slate-400">
-            <span>Created: {timesheet.created_date ? format(new Date(timesheet.created_date), 'MMM d, HH:mm') : 'N/A'}</span>
-            {timesheet.last_modified_at && (
-              <span className="text-amber-500">Modified: {format(new Date(timesheet.last_modified_at), 'MMM d, HH:mm')}</span>
-            )}
+            {/* Description & Remark Formatted */}
+            <div className="pt-3 mt-3 border-t border-slate-100/80">
+              <div className="flex items-center gap-2 text-[12px] text-slate-500 font-medium mb-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-slate-400" />
+                <span>{timesheet.project_name || 'Unknown Project'}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 font-medium">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  <SafeDateDisplay date={timesheet.date} />
+                </div>
+                {submissionDate && (
+                  <>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-400">Submitted <SafeDateDisplay date={submissionDate} format="distance" addSuffix={true} /></span>
+                  </>
+                )}
+              </div>
+              {timesheet.location && (
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium mt-1">
+                  <MapPin className="h-3 w-3 text-slate-400" />
+                  <span>{timesheet.location.city || 'Location tracked'}</span>
+                </div>
+              )}
+
+              {timesheet.description && (
+                <p className="text-[12px] text-slate-600 leading-relaxed mt-2.5 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100/50">
+                  {timesheet.description}
+                </p>
+              )}
+              {timesheet.remark && (
+                <div className="mt-2.5 p-2.5 bg-amber-50/50 border border-amber-100 rounded-lg text-[11px] text-amber-700 italic">
+                  <strong className="font-semibold text-amber-800 not-italic mr-1">Remark:</strong>
+                  {timesheet.remark}
+                </div>
+              )}
+
+              {/* Mini Audit Section in Card */}
+              <div className="mt-3 flex justify-between text-[10px] text-slate-400 font-medium tracking-wide">
+                <span>Created: {timesheet.created_date ? format(new Date(timesheet.created_date), 'MMM d, HH:mm') : 'N/A'}</span>
+                {timesheet.last_modified_at && (
+                  <span className="text-amber-500/80">Modified: {format(new Date(timesheet.last_modified_at), 'MMM d, HH:mm')}</span>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -491,16 +492,21 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
     return <div className="text-center py-8 text-slate-600">Loading approvals...</div>;
   }
 
-  if (pendingTimesheets.length === 0) {
+  if (totalCount === 0) {
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-slate-900">
-          Pending Approvals ({pendingTimesheets.length})
-        </h3>
-        <Card>
-          <CardContent className="py-12 text-center">
+        <div className="mb-4">
+          <h3 className="text-[15px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+            Pending Approvals
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-200 border-none px-2 rounded-full font-bold shadow-none">
+              {totalCount}
+            </Badge>
+          </h3>
+        </div>
+        <Card className="bg-white border border-slate-200/60 rounded-[12px] shadow-sm">
+          <CardContent className="py-16 text-center">
             <CheckCircle className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-            <p className="text-slate-600">No pending approvals</p>
+            <p className="text-slate-500 font-medium">No pending approvals</p>
           </CardContent>
         </Card>
       </div>
@@ -510,134 +516,222 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-slate-900">
-          Pending Approvals ({pendingTimesheets.length})
-        </h3>
+        <div className="mb-4">
+          <h3 className="text-[15px] font-bold text-slate-900 uppercase tracking-widest flex items-center gap-2">
+            Pending Approvals
+            <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-200 border-none px-2 rounded-full font-bold shadow-none">
+              {totalCount}
+            </Badge>
+          </h3>
+        </div>
         <div className="space-y-3">
           {pendingTimesheets.map(timesheet => (
             <TimesheetCard key={timesheet.id} timesheet={timesheet} />
           ))}
         </div>
+
+        {totalCount > itemsPerPage && (
+          <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-[10px] hover:bg-slate-50"
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+
+            <div className="flex items-center gap-1">
+              {(() => {
+                const totalPages = Math.ceil(totalCount / itemsPerPage);
+                return Array.from({ length: totalPages }).map((_, i) => {
+                  const pageNum = i + 1;
+                  if (
+                    pageNum === 1 ||
+                    pageNum === totalPages ||
+                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                  ) {
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={currentPage === pageNum ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`h-9 w-9 font-bold rounded-[10px] ${currentPage === pageNum ? 'bg-slate-100 text-slate-900 shadow-none' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  } else if (
+                    pageNum === currentPage - 2 ||
+                    pageNum === currentPage + 2
+                  ) {
+                    return <span key={pageNum} className="px-2 text-slate-300">...</span>;
+                  }
+                  return null;
+                });
+              })()}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const totalPages = Math.ceil(totalCount / itemsPerPage);
+                setCurrentPage(prev => Math.min(totalPages, prev + 1));
+              }}
+              disabled={currentPage === Math.ceil(totalCount / itemsPerPage) || totalCount === 0}
+              className="gap-2 px-4 h-9 font-bold text-slate-600 border-slate-200 shadow-none rounded-[10px] hover:bg-slate-50"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="lg:sticky lg:top-6">
         {selectedEntry ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Review Time Entry</CardTitle>
+          <Card className="bg-white border border-slate-200/60 rounded-[12px] shadow-sm">
+            <CardHeader className="bg-slate-50/50 rounded-t-[12px] border-b border-slate-100/80 pb-4">
+              <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-700">Review Time Entry</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3 pb-4 border-b">
+            <CardContent className="p-5 md:p-6 space-y-6">
+              <div className="space-y-5 pb-6 border-b border-slate-100">
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Task</label>
-                  <p className="text-slate-900">{selectedEntry.task_title || 'N/A'}</p>
+                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Task</label>
+                  <p className="text-[14px] font-bold text-slate-900 leading-snug">{selectedEntry.task_title || 'N/A'}</p>
                 </div>
-                {selectedEntry.sprint_name && (
+
+                <div className="grid grid-cols-2 gap-5">
+                  {(selectedEntry.sprint_name || (() => {
+                    const selectedStory = stories.find(s => s.id === selectedEntry.story_id);
+                    return selectedStory;
+                  })()) && (
+                      <>
+                        {selectedEntry.sprint_name && (
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Sprint</label>
+                            <Badge variant="secondary" className="text-[11px] font-semibold">{selectedEntry.sprint_name}</Badge>
+                          </div>
+                        )}
+                        {(() => {
+                          const selectedStory = stories.find(s => s.id === selectedEntry.story_id);
+                          if (!selectedStory) return null;
+                          return (
+                            <div className="col-span-2 md:col-span-1">
+                              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Story</label>
+                              <p className="text-[12px] font-semibold text-slate-800 line-clamp-2">{selectedStory.title}</p>
+                            </div>
+                          );
+                        })()}
+                      </>
+                    )}
+
                   <div>
-                    <label className="text-sm font-medium text-slate-700">Sprint</label>
-                    <p className="text-slate-900"><Badge variant="secondary">{selectedEntry.sprint_name}</Badge></p>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">User</label>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const user = users.find(u => u.email === selectedEntry.user_email);
+                        return (
+                          <Avatar className="h-7 w-7 ring-2 ring-slate-100/50">
+                            <AvatarImage src={user?.profile_image_url} />
+                            <AvatarFallback className="text-[10px] bg-slate-50 border border-slate-200 text-slate-600 font-bold">
+                              {selectedEntry.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                        );
+                      })()}
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-900 leading-none">{selectedEntry.user_name}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[120px]" title={selectedEntry.user_email}>{selectedEntry.user_email}</p>
+                      </div>
+                    </div>
                   </div>
-                )}
-                {(() => {
-                  const selectedStory = stories.find(s => s.id === selectedEntry.story_id);
-                  const selectedEpic = selectedStory ? epics.find(e => e.id === selectedStory.epic_id) : null;
-                  return (
-                    <>
-                      {selectedStory && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-700">Story</label>
-                          <p className="text-slate-900">{selectedStory.title}</p>
-                        </div>
-                      )}
-                      {selectedEpic && (
-                        <div>
-                          <label className="text-sm font-medium text-slate-700">Epic</label>
-                          <p className="text-slate-900">{selectedEpic.name}</p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-                <div>
-                  <label className="text-sm font-medium text-slate-700">User</label>
-                  <p className="text-slate-900">{selectedEntry.user_name} ({selectedEntry.user_email})</p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-slate-700">Time Spent (Editable)</Label>
-                  <div className="flex flex-wrap items-center gap-2 mt-1">
-                    <div className="flex-1 min-w-[120px]">
-                      <Label className="text-xs text-slate-500">Hours</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editHours}
-                        onChange={(e) => setEditHours(parseInt(e.target.value) || 0)}
-                        className="h-8"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-[120px]">
-                      <Label className="text-xs text-slate-500">Minutes</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="59"
-                        value={editMinutes}
-                        onChange={(e) => setEditMinutes(parseInt(e.target.value) || 0)}
-                        className="h-8"
-                      />
-                    </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Date</label>
+                    <p className="text-[13px] font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                      <SafeDateDisplay date={selectedEntry.date} />
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 border rounded-lg bg-slate-50">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-medium text-slate-900">Billable Time</Label>
-                    <p className="text-xs text-slate-500">Is this work billable to the client?</p>
+                <div className="bg-slate-50/80 border border-slate-100 rounded-[12px] p-4 space-y-4 shadow-sm">
+                  <div>
+                    <Label className="text-[12px] font-bold text-slate-800">Time Spent <span className="text-slate-400 font-normal italic ml-1">(Editable)</span></Label>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <div className="flex-1 min-w-[120px]">
+                        <Label className="text-[11px] text-slate-500 font-medium mb-1.5 block">Hours</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editHours}
+                          onChange={(e) => setEditHours(parseInt(e.target.value) || 0)}
+                          className="h-9 bg-white shadow-sm font-semibold border-slate-200"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[120px]">
+                        <Label className="text-[11px] text-slate-500 font-medium mb-1.5 block">Minutes</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="59"
+                          value={editMinutes}
+                          onChange={(e) => setEditMinutes(parseInt(e.target.value) || 0)}
+                          className="h-9 bg-white shadow-sm font-semibold border-slate-200"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <Switch
-                    checked={editIsBillable}
-                    onCheckedChange={setEditIsBillable}
-                  />
+
+                  <div className="pt-4 border-t border-slate-200/60 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-[12px] font-bold text-slate-800">Billable Time</Label>
+                      <p className="text-[11px] text-slate-500 font-medium">Is this work billable to the client?</p>
+                    </div>
+                    <Switch
+                      checked={editIsBillable}
+                      onCheckedChange={setEditIsBillable}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Visual Cue for Owner if PM Rejected */}
                 {selectedEntry.status === 'pending_admin' && selectedEntry.rejection_reason && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="p-3.5 bg-red-50/50 border border-red-200 rounded-[10px]">
+                    <div className="flex items-center gap-2 mb-1.5">
                       <AlertCircle className="h-4 w-4 text-red-600" />
-                      <span className="text-sm font-bold text-red-800">PM Recommendation: REJECT</span>
+                      <span className="text-[12px] font-bold text-red-800 uppercase tracking-wide">PM Recommendation: REJECT</span>
                     </div>
-                    <p className="text-sm text-red-700">
-                      <strong>Reason:</strong> {selectedEntry.rejection_reason}
+                    <p className="text-[13px] text-red-700 leading-relaxed">
+                      <strong className="font-semibold text-red-900">Reason:</strong> {selectedEntry.rejection_reason}
                     </p>
-                    <p className="text-xs text-red-600 mt-1 italic">
+                    <p className="text-[11px] text-red-600/80 mt-1.5 italic font-medium">
                       (You can choose to Accept (Override) or Reject (Confirm) below)
                     </p>
                   </div>
                 )}
 
-                <div>
-                  <Label className="text-sm font-medium text-slate-700">Date</Label>
-                  <p className="text-slate-900 mt-1">
-                    <SafeDateDisplay date={selectedEntry.date} />
-                  </p>
-                </div>
                 {selectedEntry.description && (
                   <div>
-                    <label className="text-sm font-medium text-slate-700">Description</label>
-                    <p className="text-slate-900 whitespace-pre-wrap">{selectedEntry.description}</p>
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Description</label>
+                    <p className="text-[13px] text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100">{selectedEntry.description}</p>
                   </div>
                 )}
                 {selectedEntry.remark && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <label className="text-sm font-semibold text-amber-900 italic">Remark</label>
-                    <p className="text-amber-800 text-sm">{selectedEntry.remark}</p>
+                  <div className="p-3 bg-amber-50/50 border border-amber-200/60 rounded-lg mt-3">
+                    <label className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-1 block">Remark</label>
+                    <p className="text-amber-900 text-[13px] leading-relaxed italic">{selectedEntry.remark}</p>
                   </div>
                 )}
                 {selectedEntry.location && (
-                  <div>
-                    <label className="text-sm font-medium text-slate-700">Location</label>
-                    <p className="text-slate-900">
+                  <div className="mt-3">
+                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Location</label>
+                    <p className="text-[13px] font-medium text-slate-700 flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400" />
                       {[
                         selectedEntry.location.city,
                         selectedEntry.location.state,
@@ -649,18 +743,19 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Comment (optional for approval, required for rejection)</label>
+              <div className="space-y-2.5">
+                <label className="text-[12px] font-bold text-slate-700">Comment <span className="text-slate-400 font-normal ml-1">(optional for approval, required for rejection)</span></label>
                 <Textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Add your feedback..."
                   rows={3}
                   disabled={approveMutation.isPending}
+                  className="resize-none shadow-sm focus-visible:ring-1 border-slate-200/80 rounded-[10px] text-[13px]"
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex gap-3 pt-2">
                 <Button
                   onClick={async () => {
                     // Check if values changed
@@ -690,7 +785,7 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
                     approveMutation.mutate({ timesheetId: selectedEntry.id, status: 'approved', comment });
                   }}
                   disabled={approveMutation.isPending}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold h-11 rounded-lg border-none shadow-sm transition-all"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
@@ -698,8 +793,8 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
                 <Button
                   onClick={() => handleReject(selectedEntry)}
                   disabled={approveMutation.isPending}
-                  variant="destructive"
-                  className="flex-1"
+                  variant="outline"
+                  className="flex-1 border-red-200/60 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 font-bold h-11 rounded-lg transition-all"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Reject
@@ -708,10 +803,10 @@ export default function ApprovalDashboard({ currentUser, users = [] }) {
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="py-12 text-center">
+          <Card className="bg-white border border-slate-200/60 rounded-[12px] shadow-sm mt-10">
+            <CardContent className="py-24 text-center">
               <Clock className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-              <p className="text-slate-600">Select a timesheet to review</p>
+              <p className="text-slate-500 font-medium">Select a timesheet to review</p>
             </CardContent>
           </Card>
         )}
