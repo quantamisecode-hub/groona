@@ -30,6 +30,28 @@
       "type": "string",
       "description": "ID of the task (optional)"
     },
+    "assigned_to": {
+      "type": "string",
+      "description": "Email/ID of the user assigned to resolve this"
+    },
+    "assigned_to_name": {
+      "type": "string",
+      "description": "Name of the user assigned"
+    },
+    "project_manager_id": {
+      "type": "string",
+      "description": "ID of the project manager"
+    },
+    "project_manager_name": {
+      "type": "string",
+      "description": "Name of the project manager"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "sprint_name": {
+      "type": "string"
+    },
     "title": {
       "type": "string",
       "description": "Title of the impediment"
@@ -40,13 +62,22 @@
     },
     "severity": {
       "type": "string",
-      "enum": ["low", "medium", "high", "critical"],
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
       "default": "medium",
       "description": "Severity level of the impediment"
     },
     "status": {
       "type": "string",
-      "enum": ["open", "in_progress", "resolved"],
+      "enum": [
+        "open",
+        "in_progress",
+        "resolved"
+      ],
       "default": "open",
       "description": "Current status of the impediment"
     },
@@ -72,5 +103,10 @@
       "description": "Date when the impediment was resolved"
     }
   },
-  "required": ["tenant_id", "project_id", "title", "reported_by"]
+  "required": [
+    "tenant_id",
+    "project_id",
+    "title",
+    "reported_by"
+  ]
 }

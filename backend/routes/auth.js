@@ -694,11 +694,16 @@ router.post('/register', async (req, res) => {
     });
     await session.save();
 
-    // Log the login
-    await logUserLogin(user, session, req);
-
     const payload = {
-      user: { id: user.id, tenant_id: user.tenant_id, session_id: session.id }
+      user: {
+        id: user.id,
+        tenant_id: user.tenant_id,
+        session_id: session.id,
+        email: user.email,
+        name: user.full_name,
+        role: user.role,
+        is_super_admin: user.is_super_admin
+      }
     };
 
     jwt.sign(
@@ -798,7 +803,15 @@ router.post('/login', async (req, res) => {
     await logUserLogin(user, session, req);
 
     const payload = {
-      user: { id: user.id, tenant_id: user.tenant_id, session_id: session.id }
+      user: {
+        id: user.id,
+        tenant_id: user.tenant_id,
+        session_id: session.id,
+        email: user.email,
+        name: user.full_name,
+        role: user.role,
+        is_super_admin: user.is_super_admin
+      }
     };
 
     jwt.sign(
@@ -1026,7 +1039,11 @@ router.post('/accept-invite', async (req, res) => {
       user: {
         id: user.id,
         tenant_id: user.tenant_id,
-        session_id: session.id
+        session_id: session.id,
+        email: user.email,
+        name: user.full_name,
+        role: user.role,
+        is_super_admin: user.is_super_admin
       }
     };
 

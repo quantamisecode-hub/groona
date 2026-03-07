@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { AlertTriangle, Plus, CheckCircle, Clock, X, FolderKanban, BookOpen, Calendar } from "lucide-react";
+import { AlertTriangle, Plus, CheckCircle, Clock, X, FolderKanban, BookOpen, Calendar, User, UserCheck, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUser } from "@/components/shared/UserContext";
@@ -23,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export default function ImpedimentTracker({ sprint, projectId, impediments: propImpediments, onAdd, onUpdate, onDelete, highlightImpedimentId }) {
+export default function ImpedimentTracker({ sprint, project: propProject, projectId, impediments: propImpediments, onAdd, onUpdate, onDelete, highlightImpedimentId }) {
   const { user: currentUser } = useUser();
   const queryClient = useQueryClient();
   const [showDialog, setShowDialog] = useState(false);
@@ -31,7 +32,10 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     title: "",
     description: "",
     severity: "medium",
-    status: "open"
+    status: "open",
+    task_id: "",
+    assigned_to: "",
+    project_manager_id: ""
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
@@ -86,20 +90,100 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     enabled: !!projectId,
   });
 
-  // Use database impediments if available, otherwise fall back to prop impediments
-  const impediments = dbImpediments.length > 0 ? dbImpediments : (propImpediments || []);
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks', projectId],
+    queryFn: () => groonabackend.entities.Task.filter({ project_id: projectId }),
+    enabled: !!projectId,
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => groonabackend.entities.User.list(),
+  });
+
+  const { data: dbProject } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      const projects = await groonabackend.entities.Project.filter({ id: projectId });
+      return projects[0] || null;
+    },
+    enabled: !!projectId && !propProject
+  });
+
+  const project = propProject || dbProject;
+
+  const projectTeamMembers = useMemo(() => {
+    if (!project?.team_members?.length) {
+      return (users || []).filter(u => u.tenant_id === effectiveTenantId).map(u => ({
+        ...u,
+        projectRole: u.role
+      }));
+    }
+    return project.team_members.map(tm => {
+      const user = users.find(u => u.email === tm.email);
+      return {
+        ...(user || { email: tm.email, full_name: tm.email }),
+        id: user?.id || user?._id || tm.email,
+        projectRole: tm.role
+      };
+    });
+  }, [project, users, effectiveTenantId]);
+
+  // Ensure we only use filtered impediments if they are being managed by a project/database fetch
+  const rawImpediments = (projectId && !impedimentsLoading) ? dbImpediments : (propImpediments || []);
+
+  // --- STRICT FRONTEND RBAC: Double-layer Filter ---
+  // Only show impediments that the user is authorized to see
+  const impediments = useMemo(() => {
+    if (!currentUser || currentUser.is_super_admin) return rawImpediments;
+
+    const uEmail = (currentUser.email || '').toLowerCase();
+    const uId = (currentUser.id || currentUser._id || '').toString().toLowerCase();
+    const uName = (currentUser.full_name || currentUser.name || '').toLowerCase();
+
+    return rawImpediments.filter(imp => {
+      const fields = [
+        imp.reported_by,
+        imp.reported_by_name,
+        imp.assigned_to,
+        imp.assigned_to_name,
+        imp.project_manager_id,
+        imp.project_manager_name
+      ];
+
+      return fields.some(f => {
+        if (!f) return false;
+        const val = f.toString().toLowerCase();
+
+        // Similarity check: email/ID can be part of the field (e.g. name + email)
+        return (uEmail && val.includes(uEmail)) ||
+          (uId && (val.includes(uId) || uId.includes(val))) ||
+          (uName && val.includes(uName));
+      });
+    });
+  }, [rawImpediments, currentUser]);
 
   // Mutation for adding impediment
   const addImpedimentMutation = useMutation({
     mutationFn: async (data) => {
       if (!effectiveTenantId) throw new Error('Tenant context is missing');
+      const assignedUser = users.find(u => (u.id || u._id) === data.assigned_to || u.email === data.assigned_to);
+      const projectManager = users.find(u => (u.id || u._id) === data.project_manager_id || u.email === data.project_manager_id);
+
       const impedimentData = {
         tenant_id: effectiveTenantId,
         project_id: projectId,
+        project_name: project?.name,
         sprint_id: sprint?.id || undefined,
+        sprint_name: sprint?.name,
+        task_id: data.task_id || undefined,
         title: data.title.trim(),
         description: data.description || "",
         severity: data.severity,
+        assigned_to: data.assigned_to,
+        assigned_to_name: assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined,
+        project_manager_id: data.project_manager_id,
+        project_manager_name: projectManager ? (projectManager.full_name || projectManager.email) : undefined,
         status: "open",
         reported_by: currentUser?.email,
         reported_by_name: currentUser?.full_name || currentUser?.email,
@@ -107,9 +191,17 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
       return await groonabackend.entities.Impediment.create(impedimentData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
       toast.success('Impediment reported successfully!');
-      setFormData({ title: "", description: "", severity: "medium", status: "open" });
+      setFormData({
+        title: "",
+        description: "",
+        severity: "medium",
+        status: "open",
+        task_id: "",
+        assigned_to: "",
+        project_manager_id: ""
+      });
       setShowDialog(false);
       if (onAdd) onAdd(formData);
     },
@@ -120,19 +212,51 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
 
   // Mutation for updating impediment
   const updateImpedimentMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data, impediment }) => {
       const updateData = { ...data };
       if (data.status === 'resolved') {
         updateData.resolved_date = new Date().toISOString();
       }
+
+      // Auto start timer logic
+      if (data.status === 'in_progress' && impediment) {
+        const entries = await groonabackend.entities.ClockEntry.filter({
+          user_email: currentUser?.email,
+          is_clocked_in: true
+        });
+        if (entries && entries.length > 0) {
+          throw new Error('You already have an active timer running! Please stop it before starting work on this impediment.');
+        }
+
+        // Create the timer entry for this impediment
+        await groonabackend.entities.ClockEntry.create({
+          tenant_id: effectiveTenantId,
+          user_email: currentUser?.email,
+          user_name: currentUser?.full_name,
+          clock_in_time: new Date().toISOString(),
+          is_clocked_in: true,
+          project_id: impediment.project_id || projectId,
+          sprint_id: impediment.sprint_id || sprint?.id || null,
+          task_id: impediment.task_id || null,
+          work_type: 'impediment',
+          description: `Working on Impediment: ${impediment.title}`,
+        });
+      }
+
       return await groonabackend.entities.Impediment.update(id, updateData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
+      if (variables.data.status === 'in_progress') {
+        queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
+        toast.success(`Timer started! Marked '${variables.impediment?.title || "Impediment"}' as In Progress.`);
+      } else {
+        toast.success('Impediment status updated successfully!');
+      }
       if (onUpdate) onUpdate();
     },
     onError: (error) => {
-      toast.error(`Failed to update impediment: ${error.message || 'Please try again.'}`);
+      toast.error(`${error.message || 'Failed to update impediment! Please try again.'}`);
     },
   });
 
@@ -142,7 +266,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
       return await groonabackend.entities.Impediment.delete(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
       if (onDelete) onDelete();
     },
     onError: (error) => {
@@ -155,8 +279,8 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
     addImpedimentMutation.mutate(formData);
   };
 
-  const handleUpdate = (id, data) => {
-    updateImpedimentMutation.mutate({ id, data });
+  const handleUpdate = (imp, data) => {
+    updateImpedimentMutation.mutate({ id: imp.id || imp._id, data, impediment: imp });
   };
 
   const handleDelete = (id) => {
@@ -283,34 +407,69 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
-                        <span>Reported: {format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, yyyy')}</span>
-                        <span>By: {impediment.reported_by_name || impediment.reported_by || impediment.created_by}</span>
-                        {/* Show context: Sprint, Epic, Story */}
-                        {impediment.sprint_id && (() => {
+                      {/* Metadata Row */}
+                      <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-50 items-center justify-between">
+                        <div className="flex items-center gap-6">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reported By</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                {impediment.reported_by_name?.charAt(0) || 'U'}
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700">{impediment.reported_by_name || impediment.reported_by}</span>
+                            </div>
+                          </div>
+
+                          {impediment.assigned_to_name && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Resolver</span>
+                              <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50">
+                                <UserCheck className="h-3 w-3 text-blue-500" />
+                                <span className="text-xs font-bold text-blue-700">{impediment.assigned_to_name}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {impediment.project_manager_name && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Manager</span>
+                              <div className="flex items-center gap-1.5 bg-purple-50/50 px-2 py-0.5 rounded-lg border border-purple-100/50">
+                                <ShieldCheck className="h-3 w-3 text-purple-500" />
+                                <span className="text-xs font-bold text-purple-700">{impediment.project_manager_name}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, h:mm a')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Context Tags */}
+                      <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
+                        {impediment.project_name && (
+                          <Badge variant="ghost" className="text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-medium py-0 px-2 h-5 border border-slate-200/50 rounded-md">
+                            {impediment.project_name}
+                          </Badge>
+                        )}
+                        {(impediment.sprint_id || impediment.sprint_name) && (() => {
                           const relatedSprint = sprints.find(s => (s.id || s._id) === impediment.sprint_id);
-                          return relatedSprint ? (
-                            <Badge variant="outline" className="text-xs">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              Sprint: {relatedSprint.name}
+                          const sprintName = relatedSprint?.name || impediment.sprint_name;
+                          return sprintName ? (
+                            <Badge variant="ghost" className="text-[10px] bg-indigo-50/50 hover:bg-indigo-50 text-indigo-500 font-medium py-0 px-2 h-5 border border-indigo-100/50 rounded-md">
+                              <Calendar className="h-2.5 w-2.5 mr-1" />
+                              {sprintName}
                             </Badge>
                           ) : null;
                         })()}
-                        {impediment.epic_id && (() => {
-                          const relatedEpic = epics.find(e => (e.id || e._id) === impediment.epic_id);
-                          return relatedEpic ? (
-                            <Badge variant="outline" className="text-xs">
-                              <FolderKanban className="h-3 w-3 mr-1" />
-                              Epic: {relatedEpic.name}
-                            </Badge>
-                          ) : null;
-                        })()}
-                        {impediment.story_id && (() => {
-                          const relatedStory = stories.find(s => (s.id || s._id) === impediment.story_id);
-                          return relatedStory ? (
-                            <Badge variant="outline" className="text-xs">
-                              <BookOpen className="h-3 w-3 mr-1" />
-                              Story: {relatedStory.title}
+                        {impediment.task_id && (() => {
+                          const relatedTask = tasks.find(t => (t.id || t._id) === impediment.task_id);
+                          return relatedTask ? (
+                            <Badge variant="ghost" className="text-[10px] bg-amber-50/50 hover:bg-amber-50 text-amber-600 font-medium py-0 px-2 h-5 border border-amber-200/50 rounded-md">
+                              Task: {relatedTask.title}
                             </Badge>
                           ) : null;
                         })()}
@@ -322,7 +481,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleUpdate(impediment.id || impediment._id, { status: 'in_progress' })}
+                              onClick={() => handleUpdate(impediment, { status: 'in_progress' })}
                               disabled={updateImpedimentMutation.isPending}
                             >
                               Start Working
@@ -332,7 +491,7 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleUpdate(impediment.id || impediment._id, { status: 'resolved' })}
+                              onClick={() => handleUpdate(impediment, { status: 'resolved' })}
                               disabled={updateImpedimentMutation.isPending}
                             >
                               Mark Resolved
@@ -351,9 +510,9 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
 
       {/* Add Impediment Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report Impediment</DialogTitle>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-2 border-b">
+            <DialogTitle className="text-xl font-bold text-slate-900">Report Impediment</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -376,19 +535,120 @@ export default function ImpedimentTracker({ sprint, projectId, impediments: prop
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Severity</label>
-              <Select value={formData.severity} onValueChange={(val) => setFormData({ ...formData, severity: val })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low - Minor inconvenience</SelectItem>
-                  <SelectItem value="medium">Medium - Slowing progress</SelectItem>
-                  <SelectItem value="high">High - Blocking work</SelectItem>
-                  <SelectItem value="critical">Critical - Sprint at risk</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Current Context
+              </label>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Badge variant="outline" className="bg-white border-blue-100 text-blue-700 py-1.5 px-3 rounded-lg shadow-sm">
+                  <span className="opacity-60 font-bold mr-1.5">Project:</span> {project?.name || 'Loading...'}
+                </Badge>
+                <Badge variant="outline" className="bg-white border-purple-100 text-purple-700 py-1.5 px-3 rounded-lg shadow-sm">
+                  <span className="opacity-60 font-bold mr-1.5">Sprint:</span> {sprint?.name || 'Loading...'}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Related Task (Optional)</label>
+                <Select value={formData.task_id} onValueChange={(val) => setFormData({ ...formData, task_id: val })}>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all focus:border-blue-500">
+                    <SelectValue placeholder="Select task" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="h-4 w-4 text-slate-400" />
+                        No specific task
+                      </div>
+                    </SelectItem>
+                    {tasks.map(task => (
+                      <SelectItem key={task.id || task._id} value={task.id || task._id}>
+                        <div className="flex items-center gap-2">
+                          <FolderKanban className="h-4 w-4 text-blue-500" />
+                          <span className="truncate">{task.title}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Severity</label>
+                <Select value={formData.severity} onValueChange={(val) => setFormData({ ...formData, severity: val })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low - Minor inconvenience</SelectItem>
+                    <SelectItem value="medium">Medium - Slowing progress</SelectItem>
+                    <SelectItem value="high">High - Blocking work</SelectItem>
+                    <SelectItem value="critical">Critical - Sprint at risk</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Assign To (Viewer Member)</label>
+                <Select value={formData.assigned_to} onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all">
+                    <SelectValue placeholder="Select user" />
+                  </SelectTrigger>
+                  <SelectContent side="top" className="max-h-60">
+                    {projectTeamMembers
+                      .filter(u => u.role === 'member' && u.custom_role === 'viewer')
+                      .map(user => {
+                        const displayName = user.full_name || user.email || 'U';
+                        return (
+                          <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                  {displayName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">{displayName}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Project Manager</label>
+                <Select value={formData.project_manager_id} onValueChange={(val) => setFormData({ ...formData, project_manager_id: val })}>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all">
+                    <SelectValue placeholder="Select PM" />
+                  </SelectTrigger>
+                  <SelectContent side="top" className="max-h-60">
+                    {projectTeamMembers
+                      .filter(u => u.projectRole === 'project_manager' || u.role === 'project_manager')
+                      .map(user => {
+                        const displayName = user.full_name || user.email || 'U';
+                        return (
+                          <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                  {displayName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">{displayName}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter>

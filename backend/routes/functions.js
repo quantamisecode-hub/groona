@@ -403,6 +403,131 @@ const functionHandlers = {
     });
 
     return result;
+  },
+
+  // 19. Timesheets: Get Missing Timesheet Day
+  getMissingTimesheetDay: async (data) => {
+    const { userEmail } = data;
+    if (!userEmail) return { missingDate: null, dailyTotal: 0 };
+
+    const user = await Models.User.findOne({ email: userEmail });
+    if (!user || (!user.is_timesheet_locked && !user.is_overloaded)) {
+      return { missingDate: null, dailyTotal: 0 };
+    }
+
+    const UserTimesheets = Models.User_timesheets || Models.Timesheet;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(23, 59, 59, 999);
+
+    let firstMissingDate = null;
+    let dailyTotal = 0;
+    let dailyStatus = '';
+
+    if (startOfMonth < yesterday) {
+      let loopDate = new Date(startOfMonth);
+      while (loopDate <= yesterday) {
+        if (loopDate.getDay() !== 0) { // Skip Sunday
+          const sDay = new Date(loopDate); sDay.setHours(0, 0, 0, 0);
+          const eDay = new Date(loopDate); eDay.setHours(23, 59, 59, 999);
+
+          const existingSheets = await UserTimesheets.find({
+            user_email: userEmail,
+            $or: [
+              { timesheet_date: { $gte: sDay, $lte: eDay } },
+              { date: { $gte: sDay, $lte: eDay } }
+            ]
+          });
+
+          let validTime = 0;
+          let hasValidSubmission = false;
+          let hasDraft = false;
+
+          existingSheets.forEach(sheet => {
+            const mins = (sheet.total_minutes || 0) || ((sheet.hours || 0) * 60 + (sheet.minutes || 0));
+            validTime += mins;
+            if (['submitted', 'approved', 'pending_pm', 'pending_admin'].includes(sheet.status)) {
+              hasValidSubmission = true;
+            } else if (sheet.status === 'draft') {
+              hasDraft = true;
+            }
+          });
+
+          // Check if valid condition: it must have a submission AND ideally >= 8 hours, 
+          // but mainly we just care if they submitted something to get unlocked or if there's no submission at all
+          if (!hasValidSubmission) {
+            const year = sDay.getFullYear();
+            const month = String(sDay.getMonth() + 1).padStart(2, '0');
+            const day = String(sDay.getDate()).padStart(2, '0');
+            firstMissingDate = `${year}-${month}-${day}`;
+            dailyTotal = validTime;
+            dailyStatus = hasDraft ? 'draft' : 'missing';
+            break; // Find the earliest one
+          }
+        }
+        loopDate.setDate(loopDate.getDate() + 1);
+      }
+    }
+
+    return {
+      missingDate: firstMissingDate,
+      dailyTotal,
+      dailyStatus
+    };
+  },
+
+  // 20. Update Project Billable 
+  updateProjectBillable: async (data) => {
+    const { timesheet_id, project_id } = data;
+    // We can use the projectHealth util logic here to just recalculate everything.
+    const { updateProjectHealth } = require('../utils/projectHealth');
+
+    try {
+      if (project_id) {
+        await updateProjectHealth(project_id);
+        return { success: true };
+      } else if (timesheet_id) {
+        const ts = await Models.Timesheet.findById(timesheet_id);
+        if (ts && ts.project_id) {
+          await updateProjectHealth(ts.project_id);
+          return { success: true };
+        }
+      }
+    } catch (err) {
+      console.error('UpdateProjectBillable Error:', err);
+    }
+    return { success: false };
+  },
+
+  // 21. forecastProjectCost
+  forecastProjectCost: async (data) => {
+    const { project_id } = data;
+    if (!project_id) throw new Error('project_id required for forecast');
+
+    const taskDetails = await Models.Task.find({ project_id });
+    const timesheets = await Models.Timesheet.find({ project_id });
+
+    let totalSpent = 0;
+
+    for (const ts of timesheets) {
+      totalSpent += (ts.snapshot_total_cost || 0);
+    }
+
+    // Very naive forecast: assuming the remaining tasks take estimated hours at average rate
+    let totalEstimatedHours = taskDetails.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
+    let totalLoggedHours = timesheets.reduce((sum, ts) => sum + ((ts.total_minutes || 0) / 60), 0);
+    let avgRate = totalLoggedHours > 0 ? (totalSpent / totalLoggedHours) : 0;
+
+    let remainingHours = Math.max(0, totalEstimatedHours - totalLoggedHours);
+    let forecastedCost = totalSpent + (remainingHours * avgRate);
+
+    return {
+      success: true,
+      forecastedCost: forecastedCost,
+      totalSpent: totalSpent
+    };
   }
 };
 

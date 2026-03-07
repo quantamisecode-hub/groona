@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { groonabackend, API_BASE } from "@/api/groonabackend";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/components/shared/UserContext";
@@ -717,9 +717,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     title: "",
     description: "",
     severity: "medium",
+    assigned_to: "",
+    project_manager_id: ""
   });
   const [selectedImpedimentId, setSelectedImpedimentId] = useState("new");
   const [isReporting, setIsReporting] = useState(false);
+
+
 
 
   const handleReportImpediment = async () => {
@@ -739,16 +743,27 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
           return;
         }
 
+        const assignedUser = projectTeamMembers.find(u => (u.id || u._id) === impedimentData.assigned_to || u.email === impedimentData.assigned_to);
+        const projectManager = projectTeamMembers.find(u => (u.projectRole === 'project_manager' || (u.id || u._id) === impedimentData.project_manager_id));
+
+        const currentSprint = sprints.find(s => (s.id || s._id) === task?.sprint_id);
+
         const impedimentPayload = {
           tenant_id: currentUser?.active_tenant_id || currentUser?.tenant_id,
           workspace_id: project?.workspace_id || "",
           project_id: task?.project_id,
+          project_name: project?.name,
           sprint_id: task?.sprint_id,
+          sprint_name: currentSprint?.name,
           story_id: task?.story_id,
           task_id: task?.id || task?._id,
           title: impedimentData.title.trim(),
           description: impedimentData.description || "",
           severity: impedimentData.severity,
+          assigned_to: impedimentData.assigned_to,
+          assigned_to_name: assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined,
+          project_manager_id: impedimentData.project_manager_id,
+          project_manager_name: projectManager ? (projectManager.full_name || projectManager.email) : undefined,
           status: "open",
           reported_by: currentUser?.email,
           reported_by_name: currentUser?.full_name || currentUser?.email,
@@ -759,7 +774,13 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
       }
 
       // Reset and close
-      setImpedimentData({ title: "", description: "", severity: "medium" });
+      setImpedimentData({
+        title: "",
+        description: "",
+        severity: "medium",
+        assigned_to: "",
+        project_manager_id: ""
+      });
       setSelectedImpedimentId("new");
       setShowImpedimentDialog(false);
 
@@ -818,6 +839,24 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     queryFn: () => groonabackend.entities.User.list(),
     staleTime: 5 * 60 * 1000,
   });
+
+  const projectTeamMembers = useMemo(() => {
+    if (!project?.team_members?.length) {
+      const tid = currentUser?.active_tenant_id || currentUser?.tenant_id;
+      return (allUsers || []).filter(u => u.tenant_id === tid).map(u => ({
+        ...u,
+        projectRole: u.role
+      }));
+    }
+    return project.team_members.map(tm => {
+      const user = allUsers.find(u => u.email === tm.email);
+      return {
+        ...(user || { email: tm.email, full_name: tm.email }),
+        id: user?.id || user?._id || tm.email,
+        projectRole: tm.role
+      };
+    });
+  }, [project, allUsers, currentUser]);
 
   const { data: reworkAlarms = [] } = useQuery({
     queryKey: ['rework-alarms', currentUser?.tenant_id],
@@ -1551,135 +1590,237 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
 
       {/* Report Impediment Dialog */}
       <Dialog open={showImpedimentDialog} onOpenChange={setShowImpedimentDialog}>
-        <DialogContent className="sm:max-w-lg">
-          <div className="flex flex-col gap-0 mb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              Report Impediment
-            </DialogTitle>
-            <DialogDescription>
-              This impediment will be directly linked to task <span className="font-medium text-slate-900">{task?.title}</span>.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl border-none shadow-2xl bg-white focus:outline-none">
+          {/* Header - Fixed */}
+          <div className="px-6 py-4 border-b border-slate-100 bg-white">
+            <div className="flex flex-col gap-0.5 pr-6">
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                Report Impediment
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 line-clamp-1">
+                Linked to: <span className="font-semibold text-slate-700 italic">"{task?.title}"</span>
+              </DialogDescription>
+            </div>
           </div>
 
-          <div className="space-y-4 bg-red-50 border border-red-200 rounded-lg p-4">
-
-            {/* Link to Existing / Create New */}
-            <div>
-              <label className="text-sm font-semibold text-red-900 flex items-center gap-1.5 mb-1.5">
-                <LinkIcon className="h-3.5 w-3.5" />
-                Link to Existing Impediment
-              </label>
-              <Select
-                value={selectedImpedimentId}
-                onValueChange={setSelectedImpedimentId}
-              >
-                <SelectTrigger className="bg-white border-red-200 focus:ring-red-500">
-                  <SelectValue placeholder="Select existing impediment or create new" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">Create New Impediment</SelectItem>
-                  {projectImpediments
-                    .filter(imp => imp.status !== 'resolved')
-                    .map(impediment => (
-                      <SelectItem key={impediment.id || impediment._id} value={impediment.id || impediment._id}>
-                        {impediment.title}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedImpedimentId === "new" ? (
-              <>
-                <div>
-                  <label htmlFor="impediment-title" className="text-sm font-semibold text-red-900 flex items-center gap-1.5 mb-1.5">
-                    <AlertCircle className="h-3.5 w-3.5" />
-                    Impediment Title *
-                  </label>
-                  <input
-                    id="impediment-title"
-                    value={impedimentData.title}
-                    onChange={(e) => setImpedimentData({ ...impedimentData, title: e.target.value })}
-                    placeholder="Brief description of the impediment"
-                    className="flex h-10 w-full rounded-md border border-red-200 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="impediment-description" className="text-sm font-semibold text-red-900 flex items-center gap-1.5 mb-1.5">
-                    <AlignLeft className="h-3.5 w-3.5" />
-                    Description
-                  </label>
-                  <textarea
-                    id="impediment-description"
-                    value={impedimentData.description}
-                    onChange={(e) => setImpedimentData({ ...impedimentData, description: e.target.value })}
-                    placeholder="Detailed explanation and impact"
-                    rows={4}
-                    className="flex min-h-[80px] w-full rounded-md border border-red-200 bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="impediment-severity" className="text-sm font-semibold text-red-900 flex items-center gap-1.5 mb-1.5">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Severity
-                  </label>
-                  <Select
-                    value={impedimentData.severity}
-                    onValueChange={(val) => setImpedimentData({ ...impedimentData, severity: val })}
-                  >
-                    <SelectTrigger className="bg-white border-red-200 focus:ring-red-500">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low - Minor inconvenience</SelectItem>
-                      <SelectItem value="medium">Medium - Slowing progress</SelectItem>
-                      <SelectItem value="high">High - Blocking work</SelectItem>
-                      <SelectItem value="critical">Critical - Sprint at risk</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            ) : (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-900 flex items-center gap-2">
+          {/* Scrollable Body */}
+          <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="space-y-4">
+              {/* Connection Type - Condensed */}
+              <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                   <LinkIcon className="h-3 w-3" />
-                  This task will be linked to the selected impediment.
-                </p>
+                  Connection Type
+                </label>
+                <Select
+                  value={selectedImpedimentId}
+                  onValueChange={setSelectedImpedimentId}
+                >
+                  <SelectTrigger className="bg-white border-slate-200 h-9 text-sm shadow-sm ring-0">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">Create New Impediment</SelectItem>
+                    {projectImpediments
+                      .filter(imp => imp.status !== 'resolved')
+                      .map(impediment => (
+                        <SelectItem key={impediment.id || impediment._id} value={impediment.id || impediment._id}>
+                          {impediment.title}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
 
-            <div className="flex justify-end gap-3 mt-4 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowImpedimentDialog(false)}
-                disabled={isReporting}
-                className="bg-white hover:bg-slate-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleReportImpediment}
-                disabled={isReporting || (selectedImpedimentId === "new" && !impedimentData.title.trim())}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {isReporting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {selectedImpedimentId === "new" ? "Reporting..." : "Linking..."}
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    {selectedImpedimentId === "new" ? "Report Impediment" : "Link Impediment"}
-                  </>
-                )}
-              </Button>
+              {selectedImpedimentId === "new" ? (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label htmlFor="impediment-title" className="text-[13px] font-semibold text-slate-700 flex items-center gap-2 mb-1.5">
+                        <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                        Title <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="impediment-title"
+                        value={impedimentData.title}
+                        onChange={(e) => setImpedimentData({ ...impedimentData, title: e.target.value })}
+                        placeholder="e.g., API authentication failing"
+                        className="flex h-10 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-red-500/10 focus:border-red-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="impediment-description" className="text-[13px] font-semibold text-slate-700 flex items-center gap-2 mb-1.5">
+                        <AlignLeft className="h-3.5 w-3.5 text-slate-400" />
+                        Detailed Description
+                      </label>
+                      <textarea
+                        id="impediment-description"
+                        value={impedimentData.description}
+                        onChange={(e) => setImpedimentData({ ...impedimentData, description: e.target.value })}
+                        placeholder="Describe the blocker..."
+                        rows={2}
+                        className="flex min-h-[70px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-red-500/10 focus:border-red-500 resize-none font-sans"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Context - Dynamic & Flexible */}
+                  <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-100/50 space-y-2">
+                    <label className="text-[10px] font-bold text-blue-500/60 uppercase tracking-widest flex items-center gap-2">
+                      <History className="h-3 w-3" />
+                      Current Context
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="bg-white border-blue-100 text-blue-600 py-1 px-2.5 rounded-lg shadow-sm text-[11px]">
+                        <span className="opacity-60 font-bold mr-1">Project:</span> {project?.name || '...'}
+                      </Badge>
+                      <Badge variant="outline" className="bg-white border-purple-100 text-purple-600 py-1 px-2.5 rounded-lg shadow-sm text-[11px]">
+                        <span className="opacity-60 font-bold mr-1">Sprint:</span> {sprints.find(s => (s.id || s._id) === task?.sprint_id)?.name || 'Backlog'}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label htmlFor="impediment-severity" className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        Severity
+                      </label>
+                      <Select
+                        value={impedimentData.severity}
+                        onValueChange={(val) => setImpedimentData({ ...impedimentData, severity: val })}
+                      >
+                        <SelectTrigger className="bg-white border-slate-200 h-10 rounded-lg text-sm shadow-sm ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="critical">Critical</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <div className="px-3 py-2 bg-red-50/50 rounded-lg border border-red-50 text-center">
+                        <p className="text-[10px] font-medium text-red-600 leading-tight">
+                          Will block task progress
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                        <UserPlus className="h-3.5 w-3.5 text-indigo-500" />
+                        Assign To
+                      </label>
+                      <Select value={impedimentData.assigned_to} onValueChange={(val) => setImpedimentData({ ...impedimentData, assigned_to: val })}>
+                        <SelectTrigger className="bg-white border-slate-200 h-10 rounded-lg text-sm shadow-sm ring-0">
+                          <SelectValue placeholder="Select user" />
+                        </SelectTrigger>
+                        <SelectContent side="top" className="max-h-60">
+                          {projectTeamMembers
+                            .filter(u => u.role === 'member' && u.custom_role === 'viewer')
+                            .map(user => {
+                              const displayName = user.full_name || user.email || 'U';
+                              return (
+                                <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                      <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                      <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                        {displayName.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="truncate">{displayName}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                        <Zap className="h-3.5 w-3.5 text-emerald-500" />
+                        Manager
+                      </label>
+                      <Select value={impedimentData.project_manager_id} onValueChange={(val) => setImpedimentData({ ...impedimentData, project_manager_id: val })}>
+                        <SelectTrigger className="bg-white border-slate-200 h-10 rounded-lg text-sm shadow-sm ring-0">
+                          <SelectValue placeholder="Notify PM" />
+                        </SelectTrigger>
+                        <SelectContent side="top" className="max-h-60">
+                          {projectTeamMembers
+                            .filter(u => u.projectRole === 'project_manager' || u.role === 'project_manager')
+                            .map(user => {
+                              const displayName = user.full_name || user.email || 'U';
+                              return (
+                                <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                                  <div className="flex items-center gap-2">
+                                    <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                      <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                      <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                        {displayName.charAt(0)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="truncate">{displayName}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-indigo-50/30 border border-indigo-100/50 rounded-xl p-6 text-center space-y-2">
+                  <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+                    <LinkIcon className="h-5 w-5 text-indigo-500" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-indigo-900 text-sm">Link Active Issue</h4>
+                    <p className="text-[12px] text-indigo-600/70 max-w-[200px] mx-auto mt-1 leading-relaxed">
+                      Task status will synchronize with the selected impediment.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Footer - Fixed */}
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-col-reverse sm:flex-row justify-end gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowImpedimentDialog(false)}
+              disabled={isReporting}
+              className="h-10 text-slate-500 font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReportImpediment}
+              disabled={isReporting || (selectedImpedimentId === "new" && !impedimentData.title.trim())}
+              className="bg-red-600 hover:bg-red-700 text-white h-10 sm:px-8 shadow-md"
+            >
+              {isReporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                selectedImpedimentId === "new" ? "Report Issue" : "Link Issue"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1691,8 +1832,7 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
           task={task}
           onUpdate={handleTaskUpdateFromEdit}
         />
-      )
-      }
+      )}
     </>
   );
 }

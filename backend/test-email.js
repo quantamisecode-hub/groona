@@ -1,36 +1,32 @@
-require('dotenv').config(); // Load environment variables
-const { Resend } = require('resend');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+const emailService = require('./services/emailService');
 
-console.log('--- Email Config Debug (Resend) ---');
-console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? '****** (Exists)' : 'MISSING');
-console.log('MAIL_FROM:', process.env.MAIL_FROM || 'Not set');
-console.log('------------------------');
+async function testEmail() {
+  console.log('Testing email service...');
+  console.log('RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'Set' : 'NOT Set');
+  console.log('MAIL_FROM:', process.env.MAIL_FROM);
 
-if (!process.env.RESEND_API_KEY) {
-  console.error('❌ RESEND_API_KEY is not set in .env file');
-  process.exit(1);
-}
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-const from = process.env.MAIL_FROM || 'Groona <no-reply@quantumisecode.com>';
-const to = process.env.TEST_EMAIL || 'jxv781@gmail.com'; // You can set TEST_EMAIL in .env
-
-async function sendTest() {
   try {
-    const result = await resend.emails.send({
-      from: from,
-      to: to,
-      subject: 'Test Email from Groona (Resend)',
-      html: '<p>If you see this, your Resend email configuration works!</p>',
+    const result = await emailService.sendEmail({
+      to: 'abdul@quantumisecode.com', // Using a placeholder, change to user's email if safe
+      templateType: 'impediment_reported',
+      data: {
+        recipientName: 'Abdul',
+        recipientEmail: 'abdul@quantumisecode.com',
+        reporterName: 'Test Reporter',
+        taskTitle: 'Test Task',
+        projectName: 'Test Project',
+        title: 'Test Impediment',
+        severity: 'High',
+        description: 'Test Description',
+        viewUrl: 'http://localhost:5173'
+      }
     });
-    
-    console.log('✅ Success! Message sent:');
-    console.log('Message ID:', result.data?.id);
-    console.log('To:', to);
+    console.log('Result:', result);
   } catch (error) {
-    console.error('❌ Error sending email:');
-    console.error(error);
+    console.error('Error:', error);
   }
 }
 
-sendTest();
+testEmail();

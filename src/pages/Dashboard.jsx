@@ -410,16 +410,16 @@ export default function Dashboard() {
 
             {isAdmin && (
               <div className="flex flex-col gap-6">
-                <DashboardInsights projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
+                <DashboardInsights currentUser={currentUser} projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
                 <AdminTopPerformers projects={filteredProjects} tasks={filteredTasks} />
                 <CompanyProfitabilityChart />
                 <AdminLostRevenueWidget />
               </div>
             )}
 
-            {/* CONDITIONALLY RENDER ADMIN WIDGETS */}            {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
+            {/* CONDITIONALLY RENDER INSIGHTS BASED ON PERMISSION */}
             {canViewInsights && !isAdmin && (
-              <DashboardInsights projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
+              <DashboardInsights currentUser={currentUser} projects={filteredProjects} tasks={tasks} stories={stories} sprints={sprints} activities={activities} loading={projectsLoading || tasksLoading} />
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">

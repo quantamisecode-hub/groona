@@ -354,6 +354,60 @@ export default function TimesheetEntryForm({
     });
   }, [rawTasks, targetUserEmail, formData.project_id, formData.story_id, sprints, rawStories]);
 
+  // Fetch impediments if work type is impediment
+  const { data: targetUserEntity } = useQuery({
+    queryKey: ['target-user-entity-timesheet', targetUserEmail],
+    queryFn: async () => {
+      if (!targetUserEmail) return null;
+      if (targetUserEmail === currentUser?.email) return currentUser;
+      const users = await groonabackend.entities.User.filter({ email: targetUserEmail });
+      return users[0] || null;
+    },
+    enabled: !!targetUserEmail && formData.work_type === 'impediment',
+  });
+
+  const { data: userImpediments = [] } = useQuery({
+    queryKey: ['user-impediments-timesheet', targetUserEntity?.id],
+    queryFn: async () => {
+      if (!targetUserEntity?.id) return [];
+      const imps = await groonabackend.entities.Impediment.filter({});
+      return imps.filter(imp =>
+        imp.assigned_to === targetUserEntity.id ||
+        imp.assigned_to?.id === targetUserEntity.id ||
+        imp.reported_by?.id === targetUserEntity.id ||
+        imp.reported_by?.email === targetUserEntity.email ||
+        imp.project_manager_id === targetUserEntity.id
+      );
+    },
+    enabled: !!targetUserEntity?.id && formData.work_type === 'impediment',
+  });
+
+  const availableProjects = React.useMemo(() => {
+    if (formData.work_type === 'impediment') {
+      const impProjectIds = new Set(userImpediments.map(imp => imp.project_id?.id || imp.project_id?._id || imp.project_id).filter(Boolean));
+      return projects.filter(p => impProjectIds.has(String(p.id)));
+    }
+    return projects;
+  }, [projects, formData.work_type, userImpediments]);
+
+  const availableStories = React.useMemo(() => {
+    if (formData.work_type === 'impediment') {
+      const filteredImps = userImpediments.filter(imp => String(imp.project_id?.id || imp.project_id?._id || imp.project_id) === String(formData.project_id));
+      const impStoryIds = new Set(filteredImps.map(imp => imp.story_id?.id || imp.story_id?._id || imp.story_id).filter(Boolean));
+      return stories.filter(s => impStoryIds.has(String(s.id)));
+    }
+    return stories;
+  }, [stories, formData.work_type, userImpediments, formData.project_id]);
+
+  const availableTasks = React.useMemo(() => {
+    if (formData.work_type === 'impediment') {
+      const filteredImps = userImpediments.filter(imp => String(imp.project_id?.id || imp.project_id?._id || imp.project_id) === String(formData.project_id));
+      const impTaskIds = new Set(filteredImps.map(imp => imp.task_id?.id || imp.task_id?._id || imp.task_id).filter(Boolean));
+      return tasks.filter(t => impTaskIds.has(String(t.id)));
+    }
+    return tasks;
+  }, [tasks, formData.work_type, userImpediments, formData.project_id]);
+
   // Auto-select most recent project/task if available
   useEffect(() => {
     if (projects.length > 0 && !formData.project_id && !initialData) {
@@ -419,7 +473,7 @@ export default function TimesheetEntryForm({
     }));
   };
 
-  const isRemarkMandatory = forceRemark || (formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime');
+  const isRemarkMandatory = forceRemark || (formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime' || formData.work_type === 'impediment');
 
   const handleSubmit = (status = 'draft') => {
     if (isDateDisabled(selectedDate)) {
@@ -579,7 +633,7 @@ export default function TimesheetEntryForm({
                   onValueChange={(val) => setFormData(prev => ({
                     ...prev,
                     work_type: val,
-                    remark: (val === 'rework' || val === 'bug' || val === 'overtime') ? prev.remark : ''
+                    remark: (val === 'rework' || val === 'bug' || val === 'overtime' || val === 'impediment') ? prev.remark : ''
                   }))}
                 >
                   <SelectTrigger>
@@ -590,6 +644,7 @@ export default function TimesheetEntryForm({
                     <SelectItem value="qa">🔍 QA</SelectItem>
                     <SelectItem value="rework">🔄 Rework</SelectItem>
                     <SelectItem value="bug">🐞 Bug</SelectItem>
+                    <SelectItem value="impediment">🚧 Impediment</SelectItem>
                     <SelectItem value="meeting">👥 Meeting</SelectItem>
                     <SelectItem value="support">🛠️ Support</SelectItem>
                     <SelectItem value="idle">⏸️ Idle</SelectItem>
@@ -609,7 +664,7 @@ export default function TimesheetEntryForm({
                     <SelectValue placeholder="Select project..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map(project => (
+                    {availableProjects.map(project => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
                       </SelectItem>
@@ -640,7 +695,7 @@ export default function TimesheetEntryForm({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={null}>No Story (Unassigned)</SelectItem>
-                      {stories.map(story => (
+                      {availableStories.map(story => (
                         <SelectItem key={story.id} value={story.id}>
                           {story.title}
                         </SelectItem>
@@ -697,7 +752,7 @@ export default function TimesheetEntryForm({
                       <SelectValue placeholder="Select task..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {tasks.map(task => (
+                      {availableTasks.map(task => (
                         <SelectItem key={task.id} value={task.id}>
                           {task.title}
                         </SelectItem>
@@ -797,7 +852,7 @@ export default function TimesheetEntryForm({
               {(isRemarkMandatory) && (
                 <div className={cn(
                   "space-y-2 p-3 rounded-lg border",
-                  (formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime')
+                  (formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime' || formData.work_type === 'impediment')
                     ? "bg-amber-50 border-amber-200"
                     : "bg-blue-50 border-blue-200"
                 )}>

@@ -7,10 +7,52 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { differenceInDays } from "date-fns";
 
-export default function DashboardInsights({ projects, tasks, stories = [], sprints = [], activities, loading }) {
+import { useQuery } from "@tanstack/react-query";
+import { groonabackend } from "@/api/groonabackend";
+
+export default function DashboardInsights({ currentUser, projects, tasks, stories = [], sprints = [], activities, loading }) {
   const [insights, setInsights] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detailedAnalysis, setDetailedAnalysis] = useState(null);
+
+  const { data: impediments = [] } = useQuery({
+    queryKey: ['dashboard-insights-impediments', currentUser?.id],
+    queryFn: async () => {
+      // Step 1: Fetch all impediments
+      const allImpsResponses = await groonabackend.entities.Impediment.list();
+
+      // Step 2: Ensure we only count unresolved ones, matching ProjectInsights
+      const outstandingImps = allImpsResponses.filter(imp => imp.status !== 'resolved');
+
+      if (!currentUser?.id) return outstandingImps;
+
+      const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
+      if (isAdmin) return outstandingImps;
+
+      // Step 3: Use the exact same broadened role-check as ProjectInsights for accurate numbers
+      const userEmail = currentUser.email?.toLowerCase();
+      const userId = (currentUser.id || currentUser._id || '').toString();
+      const userName = (currentUser.full_name || currentUser.name || '').toLowerCase();
+
+      return outstandingImps.filter(imp => {
+        const fields = [
+          imp.reported_by,
+          imp.reported_by_name,
+          imp.assigned_to,
+          imp.assigned_to_name,
+          imp.project_manager_id,
+          imp.project_manager_name
+        ];
+        return fields.some(f => {
+          if (!f) return false;
+          const val = f.toString().toLowerCase();
+          return (userEmail && val.includes(userEmail)) ||
+            (userId && (val.includes(userId.toLowerCase()) || userId.toLowerCase().includes(val))) ||
+            (userName && val.includes(userName));
+        });
+      });
+    },
+  });
 
   useEffect(() => {
     if (loading || !projects.length) return;
@@ -170,11 +212,9 @@ export default function DashboardInsights({ projects, tasks, stories = [], sprin
       }).length;
       const totalHighTasks = relevantTasks.filter(t => t.status !== 'completed' && (t.priority || '').toLowerCase() === 'high').length;
 
-      // Bottleneck Detection (Aligned with ProjectInsights 'Blockers & Bottlenecks': Review + Blocked)
-      const inReview = relevantTasks.filter(t => t.status === 'review').length;
-      const blocked = relevantTasks.filter(t => t.status === 'blocked').length;
-      const bottleneckCount = inReview + blocked;
-      const hasBottleneck = bottleneckCount > 5;
+      // Bottleneck Detection (Aligned with ProjectInsights 'Blockers & Bottlenecks')
+      const bottleneckCount = impediments.length;
+      const hasBottleneck = bottleneckCount > 0;
 
 
       // Top Priority Recommendation
@@ -185,7 +225,7 @@ export default function DashboardInsights({ projects, tasks, stories = [], sprin
         recommendation = `${atRiskProjects.length} project(s) need immediate attention - approaching deadline with low progress`;
         recommendationType = "warning";
       } else if (hasBottleneck) {
-        recommendation = `${inReview} tasks in review - consider accelerating approval process`;
+        recommendation = `${bottleneckCount} active blocker(s) detected - consider reviewing impediments and accelerating resolution`;
         recommendationType = "info";
       } else if (weeklyVelocity < 5) {
         recommendation = "Low team velocity detected - consider redistributing workload or addressing blockers";
@@ -211,7 +251,7 @@ export default function DashboardInsights({ projects, tasks, stories = [], sprin
     };
 
     setInsights(calculateInsights());
-  }, [projects, tasks, stories, sprints, activities, loading]);
+  }, [projects, tasks, stories, sprints, activities, impediments, loading]);
 
   if (loading || !insights) return null;
 
