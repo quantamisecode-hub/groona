@@ -30,7 +30,7 @@ export default function NotificationProvider({ children }) {
       duration: 4000,
       ...options,
     });
-    
+
     addToHistory('success', message);
   }, []);
 
@@ -40,18 +40,18 @@ export default function NotificationProvider({ children }) {
    * @param {object} options - Additional toast options
    */
   const error = useCallback((error, options = {}) => {
-    const message = typeof error === 'string' 
-      ? error 
+    const message = typeof error === 'string'
+      ? error
       : error?.message || 'An unexpected error occurred';
-    
+
     toast.error(message, {
       icon: <XCircle className="h-5 w-5" />,
       duration: 6000,
       ...options,
     });
-    
+
     addToHistory('error', message);
-    
+
     // Log to console for debugging
     if (process.env.NODE_ENV === 'development') {
       console.error('[Notification Error]:', error);
@@ -69,7 +69,7 @@ export default function NotificationProvider({ children }) {
       duration: 5000,
       ...options,
     });
-    
+
     addToHistory('warning', message);
   }, []);
 
@@ -84,7 +84,7 @@ export default function NotificationProvider({ children }) {
       duration: 4000,
       ...options,
     });
-    
+
     addToHistory('info', message);
   }, []);
 
@@ -118,7 +118,21 @@ export default function NotificationProvider({ children }) {
       timestamp: new Date().toISOString(),
       read: false,
     };
-    
+
+    // --- Notification Sound Logic ---
+    try {
+      const audio = new Audio('/sound.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(err => {
+        // Silently catch auto-play blocks
+        if (process.env.NODE_ENV === 'development') {
+          console.log("Audio play blocked by browser for toast notification", err);
+        }
+      });
+    } catch (e) {
+      console.error("Error playing toast notification sound:", e);
+    }
+
     setNotifications(prev => [notification, ...prev].slice(0, 50)); // Keep last 50
   }, []);
 

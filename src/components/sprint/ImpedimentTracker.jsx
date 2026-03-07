@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { groonabackend } from "@/api/groonabackend";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,19 +24,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { notificationService } from "@/components/shared/notificationService";
 
 export default function ImpedimentTracker({ sprint, project: propProject, projectId, impediments: propImpediments, onAdd, onUpdate, onDelete, highlightImpedimentId }) {
   const { user: currentUser } = useUser();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showDialog, setShowDialog] = useState(false);
+  const [showTimesheetPrompt, setShowTimesheetPrompt] = useState(false);
+  const [pendingTimesheetId, setPendingTimesheetId] = useState(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     severity: "medium",
     status: "open",
     task_id: "",
-    assigned_to: "",
-    project_manager_id: ""
+    assigned_to: [],
+    project_manager_id: "",
+    due_date: ""
   });
   const [deleteConfirmation, setDeleteConfirmation] = useState({
     isOpen: false,
@@ -167,7 +173,10 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
   const addImpedimentMutation = useMutation({
     mutationFn: async (data) => {
       if (!effectiveTenantId) throw new Error('Tenant context is missing');
-      const assignedUser = users.find(u => (u.id || u._id) === data.assigned_to || u.email === data.assigned_to);
+      const assignedUserNames = Array.isArray(data.assigned_to) ? data.assigned_to.map(id => {
+        const u = users.find(usr => (usr.id || usr._id) === id || usr.email === id);
+        return u ? (u.full_name || u.email) : id;
+      }) : [];
       const projectManager = users.find(u => (u.id || u._id) === data.project_manager_id || u.email === data.project_manager_id);
 
       const impedimentData = {
@@ -176,12 +185,13 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
         project_name: project?.name,
         sprint_id: sprint?.id || undefined,
         sprint_name: sprint?.name,
-        task_id: data.task_id || undefined,
+        task_id: (data.task_id && data.task_id !== 'none') ? data.task_id : undefined,
         title: data.title.trim(),
         description: data.description || "",
         severity: data.severity,
-        assigned_to: data.assigned_to,
-        assigned_to_name: assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined,
+        assigned_to: Array.isArray(data.assigned_to) ? data.assigned_to : [data.assigned_to],
+        assigned_to_name: assignedUserNames,
+        due_date: data.due_date || undefined,
         project_manager_id: data.project_manager_id,
         project_manager_name: projectManager ? (projectManager.full_name || projectManager.email) : undefined,
         status: "open",
@@ -199,8 +209,9 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
         severity: "medium",
         status: "open",
         task_id: "",
-        assigned_to: "",
-        project_manager_id: ""
+        assigned_to: [],
+        project_manager_id: "",
+        due_date: ""
       });
       setShowDialog(false);
       if (onAdd) onAdd(formData);
@@ -237,22 +248,95 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
           is_clocked_in: true,
           project_id: impediment.project_id || projectId,
           sprint_id: impediment.sprint_id || sprint?.id || null,
-          task_id: impediment.task_id || null,
+          task_id: (impediment.task_id && impediment.task_id !== 'none') ? impediment.task_id : null,
           work_type: 'impediment',
           description: `Working on Impediment: ${impediment.title}`,
         });
       }
 
-      return await groonabackend.entities.Impediment.update(id, updateData);
+      // Auto stop timer logic
+      let promptSubmit = false;
+      if (data.status === 'resolved' && impediment) {
+        const entries = await groonabackend.entities.ClockEntry.filter({
+          user_email: currentUser?.email,
+          is_clocked_in: true,
+          work_type: 'impediment'
+        });
+        const thisTimer = entries.find(e => e.description === `Working on Impediment: ${impediment.title}` && e.project_id === (impediment.project_id || projectId));
+
+        if (thisTimer) {
+          const endTime = new Date();
+          const startTime = new Date(thisTimer.clock_in_time);
+          const diffInMs = endTime.getTime() - startTime.getTime();
+          const rawMinutes = Math.floor(diffInMs / 60000);
+          const totalMinutes = Math.max(0, rawMinutes - (thisTimer.total_paused_seconds ? Math.floor(thisTimer.total_paused_seconds / 60) : 0));
+
+          const timesheet = await groonabackend.entities.Timesheet.create({
+            tenant_id: effectiveTenantId,
+            user_email: currentUser?.email,
+            user_name: currentUser?.full_name,
+            date: format(startTime, 'yyyy-MM-dd'),
+            project_id: thisTimer.project_id,
+            project_name: impediment.project_name || project?.name || '',
+            sprint_id: thisTimer.sprint_id || null,
+            task_id: (thisTimer.task_id && thisTimer.task_id !== 'none') ? thisTimer.task_id : null,
+            task_title: impediment.title,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            hours: Math.floor(totalMinutes / 60),
+            minutes: totalMinutes % 60,
+            total_minutes: totalMinutes,
+            description: thisTimer.description,
+            work_type: 'impediment',
+            entry_type: 'clock_in_out',
+            status: 'draft',
+            is_billable: true,
+            is_locked: false,
+            snapshot_hourly_rate: currentUser?.hourly_rate || 0,
+            snapshot_total_cost: (totalMinutes / 60) * (currentUser?.hourly_rate || 0),
+          });
+
+          await groonabackend.entities.ClockEntry.update(thisTimer.id || thisTimer._id, {
+            is_clocked_in: false,
+            clock_out_time: endTime.toISOString(),
+            total_minutes: totalMinutes,
+            timesheet_id: timesheet.id || timesheet._id
+          });
+
+          promptSubmit = true;
+          return { ...await groonabackend.entities.Impediment.update(id, updateData), promptSubmit, timesheetId: timesheet.id || timesheet._id };
+        }
+      }
+
+      const returnedImp = await groonabackend.entities.Impediment.update(id, updateData);
+      return { ...returnedImp, promptSubmit };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['impediments'] });
+
+      // Trigger Resolution Notification
+      if (variables.data.status === 'resolved') {
+        notificationService.notifyImpedimentResolved({
+          impediment: { ...variables.impediment, id: variables.id },
+          resolvedBy: currentUser?.email,
+          tenantId: effectiveTenantId
+        }).catch(err => console.error('Notification failed:', err));
+      }
+
       if (variables.data.status === 'in_progress') {
         queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
         toast.success(`Timer started! Marked '${variables.impediment?.title || "Impediment"}' as In Progress.`);
       } else {
         toast.success('Impediment status updated successfully!');
       }
+
+      if (data && data.promptSubmit) {
+        queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
+        queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
+        setPendingTimesheetId(data.timesheetId);
+        setShowTimesheetPrompt(true);
+      }
+
       if (onUpdate) onUpdate();
     },
     onError: (error) => {
@@ -373,6 +457,17 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
             const StatusIcon = statusIcons[impediment.status].icon;
             const statusColor = statusIcons[impediment.status].color;
 
+            // Authorization logic for buttons
+            const isOwner = currentUser?.role === 'admin' && currentUser?.custom_role === 'owner';
+            const isPM = currentUser?.role === 'admin' && currentUser?.custom_role === 'project_manager';
+            const isAssigned = Array.isArray(impediment.assigned_to)
+              ? impediment.assigned_to.includes(currentUser?.id || currentUser?._id)
+              : impediment.assigned_to === (currentUser?.id || currentUser?._id) || impediment.assigned_to === currentUser?.email;
+
+            // Only resolvers (assigned to this impediment) can see the action buttons. 
+            // Others, including PMs who are not assigned, and Owners, cannot see them.
+            const canAction = !isOwner && isAssigned;
+
             return (
               <Card
                 key={impediment.id}
@@ -422,10 +517,12 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
 
                           {impediment.assigned_to_name && (
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Resolver</span>
+                              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Resolver(s)</span>
                               <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50">
                                 <UserCheck className="h-3 w-3 text-blue-500" />
-                                <span className="text-xs font-bold text-blue-700">{impediment.assigned_to_name}</span>
+                                <span className="text-xs font-bold text-blue-700">
+                                  {Array.isArray(impediment.assigned_to_name) ? impediment.assigned_to_name.join(', ') : impediment.assigned_to_name}
+                                </span>
                               </div>
                             </div>
                           )}
@@ -436,6 +533,16 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
                               <div className="flex items-center gap-1.5 bg-purple-50/50 px-2 py-0.5 rounded-lg border border-purple-100/50">
                                 <ShieldCheck className="h-3 w-3 text-purple-500" />
                                 <span className="text-xs font-bold text-purple-700">{impediment.project_manager_name}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {impediment.due_date && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Due Date</span>
+                              <div className="flex items-center gap-1.5 bg-rose-50/50 px-2 py-0.5 rounded-lg border border-rose-100/50">
+                                <Calendar className="h-3 w-3 text-rose-500" />
+                                <span className="text-xs font-bold text-rose-700">{format(new Date(impediment.due_date), 'MMM d, yyyy')}</span>
                               </div>
                             </div>
                           )}
@@ -475,7 +582,7 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
                         })()}
                       </div>
 
-                      {impediment.status !== 'resolved' && (
+                      {impediment.status !== 'resolved' && canAction && (
                         <div className="mt-3 flex gap-2">
                           {impediment.status === 'open' && (
                             <Button
@@ -551,8 +658,8 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium mb-2 block">Related Task (Optional)</label>
-                <Select value={formData.task_id} onValueChange={(val) => setFormData({ ...formData, task_id: val })}>
+                <label className="text-sm font-medium mb-2 block">Related Task</label>
+                <Select value={formData.task_id || "none"} onValueChange={(val) => setFormData({ ...formData, task_id: val === 'none' ? "" : val })}>
                   <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all focus:border-blue-500">
                     <SelectValue placeholder="Select task" />
                   </SelectTrigger>
@@ -592,15 +699,43 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium mb-2 block">Assign To (Viewer Member)</label>
-                <Select value={formData.assigned_to} onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}>
+                {(formData.assigned_to && formData.assigned_to.length > 0) && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.assigned_to.map(id => {
+                      const u = projectTeamMembers.find(usr => (usr.id || usr._id) === id);
+                      const displayName = u ? (u.full_name || u.email) : id;
+                      return (
+                        <Badge key={id} variant="secondary" className="flex items-center gap-1.5 py-1 px-2.5">
+                          {displayName}
+                          <X
+                            className="h-3.5 w-3.5 cursor-pointer hover:text-red-500 transition-colors ml-1"
+                            onClick={() => setFormData({
+                              ...formData,
+                              assigned_to: formData.assigned_to.filter(i => i !== id)
+                            })}
+                          />
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+                <Select
+                  value=""
+                  onValueChange={(val) => {
+                    if (!formData.assigned_to.includes(val)) {
+                      setFormData({ ...formData, assigned_to: [...(formData.assigned_to || []), val] });
+                    }
+                  }}
+                >
                   <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all">
-                    <SelectValue placeholder="Select user" />
+                    <SelectValue placeholder="Add assigned user(s)" />
                   </SelectTrigger>
                   <SelectContent side="top" className="max-h-60">
                     {projectTeamMembers
                       .filter(u => u.role === 'member' && u.custom_role === 'viewer')
+                      .filter(u => !formData.assigned_to?.includes(u.id || u._id))
                       .map(user => {
                         const displayName = user.full_name || user.email || 'U';
                         return (
@@ -651,6 +786,18 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-2 block">Due Date</label>
+                <Input
+                  type="date"
+                  value={formData.due_date || ""}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                  className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all"
+                />
+              </div>
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
                 Cancel
@@ -685,6 +832,31 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               className="bg-red-600 hover:bg-red-700"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Timesheet Submission Prompt */}
+      <AlertDialog open={showTimesheetPrompt} onOpenChange={setShowTimesheetPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Timer Stopped Automatically</AlertDialogTitle>
+            <AlertDialogDescription>
+              We've stopped your timer since you've marked the blocker as resolved. A draft timesheet has been created.
+              Do you want to submit your timesheet now or submit it later?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowTimesheetPrompt(false)}>Ignore Now</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowTimesheetPrompt(false);
+                const url = pendingTimesheetId ? `/timesheets?editId=${pendingTimesheetId}` : '/timesheets';
+                navigate(url);
+              }}
+            >
+              Submit Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

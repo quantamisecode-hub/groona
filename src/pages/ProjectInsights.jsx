@@ -41,7 +41,18 @@ import AskAIInsights from "../components/insights/AskAIInsights";
 import ProjectDataTable from "../components/insights/ProjectDataTable";
 import TaskDetailDialog from "../components/tasks/TaskDetailDialog";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { notificationService } from "@/components/shared/notificationService";
 
 export default function ProjectInsights() {
   const { user: currentUser, effectiveTenantId } = useUser();
@@ -214,8 +225,9 @@ export default function ProjectInsights() {
 
     // F. Final Impediments (RBAC: Reported by him, Assigned to him, or Manager)
     const finalImpediments = (impedimentsData || []).filter(imp => {
-      // If Admin, show everything for accessible projects
-      if (isAdmin) return finalProjectIds.has(imp.project_id);
+      // If Admin, show everything scoped to the tenant (already fetched with tenant_id filter)
+      // Do NOT limit to finalProjectIds — archived/deleted projects would drop impediments
+      if (isAdmin) return true;
 
       const fields = [
         imp.reported_by,
@@ -1235,7 +1247,11 @@ function VelocityAnalytics({ projects = [], velocityMap = {} }) {
 function BlockerInsights({ projects = [], tasks = [], blockersData = {}, impediments = [] }) {
   const { user: currentUser, effectiveTenantId } = useUser();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [showTimesheetPrompt, setShowTimesheetPrompt] = useState(false);
+  const [pendingTimesheetId, setPendingTimesheetId] = useState(null);
   const unresolvedImpediments = impediments.filter(imp => imp.status !== 'resolved');
+  const resolvedImpediments = impediments.filter(imp => imp.status === 'resolved');
 
   const updateImpedimentMutation = useMutation({
     mutationFn: async ({ id, data, impediment }) => {
@@ -1263,24 +1279,95 @@ function BlockerInsights({ projects = [], tasks = [], blockersData = {}, impedim
           is_clocked_in: true,
           project_id: impediment.project_id,
           sprint_id: impediment.sprint_id || null,
-          task_id: impediment.task_id || null,
+          task_id: (impediment.task_id && impediment.task_id !== 'none') ? impediment.task_id : null,
           work_type: 'impediment',
           description: `Working on Impediment: ${impediment.title}`,
         });
       }
 
-      return await groonabackend.entities.Impediment.update(id, updateData);
+      // Stop timer logic on marking resolved
+      let promptSubmit = false;
+      if (data.status === 'resolved' && impediment) {
+        const entries = await groonabackend.entities.ClockEntry.filter({
+          user_email: currentUser?.email,
+          is_clocked_in: true,
+          work_type: 'impediment'
+        });
+        const thisTimer = entries.find(e => e.description === `Working on Impediment: ${impediment.title}` && e.project_id === impediment.project_id);
+
+        if (thisTimer) {
+          const endTime = new Date();
+          const startTime = new Date(thisTimer.clock_in_time);
+          const diffInMs = endTime.getTime() - startTime.getTime();
+          const rawMinutes = Math.floor(diffInMs / 60000);
+          const totalMinutes = Math.max(0, rawMinutes - (thisTimer.total_paused_seconds ? Math.floor(thisTimer.total_paused_seconds / 60) : 0));
+
+          const timesheet = await groonabackend.entities.Timesheet.create({
+            tenant_id: effectiveTenantId,
+            user_email: currentUser?.email,
+            user_name: currentUser?.full_name,
+            date: format(startTime, 'yyyy-MM-dd'),
+            project_id: thisTimer.project_id,
+            project_name: impediment.project_name || '',
+            sprint_id: thisTimer.sprint_id || null,
+            task_id: (thisTimer.task_id && thisTimer.task_id !== 'none') ? thisTimer.task_id : null,
+            task_title: impediment.title,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            hours: Math.floor(totalMinutes / 60),
+            minutes: totalMinutes % 60,
+            total_minutes: totalMinutes,
+            description: thisTimer.description,
+            work_type: 'impediment',
+            entry_type: 'clock_in_out',
+            status: 'draft',
+            is_billable: true,
+            is_locked: false,
+            snapshot_hourly_rate: currentUser?.hourly_rate || 0,
+            snapshot_total_cost: (totalMinutes / 60) * (currentUser?.hourly_rate || 0),
+          });
+
+          await groonabackend.entities.ClockEntry.update(thisTimer.id || thisTimer._id, {
+            is_clocked_in: false,
+            clock_out_time: endTime.toISOString(),
+            total_minutes: totalMinutes,
+            timesheet_id: timesheet.id || timesheet._id
+          });
+
+          promptSubmit = true;
+          return { ...await groonabackend.entities.Impediment.update(id, updateData), promptSubmit, timesheetId: timesheet.id || timesheet._id };
+        }
+      }
+
+      const returnedImp = await groonabackend.entities.Impediment.update(id, updateData);
+      return { ...returnedImp, promptSubmit };
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['impediments'] });
       // Invalidate dashboard impediments query too to sync counts across tabs implicitly 
       queryClient.invalidateQueries({ queryKey: ['dashboard-insights-impediments'] });
 
+      // Trigger Resolution Notification
+      if (variables.data.status === 'resolved') {
+        notificationService.notifyImpedimentResolved({
+          impediment: { ...variables.impediment, id: variables.id },
+          resolvedBy: currentUser?.email,
+          tenantId: effectiveTenantId
+        }).catch(err => console.error('Notification failed:', err));
+      }
+
       if (variables.data.status === 'in_progress') {
         queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
         toast.success(`Timer started! Marked '${variables.impediment?.title || "Impediment"}' as In Progress.`);
       } else {
         toast.success('Blocker status updated successfully!');
+      }
+
+      if (data && data.promptSubmit) {
+        queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
+        queryClient.invalidateQueries({ queryKey: ['my-timesheets'] });
+        setPendingTimesheetId(data.timesheetId);
+        setShowTimesheetPrompt(true);
       }
     },
     onError: (error) => {
@@ -1293,119 +1380,204 @@ function BlockerInsights({ projects = [], tasks = [], blockersData = {}, impedim
   };
 
   return (
-    <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm">
-      <div className="flex items-center gap-4 mb-10">
-        <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-          <LayoutGrid className="h-6 w-6 text-slate-600" />
-        </div>
-        <div>
-          <h3 className="text-2xl font-black text-slate-900">Active Impediments Details</h3>
-          <p className="text-sm text-slate-500 font-medium">Tracking reported blockers and their resolution status</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {unresolvedImpediments.length === 0 ? (
-          <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
-            <CheckCircle2 className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-            <p className="font-bold">Clear Skies!</p>
-            <p className="text-xs">No active impediments reported or assigned to you.</p>
-          </div>
-        ) : (
-          unresolvedImpediments.map(imp => (
-            <div key={imp.id || imp._id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-rose-200 hover:shadow-xl transition-all duration-300 group/detail">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Badge className={cn(
-                      "uppercase text-[10px] font-black px-2 py-0.5 rounded-lg border-0",
-                      imp.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                        imp.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                          imp.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
-                            'bg-blue-100 text-blue-700'
-                    )}>
-                      {imp.severity}
-                    </Badge>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{imp.project_name}</span>
-                  </div>
-
-                  <h4 className="text-lg font-bold text-slate-900 group-hover/detail:text-rose-600 transition-colors">
-                    {imp.title}
-                  </h4>
-
-                  <p className="text-sm text-slate-600 line-clamp-2">{imp.description}</p>
-
-                  <div className="flex flex-wrap gap-4 pt-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporter:</span>
-                      <span className="text-xs font-bold text-slate-700">{imp.reported_by_name || imp.reported_by}</span>
-                    </div>
-                    {imp.assigned_to_name && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-blue-500">Resolver:</span>
-                        <span className="text-xs font-bold text-slate-700">{imp.assigned_to_name}</span>
-                      </div>
-                    )}
-                    {imp.project_manager_name && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-purple-500">Manager:</span>
-                        <span className="text-xs font-bold text-slate-700">{imp.project_manager_name}</span>
-                      </div>
-                    )}
-                    {imp.task_id && (() => {
-                      const relatedTask = tasks.find(t => String(t.id || t._id) === String(imp.task_id));
-                      if (!relatedTask) return null;
-                      return (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Member Reported:</span>
-                          <span className="text-xs font-bold text-slate-700">{relatedTask.assigned_to_name || (Array.isArray(relatedTask.assigned_to) ? relatedTask.assigned_to.join(', ') : relatedTask.assigned_to) || 'Unassigned'}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end gap-3 min-w-[140px]">
-                  <Badge variant="outline" className={cn(
-                    "capitalize font-bold text-xs px-3 py-1 rounded-xl border-2",
-                    imp.status === 'open' ? 'border-rose-100 bg-rose-50 text-rose-700' :
-                      imp.status === 'in_progress' ? 'border-blue-100 bg-blue-50 text-blue-700' :
-                        'border-emerald-100 bg-emerald-50 text-emerald-700'
-                  )}>
-                    {imp.status.replace('_', ' ')}
-                  </Badge>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                    Created: {format(new Date(imp.created_date || imp.createdAt || new Date()), 'MMM d, h:mm a')}
-                  </span>
-
-                  {imp.status === 'open' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full text-xs font-bold"
-                      onClick={() => handleUpdate(imp, { status: 'in_progress' })}
-                      disabled={updateImpedimentMutation.isPending}
-                    >
-                      Start Working
-                    </Button>
-                  )}
-                  {imp.status === 'in_progress' && (
-                    <Button
-                      size="sm"
-                      className="w-full text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => handleUpdate(imp, { status: 'resolved' })}
-                      disabled={updateImpedimentMutation.isPending}
-                    >
-                      Mark Resolved
-                    </Button>
-                  )}
-                </div>
-              </div>
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+        {/* Active Impediments Section */}
+        <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+              <LayoutGrid className="h-6 w-6 text-slate-600" />
             </div>
-          ))
-        )}
+            <div>
+              <h3 className="text-2xl font-black text-slate-900">Bottlenecks (Pending)</h3>
+              <p className="text-sm text-slate-500 font-medium">Tracking reported blockers and their resolution status</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {unresolvedImpediments.length === 0 ? (
+              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                <CheckCircle2 className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                <p className="font-bold">Clear Skies!</p>
+                <p className="text-xs">No active impediments reported or assigned to you.</p>
+              </div>
+            ) : (
+              unresolvedImpediments.map(imp => {
+                const isOwner = currentUser?.role === 'admin' && currentUser?.custom_role === 'owner';
+                const isAssigned = Array.isArray(imp.assigned_to)
+                  ? imp.assigned_to.includes(currentUser?.id || currentUser?._id)
+                  : imp.assigned_to === (currentUser?.id || currentUser?._id) || imp.assigned_to === currentUser?.email;
+
+                // Only resolvers (explicitly assigned to this impediment) can see the action buttons.
+                const canAction = !isOwner && isAssigned;
+
+                return (
+                  <div key={imp.id || imp._id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-rose-200 hover:shadow-xl transition-all duration-300 group/detail">
+                    <div className="flex flex-col gap-6">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Badge className={cn(
+                            "uppercase text-[10px] font-black px-2 py-0.5 rounded-lg border-0",
+                            imp.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                              imp.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                                imp.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
+                                  'bg-blue-100 text-blue-700'
+                          )}>
+                            {imp.severity}
+                          </Badge>
+                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{imp.project_name}</span>
+                        </div>
+
+                        <h4 className="text-lg font-bold text-slate-900 group-hover/detail:text-rose-600 transition-colors">
+                          {imp.title}
+                        </h4>
+
+                        <p className="text-sm text-slate-600 line-clamp-2">{imp.description}</p>
+
+                        <div className="flex flex-wrap gap-4 pt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporter:</span>
+                            <span className="text-xs font-bold text-slate-700">{imp.reported_by_name || imp.reported_by}</span>
+                          </div>
+                          {imp.assigned_to_name && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-blue-500">Resolver:</span>
+                              <span className="text-xs font-bold text-slate-700">{Array.isArray(imp.assigned_to_name) ? imp.assigned_to_name.join(', ') : imp.assigned_to_name}</span>
+                            </div>
+                          )}
+                          {imp.project_manager_name && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-purple-500">Manager:</span>
+                              <span className="text-xs font-bold text-slate-700">{imp.project_manager_name}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={cn(
+                            "capitalize font-bold text-[10px] px-2 py-0.5 rounded-lg border",
+                            imp.status === 'open' ? 'border-rose-100 bg-rose-50 text-rose-700' :
+                              imp.status === 'in_progress' ? 'border-blue-100 bg-blue-50 text-blue-700' :
+                                'border-emerald-100 bg-emerald-50 text-emerald-700'
+                          )}>
+                            {imp.status.replace('_', ' ')}
+                          </Badge>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">
+                            {format(new Date(imp.created_date || imp.createdAt || new Date()), 'MMM d, h:mm a')}
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {imp.status === 'open' && canAction && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-[11px] font-bold px-3 rounded-xl"
+                              onClick={() => handleUpdate(imp, { status: 'in_progress' })}
+                              disabled={updateImpedimentMutation.isPending}
+                            >
+                              Start Working
+                            </Button>
+                          )}
+                          {imp.status === 'in_progress' && canAction && (
+                            <Button
+                              size="sm"
+                              className="h-8 text-[11px] font-bold px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                              onClick={() => handleUpdate(imp, { status: 'resolved' })}
+                              disabled={updateImpedimentMutation.isPending}
+                            >
+                              Mark Resolved
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </Card>
+
+        {/* Completed Impediments Section */}
+        <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm">
+          <div className="flex items-center gap-4 mb-10">
+            <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900">Completed Impediments</h3>
+              <p className="text-sm text-slate-500 font-medium">History of resolved blockers and bottlenecks</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {resolvedImpediments.length === 0 ? (
+              <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+                <Clock className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                <p className="font-bold">History is Clean</p>
+                <p className="text-xs">No impediments have been resolved yet.</p>
+              </div>
+            ) : (
+              resolvedImpediments.map(imp => (
+                <div key={imp.id || imp._id} className="p-6 rounded-3xl border border-emerald-50 bg-emerald-50/10 hover:bg-white hover:border-emerald-200 hover:shadow-xl transition-all duration-300 group/detail">
+                  <div className="flex flex-col gap-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{imp.project_name}</span>
+                        <Badge className="bg-emerald-100 text-emerald-700 border-0 uppercase text-[9px] font-black px-2 py-0.5 rounded-lg">
+                          Resolved
+                        </Badge>
+                      </div>
+                      <h4 className="text-base font-bold text-slate-900 group-hover/detail:text-emerald-600 transition-colors">
+                        {imp.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 line-clamp-1 italic">
+                        Resolved on {imp.resolved_date ? format(new Date(imp.resolved_date), 'MMM d, yyyy') : 'Recently'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-emerald-50">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Reporter:</span>
+                        <span className="text-[11px] font-bold text-slate-600">{imp.reported_by_name || imp.reported_by}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      {/* Timesheet Submission Prompt */}
+      <AlertDialog open={showTimesheetPrompt} onOpenChange={setShowTimesheetPrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Timer Stopped Automatically</AlertDialogTitle>
+            <AlertDialogDescription>
+              We've stopped your timer since you've marked the blocker as resolved. A draft timesheet has been created.
+              Do you want to submit your timesheet now or submit it later?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowTimesheetPrompt(false)}>Ignore Now</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowTimesheetPrompt(false);
+                const url = pendingTimesheetId ? `/timesheets?editId=${pendingTimesheetId}` : '/timesheets';
+                navigate(url);
+              }}
+            >
+              Submit Now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 

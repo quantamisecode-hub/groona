@@ -12,13 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Bell, 
-  X, 
-  CreditCard, 
-  Sparkles, 
-  Settings, 
-  AlertTriangle, 
+import {
+  Bell,
+  X,
+  CreditCard,
+  Sparkles,
+  Settings,
+  AlertTriangle,
   Megaphone,
   ExternalLink,
   CheckCheck
@@ -38,24 +38,24 @@ export default function SystemNotificationCenter({ currentUser }) {
         { is_active: true },
         '-created_date'
       );
-      
+
       // Filter notifications based on audience and tenant
       return allNotifications.filter(n => {
         // Check if expired
         if (n.expires_at && new Date(n.expires_at) < new Date()) return false;
-        
+
         // Check if user dismissed it
         if (n.dismissed_by?.includes(currentUser?.email)) return false;
-        
+
         // Check audience
         if (n.target_audience === 'all') return true;
         if (n.target_audience === 'admins' && (currentUser?.role === 'admin' || currentUser?.is_super_admin)) return true;
         if (n.target_audience === 'users' && currentUser?.role === 'user') return true;
         if (n.target_audience === 'specific_tenant' && n.tenant_id === currentUser?.tenant_id) return true;
-        
+
         // Global notifications (no tenant_id)
         if (!n.tenant_id) return true;
-        
+
         return false;
       });
     },
@@ -109,7 +109,7 @@ export default function SystemNotificationCenter({ currentUser }) {
   const getCategoryColor = (category, priority) => {
     if (priority === 'critical') return 'bg-red-50 border-red-200';
     if (priority === 'high') return 'bg-amber-50 border-amber-200';
-    
+
     switch (category) {
       case 'subscription':
         return 'bg-purple-50 border-purple-200';
@@ -137,11 +137,35 @@ export default function SystemNotificationCenter({ currentUser }) {
     }
   };
 
-  const filteredNotifications = activeTab === 'all' 
-    ? notifications 
+  const filteredNotifications = activeTab === 'all'
+    ? notifications
     : notifications.filter(n => n.category === activeTab);
 
   const unreadCount = notifications.length;
+
+  // --- Notification Sound Logic ---
+  const previousIdsRef = React.useRef(new Set());
+  const isFirstLoad = React.useRef(true);
+
+  React.useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
+    const currentIds = new Set(notifications.map(n => n.id || n._id));
+
+    if (!isFirstLoad.current && currentIds.size > 0) {
+      const hasNew = Array.from(currentIds).some(id => !previousIdsRef.current.has(id));
+      if (hasNew) {
+        try {
+          const audio = new Audio('/sound.mp3');
+          audio.volume = 0.5;
+          audio.play().catch(() => { }); // Browser restriction handling
+        } catch (e) { }
+      }
+    }
+
+    previousIdsRef.current = currentIds;
+    isFirstLoad.current = false;
+  }, [notifications]);
 
   const categories = [
     { value: 'all', label: 'All' },
@@ -158,7 +182,7 @@ export default function SystemNotificationCenter({ currentUser }) {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
+            <Badge
               className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-red-600 text-white text-xs"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -192,8 +216,8 @@ export default function SystemNotificationCenter({ currentUser }) {
           <div className="px-4 pt-3 border-b">
             <TabsList className="w-full grid grid-cols-6 h-8">
               {categories.map(cat => (
-                <TabsTrigger 
-                  key={cat.value} 
+                <TabsTrigger
+                  key={cat.value}
                   value={cat.value}
                   className="text-xs px-2"
                 >
@@ -249,12 +273,12 @@ export default function SystemNotificationCenter({ currentUser }) {
                           </p>
                           <div className="flex items-center justify-between mt-3">
                             <p className="text-xs text-slate-500">
-                              {formatDistanceToNow(new Date(notification.created_date), { 
-                                addSuffix: true 
+                              {formatDistanceToNow(new Date(notification.created_date), {
+                                addSuffix: true
                               })}
                             </p>
                             {notification.action_url && (
-                              <Link 
+                              <Link
                                 to={notification.action_url}
                                 onClick={() => setOpen(false)}
                               >

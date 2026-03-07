@@ -62,6 +62,32 @@ export default function NotificationBell() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // --- Notification Sound Logic ---
+  const unreadIdsRef = React.useRef(new Set());
+  const isFirstLoad = React.useRef(true);
+
+  React.useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
+    const currentUnreadIds = new Set(
+      notifications.filter(n => !n.read).map(n => n.id || n._id)
+    );
+
+    if (!isFirstLoad.current && currentUnreadIds.size > 0) {
+      const hasNewUnread = Array.from(currentUnreadIds).some(id => !unreadIdsRef.current.has(id));
+      if (hasNewUnread) {
+        try {
+          const audio = new Audio('/sound.mp3');
+          audio.volume = 0.5;
+          audio.play().catch(() => { });
+        } catch (e) { }
+      }
+    }
+
+    unreadIdsRef.current = currentUnreadIds;
+    isFirstLoad.current = false;
+  }, [notifications]);
+
   const handleNotificationClick = (notification) => {
     markAsReadMutation.mutate(notification.id);
 

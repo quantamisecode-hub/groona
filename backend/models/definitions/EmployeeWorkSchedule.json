@@ -1,0 +1,62 @@
+{
+    "name": "EmployeeWorkSchedule",
+    "type": "object",
+    "properties": {
+        "tenant_id": {
+            "type": "string",
+            "description": "ID of the company/tenant this schedule belongs to"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "MongoDB _id of the employee this schedule applies to"
+        },
+        "user_email": {
+            "type": "string",
+            "description": "Email of the employee (for quick lookup)"
+        },
+        "working_days": {
+            "type": "array",
+            "items": {
+                "type": "number"
+            },
+            "description": "Array of day-of-week numbers (0=Sun, 1=Mon, ..., 6=Sat). E.g., [1,2,3,4,5,6] = Mon-Sat"
+        },
+        "work_hours_per_day": {
+            "type": "number",
+            "default": 8,
+            "description": "Standard working hours per day for this employee"
+        },
+        "shift_start": {
+            "type": "string",
+            "description": "Optional shift start time in HH:mm format (e.g., '09:00')"
+        },
+        "shift_end": {
+            "type": "string",
+            "description": "Optional shift end time in HH:mm format (e.g., '18:00')"
+        },
+        "effective_from": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date from which this schedule is effective"
+        },
+        "notes": {
+            "type": "string",
+            "description": "Optional admin notes about this schedule"
+        },
+        "updated_by": {
+            "type": "string",
+            "description": "Email of the admin who last updated this schedule"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of last update"
+        }
+    },
+    "required": [
+        "tenant_id",
+        "user_id",
+        "user_email",
+        "working_days"
+    ]
+}

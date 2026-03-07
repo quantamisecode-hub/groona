@@ -10,10 +10,31 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Calendar, Users, Clock, ChevronLeft, ChevronRight, RefreshCw, X, Plus, Calendar as CalendarIcon } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Calendar,
+  Users,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  X,
+  Plus,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  Briefcase,
+  Settings,
+  UserCheck
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, parseISO, isSameDay, startOfWeek, endOfWeek, addMonths, subMonths, isSameMonth, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -26,6 +47,7 @@ export default function TeamCalendar({ currentUser, tenantId }) {
   const [selectedMember, setSelectedMember] = useState(null);
   const [filteredMemberEmail, setFilteredMemberEmail] = useState(null);
   const [showAddHoliday, setShowAddHoliday] = useState(false);
+  const [showConfigWorkingDays, setShowConfigWorkingDays] = useState(false);
   const [holidayForm, setHolidayForm] = useState({
     name: '',
     date: null,
@@ -56,6 +78,15 @@ export default function TeamCalendar({ currentUser, tenantId }) {
     },
     enabled: !!tenantId,
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+  });
+
+  // Fetch all employee work schedules from the dedicated DB table
+  const { data: workSchedules = [], refetch: refetchWorkSchedules } = useQuery({
+    queryKey: ['employee-work-schedules', tenantId],
+    queryFn: () => groonabackend.entities.EmployeeWorkSchedule.filter({ tenant_id: tenantId }),
+    enabled: !!tenantId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch all approved leaves for this month - with real-time updates
@@ -127,38 +158,104 @@ export default function TeamCalendar({ currentUser, tenantId }) {
     });
   }, [allLeaves, monthStart, monthEnd, filteredMemberEmail]);
 
+  // Helper function for Indian Government Holidays
+  const getIndianHolidays = (year) => {
+    const holidays = {
+      2025: [
+        { month: 0, day: 26, name: 'Republic Day' },
+        { month: 1, day: 26, name: 'Maha Shivaratri' },
+        { month: 2, day: 14, name: 'Holi' },
+        { month: 2, day: 31, name: 'Eid-ul-Fitr' },
+        { month: 3, day: 6, name: 'Ram Navami' },
+        { month: 3, day: 10, name: 'Mahavir Jayanti' },
+        { month: 3, day: 18, name: 'Good Friday' },
+        { month: 4, day: 12, name: 'Buddha Purnima' },
+        { month: 5, day: 7, name: 'Eid-ul-Zuha' },
+        { month: 6, day: 6, name: 'Muharram' },
+        { month: 7, day: 15, name: 'Independence Day' },
+        { month: 7, day: 16, name: 'Janmashtami' },
+        { month: 8, day: 5, name: 'Milad-un-Nabi' },
+        { month: 9, day: 2, name: 'Gandhi Jayanti' },
+        { month: 9, day: 2, name: 'Dussehra' },
+        { month: 9, day: 20, name: 'Diwali' },
+        { month: 10, day: 5, name: 'Guru Nanak Jayanti' },
+        { month: 11, day: 25, name: 'Christmas' }
+      ],
+      2026: [
+        { month: 0, day: 26, name: 'Republic Day' },
+        { month: 2, day: 4, name: 'Holi' },
+        { month: 2, day: 21, name: 'Eid-ul-Fitr' },
+        { month: 2, day: 26, name: 'Ram Navami' },
+        { month: 2, day: 31, name: 'Mahavir Jayanti' },
+        { month: 3, day: 3, name: 'Good Friday' },
+        { month: 4, day: 1, name: 'Buddha Purnima' },
+        { month: 4, day: 27, name: 'Eid-ul-Zuha' },
+        { month: 5, day: 26, name: 'Muharram' },
+        { month: 7, day: 15, name: 'Independence Day' },
+        { month: 7, day: 26, name: 'Eid-e-Milad' },
+        { month: 8, day: 4, name: 'Janmashtami' },
+        { month: 9, day: 2, name: 'Gandhi Jayanti' },
+        { month: 9, day: 20, name: 'Dussehra' },
+        { month: 10, day: 8, name: 'Diwali' },
+        { month: 10, day: 24, name: 'Guru Nanak Jayanti' },
+        { month: 11, day: 25, name: 'Christmas' }
+      ],
+      2027: [
+        { month: 0, day: 26, name: 'Republic Day' },
+        { month: 2, day: 10, name: 'Eid-ul-Fitr' },
+        { month: 2, day: 22, name: 'Holi' },
+        { month: 2, day: 25, name: 'Good Friday' },
+        { month: 3, day: 15, name: 'Ram Navami' },
+        { month: 3, day: 20, name: 'Mahavir Jayanti' },
+        { month: 4, day: 17, name: 'Eid-ul-Zuha' },
+        { month: 4, day: 20, name: 'Buddha Purnima' },
+        { month: 6, day: 16, name: 'Muharram' },
+        { month: 7, day: 15, name: 'Independence Day' },
+        { month: 7, day: 16, name: 'Milad-un-Nabi' },
+        { month: 7, day: 25, name: 'Janmashtami' },
+        { month: 9, day: 2, name: 'Gandhi Jayanti' },
+        { month: 9, day: 10, name: 'Dussehra' },
+        { month: 9, day: 29, name: 'Diwali' },
+        { month: 10, day: 14, name: 'Guru Nanak Jayanti' },
+        { month: 11, day: 25, name: 'Christmas' }
+      ]
+    };
+    return holidays[year] || [];
+  };
+
   // Generate real-time holidays (Sundays, national holidays)
   const realTimeHolidays = useMemo(() => {
     const holidayDates = [];
     const currentYear = currentMonth.getFullYear();
+    const govtHolidays = getIndianHolidays(currentYear);
+    const govtHolidayMap = new Set(govtHolidays.map(h => `${h.month}-${h.day}`));
 
-    // Add all Sundays
+    // Add all Sundays (skip if it's already a govt holiday to avoid clutter, or add both)
     calendarDays.forEach(day => {
       if (getDay(day) === 0) { // Sunday
+        const month = day.getMonth();
+        const dateDigit = day.getDate();
+        const isAlreadyGovt = govtHolidayMap.has(`${month}-${dateDigit}`);
+
         holidayDates.push({
           date: format(day, 'yyyy-MM-dd'),
-          name: 'Sunday',
+          name: isAlreadyGovt ? 'Sunday' : 'Sunday', // Can style differently
           type: 'weekly',
-          is_recurring: true
+          is_recurring: true,
+          is_sunday: true
         });
       }
     });
 
-    // Add national holidays (India - can be customized)
-    const nationalHolidays = [
-      { month: 0, day: 26, name: 'Republic Day' }, // January 26
-      { month: 7, day: 15, name: 'Independence Day' }, // August 15
-      { month: 9, day: 2, name: 'Gandhi Jayanti' }, // October 2
-    ];
-
-    nationalHolidays.forEach(holiday => {
+    govtHolidays.forEach(holiday => {
       const holidayDate = new Date(currentYear, holiday.month, holiday.day);
       if (isWithinInterval(holidayDate, { start: calendarStart, end: calendarEnd })) {
         holidayDates.push({
           date: format(holidayDate, 'yyyy-MM-dd'),
           name: holiday.name,
-          type: 'national',
-          is_recurring: true
+          type: 'govt',
+          is_recurring: true,
+          is_govt: true
         });
       }
     });
@@ -172,7 +269,8 @@ export default function TeamCalendar({ currentUser, tenantId }) {
       date: format(parseISO(h.date), 'yyyy-MM-dd'),
       name: h.name,
       type: h.type || 'custom',
-      is_recurring: h.is_recurring || false
+      is_recurring: h.is_recurring || false,
+      is_govt: h.type === 'national' || h.type === 'govt'
     }));
     return [...realTimeHolidays, ...customHolidays];
   }, [holidays, realTimeHolidays]);
@@ -433,15 +531,35 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                 </SelectContent>
               </Select>
               {isAdmin && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setShowAddHoliday(true)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Holiday
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 font-semibold shadow-sm transition-all active:scale-95"
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add
+                      <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-70" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={() => setShowAddHoliday(true)}
+                      className="cursor-pointer gap-2 py-2"
+                    >
+                      <CalendarIcon className="h-4 w-4 text-slate-500" />
+                      <span>Add Holiday</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setShowConfigWorkingDays(true)}
+                      className="cursor-pointer gap-2 py-2"
+                    >
+                      <Briefcase className="h-4 w-4 text-slate-500" />
+                      <span>Config Working Days</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               <Button
                 variant="outline"
@@ -470,6 +588,29 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-4 mt-4 px-1 text-[11px] font-medium text-slate-500 overflow-x-auto pb-1 hide-scrollbar">
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-2 w-2 rounded-full bg-orange-400"></span>
+              Govt Holiday
+            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-2 w-2 rounded-full bg-purple-400"></span>
+              Regional/Custom
+            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-2 w-2 rounded-full bg-red-400"></span>
+              Member Leave
+            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-2 w-2 rounded-full bg-amber-400"></span>
+              Half Day
+            </span>
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-2 w-2 rounded-full bg-slate-200"></span>
+              Weekend
+            </span>
           </div>
         </CardHeader>
         <CardContent>
@@ -529,13 +670,24 @@ export default function TeamCalendar({ currentUser, tenantId }) {
                       </div>
 
                       {/* Holidays */}
-                      {allHolidays.find(h => h.date === dayKey) && (
-                        <div className="mb-1.5">
-                          <Badge variant="outline" className="bg-purple-50 border-purple-300 text-purple-700 text-[9px] px-1.5 py-0.5">
-                            {allHolidays.find(h => h.date === dayKey)?.name}
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        {allHolidays.filter(h => h.date === dayKey).map((h, i) => (
+                          <Badge
+                            key={i}
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] px-1.5 py-0.5 whitespace-nowrap",
+                              h.is_govt
+                                ? "bg-orange-50 border-orange-300 text-orange-700 font-black shadow-sm"
+                                : h.type === 'weekly'
+                                  ? "bg-slate-50 border-slate-200 text-slate-400 font-medium"
+                                  : "bg-purple-50 border-purple-300 text-purple-700"
+                            )}
+                          >
+                            {h.name}
                           </Badge>
-                        </div>
-                      )}
+                        ))}
+                      </div>
 
                       {/* Leave Indicators - Show profile avatar and name with scrollbar (hidden) */}
                       <div className="space-y-1.5 max-h-[70px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -845,7 +997,173 @@ export default function TeamCalendar({ currentUser, tenantId }) {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Config Working Days Dialog */}
+      <Dialog open={showConfigWorkingDays} onOpenChange={setShowConfigWorkingDays}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <div className="p-6 pb-0">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                  <UserCheck className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl">Configure Employee Working Days</DialogTitle>
+                  <DialogDescription>
+                    Define individual work schedules that reflect in timesheet date pickers.
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
+            <div className="border rounded-xl overflow-hidden shadow-sm bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b">
+                  <tr>
+                    <th className="px-6 py-4 text-left font-bold text-slate-700">Employee</th>
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                      <th key={day} className="px-2 py-4 text-center font-bold text-slate-700">
+                        {day}
+                      </th>
+                    ))}
+                    <th className="px-6 py-4 text-right font-bold text-slate-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {teamMembers.map((member) => {
+                    const schedule = workSchedules.find(s => s.user_email === member.email || s.user_id === member.id);
+                    return (
+                      <WorkingDayRow
+                        key={member.id}
+                        member={member}
+                        schedule={schedule}
+                        onSave={async (days) => {
+                          try {
+                            if (schedule?.id) {
+                              // Update existing schedule
+                              await groonabackend.entities.EmployeeWorkSchedule.update(schedule.id, {
+                                working_days: days,
+                                updated_by: currentUser?.email,
+                                updated_at: new Date().toISOString()
+                              });
+                            } else {
+                              // Create new schedule record
+                              await groonabackend.entities.EmployeeWorkSchedule.create({
+                                tenant_id: tenantId,
+                                user_id: member.id,
+                                user_email: member.email,
+                                working_days: days,
+                                work_hours_per_day: 8,
+                                effective_from: new Date().toISOString(),
+                                updated_by: currentUser?.email,
+                                updated_at: new Date().toISOString()
+                              });
+                            }
+                            queryClient.invalidateQueries({ queryKey: ['employee-work-schedules'] });
+                            refetchWorkSchedules();
+                            toast.success(`Updated schedule for ${member.full_name || member.email}`);
+                          } catch (e) {
+                            toast.error('Failed to update schedule: ' + e.message);
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                  {teamMembers.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="py-8 text-center text-slate-500 italic">
+                        No team members found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div className="p-6 pt-0 border-t bg-slate-50/50">
+            <DialogFooter className="mt-4">
+              <Button variant="outline" onClick={() => setShowConfigWorkingDays(false)} className="px-8">
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+// Helper component for working days configuration row
+function WorkingDayRow({ member, schedule, onSave }) {
+  // Pull working_days from the dedicated schedule record; default to Mon-Sat
+  const savedDays = schedule?.working_days || [1, 2, 3, 4, 5, 6];
+  const [selectedDays, setSelectedDays] = useState(savedDays);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Sync state when the parent re-fetches (e.g. after another save)
+  React.useEffect(() => {
+    setSelectedDays(schedule?.working_days || [1, 2, 3, 4, 5, 6]);
+  }, [schedule?.working_days?.join(',')]);
+
+  const toggleDay = (dayIndex) => {
+    setSelectedDays(prev =>
+      prev.includes(dayIndex)
+        ? prev.filter(d => d !== dayIndex)
+        : [...prev, dayIndex].sort()
+    );
+  };
+
+  const hasChanges = JSON.stringify([...selectedDays].sort()) !== JSON.stringify([...savedDays].sort());
+
+  return (
+    <tr className="hover:bg-slate-50/50 transition-colors group">
+      <td className="px-6 py-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-8 w-8 border border-slate-200">
+            <AvatarImage src={member.avatar_url} />
+            <AvatarFallback className="bg-blue-50 text-blue-700 text-[10px] font-bold">
+              {(member.full_name || member.email).substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="font-semibold text-slate-900 leading-none mb-1">
+              {member.full_name || 'Unnamed Employee'}
+            </span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+              {member.custom_role || member.role}
+            </span>
+          </div>
+        </div>
+      </td>
+      {[1, 2, 3, 4, 5, 6, 0].map((dayIdx) => (
+        <td key={dayIdx} className="px-2 py-4 text-center">
+          <Checkbox
+            checked={selectedDays.includes(dayIdx)}
+            onCheckedChange={() => toggleDay(dayIdx)}
+            className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+          />
+        </td>
+      ))}
+      <td className="px-6 py-4 text-right">
+        <Button
+          size="sm"
+          variant={hasChanges ? "default" : "ghost"}
+          className={cn(
+            "h-8 px-3 transition-all",
+            hasChanges ? "bg-green-600 hover:bg-green-700 text-white" : "text-slate-400"
+          )}
+          disabled={!hasChanges || isSaving}
+          onClick={async () => {
+            setIsSaving(true);
+            await onSave(selectedDays);
+            setIsSaving(false);
+          }}
+        >
+          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Save'}
+        </Button>
+      </td>
+    </tr>
   );
 }
 

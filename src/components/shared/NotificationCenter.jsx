@@ -174,6 +174,41 @@ export default function NotificationCenter({ currentUser }) {
     return notifications.filter(n => !n.read && (!n.status || n.status !== 'RESOLVED')).length;
   }, [notifications]);
 
+  // --- Notification Sound Logic ---
+  const unreadIdsRef = React.useRef(new Set());
+  const isFirstLoad = React.useRef(true);
+
+  React.useEffect(() => {
+    if (!notifications || notifications.length === 0) return;
+
+    const currentUnreadIds = new Set(
+      notifications
+        .filter(n => !n.read && (!n.status || n.status !== 'RESOLVED'))
+        .map(n => n.id || n._id)
+    );
+
+    // If it's not the first load and we have NEW unread IDs that weren't in our previous set
+    if (!isFirstLoad.current && currentUnreadIds.size > 0) {
+      const hasNewUnread = Array.from(currentUnreadIds).some(id => !unreadIdsRef.current.has(id));
+
+      if (hasNewUnread) {
+        try {
+          const audio = new Audio('/sound.mp3');
+          audio.volume = 0.6; // Moderate volume
+          audio.play().catch(err => {
+            // Browsers often block auto-play until user interaction
+            console.log("Audio play blocked by browser. Will play on next notification after user interaction.", err);
+          });
+        } catch (e) {
+          console.error("Error playing notification sound:", e);
+        }
+      }
+    }
+
+    unreadIdsRef.current = currentUnreadIds;
+    isFirstLoad.current = false;
+  }, [notifications]);
+
   const handleNotificationClick = async (notification) => {
     if (notification.id.toString().startsWith('m') || notification.id.toString().startsWith('a')) return;
     try {

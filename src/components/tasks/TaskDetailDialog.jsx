@@ -717,8 +717,9 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
     title: "",
     description: "",
     severity: "medium",
-    assigned_to: "",
-    project_manager_id: ""
+    assigned_to: [],
+    project_manager_id: "",
+    due_date: ""
   });
   const [selectedImpedimentId, setSelectedImpedimentId] = useState("new");
   const [isReporting, setIsReporting] = useState(false);
@@ -760,8 +761,14 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
           title: impedimentData.title.trim(),
           description: impedimentData.description || "",
           severity: impedimentData.severity,
-          assigned_to: impedimentData.assigned_to,
-          assigned_to_name: assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined,
+          assigned_to: Array.isArray(impedimentData.assigned_to) ? impedimentData.assigned_to : [impedimentData.assigned_to],
+          assigned_to_name: Array.isArray(impedimentData.assigned_to)
+            ? impedimentData.assigned_to.map(id => {
+              const u = projectTeamMembers.find(member => (member.id || member._id) === id);
+              return u ? (u.full_name || u.email) : id;
+            }).join(', ')
+            : (assignedUser ? (assignedUser.full_name || assignedUser.email) : undefined),
+          due_date: impedimentData.due_date || undefined,
           project_manager_id: impedimentData.project_manager_id,
           project_manager_name: projectManager ? (projectManager.full_name || projectManager.email) : undefined,
           status: "open",
@@ -778,8 +785,9 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
         title: "",
         description: "",
         severity: "medium",
-        assigned_to: "",
-        project_manager_id: ""
+        assigned_to: [],
+        project_manager_id: "",
+        due_date: ""
       });
       setSelectedImpedimentId("new");
       setShowImpedimentDialog(false);
@@ -1713,39 +1721,72 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
-                        <UserPlus className="h-3.5 w-3.5 text-indigo-500" />
-                        Assign To
-                      </label>
-                      <Select value={impedimentData.assigned_to} onValueChange={(val) => setImpedimentData({ ...impedimentData, assigned_to: val })}>
-                        <SelectTrigger className="bg-white border-slate-200 h-10 rounded-lg text-sm shadow-sm ring-0">
-                          <SelectValue placeholder="Select user" />
-                        </SelectTrigger>
-                        <SelectContent side="top" className="max-h-60">
-                          {projectTeamMembers
-                            .filter(u => u.role === 'member' && u.custom_role === 'viewer')
-                            .map(user => {
-                              const displayName = user.full_name || user.email || 'U';
-                              return (
-                                <SelectItem key={user.id || user._id} value={user.id || user._id}>
-                                  <div className="flex items-center gap-2">
-                                    <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
-                                      <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
-                                      <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
-                                        {displayName.charAt(0)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span className="truncate">{displayName}</span>
-                                  </div>
-                                </SelectItem>
-                              );
-                            })}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                      <UserPlus className="h-3.5 w-3.5 text-indigo-500" />
+                      Assign To
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="bg-white border-slate-200 h-10 w-full rounded-lg text-sm shadow-sm justify-between font-normal hover:bg-slate-50"
+                        >
+                          <span className="truncate">
+                            {impedimentData.assigned_to.length === 0
+                              ? "Select users"
+                              : `${impedimentData.assigned_to.length} user${impedimentData.assigned_to.length > 1 ? 's' : ''} selected`}
+                          </span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search team..." />
+                          <CommandList>
+                            <CommandEmpty>No members found.</CommandEmpty>
+                            <CommandGroup>
+                              {projectTeamMembers
+                                .filter(u => u.role === 'member' && (u.custom_role === 'resolver' || u.custom_role === 'viewer' || u.custom_role === 'developer'))
+                                .map(user => {
+                                  const userId = user.id || user._id;
+                                  const isSelected = impedimentData.assigned_to.includes(userId);
+                                  const displayName = user.full_name || user.email || 'U';
+                                  return (
+                                    <CommandItem
+                                      key={userId}
+                                      onSelect={() => {
+                                        const newAssigned = isSelected
+                                          ? impedimentData.assigned_to.filter(id => id !== userId)
+                                          : [...impedimentData.assigned_to, userId];
+                                        setImpedimentData({ ...impedimentData, assigned_to: newAssigned });
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <div className={cn(
+                                          "h-4 w-4 border rounded flex items-center justify-center transition-colors",
+                                          isSelected ? "bg-indigo-600 border-indigo-600" : "border-slate-300"
+                                        )}>
+                                          {isSelected && <Check className="h-3 w-3 text-white" />}
+                                        </div>
+                                        <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                          <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                          <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                            {displayName.charAt(0)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="truncate">{displayName}</span>
+                                      </div>
+                                    </CommandItem>
+                                  );
+                                })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
+                  <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
                         <Zap className="h-3.5 w-3.5 text-emerald-500" />
@@ -1776,6 +1817,35 @@ export default function TaskDetailDialog({ open, onClose, taskId, initialTask, h
                             })}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[13px] font-semibold text-slate-700 flex items-center gap-2">
+                        <CalendarIcon className="h-3.5 w-3.5 text-blue-500" />
+                        Due Date
+                      </label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full h-10 justify-start text-left font-normal bg-white border-slate-200 rounded-lg shadow-sm hover:bg-slate-50",
+                              !impedimentData.due_date && "text-slate-500"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                            {impedimentData.due_date ? format(new Date(impedimentData.due_date), "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={impedimentData.due_date ? new Date(impedimentData.due_date) : undefined}
+                            onSelect={(date) => setImpedimentData({ ...impedimentData, due_date: date ? date.toISOString() : "" })}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 </div>

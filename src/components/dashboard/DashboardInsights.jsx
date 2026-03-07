@@ -16,20 +16,36 @@ export default function DashboardInsights({ currentUser, projects, tasks, storie
   const [detailedAnalysis, setDetailedAnalysis] = useState(null);
 
   const { data: impediments = [] } = useQuery({
-    queryKey: ['dashboard-insights-impediments', currentUser?.id],
+    queryKey: ['dashboard-insights-impediments', currentUser?.id, currentUser?.tenant_id],
     queryFn: async () => {
-      // Step 1: Fetch all impediments
-      const allImpsResponses = await groonabackend.entities.Impediment.list();
+      // Fetch all impediments scoped to this tenant (mirrors ProjectInsights fetch)
+      const tenantId = currentUser?.tenant_id;
+      let allImps = [];
+      if (tenantId) {
+        allImps = await groonabackend.entities.Impediment.filter({ tenant_id: tenantId });
+      } else {
+        allImps = await groonabackend.entities.Impediment.list();
+      }
 
-      // Step 2: Ensure we only count unresolved ones, matching ProjectInsights
-      const outstandingImps = allImpsResponses.filter(imp => imp.status !== 'resolved');
+      // Only count unresolved ones
+      const outstandingImps = allImps.filter(imp => imp.status !== 'resolved');
 
       if (!currentUser?.id) return outstandingImps;
 
       const isAdmin = currentUser?.is_super_admin || currentUser?.role === 'admin';
-      if (isAdmin) return outstandingImps;
 
-      // Step 3: Use the exact same broadened role-check as ProjectInsights for accurate numbers
+      if (isAdmin) {
+        // Mirror ProjectInsights: admin sees all unresolved impediments in their tenant
+        // Use the same project boundary: impediments linked to known projects
+        // Projects are passed in via props — use their IDs to scope the count
+        const accessibleProjectIds = new Set((projects || []).map(p => p.id || p._id));
+        // Include impediments that belong to accessible projects OR have no project (edge case)
+        return outstandingImps.filter(imp =>
+          !imp.project_id || accessibleProjectIds.has(imp.project_id)
+        );
+      }
+
+      // Non-admin: filter by involvement
       const userEmail = currentUser.email?.toLowerCase();
       const userId = (currentUser.id || currentUser._id || '').toString();
       const userName = (currentUser.full_name || currentUser.name || '').toLowerCase();
@@ -52,6 +68,7 @@ export default function DashboardInsights({ currentUser, projects, tasks, storie
         });
       });
     },
+    enabled: !!currentUser?.id,
   });
 
   useEffect(() => {
