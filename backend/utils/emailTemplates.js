@@ -131,6 +131,10 @@ function getEmailTemplate(templateType, data = {}) {
       return getBlockedByAssignedTemplate(data);
     case 'comment_mention':
       return getCommentMentionTemplate(data);
+    case 'impediment_reported':
+      return getImpedimentReportedTemplate(data);
+    case 'impediment_resolved':
+      return getImpedimentResolvedTemplate(data);
     default:
       throw new Error(`Unknown template type: ${templateType}`);
   }
@@ -1522,6 +1526,133 @@ function getAuditLockToggleTemplate(data) {
       content
     ),
     defaultSubject: subject
+  };
+}
+
+/**
+ * Impediment Reported Template
+ */
+function getImpedimentReportedTemplate(data) {
+  const {
+    recipientName,
+    recipientEmail,
+    reporterName,
+    taskTitle,
+    projectName,
+    title,
+    severity,
+    description,
+    viewUrl
+  } = data;
+
+  const severityColors = {
+    low: '#10b981',
+    medium: '#3b82f6',
+    high: '#f59e0b',
+    critical: '#ef4444'
+  };
+
+  const severityColor = severityColors[severity?.toLowerCase()] || '#3b82f6';
+
+  const content = `
+    <p style="${styles.text}"><strong>${reporterName}</strong> has reported a new impediment for the task: <strong>${taskTitle}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName || 'N/A'}</td>
+        </tr>
+         <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Issue:</td>
+          <td style="${styles.valueCell}"><strong>${title}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Severity:</td>
+          <td style="${styles.valueCell}">
+            <span style="${styles.statusBadge}; background-color: ${severityColor}; color: #ffffff; text-transform: capitalize;">
+              ${severity}
+            </span>
+          </td>
+        </tr>
+        ${description ? `
+          <tr style="${styles.infoTableRow}">
+            <td style="${styles.labelCell}">Description:</td>
+            <td style="${styles.valueCell}">${description}</td>
+          </tr>
+        ` : ''}
+      </table>
+    </div>
+
+    <p style="${styles.text}">This impediment requires attention to ensure the task can proceed without further delay.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${viewUrl || '#'}" style="${styles.primaryBtn}">View & Resolve Blocker</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'New Impediment Reported',
+      `Hello, ${recipientName || recipientEmail}`,
+      content
+    ),
+    defaultSubject: `🚨 Blocker Reported: ${title}`
+  };
+}
+
+/**
+ * Impediment Resolved Template
+ */
+function getImpedimentResolvedTemplate(data) {
+  const {
+    recipientName,
+    recipientEmail,
+    resolverName,
+    taskTitle,
+    projectName,
+    title,
+    viewUrl
+  } = data;
+
+  const content = `
+    <p style="${styles.text}">Good news! <strong>${resolverName}</strong> has resolved the impediment for the task: <strong>${taskTitle}</strong>.</p>
+    
+    <div style="${styles.infoBox}">
+      <table style="${styles.infoTable}">
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Project:</td>
+          <td style="${styles.valueCell}">${projectName || 'N/A'}</td>
+        </tr>
+         <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Resolved Issue:</td>
+          <td style="${styles.valueCell}"><strong>${title}</strong></td>
+        </tr>
+        <tr style="${styles.infoTableRow}">
+          <td style="${styles.labelCell}">Status:</td>
+          <td style="${styles.valueCell}">
+            <span style="${styles.statusBadge}; background-color: #10b981; color: #ffffff;">
+              Resolved
+            </span>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <p style="${styles.text}">You can now continue tracking or making progress on this task without this blocker.</p>
+
+    <div style="${styles.buttonGroup}">
+      <a href="${viewUrl || '#'}" style="${styles.primaryBtn}">View Task</a>
+    </div>
+  `;
+
+  return {
+    html: getBaseTemplate(
+      'Impediment Resolved',
+      `Hello, ${recipientName || recipientEmail}`,
+      content
+    ),
+    defaultSubject: `✅ Blocker Resolved: ${title}`
   };
 }
 

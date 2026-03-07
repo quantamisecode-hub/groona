@@ -846,7 +846,7 @@ async function buildDeepContext(tenant_id, user_id, content) {
 }
 
 // ... (GENERIC ROUTES) ...
-router.post('/entities/:entity/filter', async (req, res) => {
+router.post('/entities/:entity/filter', auth, async (req, res) => {
   try {
     const entityName = req.params.entity;
     const Model = Models[entityName];
@@ -856,6 +856,78 @@ router.post('/entities/:entity/filter', async (req, res) => {
     }
     const { filters = {}, sort, page, limit, cursor } = req.body;
     let queryFilters = { ...filters };
+
+    // --- STRICT RBAC: Impediment Visibility ---
+    if (entityName === 'Impediment' && req.user) {
+      const user = req.user;
+
+      // Strict visibility: Only show to reporter, assignee, or designated PM
+      // Global Super Admins or Tenant Admins/Owners can bypass this individual check
+      const isAdminBypass = user.is_super_admin === true || user.role === 'admin' || user.role === 'owner';
+
+      if (!isAdminBypass) {
+        const userEmail = (user.email || '').toLowerCase();
+        const userId = (user.id || '').toString();
+        const userName = (user.name || '').toLowerCase();
+
+        const rbacFilter = {
+          $or: [
+            { reported_by: userEmail },
+            { assigned_to: userEmail },
+            { assigned_to: userId },
+            { project_manager_id: userId },
+            { project_manager_id: userEmail }
+          ]
+        };
+
+        // Only add name-based matching if the user has a name set
+        if (userName) {
+          const nameRegex = { $regex: new RegExp(`^${userName}$`, 'i') };
+          rbacFilter.$or.push(
+            { reported_by_name: nameRegex },
+            { assigned_to_name: nameRegex },
+            { project_manager_name: nameRegex }
+          );
+        }
+
+        if (queryFilters.$and) {
+          queryFilters.$and.push(rbacFilter);
+        } else if (Object.keys(queryFilters).length > 0) {
+          queryFilters = { $and: [queryFilters, rbacFilter] };
+        } else {
+          queryFilters = rbacFilter;
+        }
+      }
+    }
+
+    // --- STRICT RBAC: Notification Visibility ---
+    if (entityName === 'Notification' && req.user && !req.user.is_super_admin) {
+      const uEmail = (req.user.email || '').toLowerCase();
+      const uName = (req.user.name || '').toLowerCase();
+
+      const notificationRbac = {
+        $or: [
+          { recipient_email: uEmail },
+          { recipient_email: { $regex: new RegExp(uEmail, 'i') } },
+          { user_id: req.user.id }
+        ]
+      };
+
+      // If user has a name, also allow notifications where they are mentioned in the message
+      if (uName) {
+        notificationRbac.$or.push({
+          message: { $regex: new RegExp(uName, 'i') }
+        });
+      }
+
+      if (queryFilters.$and) {
+        queryFilters.$and.push(notificationRbac);
+      } else if (Object.keys(queryFilters).length > 0) {
+        queryFilters = { $and: [queryFilters, notificationRbac] };
+      } else {
+        queryFilters = notificationRbac;
+      }
+    }
     const limitNum = parseInt(limit) || 10;
 
     // --- CURSOR-BASED PAGINATION ---
@@ -874,7 +946,7 @@ router.post('/entities/:entity/filter', async (req, res) => {
       const pageNum = parseInt(page);
       const limitNum = parseInt(limit);
       const skip = (pageNum - 1) * limitNum;
-      const totalCount = await Model.countDocuments(filters);
+      const totalCount = await Model.countDocuments(queryFilters);
 
       let query = Model.find(queryFilters);
       if (sort) {
@@ -885,6 +957,47 @@ router.post('/entities/:entity/filter', async (req, res) => {
       }
 
       const results = await query.skip(skip).limit(limitNum).exec();
+
+      // --- POST-FETCH RBAC: Sub-document Filtering ---
+      if (entityName === 'Sprint' && req.user && !req.user.is_super_admin) {
+        const u = req.user;
+        const uEmail = (u.email || '').toLowerCase();
+        const uId = (u.id || '').toString();
+        const uName = (u.name || '').toLowerCase();
+
+        results.forEach(sprint => {
+          if (sprint.impediments && Array.isArray(sprint.impediments)) {
+            sprint.impediments = sprint.impediments.filter(imp => {
+              const impReportedEmail = (imp.reported_by || '').toLowerCase();
+              const impReportedName = (imp.reported_by_name || '').toLowerCase();
+              const impAssignedEmail = (imp.assigned_to || '').toLowerCase();
+              const impAssignedId = (imp.assigned_to || '').toString();
+              const impAssignedName = (imp.assigned_to_name || '').toLowerCase();
+              const impPMEmail = (imp.project_manager_id || '').toLowerCase();
+              const impPMId = (imp.project_manager_id || '').toString();
+              const impPMName = (imp.project_manager_name || '').toLowerCase();
+
+              // Identity matches (email/id)
+              const idMatch = (
+                impReportedEmail === uEmail ||
+                impAssignedEmail === uEmail ||
+                impAssignedId === uId ||
+                impPMId === uId ||
+                impPMEmail === uEmail
+              );
+
+              // Name matches (only if user has a valid name to avoid empty field matching)
+              const nameMatch = uName && (
+                impReportedName === uName ||
+                impAssignedName === uName ||
+                impPMName === uName
+              );
+
+              return idMatch || nameMatch;
+            });
+          }
+        });
+      }
 
       return res.json({
         results,
@@ -928,9 +1041,33 @@ router.post('/entities/:entity/filter', async (req, res) => {
       console.log(`[DEBUG-BACKEND] Entity: ${entityName} | Filters:`, filters, `| Count: ${results.length}`);
     }
 
+    // --- POST-FETCH RBAC: Sub-document Filtering ---
+    if (entityName === 'Sprint' && req.user && !req.user.is_super_admin) {
+      const u = req.user;
+      const uEmail = (u.email || '').toLowerCase();
+      const uId = (u.id || '').toString();
+
+      results.forEach(sprint => {
+        if (sprint.impediments && Array.isArray(sprint.impediments)) {
+          // If the doc is a Mongoose document, we might need to use toObject or just modify it if it's not being saved
+          const filtered = sprint.impediments.filter(imp => {
+            return (
+              (imp.reported_by || '').toLowerCase() === uEmail ||
+              (imp.assigned_to || '').toLowerCase() === uEmail ||
+              (imp.assigned_to || '').toString() === uId ||
+              (imp.project_manager_id || '').toString() === uId ||
+              (imp.project_manager_id || '').toLowerCase() === uEmail
+            );
+          });
+          // We must modify the field. Mongoose docs allow this for response JSON.
+          sprint.impediments = filtered;
+        }
+      });
+    }
+
     // Return in a paginated format if limit or cursor was explicitly provided
     if (limit || cursor) {
-      const totalCount = await Model.countDocuments(filters);
+      const totalCount = await Model.countDocuments(queryFilters); // Use queryFilters instead of filters for accurate RBAC count
       res.json({
         results,
         totalCount,
@@ -945,7 +1082,7 @@ router.post('/entities/:entity/filter', async (req, res) => {
     res.json([]);
   }
 });
-router.post('/entities/:entity/create', async (req, res) => {
+router.post('/entities/:entity/create', auth, async (req, res) => {
   try {
     const Model = Models[req.params.entity];
     const entityName = req.params.entity;
@@ -1134,6 +1271,7 @@ router.post('/entities/:entity/create', async (req, res) => {
     const savedItem = await item.save();
 
     res.json(savedItem);
+    console.log(`[API] Entity Created: ${entityName} with ID: ${savedItem._id}`);
 
     // --- PROJECT HEALTH SYNC ---
     if (['Task', 'ProjectExpense'].includes(entityName) && savedItem.project_id) {
@@ -1209,8 +1347,8 @@ router.post('/entities/:entity/create', async (req, res) => {
               log(`Notification created: ${notif._id}`);
 
               if (req.io) {
-                log(`Emitting socket to room: ${savedItem.tenant_id}`);
-                req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+                log(`Emitting socket to room: ${savedItem.user_email}`);
+                req.io.to(savedItem.user_email).emit('new_notification', notif);
               } else {
                 log('req.io is undefined!');
               }
@@ -1247,8 +1385,8 @@ router.post('/entities/:entity/create', async (req, res) => {
               log(`OnTime Notification created: ${notif._id}`);
 
               if (req.io) {
-                log(`Emitting socket to room: ${savedItem.tenant_id}`);
-                req.io.to(savedItem.tenant_id).emit('new_notification', notif);
+                log(`Emitting socket to room: ${savedItem.user_email}`);
+                req.io.to(savedItem.user_email).emit('new_notification', notif);
               } else {
                 log('req.io is undefined (OnTime)!');
               }
@@ -1470,173 +1608,166 @@ router.post('/entities/:entity/create', async (req, res) => {
       });
     }
 
-    // --- IMPEDIMENT NOTIFICATIONS ---
+    // --- IMPEDIMENT NOTIFICATIONS & RBAC TRIGGERS ---
     if (entityName === 'Impediment') {
-      console.log('[API] Impediment created. Starting notification logic...');
+      console.log(`[API] Impediment created: ${savedItem.title} (${savedItem._id}). Starting notification logic...`);
       setImmediate(async () => {
         try {
           const Notification = Models.Notification;
           const Project = Models.Project;
           const User = Models.User;
           const Task = Models.Task;
-          const ProjectUserRole = Models.ProjectUserRole;
-
-          console.log(`[API] Fetching details for Project: ${savedItem.project_id}, Task: ${savedItem.task_id}`);
+          const emailService = require('../services/emailService');
 
           // 1. Get Details
           const project = await Project.findById(savedItem.project_id);
           const task = await Task.findById(savedItem.task_id);
           const reporter = await User.findOne({ email: savedItem.reported_by });
 
-          if (!project || !task) {
-            console.log('[API] Project or Task not found for notification.');
+          console.log(`[Impediment] Context: Project=${project?.name}, Task=${task?.title}, Reporter=${reporter?.email || savedItem.reported_by}`);
+
+          if (!project) {
+            console.error(`[Impediment] Project not found for ID: ${savedItem.project_id}`);
             return;
           }
 
           const reporterName = reporter?.full_name || savedItem.reported_by_name || savedItem.reported_by;
-          const taskTitle = task.title;
+          const taskTitle = task ? task.title : (savedItem.title || 'Task');
           const projectName = project.name;
-          const projectId = project._id;
-          const sprintId = savedItem.sprint_id;
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+          const deepLink = `/SprintPlanningPage?sprintId=${savedItem.sprint_id}&projectId=${savedItem.project_id}&tab=blockers`;
+          const viewUrl = `${frontendUrl}${deepLink}`;
 
-          // Construct Deep Link to Sprint Blockers
-          // Correct Frontend Route: /SprintPlanningPage?sprintId=...&projectId=...&tab=blockers
-          const deepLink = `/SprintPlanningPage?sprintId=${sprintId}&projectId=${projectId}&tab=blockers`;
+          // 2. Resolve Primary Recipients (Assigned To, Project Manager, and Reporter)
+          const processedEmails = new Set();
+          const recipientUsers = {}; // Map to store resolved user objects
+          const emailPromises = [];
 
-          // 2. Identify Recipients
-          const recipients = new Set();
-          const userIdsToCheck = new Set();
-          const emailsToCheck = new Set();
+          // Helper to add recipient and trigger email
+          const addRecipient = async (idOrEmail, type) => {
+            if (!idOrEmail) return;
+            console.log(`[Impediment] Resolving recipient for type ${type}: "${idOrEmail}"`);
+            let user = null;
 
-          // A. Owner
-          if (project.owner) {
-            if (project.owner.includes('@')) {
-              recipients.add(project.owner);
-              emailsToCheck.add(project.owner);
-            } else {
-              userIdsToCheck.add(project.owner);
+            // 1. Try Email
+            if (typeof idOrEmail === 'string' && idOrEmail.includes('@')) {
+              user = await User.findOne({ email: idOrEmail });
             }
-          }
 
-          // B. Team Members (Array of objects/IDs)
-          if (project.team_members && Array.isArray(project.team_members)) {
-            project.team_members.forEach(m => {
-              if (typeof m === 'object') {
-                if (m.user_id) userIdsToCheck.add(m.user_id);
-                if (m.email) {
-                  emailsToCheck.add(m.email);
-                  if (m.role === 'project_manager') recipients.add(m.email);
-                }
-              } else if (typeof m === 'string') {
-                userIdsToCheck.add(m);
+            // 2. Try ID
+            if (!user) {
+              const isValidObjectId = mongoose.Types.ObjectId.isValid(idOrEmail);
+              if (isValidObjectId) {
+                user = await User.findById(idOrEmail);
               }
-            });
-          }
+            }
 
-          // C. ProjectUserRole (Custom Roles)
-          const pmRoles = await ProjectUserRole.find({ project_id: projectId });
-          pmRoles.forEach(r => {
-            if (r.user_id) userIdsToCheck.add(r.user_id);
-          });
+            // 3. Try Exact Email (if it didn't have @ for some reason) or Full Name
+            if (!user && typeof idOrEmail === 'string') {
+              user = await User.findOne({
+                $or: [
+                  { email: idOrEmail },
+                  { full_name: idOrEmail },
+                  { name: idOrEmail }
+                ]
+              });
+            }
 
-          // D. Resolve Users and Check Roles
-          if (userIdsToCheck.size > 0 || emailsToCheck.size > 0) {
-            const users = await User.find({
-              $or: [
-                { _id: { $in: Array.from(userIdsToCheck) } },
-                { email: { $in: Array.from(emailsToCheck) } }
-              ]
-            });
-
-            users.forEach(u => {
-              let isManager = false;
-
-              // 1. Is Owner?
-              if (project.owner === u.id || project.owner === u._id.toString() || project.owner === u.email) isManager = true;
-
-              // 2. Has Global PM Role?
-              if (u.role === 'project_manager' || u.custom_role === 'project_manager') isManager = true;
-
-              // 3. Has Explicit Project Role?
-              if (project.team_members && Array.isArray(project.team_members)) {
-                const memberRec = project.team_members.find(m =>
-                  m.user_id === u.id || m.user_id === u._id.toString() || m.email === u.email
-                );
-                if (memberRec && memberRec.role === 'project_manager') isManager = true;
+            if (user && user.email) {
+              recipientUsers[user.email] = user; // Store for later in-app notif
+              if (processedEmails.has(user.email)) {
+                console.log(`[Impediment] Recipient ${user.email} already processed. Skipping.`);
+                return;
               }
-              // Check ProjectUserRole
-              const userPmRole = pmRoles.find(r => r.user_id === u.id || r.user_id === u._id.toString());
-              if (userPmRole && userPmRole.role === 'project_manager') isManager = true;
+              processedEmails.add(user.email);
 
-              if (isManager && u.email) {
-                recipients.add(u.email);
+              console.log(`[Impediment] Sending email to: ${user.email} (discovered via ${type})`);
+
+              // Trigger Email using Centralized Template
+              try {
+                const emailResult = await emailService.sendEmail({
+                  to: user.email,
+                  templateType: 'impediment_reported',
+                  data: {
+                    recipientName: user.full_name || user.email,
+                    recipientEmail: user.email,
+                    reporterName: user.email === savedItem.reported_by ? 'You' : reporterName,
+                    taskTitle: taskTitle,
+                    projectName: projectName,
+                    title: savedItem.title,
+                    severity: savedItem.severity,
+                    description: savedItem.description,
+                    viewUrl: viewUrl
+                  }
+                });
+                console.log(`[Impediment] Email trigger result for ${user.email}:`, emailResult.success ? 'SUCCESS' : 'FAILED');
+              } catch (e) {
+                console.error(`[Impediment] Error calling emailService for ${user.email}:`, e);
               }
-            });
-          }
+            } else {
+              console.warn(`[Impediment] FAILED to find user for: "${idOrEmail}" (${type})`);
+            }
+          };
 
-          recipients.delete(savedItem.reported_by);
+          // Add Resolver, Manager, and Reporter to receive emails
+          await addRecipient(savedItem.assigned_to, 'assignee');
+          await addRecipient(savedItem.project_manager_id, 'pm');
+          await addRecipient(savedItem.reported_by, 'reporter');
 
+          // 3. Create In-App Notifications
           const notifications = [];
 
-          // 3. Create Notifications for Manager/Owner
-          const createdDate = new Date();
-
-          console.log('[API] Using type: impediment_alert, category: alert');
-
-
-          recipients.forEach(email => {
+          // Notifications for Assigned/PM (excluding reporter)
+          processedEmails.forEach(email => {
+            if (email === savedItem.reported_by) return;
+            const targetUser = recipientUsers[email];
             notifications.push({
               tenant_id: savedItem.tenant_id,
               recipient_email: email,
-              type: 'impediment_reported', // General notification for managers too
-              category: 'general',
-              title: 'New Impediment Reported',
-              message: `${reporterName} reported an impediment on task "${taskTitle}".`,
+              user_id: targetUser ? targetUser._id : null,
+              type: 'impediment_reported',
+              category: 'alert',
+              title: '⚠️ Blocker Assigned to You',
+              message: `${reporterName} reported a ${savedItem.severity} blocker: "${savedItem.title}"`,
               entity_type: 'impediment',
               entity_id: savedItem._id,
-              project_id: projectId,
+              project_id: project._id,
               deep_link: deepLink,
               sender_name: reporterName,
               read: false,
+              created_date: new Date()
             });
           });
 
-          // 4. Create Confirmation Notification for Reporter (Viewer/User)
+          // Confirmation for Reporter (In-App)
           notifications.push({
             tenant_id: savedItem.tenant_id,
             recipient_email: savedItem.reported_by,
-            type: 'impediment_reported', // Changed to avoid _alert suffix logic
+            user_id: reporter ? reporter._id : (recipientUsers[savedItem.reported_by]?._id || null),
+            type: 'impediment_reported',
             category: 'general',
-            title: 'Impediment Reported',
-            message: `You successfully reported an impediment for task "${taskTitle}".`,
+            title: 'Blocker Reported successfully',
+            message: `Your report for "${savedItem.title}" has been sent to the assigned team member and PM. Checking email for confirmation.`,
             entity_type: 'impediment',
             entity_id: savedItem._id,
-            project_id: projectId,
-            // deep_link: deepLink, // Removed for reporter as per request
+            project_id: project._id,
+            deep_link: deepLink,
             sender_name: 'System',
             read: false,
-            created_date: createdDate
+            created_date: new Date()
           });
-
-          console.log(`[API] Inserting ${notifications.length} notifications.`);
 
           if (notifications.length > 0) {
             const inserted = await Notification.insertMany(notifications);
-            console.log(`[API] Inserted IDs:`, inserted.map(i => i._id));
-            // Emit to socket if available?
-            // Since 'req.io' is available in route, but we are in setImmediate... 
-            // setImmediate generic callback might not capture req.io if not passed.
-            // Usually req.io is available in the closure if we define it inside.
-            // Yes, 'req' is in scope.
+            console.log(`[Impediment] Created ${inserted.length} in-app notifications.`);
             if (req.io) {
-              console.log('[API] Emitting via Socket.IO');
-              notifications.forEach(n => {
-                req.io.to(n.tenant_id).emit('new_notification', n);
+              inserted.forEach(n => {
+                req.io.to(n.recipient_email).emit('new_notification', n);
               });
-            } else {
-              console.log('[API] req.io not available');
             }
           }
+
+          console.log(`[Impediment] All notification steps completed.`);
 
         } catch (err) {
           console.error('[Impediment] Notification Error:', err);
@@ -1699,7 +1830,7 @@ router.post('/entities/:entity/create', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
-router.post('/entities/:entity/update', async (req, res) => {
+router.post('/entities/:entity/update', auth, async (req, res) => {
   try {
     const Model = Models[req.params.entity];
     const entityName = req.params.entity;
@@ -2714,8 +2845,100 @@ router.post('/entities/:entity/update', async (req, res) => {
       });
     }
 
+    // --- IMPEDIMENT RESOLVED NOTIFICATIONS ---
+    if (entityName === 'Impediment' && updatedDoc.status === 'resolved' && (oldDoc.status !== 'resolved')) {
+      setImmediate(async () => {
+        try {
+          const Notification = Models.Notification;
+          const User = Models.User;
+          const emailService = require('../services/emailService');
+
+          let resolverName = 'A team member';
+          if (updatedDoc.assigned_to_name) {
+            resolverName = updatedDoc.assigned_to_name;
+          } else if (req.user) {
+            resolverName = req.user.full_name || req.user.name || 'A team member';
+          }
+
+          let projectName = updatedDoc.project_name || 'No Project';
+          let dashboardUrl = `${process.env.FRONTEND_URL}/ProjectInsights?projectId=${updatedDoc.project_id}&tab=blockers`;
+
+          // Identify recipients (Reporter, PM, and potentially Assignee if they didn't resolve it themselves)
+          const recipients = new Set();
+          if (updatedDoc.reported_by) recipients.add(updatedDoc.reported_by.toLowerCase());
+
+          if (updatedDoc.project_manager_id) {
+            // PM could be an email or an ID
+            if (updatedDoc.project_manager_id.includes('@')) {
+              recipients.add(updatedDoc.project_manager_id.toLowerCase());
+            } else {
+              const pm = await User.findById(updatedDoc.project_manager_id);
+              if (pm && pm.email) recipients.add(pm.email.toLowerCase());
+            }
+          }
+
+          // Remove the person who resolved it from recipients to avoid notifying themselves, if available via req.user
+          let doerEmail = req.user ? req.user.email : null;
+          if (doerEmail) {
+            recipients.delete(doerEmail.toLowerCase());
+          }
+
+          for (const recipientEmail of recipients) {
+            try {
+              const targetUser = await User.findOne({ email: recipientEmail });
+
+              // 1. In-App Notification
+              const notif = await Notification.create({
+                tenant_id: updatedDoc.tenant_id,
+                recipient_email: recipientEmail, // Important: must precisely match the logged in user's email to show up
+                user_id: targetUser ? targetUser._id : null,
+                type: 'impediment_resolved',
+                category: 'general',
+                title: 'Blocker Resolved',
+                message: `${resolverName} has resolved the blocker: "${updatedDoc.title}"`,
+                entity_type: 'impediment',
+                entity_id: updatedDoc._id,
+                project_id: updatedDoc.project_id,
+                deep_link: dashboardUrl,
+                sender_name: resolverName,
+                read: false,
+                created_date: new Date()
+              });
+
+              if (req.io) {
+                req.io.to(updatedDoc.tenant_id).emit('new_notification', notif);
+              }
+
+              // 2. Email Notification
+              await emailService.sendEmail({
+                to: recipientEmail,
+                templateType: 'impediment_resolved',
+                data: {
+                  recipientName: targetUser?.full_name || recipientEmail,
+                  recipientEmail: recipientEmail,
+                  resolverName,
+                  taskTitle: updatedDoc.task_id ? 'Blocked Task' : 'Project Blocker',
+                  projectName,
+                  title: updatedDoc.title,
+                  viewUrl: dashboardUrl
+                }
+              });
+            } catch (recipErr) {
+              console.error(`[ImpedimentResolved] Failed notifying ${recipientEmail}:`, recipErr);
+            }
+          }
+        } catch (err) {
+          console.error('[ImpedimentResolved] Notification Error:', err);
+        }
+      });
+    }
+
   } catch (err) {
-    res.status(500).send(err.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else {
+      console.error('[Update Route Error after response]:', err);
+    }
   }
 });
 
@@ -2790,12 +3013,72 @@ router.post('/entities/:entity/delete', async (req, res) => {
     res.status(500).send(err.message);
   }
 });
-router.post('/entities/:entity/get/:id', async (req, res) => {
+router.post('/entities/:entity/get/:id', auth, async (req, res) => {
   try {
     const Model = Models[req.params.entity];
     if (!Model) return res.status(400).json({ error: 'Entity not found' });
     const item = await Model.findById(req.params.id);
     if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    // --- RBAC: Impediment Visibility (Direct GET) ---
+    if (req.params.entity === 'Impediment' && req.user && !req.user.is_super_admin) {
+      const u = req.user;
+      const uEmail = (u.email || '').toLowerCase();
+      const uId = (u.id || '').toString();
+      const uName = (u.name || '').toLowerCase();
+
+      const idMatch = (
+        (item.reported_by || '').toLowerCase() === uEmail ||
+        (item.assigned_to || '').toLowerCase() === uEmail ||
+        (item.assigned_to || '').toString() === uId ||
+        (item.project_manager_id || '').toString() === uId ||
+        (item.project_manager_id || '').toLowerCase() === uEmail
+      );
+      const nameMatch = uName && (
+        (item.reported_by_name || '').toLowerCase() === uName ||
+        (item.assigned_to_name || '').toLowerCase() === uName ||
+        (item.project_manager_name || '').toLowerCase() === uName
+      );
+
+      if (!idMatch && !nameMatch) return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // --- POST-FETCH RBAC: Sub-document Filtering (Direct GET) ---
+    if (req.params.entity === 'Sprint' && req.user && !req.user.is_super_admin) {
+      const u = req.user;
+      const uEmail = (u.email || '').toLowerCase();
+      const uId = (u.id || '').toString();
+      const uName = (u.name || '').toLowerCase();
+
+      if (item.impediments && Array.isArray(item.impediments)) {
+        item.impediments = item.impediments.filter(imp => {
+          const impReportedEmail = (imp.reported_by || '').toLowerCase();
+          const impReportedName = (imp.reported_by_name || '').toLowerCase();
+          const impAssignedEmail = (imp.assigned_to || '').toLowerCase();
+          const impAssignedId = (imp.assigned_to || '').toString();
+          const impAssignedName = (imp.assigned_to_name || '').toLowerCase();
+          const impPMEmail = (imp.project_manager_id || '').toLowerCase();
+          const impPMId = (imp.project_manager_id || '').toString();
+          const impPMName = (imp.project_manager_name || '').toLowerCase();
+
+          const subIdMatch = (
+            impReportedEmail === uEmail ||
+            impAssignedEmail === uEmail ||
+            impAssignedId === uId ||
+            impPMId === uId ||
+            impPMEmail === uEmail
+          );
+          const subNameMatch = uName && (
+            impReportedName === uName ||
+            impAssignedName === uName ||
+            impPMName === uName
+          );
+
+          return subIdMatch || subNameMatch;
+        });
+      }
+    }
+
     res.json(item);
   } catch (err) {
     res.status(500).send(err.message);

@@ -83,6 +83,13 @@ if (fs.existsSync(modelsPath)) {
             }
             if (fieldDef.unique) mongooseDef.unique = true;
 
+            // Ensure created_date and updated_date keep their defaults if they are dates
+            if ((propName === 'created_date' || propName === 'updated_date') && mongooseDef.type === Date) {
+              if (mongooseDef.default === undefined) {
+                mongooseDef.default = getDefaultDate;
+              }
+            }
+
             schemaObj[propName] = mongooseDef;
           });
         }

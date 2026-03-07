@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertTriangle, Plus, CheckCircle, Clock, X, FolderKanban, BookOpen, Calendar, User, UserCheck, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
@@ -128,8 +129,39 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
     });
   }, [project, users, effectiveTenantId]);
 
-  // Use database impediments if available, otherwise fall back to prop impediments
-  const impediments = dbImpediments.length > 0 ? dbImpediments : (propImpediments || []);
+  // Ensure we only use filtered impediments if they are being managed by a project/database fetch
+  const rawImpediments = (projectId && !impedimentsLoading) ? dbImpediments : (propImpediments || []);
+
+  // --- STRICT FRONTEND RBAC: Double-layer Filter ---
+  // Only show impediments that the user is authorized to see
+  const impediments = useMemo(() => {
+    if (!currentUser || currentUser.is_super_admin) return rawImpediments;
+
+    const uEmail = (currentUser.email || '').toLowerCase();
+    const uId = (currentUser.id || currentUser._id || '').toString().toLowerCase();
+    const uName = (currentUser.full_name || currentUser.name || '').toLowerCase();
+
+    return rawImpediments.filter(imp => {
+      const fields = [
+        imp.reported_by,
+        imp.reported_by_name,
+        imp.assigned_to,
+        imp.assigned_to_name,
+        imp.project_manager_id,
+        imp.project_manager_name
+      ];
+
+      return fields.some(f => {
+        if (!f) return false;
+        const val = f.toString().toLowerCase();
+
+        // Similarity check: email/ID can be part of the field (e.g. name + email)
+        return (uEmail && val.includes(uEmail)) ||
+          (uId && (val.includes(uId) || uId.includes(val))) ||
+          (uName && val.includes(uName));
+      });
+    });
+  }, [rawImpediments, currentUser]);
 
   // Mutation for adding impediment
   const addImpedimentMutation = useMutation({
@@ -159,7 +191,7 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
       return await groonabackend.entities.Impediment.create(impedimentData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
       toast.success('Impediment reported successfully!');
       setFormData({
         title: "",
@@ -180,19 +212,51 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
 
   // Mutation for updating impediment
   const updateImpedimentMutation = useMutation({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data, impediment }) => {
       const updateData = { ...data };
       if (data.status === 'resolved') {
         updateData.resolved_date = new Date().toISOString();
       }
+
+      // Auto start timer logic
+      if (data.status === 'in_progress' && impediment) {
+        const entries = await groonabackend.entities.ClockEntry.filter({
+          user_email: currentUser?.email,
+          is_clocked_in: true
+        });
+        if (entries && entries.length > 0) {
+          throw new Error('You already have an active timer running! Please stop it before starting work on this impediment.');
+        }
+
+        // Create the timer entry for this impediment
+        await groonabackend.entities.ClockEntry.create({
+          tenant_id: effectiveTenantId,
+          user_email: currentUser?.email,
+          user_name: currentUser?.full_name,
+          clock_in_time: new Date().toISOString(),
+          is_clocked_in: true,
+          project_id: impediment.project_id || projectId,
+          sprint_id: impediment.sprint_id || sprint?.id || null,
+          task_id: impediment.task_id || null,
+          work_type: 'impediment',
+          description: `Working on Impediment: ${impediment.title}`,
+        });
+      }
+
       return await groonabackend.entities.Impediment.update(id, updateData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
+      if (variables.data.status === 'in_progress') {
+        queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
+        toast.success(`Timer started! Marked '${variables.impediment?.title || "Impediment"}' as In Progress.`);
+      } else {
+        toast.success('Impediment status updated successfully!');
+      }
       if (onUpdate) onUpdate();
     },
     onError: (error) => {
-      toast.error(`Failed to update impediment: ${error.message || 'Please try again.'}`);
+      toast.error(`${error.message || 'Failed to update impediment! Please try again.'}`);
     },
   });
 
@@ -202,7 +266,7 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
       return await groonabackend.entities.Impediment.delete(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['impediments', projectId, sprint?.id] });
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
       if (onDelete) onDelete();
     },
     onError: (error) => {
@@ -215,8 +279,8 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
     addImpedimentMutation.mutate(formData);
   };
 
-  const handleUpdate = (id, data) => {
-    updateImpedimentMutation.mutate({ id, data });
+  const handleUpdate = (imp, data) => {
+    updateImpedimentMutation.mutate({ id: imp.id || imp._id, data, impediment: imp });
   };
 
   const handleDelete = (id) => {
@@ -343,67 +407,69 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap mb-2">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          <span>By: {impediment.reported_by_name || impediment.reported_by || impediment.created_by}</span>
+                      {/* Metadata Row */}
+                      <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-50 items-center justify-between">
+                        <div className="flex items-center gap-6">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reported By</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-5 w-5 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                {impediment.reported_by_name?.charAt(0) || 'U'}
+                              </div>
+                              <span className="text-xs font-semibold text-slate-700">{impediment.reported_by_name || impediment.reported_by}</span>
+                            </div>
+                          </div>
+
+                          {impediment.assigned_to_name && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Resolver</span>
+                              <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-100/50">
+                                <UserCheck className="h-3 w-3 text-blue-500" />
+                                <span className="text-xs font-bold text-blue-700">{impediment.assigned_to_name}</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {impediment.project_manager_name && (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Manager</span>
+                              <div className="flex items-center gap-1.5 bg-purple-50/50 px-2 py-0.5 rounded-lg border border-purple-100/50">
+                                <ShieldCheck className="h-3 w-3 text-purple-500" />
+                                <span className="text-xs font-bold text-purple-700">{impediment.project_manager_name}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {impediment.assigned_to_name && (
-                          <div className="flex items-center gap-1 text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                            <UserCheck className="h-3 w-3" />
-                            <span>Assigned: {impediment.assigned_to_name}</span>
-                          </div>
-                        )}
-                        {impediment.project_manager_name && (
-                          <div className="flex items-center gap-1 text-purple-600 font-semibold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                            <ShieldCheck className="h-3 w-3" />
-                            <span>PM: {impediment.project_manager_name}</span>
-                          </div>
-                        )}
-                        <span className="text-slate-400">|</span>
-                        <span>{format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, yyyy')}</span>
+
+                        <div className="flex items-center gap-3">
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {format(new Date(impediment.created_date || impediment.createdAt || new Date()), 'MMM d, h:mm a')}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Context Tags */}
-                      <div className="flex items-center gap-2 text-xs flex-wrap">
+                      <div className="mt-3 flex items-center gap-2 text-xs flex-wrap">
                         {impediment.project_name && (
-                          <Badge variant="outline" className="text-xs bg-slate-50">
-                            Project: {impediment.project_name}
+                          <Badge variant="ghost" className="text-[10px] bg-slate-50 hover:bg-slate-100 text-slate-500 font-medium py-0 px-2 h-5 border border-slate-200/50 rounded-md">
+                            {impediment.project_name}
                           </Badge>
                         )}
                         {(impediment.sprint_id || impediment.sprint_name) && (() => {
                           const relatedSprint = sprints.find(s => (s.id || s._id) === impediment.sprint_id);
                           const sprintName = relatedSprint?.name || impediment.sprint_name;
                           return sprintName ? (
-                            <Badge variant="outline" className="text-xs">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              Sprint: {sprintName}
+                            <Badge variant="ghost" className="text-[10px] bg-indigo-50/50 hover:bg-indigo-50 text-indigo-500 font-medium py-0 px-2 h-5 border border-indigo-100/50 rounded-md">
+                              <Calendar className="h-2.5 w-2.5 mr-1" />
+                              {sprintName}
                             </Badge>
                           ) : null;
                         })()}
                         {impediment.task_id && (() => {
                           const relatedTask = tasks.find(t => (t.id || t._id) === impediment.task_id);
                           return relatedTask ? (
-                            <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200">
+                            <Badge variant="ghost" className="text-[10px] bg-amber-50/50 hover:bg-amber-50 text-amber-600 font-medium py-0 px-2 h-5 border border-amber-200/50 rounded-md">
                               Task: {relatedTask.title}
-                            </Badge>
-                          ) : null;
-                        })()}
-                        {impediment.epic_id && (() => {
-                          const relatedEpic = epics.find(e => (e.id || e._id) === impediment.epic_id);
-                          return relatedEpic ? (
-                            <Badge variant="outline" className="text-xs">
-                              <FolderKanban className="h-3 w-3 mr-1" />
-                              Epic: {relatedEpic.name}
-                            </Badge>
-                          ) : null;
-                        })()}
-                        {impediment.story_id && (() => {
-                          const relatedStory = stories.find(s => (s.id || s._id) === impediment.story_id);
-                          return relatedStory ? (
-                            <Badge variant="outline" className="text-xs">
-                              <BookOpen className="h-3 w-3 mr-1" />
-                              Story: {relatedStory.title}
                             </Badge>
                           ) : null;
                         })()}
@@ -415,7 +481,7 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleUpdate(impediment.id || impediment._id, { status: 'in_progress' })}
+                              onClick={() => handleUpdate(impediment, { status: 'in_progress' })}
                               disabled={updateImpedimentMutation.isPending}
                             >
                               Start Working
@@ -425,7 +491,7 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
                             <Button
                               size="sm"
                               className="bg-green-600 hover:bg-green-700"
-                              onClick={() => handleUpdate(impediment.id || impediment._id, { status: 'resolved' })}
+                              onClick={() => handleUpdate(impediment, { status: 'resolved' })}
                               disabled={updateImpedimentMutation.isPending}
                             >
                               Mark Resolved
@@ -444,9 +510,9 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
 
       {/* Add Impediment Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Report Impediment</DialogTitle>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="pb-2 border-b">
+            <DialogTitle className="text-xl font-bold text-slate-900">Report Impediment</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -469,14 +535,16 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1 block">Current Context</label>
-              <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-slate-50/50 min-h-[40px]">
-                <Badge variant="outline" className="bg-blue-50 border-blue-200 text-blue-700 whitespace-nowrap py-1">
-                  <span className="opacity-70 font-bold mr-1">Project:</span> {project?.name || 'Loading...'}
+            <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-100 space-y-2">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                Current Context
+              </label>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Badge variant="outline" className="bg-white border-blue-100 text-blue-700 py-1.5 px-3 rounded-lg shadow-sm">
+                  <span className="opacity-60 font-bold mr-1.5">Project:</span> {project?.name || 'Loading...'}
                 </Badge>
-                <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700 whitespace-nowrap py-1">
-                  <span className="opacity-70 font-bold mr-1">Sprint:</span> {sprint?.name || 'Loading...'}
+                <Badge variant="outline" className="bg-white border-purple-100 text-purple-700 py-1.5 px-3 rounded-lg shadow-sm">
+                  <span className="opacity-60 font-bold mr-1.5">Sprint:</span> {sprint?.name || 'Loading...'}
                 </Badge>
               </div>
             </div>
@@ -485,14 +553,22 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               <div>
                 <label className="text-sm font-medium mb-2 block">Related Task (Optional)</label>
                 <Select value={formData.task_id} onValueChange={(val) => setFormData({ ...formData, task_id: val })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all focus:border-blue-500">
                     <SelectValue placeholder="Select task" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No specific task</SelectItem>
+                    <SelectItem value="none">
+                      <div className="flex items-center gap-2">
+                        <FolderKanban className="h-4 w-4 text-slate-400" />
+                        No specific task
+                      </div>
+                    </SelectItem>
                     {tasks.map(task => (
                       <SelectItem key={task.id || task._id} value={task.id || task._id}>
-                        {task.title}
+                        <div className="flex items-center gap-2">
+                          <FolderKanban className="h-4 w-4 text-blue-500" />
+                          <span className="truncate">{task.title}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -519,17 +595,28 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               <div>
                 <label className="text-sm font-medium mb-2 block">Assign To (Viewer Member)</label>
                 <Select value={formData.assigned_to} onValueChange={(val) => setFormData({ ...formData, assigned_to: val })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all">
                     <SelectValue placeholder="Select user" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="top" className="max-h-60">
                     {projectTeamMembers
                       .filter(u => u.role === 'member' && u.custom_role === 'viewer')
-                      .map(user => (
-                        <SelectItem key={user.id || user._id} value={user.id || user._id}>
-                          {user.full_name || user.email}
-                        </SelectItem>
-                      ))}
+                      .map(user => {
+                        const displayName = user.full_name || user.email || 'U';
+                        return (
+                          <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                  {displayName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">{displayName}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>
@@ -537,17 +624,28 @@ export default function ImpedimentTracker({ sprint, project: propProject, projec
               <div>
                 <label className="text-sm font-medium mb-2 block">Project Manager</label>
                 <Select value={formData.project_manager_id} onValueChange={(val) => setFormData({ ...formData, project_manager_id: val })}>
-                  <SelectTrigger>
+                  <SelectTrigger className="border-slate-300 focus:ring-blue-500 shadow-sm transition-all">
                     <SelectValue placeholder="Select PM" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="top" className="max-h-60">
                     {projectTeamMembers
                       .filter(u => u.projectRole === 'project_manager' || u.role === 'project_manager')
-                      .map(user => (
-                        <SelectItem key={user.id || user._id} value={user.id || user._id}>
-                          {user.full_name || user.email}
-                        </SelectItem>
-                      ))}
+                      .map(user => {
+                        const displayName = user.full_name || user.email || 'U';
+                        return (
+                          <SelectItem key={user.id || user._id} value={user.id || user._id}>
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-5 w-5 border border-slate-300 shadow-sm shrink-0">
+                                <AvatarImage src={user.profile_image_url || user.profile_picture_url} />
+                                <AvatarFallback className="bg-slate-200 text-[10px] font-bold text-slate-700 uppercase">
+                                  {displayName.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">{displayName}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>

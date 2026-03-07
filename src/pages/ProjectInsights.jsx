@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { groonabackend } from "@/api/groonabackend";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import { useUser } from "../components/shared/UserContext"; // Import UserContext
 import RiskAssessment from "../components/insights/RiskAssessment";
 import TimelinePrediction from "../components/insights/TimelinePrediction";
@@ -125,19 +126,33 @@ export default function ProjectInsights() {
       return groonabackend.entities.Activity.filter({ tenant_id: effectiveTenantId }, '-created_date', 100);
     },
     enabled: !!currentUser,
-    staleTime: 1 * 60 * 1000, // Added reasonable staleTime
+    staleTime: 1 * 60 * 1000,
+  });
+
+  // 6. Fetch Impediments scoped to Tenant
+  const { data: impedimentsData = [], isLoading: impedimentsLoading } = useQuery({
+    queryKey: ['impediments', effectiveTenantId],
+    queryFn: async () => {
+      if (!effectiveTenantId) return groonabackend.entities.Impediment.list('-created_date');
+      return groonabackend.entities.Impediment.filter({ tenant_id: effectiveTenantId }, '-created_date');
+    },
+    enabled: !!currentUser,
+    staleTime: 2 * 60 * 1000,
   });
 
   // 5. Calculate Accessible Projects & Tasks with Role-Based Restrictions
   const isRestrictedViewer = currentUser && !currentUser.is_super_admin && currentUser.role === 'member' && currentUser.custom_role === 'viewer';
 
-  const { accessibleProjects, accessibleTasks, accessibleStories, accessibleActivities } = useMemo(() => {
-    if (!currentUser) return { accessibleProjects: [], accessibleTasks: [], accessibleStories: [], accessibleActivities: [] };
+  const { accessibleProjects, accessibleTasks, accessibleStories, accessibleActivities, accessibleImpediments } = useMemo(() => {
+    if (!currentUser) return { accessibleProjects: [], accessibleTasks: [], accessibleStories: [], accessibleActivities: [], accessibleImpediments: [] };
+
+    const userEmail = currentUser.email?.toLowerCase();
+    const userId = (currentUser.id || currentUser._id || '').toString();
+    const userName = (currentUser.full_name || currentUser.name || '').toLowerCase();
 
     // A. Base Task Filtering
     let filteredTasks = tasks;
     if (isRestrictedViewer) {
-      const userEmail = currentUser.email?.toLowerCase();
       filteredTasks = tasks.filter(t => {
         const taskAssignees = Array.isArray(t.assigned_to) ? t.assigned_to : (t.assigned_to ? [t.assigned_to] : []);
         return taskAssignees.some(assignee => {
@@ -145,46 +160,110 @@ export default function ProjectInsights() {
           return email?.toLowerCase() === userEmail;
         });
       });
-    } else if (!isAdmin) {
-      // Standard filtering for non-admins (already usually filtered by project access, but keeping it clean)
     }
 
     // B. Base Project Filtering
     const projectIdsWithAssignedTasks = new Set(filteredTasks.map(t => t.project_id));
 
+    // Find projects where user is involved in any impediment (Broadened)
+    const projectIdsWithUserImpediments = new Set(
+      (impedimentsData || []).filter(imp => {
+        const fields = [
+          imp.reported_by,
+          imp.reported_by_name,
+          imp.assigned_to,
+          imp.assigned_to_name,
+          imp.project_manager_id,
+          imp.project_manager_name
+        ];
+        return fields.some(f => {
+          if (!f) return false;
+          const val = f.toString().toLowerCase();
+          // Similarity check: email/ID can be part of the field (e.g. name + email)
+          return (userEmail && val.includes(userEmail)) ||
+            (userId && (val.includes(userId.toLowerCase()) || userId.toLowerCase().includes(val))) ||
+            (userName && val.includes(userName));
+        });
+      }).map(imp => imp.project_id)
+    );
+
     const filteredProjects = projects.filter(p => {
       if (isAdmin) return true;
 
-      // If restricted viewer, ONLY show projects where they have assignments
+      // If restricted viewer, show projects where they have assignments OR are involved in impediments
       if (isRestrictedViewer) {
-        return projectIdsWithAssignedTasks.has(p.id);
+        return projectIdsWithAssignedTasks.has(p.id) || projectIdsWithUserImpediments.has(p.id);
       }
 
       const isOwner = p.owner === currentUser.email;
       const isTeamMember = p.team_members?.some(m => m.email === currentUser.email);
       const isProjectManager = projectRoles?.some(r => r.project_id === p.id);
+      const isInvolvedInImpediment = projectIdsWithUserImpediments.has(p.id);
 
-      return isOwner || isTeamMember || isProjectManager;
+      return isOwner || isTeamMember || isProjectManager || isInvolvedInImpediment;
     });
 
     const finalProjectIds = new Set(filteredProjects.map(p => p.id));
 
-    // C. Final Task Filtering (Must belong to an accessible project)
+    // C. Final Task Filtering
     const finalTasks = filteredTasks.filter(t => finalProjectIds.has(t.project_id));
 
-    // D. Final Stories Filtering
+    // D. Final Entities
     const finalStories = stories.filter(s => finalProjectIds.has(s.project_id));
-
-    // E. Final Activities Filtering
     const finalActivities = activities.filter(a => finalProjectIds.has(a.project_id));
+
+    // F. Final Impediments (RBAC: Reported by him, Assigned to him, or Manager)
+    const finalImpediments = (impedimentsData || []).filter(imp => {
+      // If Admin, show everything for accessible projects
+      if (isAdmin) return finalProjectIds.has(imp.project_id);
+
+      const fields = [
+        imp.reported_by,
+        imp.reported_by_name,
+        imp.assigned_to,
+        imp.assigned_to_name,
+        imp.project_manager_id,
+        imp.project_manager_name
+      ];
+
+      // Check if user is the reporter, resolver, or manager
+      const isDirectlyInvolved = fields.some(f => {
+        if (!f) return false;
+        const val = f.toString().toLowerCase();
+        // Similarity check: email/ID can be part of the field
+        return (userEmail && val.includes(userEmail)) ||
+          (userId && (val.includes(userId.toLowerCase()) || userId.toLowerCase().includes(val))) ||
+          (userName && val.includes(userName));
+      });
+
+      if (isDirectlyInvolved) return true;
+
+      // Check if user is the assignee of the related task (Member who got reported/affected)
+      if (imp.task_id) {
+        const relatedTask = tasks.find(t => String(t.id || t._id) === String(imp.task_id));
+        if (relatedTask) {
+          const taskAssignees = Array.isArray(relatedTask.assigned_to) ? relatedTask.assigned_to : (relatedTask.assigned_to ? [relatedTask.assigned_to] : []);
+          return taskAssignees.some(assignee => {
+            const email = (typeof assignee === 'string' ? assignee : assignee?.email)?.toLowerCase();
+            const id = (typeof assignee === 'string' ? assignee : (assignee?.id || assignee?._id))?.toString()?.toLowerCase();
+
+            return (userEmail && email && (email.includes(userEmail) || userEmail.includes(email))) ||
+              (userId && id && (id.includes(userId.toLowerCase()) || userId.toLowerCase().includes(id)));
+          });
+        }
+      }
+
+      return false;
+    });
 
     return {
       accessibleProjects: filteredProjects,
       accessibleTasks: finalTasks,
       accessibleStories: finalStories,
-      accessibleActivities: finalActivities
+      accessibleActivities: finalActivities,
+      accessibleImpediments: finalImpediments
     };
-  }, [projects, tasks, stories, activities, currentUser, isAdmin, isRestrictedViewer, projectRoles]);
+  }, [projects, tasks, stories, activities, impedimentsData, currentUser, isAdmin, isRestrictedViewer, projectRoles]);
 
   // 8. Calculate live progress for each project (Story Point Based)
   const projectProgressMap = useMemo(() => {
@@ -275,17 +354,18 @@ export default function ProjectInsights() {
   const projectBlockersData = useMemo(() => {
     const map = {};
     accessibleProjects.forEach(project => {
-      const projectTasks = accessibleTasks.filter(t => t.project_id === project.id);
-      const blocked = projectTasks.filter(t => t.status === 'blocked').length;
-      const review = projectTasks.filter(t => t.status === 'review').length;
+      const projectImpediments = accessibleImpediments.filter(imp => imp.project_id === project.id);
+      const openImpediments = projectImpediments.filter(imp => imp.status === 'open').length;
+      const inProgressImpediments = projectImpediments.filter(imp => imp.status === 'in_progress').length;
+
       map[project.id] = {
-        total: blocked + review,
-        blocked: blocked,
-        review: review
+        total: openImpediments + inProgressImpediments,
+        blocked: openImpediments,
+        review: inProgressImpediments
       };
     });
     return map;
-  }, [accessibleProjects, accessibleTasks]);
+  }, [accessibleProjects, accessibleImpediments]);
 
   const selectedProject = accessibleProjects.find(p => p.id === selectedProjectId);
   const selectedProjectTasks = accessibleTasks.filter(t => t.project_id === selectedProjectId);
@@ -313,9 +393,9 @@ export default function ProjectInsights() {
       pendingTasks: accessibleTasks.filter(t => t.status === 'todo').length,
       doneTasks: accessibleTasks.filter(t => t.status === 'completed').length,
       velocity: overallVelocity,
-      bottlenecks: accessibleTasks.filter(t => t.status === 'review' || t.status === 'blocked').length
+      bottlenecks: accessibleImpediments.filter(imp => imp.status !== 'resolved').length
     };
-  }, [accessibleProjects, accessibleTasks, projectVelocityMap]);
+  }, [accessibleProjects, accessibleTasks, accessibleImpediments, projectVelocityMap]);
 
   const handleOpenOverviewModal = (type) => {
     setOverviewModalType(type);
@@ -588,7 +668,12 @@ export default function ProjectInsights() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <BlockerInsights projects={accessibleProjects} tasks={accessibleTasks} blockersData={projectBlockersData} />
+            <BlockerInsights
+              projects={accessibleProjects}
+              tasks={accessibleTasks}
+              blockersData={projectBlockersData}
+              impediments={accessibleImpediments}
+            />
           </motion.div>
         </TabsContent>
 
@@ -1147,60 +1232,177 @@ function VelocityAnalytics({ projects = [], velocityMap = {} }) {
   );
 }
 
-function BlockerInsights({ projects = [], tasks = [], blockersData = {} }) {
-  return (
-    <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm relative overflow-hidden group">
-      <div className="absolute top-0 right-0 w-80 h-80 bg-rose-50/30 rounded-full blur-3xl -z-10 -mr-40 -mt-40 transition-colors duration-1000 group-hover:bg-rose-50/50" />
+function BlockerInsights({ projects = [], tasks = [], blockersData = {}, impediments = [] }) {
+  const { user: currentUser, effectiveTenantId } = useUser();
+  const queryClient = useQueryClient();
+  const unresolvedImpediments = impediments.filter(imp => imp.status !== 'resolved');
 
-      <div className="flex items-center justify-between mb-12">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 border border-rose-200 shadow-sm">
-            <AlertTriangle className="h-7 w-7" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-normal">Blockers & Bottlenecks</h2>
-            <p className="text-slate-500 font-medium">Critical issues requiring immediate team intervention</p>
-          </div>
+  const updateImpedimentMutation = useMutation({
+    mutationFn: async ({ id, data, impediment }) => {
+      const updateData = { ...data };
+      if (data.status === 'resolved') {
+        updateData.resolved_date = new Date().toISOString();
+      }
+
+      // Check for active timer if starting work
+      if (data.status === 'in_progress' && impediment) {
+        const entries = await groonabackend.entities.ClockEntry.filter({
+          user_email: currentUser?.email,
+          is_clocked_in: true
+        });
+        if (entries && entries.length > 0) {
+          throw new Error('You already have an active timer running! Please stop it before starting work on this impediment.');
+        }
+
+        // Create the timer entry for this impediment
+        await groonabackend.entities.ClockEntry.create({
+          tenant_id: effectiveTenantId,
+          user_email: currentUser?.email,
+          user_name: currentUser?.full_name,
+          clock_in_time: new Date().toISOString(),
+          is_clocked_in: true,
+          project_id: impediment.project_id,
+          sprint_id: impediment.sprint_id || null,
+          task_id: impediment.task_id || null,
+          work_type: 'impediment',
+          description: `Working on Impediment: ${impediment.title}`,
+        });
+      }
+
+      return await groonabackend.entities.Impediment.update(id, updateData);
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['impediments'] });
+      // Invalidate dashboard impediments query too to sync counts across tabs implicitly 
+      queryClient.invalidateQueries({ queryKey: ['dashboard-insights-impediments'] });
+
+      if (variables.data.status === 'in_progress') {
+        queryClient.invalidateQueries({ queryKey: ['active-clock-entry'] });
+        toast.success(`Timer started! Marked '${variables.impediment?.title || "Impediment"}' as In Progress.`);
+      } else {
+        toast.success('Blocker status updated successfully!');
+      }
+    },
+    onError: (error) => {
+      toast.error(`${error.message || 'Failed to update blocker! Please try again.'}`);
+    },
+  });
+
+  const handleUpdate = (imp, data) => {
+    updateImpedimentMutation.mutate({ id: imp.id || imp._id, data, impediment: imp });
+  };
+
+  return (
+    <Card className="p-10 bg-white border border-slate-200 rounded-[40px] shadow-sm">
+      <div className="flex items-center gap-4 mb-10">
+        <div className="h-12 w-12 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+          <LayoutGrid className="h-6 w-6 text-slate-600" />
         </div>
-        <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center border border-rose-100 animate-pulse">
-          <div className="h-2 w-2 rounded-full bg-rose-600" />
+        <div>
+          <h3 className="text-2xl font-black text-slate-900">Active Impediments Details</h3>
+          <p className="text-sm text-slate-500 font-medium">Tracking reported blockers and their resolution status</p>
         </div>
       </div>
 
-      <div className="grid gap-6">
-        {projects.length === 0 ? (
-          <div className="py-20 text-center text-slate-400">No blockers detected across projects.</div>
+      <div className="space-y-4">
+        {unresolvedImpediments.length === 0 ? (
+          <div className="py-20 text-center text-slate-400 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200">
+            <CheckCircle2 className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+            <p className="font-bold">Clear Skies!</p>
+            <p className="text-xs">No active impediments reported or assigned to you.</p>
+          </div>
         ) : (
-          projects.map(project => {
-            const data = blockersData[project.id] || { total: 0, blocked: 0, review: 0 };
-            return (
-              <div key={project.id} className="group/item flex items-center justify-between p-6 rounded-3xl bg-slate-50/50 border border-slate-100 hover:border-rose-200 hover:bg-white hover:shadow-xl hover:shadow-rose-500/5 transition-all duration-300">
-                <div className="flex items-center gap-5">
-                  <Avatar className="h-14 w-14 rounded-2xl border-2 border-white shadow-md">
-                    <AvatarImage src={project.logo_url} />
-                    <AvatarFallback className="bg-gradient-to-br from-rose-50 to-orange-100 text-rose-700 font-bold uppercase">
-                      {project.name.substring(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-lg group-hover/item:text-rose-700 transition-colors">{project.name}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-black text-rose-600 uppercase tracking-widest">{data.blocked} Blocked</span>
-                      <span className="h-1 w-1 rounded-full bg-slate-300" />
-                      <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">{data.review} Review</span>
+          unresolvedImpediments.map(imp => (
+            <div key={imp.id || imp._id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 hover:bg-white hover:border-rose-200 hover:shadow-xl transition-all duration-300 group/detail">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Badge className={cn(
+                      "uppercase text-[10px] font-black px-2 py-0.5 rounded-lg border-0",
+                      imp.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                        imp.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                          imp.severity === 'medium' ? 'bg-amber-100 text-amber-700' :
+                            'bg-blue-100 text-blue-700'
+                    )}>
+                      {imp.severity}
+                    </Badge>
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{imp.project_name}</span>
+                  </div>
+
+                  <h4 className="text-lg font-bold text-slate-900 group-hover/detail:text-rose-600 transition-colors">
+                    {imp.title}
+                  </h4>
+
+                  <p className="text-sm text-slate-600 line-clamp-2">{imp.description}</p>
+
+                  <div className="flex flex-wrap gap-4 pt-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reporter:</span>
+                      <span className="text-xs font-bold text-slate-700">{imp.reported_by_name || imp.reported_by}</span>
                     </div>
+                    {imp.assigned_to_name && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-blue-500">Resolver:</span>
+                        <span className="text-xs font-bold text-slate-700">{imp.assigned_to_name}</span>
+                      </div>
+                    )}
+                    {imp.project_manager_name && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-purple-500">Manager:</span>
+                        <span className="text-xs font-bold text-slate-700">{imp.project_manager_name}</span>
+                      </div>
+                    )}
+                    {imp.task_id && (() => {
+                      const relatedTask = tasks.find(t => String(t.id || t._id) === String(imp.task_id));
+                      if (!relatedTask) return null;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-amber-500">Member Reported:</span>
+                          <span className="text-xs font-bold text-slate-700">{relatedTask.assigned_to_name || (Array.isArray(relatedTask.assigned_to) ? relatedTask.assigned_to.join(', ') : relatedTask.assigned_to) || 'Unassigned'}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
-                <div className="flex items-baseline gap-2 bg-white px-5 py-3 rounded-2xl border border-slate-200/60 shadow-sm group-hover/item:border-rose-200 group-hover/item:scale-105 transition-all">
-                  <span className={cn("text-3xl font-black tracking-normal", data.total > 0 ? "text-rose-600" : "text-emerald-600")}>
-                    {data.total}
+                <div className="flex flex-col items-end gap-3 min-w-[140px]">
+                  <Badge variant="outline" className={cn(
+                    "capitalize font-bold text-xs px-3 py-1 rounded-xl border-2",
+                    imp.status === 'open' ? 'border-rose-100 bg-rose-50 text-rose-700' :
+                      imp.status === 'in_progress' ? 'border-blue-100 bg-blue-50 text-blue-700' :
+                        'border-emerald-100 bg-emerald-50 text-emerald-700'
+                  )}>
+                    {imp.status.replace('_', ' ')}
+                  </Badge>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                    Created: {format(new Date(imp.created_date || imp.createdAt || new Date()), 'MMM d, h:mm a')}
                   </span>
-                  <span className="text-xs font-black text-slate-400 uppercase tracking-widest">ISSUES</span>
+
+                  {imp.status === 'open' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full text-xs font-bold"
+                      onClick={() => handleUpdate(imp, { status: 'in_progress' })}
+                      disabled={updateImpedimentMutation.isPending}
+                    >
+                      Start Working
+                    </Button>
+                  )}
+                  {imp.status === 'in_progress' && (
+                    <Button
+                      size="sm"
+                      className="w-full text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => handleUpdate(imp, { status: 'resolved' })}
+                      disabled={updateImpedimentMutation.isPending}
+                    >
+                      Mark Resolved
+                    </Button>
+                  )}
                 </div>
               </div>
-            );
-          })
+            </div>
+          ))
         )}
       </div>
     </Card>

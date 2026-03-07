@@ -35,9 +35,23 @@ export default function NotificationCenter({ currentUser }) {
   const { data: taskNotifications = [] } = useQuery({
     queryKey: ['task-notifications', currentUser?.email],
     queryFn: async () => {
-      if (!currentUser?.email) return [];
+      if (!currentUser?.email && !currentUser?.id && !currentUser?._id) return [];
+
+      const emailQuery = currentUser?.email ? currentUser.email : "";
+      const idQuery = currentUser?.id || currentUser?._id;
+
       return groonabackend.entities.Notification.filter(
-        { recipient_email: currentUser.email },
+        {
+          $or: [
+            ...(emailQuery ? [
+              { recipient_email: emailQuery },
+              { recipient_email: { $regex: emailQuery, $options: 'i' } }
+            ] : []),
+            ...(idQuery ? [
+              { user_id: idQuery }
+            ] : [])
+          ]
+        },
         '-created_date',
         null, // page
         50    // limit

@@ -19,7 +19,9 @@ import {
   AlertCircle,
   RefreshCw,
   Projector,
-  Lock
+  Lock,
+  CheckCircle,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -294,6 +296,49 @@ export default function ClockInOutTimer({
       }
     }
   }, [selectedSprint, sprints, selectedMilestone]);
+
+  // Fetch impediments if work type is impediment
+  const { data: userImpediments = [] } = useQuery({
+    queryKey: ['user-impediments-timer', currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser?.id) return [];
+      const imps = await groonabackend.entities.Impediment.filter({});
+      return imps.filter(imp =>
+        imp.assigned_to === currentUser.id ||
+        imp.assigned_to?.id === currentUser.id ||
+        imp.reported_by?.id === currentUser.id ||
+        imp.reported_by?.email === currentUser.email ||
+        imp.project_manager_id === currentUser.id
+      );
+    },
+    enabled: !!currentUser?.id && selectedWorkType === 'impediment',
+  });
+
+  const availableProjects = React.useMemo(() => {
+    if (selectedWorkType === 'impediment') {
+      const impProjectIds = new Set(userImpediments.map(imp => imp.project_id?.id || imp.project_id?._id || imp.project_id).filter(Boolean));
+      return projects.filter(p => impProjectIds.has(String(p.id)));
+    }
+    return projects;
+  }, [projects, selectedWorkType, userImpediments]);
+
+  const availableStories = React.useMemo(() => {
+    if (selectedWorkType === 'impediment') {
+      const filteredImps = userImpediments.filter(imp => String(imp.project_id?.id || imp.project_id?._id || imp.project_id) === String(selectedProject));
+      const impStoryIds = new Set(filteredImps.map(imp => imp.story_id?.id || imp.story_id?._id || imp.story_id).filter(Boolean));
+      return stories.filter(s => impStoryIds.has(String(s.id)));
+    }
+    return stories;
+  }, [stories, selectedWorkType, userImpediments, selectedProject]);
+
+  const availableTasks = React.useMemo(() => {
+    if (selectedWorkType === 'impediment') {
+      const filteredImps = userImpediments.filter(imp => String(imp.project_id?.id || imp.project_id?._id || imp.project_id) === String(selectedProject));
+      const impTaskIds = new Set(filteredImps.map(imp => imp.task_id?.id || imp.task_id?._id || imp.task_id).filter(Boolean));
+      return tasks.filter(t => impTaskIds.has(String(t.id)));
+    }
+    return tasks;
+  }, [tasks, selectedWorkType, userImpediments, selectedProject]);
 
   // Timer effect
   useEffect(() => {
@@ -613,8 +658,12 @@ export default function ClockInOutTimer({
   };
 
   const handleStopTimer = () => {
-    if (!activeClockEntry?.project_id || !activeClockEntry?.task_id) {
-      toast.error('Clock entry is missing project or task information. Cannot stop timer.');
+    if (!activeClockEntry?.project_id) {
+      toast.error('Clock entry is missing project information. Cannot stop timer.');
+      return;
+    }
+    if (!activeClockEntry?.task_id && activeClockEntry?.work_type !== 'impediment') {
+      toast.error('Clock entry is missing task information. Cannot stop timer.');
       return;
     }
 
@@ -676,6 +725,7 @@ export default function ClockInOutTimer({
               <SelectItem value="qa">🔍 QA</SelectItem>
               <SelectItem value="rework">🔄 Rework</SelectItem>
               <SelectItem value="bug">🐞 Bug</SelectItem>
+              <SelectItem value="impediment">🚧 Impediment</SelectItem>
               <SelectItem value="meeting">👥 Meeting</SelectItem>
               <SelectItem value="support">🛠️ Support</SelectItem>
               <SelectItem value="idle">⏸️ Idle</SelectItem>
@@ -686,7 +736,7 @@ export default function ClockInOutTimer({
         </div>
 
         {/* Conditional Remark Field for Timer */}
-        {(selectedWorkType === 'rework' || selectedWorkType === 'bug' || selectedWorkType === 'overtime') && (
+        {(selectedWorkType === 'rework' || selectedWorkType === 'bug' || selectedWorkType === 'overtime' || selectedWorkType === 'impediment') && (
           <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <Label className="text-amber-900 font-semibold italic">
               Remark (Mandatory for {selectedWorkType === 'overtime' ? 'Overtime' : selectedWorkType}) *
@@ -717,10 +767,10 @@ export default function ClockInOutTimer({
               <SelectValue placeholder="Select project..." />
             </SelectTrigger>
             <SelectContent>
-              {projects.length === 0 ? (
+              {availableProjects.length === 0 ? (
                 <SelectItem value="no-projects" disabled>No projects available</SelectItem>
               ) : (
-                projects.map(project => (
+                availableProjects.map(project => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
                   </SelectItem>
@@ -748,7 +798,7 @@ export default function ClockInOutTimer({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={null}>No Story</SelectItem>
-                {stories.map(story => (
+                {availableStories.map(story => (
                   <SelectItem key={story.id} value={story.id}>
                     {story.title}
                   </SelectItem>
@@ -804,10 +854,10 @@ export default function ClockInOutTimer({
                 <SelectValue placeholder="Select task..." />
               </SelectTrigger>
               <SelectContent>
-                {tasks.length === 0 ? (
+                {availableTasks.length === 0 ? (
                   <SelectItem value="no-tasks" disabled>No tasks available</SelectItem>
                 ) : (
-                  tasks.map(task => (
+                  availableTasks.map(task => (
                     <SelectItem key={task.id} value={task.id}>
                       {task.title}
                     </SelectItem>

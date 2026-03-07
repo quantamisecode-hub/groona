@@ -167,6 +167,7 @@ export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
                 <SelectItem value="qa">QA</SelectItem>
                 <SelectItem value="rework">Rework</SelectItem>
                 <SelectItem value="bug">Bug</SelectItem>
+                <SelectItem value="impediment">Impediment</SelectItem>
                 <SelectItem value="meeting">Meeting</SelectItem>
                 <SelectItem value="support">Support</SelectItem>
                 <SelectItem value="idle">Idle</SelectItem>
@@ -177,7 +178,7 @@ export default function QuickTimeEntry({ open, onClose, task, onSuccess }) {
           </div>
 
           {/* Conditional Remark for Quick Entry */}
-          {(formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime') && (
+          {(formData.work_type === 'rework' || formData.work_type === 'bug' || formData.work_type === 'overtime' || formData.work_type === 'impediment') && (
             <div className="space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <Label className="text-amber-900 font-semibold italic text-xs">
                 Remark (Mandatory) *
