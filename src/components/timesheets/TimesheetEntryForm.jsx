@@ -160,6 +160,74 @@ export default function TimesheetEntryForm({
     enabled: !!formData.project_id,
   });
 
+  // --- Holiday Synchronization ---
+  const { data: holidays = [] } = useQuery({
+    queryKey: ['holidays', effectiveTenantId],
+    queryFn: () => groonabackend.entities.Holiday.filter({
+      tenant_id: effectiveTenantId
+    }),
+    enabled: !!effectiveTenantId,
+    staleTime: 0, // Ensure fresh data on every render/tab switch
+    refetchOnWindowFocus: true,
+  });
+
+  // --- Individual Work Schedule from DB ---
+  const { data: employeeSchedule } = useQuery({
+    queryKey: ['employee-work-schedules', effectiveTenantId, effectiveUser?.email],
+    queryFn: async () => {
+      if (!effectiveUser?.email || !effectiveTenantId) return null;
+      const results = await groonabackend.entities.EmployeeWorkSchedule.filter({
+        tenant_id: effectiveTenantId,
+        user_email: effectiveUser.email
+      });
+      return results[0] || null;
+    },
+    enabled: !!effectiveTenantId && !!effectiveUser?.email,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  // Derive the working days for this user: DB schedule → user model fallback → Mon-Sat default
+  const userWorkingDays = React.useMemo(() => {
+    if (employeeSchedule?.working_days?.length) return employeeSchedule.working_days;
+    if (effectiveUser?.working_days?.length) return effectiveUser.working_days;
+    return [1, 2, 3, 4, 5, 6]; // Default Mon-Sat
+  }, [employeeSchedule, effectiveUser]);
+
+  const getIndianHolidays = (year) => {
+    const holidayData = {
+      2025: [{ m: 0, d: 26, n: 'Republic Day' }, { m: 1, d: 26, n: 'Maha Shivaratri' }, { m: 2, d: 14, n: 'Holi' }, { m: 2, d: 31, n: 'Eid-ul-Fitr' }, { m: 3, d: 6, n: 'Ram Navami' }, { m: 3, d: 10, n: 'Mahavir Jayanti' }, { m: 3, d: 18, n: 'Good Friday' }, { m: 4, d: 12, n: 'Buddha Purnima' }, { m: 5, d: 7, n: 'Eid-ul-Zuha' }, { m: 6, d: 6, n: 'Muharram' }, { m: 7, d: 15, n: 'Independence Day' }, { m: 7, d: 16, n: 'Janmashtami' }, { m: 8, d: 5, n: 'Milad-un-Nabi' }, { m: 9, d: 2, n: 'Gandhi Jayanti' }, { m: 9, d: 2, n: 'Dussehra' }, { m: 9, d: 20, n: 'Diwali' }, { m: 10, d: 5, n: 'Guru Nanak Jayanti' }, { m: 11, d: 25, n: 'Christmas' }],
+      2026: [{ m: 0, d: 26, n: 'Republic Day' }, { m: 2, d: 4, n: 'Holi' }, { m: 2, d: 21, n: 'Eid-ul-Fitr' }, { m: 2, d: 26, n: 'Ram Navami' }, { m: 2, d: 31, n: 'Mahavir Jayanti' }, { m: 3, d: 3, n: 'Good Friday' }, { m: 4, d: 1, n: 'Buddha Purnima' }, { m: 4, d: 27, n: 'Eid-ul-Zuha' }, { m: 5, d: 26, n: 'Muharram' }, { m: 7, d: 15, n: 'Independence Day' }, { m: 7, d: 26, n: 'Eid-e-Milad' }, { m: 8, d: 4, n: 'Janmashtami' }, { m: 9, d: 2, n: 'Gandhi Jayanti' }, { m: 9, d: 20, n: 'Dussehra' }, { m: 10, d: 8, n: 'Diwali' }, { m: 10, d: 24, n: 'Guru Nanak Jayanti' }, { m: 11, d: 25, n: 'Christmas' }],
+      2027: [{ m: 0, d: 26, n: 'Republic Day' }, { m: 2, d: 10, n: 'Eid-ul-Fitr' }, { m: 2, d: 22, n: 'Holi' }, { m: 2, d: 25, n: 'Good Friday' }, { m: 3, d: 15, n: 'Ram Navami' }, { m: 3, d: 20, n: 'Mahavir Jayanti' }, { m: 4, d: 17, n: 'Eid-ul-Zuha' }, { m: 4, d: 20, n: 'Buddha Purnima' }, { m: 6, d: 16, n: 'Muharram' }, { m: 7, d: 15, n: 'Independence Day' }, { m: 7, d: 16, n: 'Milad-un-Nabi' }, { m: 7, d: 25, n: 'Janmashtami' }, { m: 9, d: 2, n: 'Gandhi Jayanti' }, { m: 9, d: 10, n: 'Dussehra' }, { m: 9, d: 29, n: 'Diwali' }, { m: 10, d: 14, n: 'Guru Nanak Jayanti' }, { m: 11, d: 25, n: 'Christmas' }]
+    };
+    return holidayData[year] || [];
+  };
+
+  const holidayList = React.useMemo(() => {
+    const list = new Set();
+    const currentYear = new Date().getFullYear();
+
+    // 1. Add Indian Govt Holidays
+    [currentYear - 1, currentYear, currentYear + 1].forEach(year => {
+      getIndianHolidays(year).forEach(h => {
+        // Create local date correctly
+        const date = new Date(year, h.m, h.d);
+        list.add(format(date, 'yyyy-MM-dd'));
+      });
+    });
+
+    // 2. Add Custom/Regional Holidays from DB
+    holidays.forEach(h => {
+      if (h.date) {
+        // Safely extract YYYY-MM-DD from string to avoid timezone shifts
+        const dbDate = typeof h.date === 'string' ? h.date.split('T')[0] : format(new Date(h.date), 'yyyy-MM-dd');
+        list.add(dbDate);
+      }
+    });
+
+    return list;
+  }, [holidays]);
+
   const isLocked = React.useMemo(() => {
     if (!formData.project_id) return false;
 
@@ -206,9 +274,16 @@ export default function TimesheetEntryForm({
     if (date > now) return true;
 
     // 2. Block previous months
-    if (date < startOfCurrentMonth) return true;
+    if (date < startOfCurrentMonth && !isAdmin) return true; // Admins can log for past months if needed
 
-    // 3. Block filled dates (8+ hours)
+    // 3. Block Non-Working Days & Holidays
+    // Uses schedule from EmployeeWorkSchedule DB table (with fallbacks)
+    const dayOfWeek = date.getDay();
+
+    if (!userWorkingDays.includes(dayOfWeek)) return true; // Block if not a working day
+    if (holidayList.has(dateStr)) return true; // Block if it's a global/tenant holiday
+
+    // 4. Block filled dates (8+ hours)
     // EXCEPTION: if we are editing an initial entry, don't block its OWN date
     const initialDateStr = initialData?.date ? safeFormat(initialData.date, 'yyyy-MM-dd') : null;
     if (filledDates.includes(dateStr) && dateStr !== initialDateStr) return true;
@@ -319,13 +394,15 @@ export default function TimesheetEntryForm({
       if (String(pId) !== String(formData.project_id)) return false;
 
       // 3. Story Filter
-      const sId = task.story_id?.id || task.story_id?._id || task.story_id;
-      const selectedSId = formData.story_id;
-      if (selectedSId) {
-        if (String(sId) !== String(selectedSId)) return false;
-      } else {
-        // If "No Story" selected, only show tasks with no story
-        if (sId) return false;
+      if (formData.work_type !== 'impediment') {
+        const sId = task.story_id?.id || task.story_id?._id || task.story_id;
+        const selectedSId = formData.story_id;
+        if (selectedSId) {
+          if (String(sId) !== String(selectedSId)) return false;
+        } else {
+          // If "No Story" selected, only show tasks with no story
+          if (sId) return false;
+        }
       }
 
       // 4. Duplicate Check - DISABLED to allow multiple entries (e.g. Rework + Dev)
@@ -352,7 +429,7 @@ export default function TimesheetEntryForm({
 
       return true;
     });
-  }, [rawTasks, targetUserEmail, formData.project_id, formData.story_id, sprints, rawStories]);
+  }, [rawTasks, targetUserEmail, formData.project_id, formData.story_id, sprints, rawStories, formData.work_type]);
 
   // Fetch impediments if work type is impediment
   const { data: targetUserEntity } = useQuery({
@@ -633,7 +710,8 @@ export default function TimesheetEntryForm({
                   onValueChange={(val) => setFormData(prev => ({
                     ...prev,
                     work_type: val,
-                    remark: (val === 'rework' || val === 'bug' || val === 'overtime' || val === 'impediment') ? prev.remark : ''
+                    remark: (val === 'rework' || val === 'bug' || val === 'overtime' || val === 'impediment') ? prev.remark : '',
+                    story_id: val === 'impediment' ? '' : prev.story_id
                   }))}
                 >
                   <SelectTrigger>
@@ -674,7 +752,7 @@ export default function TimesheetEntryForm({
               </div>
 
               {/* Story Selection */}
-              {formData.project_id && (
+              {formData.project_id && formData.work_type !== 'impediment' && (
                 <div className="space-y-2">
                   <Label>Story *</Label>
                   <Select

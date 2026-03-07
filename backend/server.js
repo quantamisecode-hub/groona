@@ -4,7 +4,7 @@ dns.setDefaultResultOrder('ipv4first'); // Fix for MongoDB Atlas querySrv ECONNR
 
 const dotenv = require('dotenv');
 dotenv.config(); // Must be before other imports that use process.env
-
+//require('./cron_scheduler'); // Initialize the background scheduler
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");

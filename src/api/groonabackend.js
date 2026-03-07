@@ -244,6 +244,7 @@ export const groonabackend = {
     ReportConfig: createEntityHandler('ReportConfig'),
     UserSession: createEntityHandler('UserSession'),
     Holiday: createEntityHandler('Holiday'),
+    EmployeeWorkSchedule: createEntityHandler('EmployeeWorkSchedule'),
     ProjectReport: createEntityHandler('ProjectReport'),
     AIInsightsReport: createEntityHandler('AIInsightsReport'),
     PeerReviewRequest: createEntityHandler('PeerReviewRequest')

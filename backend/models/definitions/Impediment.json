@@ -31,12 +31,24 @@
       "description": "ID of the task (optional)"
     },
     "assigned_to": {
-      "type": "string",
-      "description": "Email/ID of the user assigned to resolve this"
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "Email/ID(s) of the user(s) assigned to resolve this"
     },
     "assigned_to_name": {
-      "type": "string",
-      "description": "Name of the user assigned"
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "description": "Name(s) of the user(s) assigned"
     },
     "project_manager_id": {
       "type": "string",
@@ -101,6 +113,11 @@
       "type": "string",
       "format": "date-time",
       "description": "Date when the impediment was resolved"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Due date for resolving the impediment"
     }
   },
   "required": [

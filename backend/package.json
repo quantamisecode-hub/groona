@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "UNDICI_NO_WASM=1 node server.js",
     "dev": "nodemon server.js",
     "scheduler": "node cron_scheduler.js"
   },

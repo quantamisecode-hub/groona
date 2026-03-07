@@ -190,17 +190,19 @@ export default function ClockInOutTimer({
       if (selectedProject && String(pId) !== String(selectedProject)) return false;
 
       // 3. Story Filter
-      const sId = task.story_id?.id || task.story_id?._id || task.story_id;
-      if (selectedStory) {
-        if (String(sId) !== String(selectedStory)) return false;
-      } else {
-        // If "No Story" selected, only show tasks with no story
-        if (sId) return false;
+      if (selectedWorkType !== 'impediment') {
+        const sId = task.story_id?.id || task.story_id?._id || task.story_id;
+        if (selectedStory) {
+          if (String(sId) !== String(selectedStory)) return false;
+        } else {
+          // If "No Story" selected, only show tasks with no story
+          if (sId) return false;
+        }
       }
 
       return true;
     });
-  }, [rawTasks, currentUser, selectedProject, selectedStory, submittedTaskIds]);
+  }, [rawTasks, currentUser, selectedProject, selectedStory, submittedTaskIds, selectedWorkType]);
 
   // Fetch milestones for the selected project
   const { data: milestones = [] } = useQuery({
@@ -211,6 +213,64 @@ export default function ClockInOutTimer({
     },
     enabled: !!selectedProject,
   });
+
+  const { data: holidays = [] } = useQuery({
+    queryKey: ['holidays', effectiveTenantId],
+    queryFn: () => groonabackend.entities.Holiday.filter({
+      tenant_id: effectiveTenantId
+    }),
+    enabled: !!effectiveTenantId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const getIndianHolidays = (year) => {
+    const holidayData = {
+      2025: [{ m: 0, d: 26 }, { m: 1, d: 26 }, { m: 2, d: 14 }, { m: 2, d: 31 }, { m: 3, d: 6 }, { m: 3, d: 10 }, { m: 3, d: 18 }, { m: 4, d: 12 }, { m: 5, d: 7 }, { m: 6, d: 6 }, { m: 7, d: 15 }, { m: 7, d: 16 }, { m: 8, d: 5 }, { m: 9, d: 2 }, { m: 9, d: 2 }, { m: 9, d: 20 }, { m: 10, d: 5 }, { m: 11, d: 25 }],
+      2026: [{ m: 0, d: 26 }, { m: 2, d: 4 }, { m: 2, d: 21 }, { m: 2, d: 26 }, { m: 2, d: 31 }, { m: 3, d: 3 }, { m: 4, d: 1 }, { m: 4, d: 27 }, { m: 5, d: 26 }, { m: 7, d: 15 }, { m: 7, d: 26 }, { m: 8, d: 4 }, { m: 9, d: 2 }, { m: 9, d: 20 }, { m: 10, d: 8 }, { m: 10, d: 24 }, { m: 11, d: 25 }],
+      2027: [{ m: 0, d: 26 }, { m: 2, d: 10 }, { m: 2, d: 22 }, { m: 2, d: 25 }, { m: 3, d: 15 }, { m: 3, d: 20 }, { m: 4, d: 17 }, { m: 4, d: 20 }, { m: 6, d: 16 }, { m: 7, d: 15 }, { m: 7, d: 16 }, { m: 7, d: 25 }, { m: 9, d: 2 }, { m: 9, d: 10 }, { m: 9, d: 29 }, { m: 10, d: 14 }, { m: 11, d: 25 }]
+    };
+    return holidayData[year] || [];
+  };
+
+  const holidayList = React.useMemo(() => {
+    const list = new Set();
+    const currentYear = new Date().getFullYear();
+    [currentYear - 1, currentYear, currentYear + 1].forEach(year => {
+      getIndianHolidays(year).forEach(h => {
+        list.add(format(new Date(year, h.m, h.d), 'yyyy-MM-dd'));
+      });
+    });
+    holidays.forEach(h => {
+      if (h.date) {
+        const dbDate = typeof h.date === 'string' ? h.date.split('T')[0] : format(new Date(h.date), 'yyyy-MM-dd');
+        list.add(dbDate);
+      }
+    });
+    return list;
+  }, [holidays]);
+
+  // Fetch this employee's work schedule from the dedicated DB table
+  const { data: employeeSchedule } = useQuery({
+    queryKey: ['employee-work-schedules', effectiveTenantId, currentUser?.email],
+    queryFn: async () => {
+      const results = await groonabackend.entities.EmployeeWorkSchedule.filter({
+        tenant_id: effectiveTenantId,
+        user_email: currentUser?.email
+      });
+      return results[0] || null;
+    },
+    enabled: !!effectiveTenantId && !!currentUser?.email,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  // Derive working days: DB schedule → user model → Mon-Sat default
+  const userWorkingDays = React.useMemo(() => {
+    if (employeeSchedule?.working_days?.length) return employeeSchedule.working_days;
+    if (currentUser?.working_days?.length) return currentUser.working_days;
+    return [1, 2, 3, 4, 5, 6];
+  }, [employeeSchedule, currentUser]);
 
   // Fetch current project to check status
   const { data: currentProject } = useQuery({
@@ -646,6 +706,22 @@ export default function ClockInOutTimer({
   });
 
   const handleStartTimer = () => {
+    // 1. Working Days & Holiday Check (uses EmployeeWorkSchedule table)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const isHoliday = holidayList.has(todayStr);
+
+    if (!userWorkingDays.includes(dayOfWeek)) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      toast.error(`Cannot start work timer on ${dayNames[dayOfWeek]} (Non-working day).`);
+      return;
+    }
+    if (isHoliday) {
+      toast.error('Cannot start work timer on a holiday.');
+      return;
+    }
+
     if (!selectedProject) {
       toast.error('Please select a project before starting timer');
       return;
@@ -714,7 +790,12 @@ export default function ClockInOutTimer({
           <Label>Work Type *</Label>
           <Select
             value={selectedWorkType}
-            onValueChange={setSelectedWorkType}
+            onValueChange={(val) => {
+              setSelectedWorkType(val);
+              if (val === 'impediment') {
+                setSelectedStory("");
+              }
+            }}
             disabled={isRunning}
           >
             <SelectTrigger>
@@ -780,7 +861,7 @@ export default function ClockInOutTimer({
           </Select>
         </div>
 
-        {selectedProject && (
+        {selectedProject && selectedWorkType !== 'impediment' && (
           <div className="space-y-2">
             <Label>Story *</Label>
             <Select

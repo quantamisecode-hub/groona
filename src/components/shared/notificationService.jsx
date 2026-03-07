@@ -438,5 +438,100 @@ export const notificationService = {
     } catch (error) {
       console.error('[NotificationService] Failed to create comment notifications:', error);
     }
+  },
+
+  /**
+   * Create notification for impediment resolution
+   */
+  async notifyImpedimentResolved({ impediment, resolvedBy, tenantId }) {
+    const project = await this.getProjectDetails(impediment.project_id);
+    const projectName = project ? project.name : (impediment.project_name || "Unknown Project");
+    const resolverName = await this.getUserName(resolvedBy);
+
+    // 1. Resolve Recipient Emails
+    const recipients = new Set();
+
+    // Reported By is often an email
+    if (impediment.reported_by) {
+      recipients.add(impediment.reported_by.toLowerCase().trim());
+    }
+
+    // Manager ID needs to be resolved to email
+    if (impediment.project_manager_id) {
+      try {
+        const pm = await groonabackend.entities.User.get(impediment.project_manager_id);
+        if (pm && pm.email) {
+          recipients.add(pm.email.toLowerCase().trim());
+        }
+      } catch (e) {
+        // Fallback if PM ID is already an email
+        if (typeof impediment.project_manager_id === 'string' && impediment.project_manager_id.includes('@')) {
+          recipients.add(impediment.project_manager_id.toLowerCase().trim());
+        }
+      }
+    }
+
+    // 2. Resolve Task Title
+    let taskTitle = impediment.task_id || "Task";
+    if (impediment.task_id && impediment.task_id !== 'none') {
+      try {
+        const taskRes = await groonabackend.entities.Task.filter({
+          $or: [{ id: impediment.task_id }, { _id: impediment.task_id }]
+        });
+        if (taskRes && taskRes.length > 0) {
+          taskTitle = taskRes[0].title;
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    // Remove the resolver from recipients
+    if (resolvedBy) {
+      recipients.delete(resolvedBy.toLowerCase().trim());
+    }
+
+    // 3. Prepare Notifications
+    const notifications = Array.from(recipients).map(email => ({
+      tenant_id: tenantId,
+      recipient_email: email,
+      type: 'impediment_resolved',
+      title: 'Impediment Resolved',
+      message: `${resolverName} marked impediment "${impediment.title}" as resolved in project "${projectName}"`,
+      entity_type: 'impediment',
+      entity_id: impediment.id || impediment._id,
+      project_id: impediment.project_id,
+      project_name: projectName,
+      sender_name: resolverName,
+      read: false,
+      created_date: new Date().toISOString()
+    }));
+
+    try {
+      if (notifications.length > 0) {
+        await groonabackend.entities.Notification.bulkCreate(notifications);
+
+        // 4. Trigger Emails
+        notifications.forEach(n => {
+          const emailPayload = {
+            to: n.recipient_email,
+            templateType: 'impediment_resolved',
+            templateData: {
+              recipientName: "Team Member",
+              resolverName: resolverName,
+              taskTitle: taskTitle,
+              projectName: projectName,
+              title: impediment.title, // Impediment Title
+              viewUrl: `${window.location.origin}/SprintBoard?projectId=${impediment.project_id}`
+            }
+          };
+
+          groonabackend.functions.invoke('sendNotificationEmail', emailPayload)
+            .catch(e => console.error('[NotificationService] Impediment resolved email failed:', e));
+        });
+
+        console.log(`[NotificationService] Sent ${notifications.length} resolution notifications.`);
+      }
+    } catch (error) {
+      console.error('[NotificationService] Failed to create impediment resolution notifications:', error);
+    }
   }
 };
